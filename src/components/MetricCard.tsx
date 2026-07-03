@@ -38,7 +38,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, variant = "defa
   return (
     <div className={cn("rounded-lg border p-4 flex flex-col gap-3", styles.card, className)}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{title}</span>
+        <span className="text-xs font-medium text-muted-foreground">{title}</span>
         <div className={cn("p-2 rounded-md", styles.icon)}>
           <Icon className="w-4 h-4" />
         </div>

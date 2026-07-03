@@ -20,14 +20,14 @@ export function RenovacoesChart({ selectedUnit }: RenovacoesChartProps) {
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">Taxa de Renovação (%)</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">Taxa de Renovação (%)</h3>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 18%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 55%)" }} />
-          <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "hsl(220 10% 55%)" }} domain={[0, 100]} />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
+          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
+          <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} domain={[0, 100]} />
           <Tooltip
-            contentStyle={{ background: "hsl(220 20% 10%)", border: "1px solid hsl(220 15% 18%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
             formatter={(v: number) => [`${v}%`, "Renovação"]}
           />
           <ReferenceLine y={60} stroke="hsl(142 71% 45%)" strokeDasharray="4 4" label={{ value: "60%", fill: "hsl(142 71% 45%)", fontSize: 10 }} />

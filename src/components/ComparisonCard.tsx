@@ -37,7 +37,7 @@ export function ComparisonCard({ title, value1, value2, diff, month1, month2, fo
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4 flex flex-col gap-3">
-      <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{title}</span>
+      <span className="text-xs font-medium text-muted-foreground">{title}</span>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <p className="text-[10px] text-muted-foreground uppercase">{formatMonthLabel(month1)}</p>

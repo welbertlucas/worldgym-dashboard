@@ -23,7 +23,7 @@ export function VendasOnlineChart({ selectedUnit }: VendasOnlineChartProps) {
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">Vendas Online</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">Vendas Online</h3>
       <ResponsiveContainer width="100%" height={250}>
         <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>
@@ -32,11 +32,11 @@ export function VendasOnlineChart({ selectedUnit }: VendasOnlineChartProps) {
               <stop offset="95%" stopColor="hsl(4 90% 50%)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 18%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 55%)" }} />
-          <YAxis tickFormatter={fmtCurrency} tick={{ fontSize: 10, fill: "hsl(220 10% 55%)" }} width={70} />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
+          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
+          <YAxis tickFormatter={fmtCurrency} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} width={70} />
           <Tooltip
-            contentStyle={{ background: "hsl(220 20% 10%)", border: "1px solid hsl(220 15% 18%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
             formatter={(v: number) => [fmtCurrency(v), "Vendas Online"]}
           />
           <Area type="monotone" dataKey="vendas" stroke="hsl(4 90% 50%)" fill="url(#vendasGrad)" strokeWidth={2} />

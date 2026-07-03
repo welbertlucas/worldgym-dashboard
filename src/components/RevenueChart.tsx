@@ -24,19 +24,19 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">Faturamento vs Recebimento</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">Faturamento vs Recebimento</h3>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 18%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 55%)" }} />
-          <YAxis tickFormatter={fmtCurrency} tick={{ fontSize: 10, fill: "hsl(220 10% 55%)" }} width={70} />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
+          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
+          <YAxis tickFormatter={fmtCurrency} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} width={70} />
           <Tooltip
-            contentStyle={{ background: "hsl(220 20% 10%)", border: "1px solid hsl(220 15% 18%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
             formatter={(v: number, name: string) => [fmtCurrency(v), name === "faturamento" ? "Faturamento" : "Recebimento"]}
           />
           <Legend formatter={(v) => v === "faturamento" ? "Faturamento" : "Recebimento"} wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="faturamento" fill="hsl(4 90% 50%)" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="recebimento" fill="hsl(220 15% 30%)" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="recebimento" fill="hsl(220 15% 78%)" radius={[2, 2, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

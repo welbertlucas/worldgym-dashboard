@@ -20,14 +20,14 @@ export function ChurnChart({ selectedUnit }: ChurnChartProps) {
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">Taxa de Churn (%)</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">Taxa de Churn (%)</h3>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 15% 18%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 55%)" }} />
-          <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "hsl(220 10% 55%)" }} />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
+          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
+          <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
           <Tooltip
-            contentStyle={{ background: "hsl(220 20% 10%)", border: "1px solid hsl(220 15% 18%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
             formatter={(v: number) => [`${v}%`, "Churn"]}
           />
           <ReferenceLine y={5} stroke="hsl(38 92% 50%)" strokeDasharray="4 4" label={{ value: "5%", fill: "hsl(38 92% 50%)", fontSize: 10 }} />

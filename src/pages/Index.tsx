@@ -118,10 +118,10 @@ const Index = () => {
                 <span className="text-white font-black text-sm sm:text-base leading-none tracking-tight">WG</span>
               </div>
               <div className="sm:border-l border-border/60 sm:pl-6">
-                <h1 className="font-display text-xl sm:text-3xl font-bold uppercase tracking-tight text-foreground">
+                <h1 className="font-display text-xl sm:text-3xl font-bold tracking-tight text-foreground">
                   Dashboard de Resultados
                 </h1>
-                <p className="text-muted-foreground mt-1 text-[10px] sm:text-xs uppercase font-semibold tracking-[0.2em]">
+                <p className="text-muted-foreground mt-1 text-xs sm:text-sm font-medium">
                   {selectedUnit ? selectedUnit : "Rede"} • {formatDate(fullMonthData.month)}
                   {compareMonth && ` vs ${formatDate(compareMonth)}`}
                 </p>
@@ -132,7 +132,7 @@ const Index = () => {
               size="sm"
               onClick={() => refresh(false)}
               disabled={syncing}
-              className="self-start sm:self-auto uppercase tracking-widest text-xs font-bold"
+              className="self-start sm:self-auto text-xs font-semibold"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Atualizando..." : "Atualizar da planilha"}
@@ -156,7 +156,7 @@ const Index = () => {
         {comparison && (
           <section>
             <div className="flex items-center gap-4 mb-4 sm:mb-6">
-              <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Comparativo de Períodos</h2>
+              <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground">Comparativo de Períodos</h2>
               <div className="h-px flex-1 bg-border/60" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -177,7 +177,7 @@ const Index = () => {
         {/* KPIs */}
         <section>
           <div className="flex items-center gap-4 mb-4 sm:mb-6">
-            <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Métricas Principais</h2>
+            <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground">Métricas Principais</h2>
             <div className="h-px flex-1 bg-border/60" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6">
@@ -202,7 +202,7 @@ const Index = () => {
         {/* Gráficos */}
         <section>
           <div className="flex items-center gap-4 mb-4 sm:mb-6">
-            <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Gráficos de Performance</h2>
+            <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground">Gráficos de Performance</h2>
             <div className="h-px flex-1 bg-border/60" />
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">

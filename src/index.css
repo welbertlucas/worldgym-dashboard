@@ -4,35 +4,35 @@
 
 @layer base {
   :root {
-    --background: 220 20% 8%;
-    --foreground: 0 0% 95%;
+    --background: 0 0% 100%;
+    --foreground: 222 25% 14%;
 
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
+    --border: 220 20% 91%;
+    --input: 220 20% 91%;
     --ring: 4 90% 50%;
 
     --primary: 4 90% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 220 25% 97%;
+    --secondary-foreground: 222 25% 18%;
 
-    --muted: 220 15% 14%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 220 25% 96%;
+    --muted-foreground: 220 10% 46%;
 
-    --accent: 220 15% 16%;
-    --accent-foreground: 0 0% 90%;
+    --accent: 220 25% 95%;
+    --accent-foreground: 222 25% 18%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 32 92% 45%;
     --warning-foreground: 0 0% 100%;
 
-    --success: 142 71% 45%;
+    --success: 142 65% 36%;
     --success-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 }
 
@@ -43,6 +43,8 @@
   body {
     @apply bg-background text-foreground;
     font-family: "Inter", sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
   }
 }
 

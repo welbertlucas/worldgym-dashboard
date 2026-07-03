@@ -90,7 +90,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 overflow-hidden">
       <div className="px-4 py-3 border-b border-border/40 flex items-center gap-4 flex-wrap">
-        <h3 className="font-display font-bold uppercase tracking-tight text-sm text-muted-foreground flex-1">Desempenho por Unidade</h3>
+        <h3 className="font-display font-semibold text-sm sm:text-base text-foreground flex-1">Desempenho por Unidade</h3>
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground">Mês de referência</span>
           <Select value={refMonth ?? ""} onChange={(e) => setRefMonth(e.target.value || null)} className="w-40">
@@ -127,7 +127,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
             {units.map((unit, i) => {
               const ref = refData?.units.find((u) => u.name === unit.name);
               return (
-                <tr key={unit.name} className={`border-b border-border/20 hover:bg-white/5 transition-colors ${i === 0 && sortKey === "faturamento" && sortDir === "desc" ? "bg-primary/5" : ""}`}>
+                <tr key={unit.name} className={`border-b border-border/20 hover:bg-muted/50 transition-colors ${i === 0 && sortKey === "faturamento" && sortDir === "desc" ? "bg-primary/5" : ""}`}>
                   <td className="px-4 py-2.5 font-semibold">{unit.name}</td>
                   {columns.slice(1).map((col) => {
                     const value = unit[col.key as keyof UnitData] as number;

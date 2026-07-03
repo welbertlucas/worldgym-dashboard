@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDataByMonth, getLatestData } from "@/data/dashboardData";
+import { getDataByMonth, getLatestData, getAvailableMonths } from "@/data/dashboardData";
 import { Select } from "@/components/ui/select";
 
 interface UnitComparisonProps {
@@ -32,8 +32,15 @@ function formatVal(v: number, format: typeof rows[0]["format"]) {
   return v.toLocaleString("pt-BR");
 }
 
+function formatMonth(m: string) {
+  const [y, mo] = m.split("-").map(Number);
+  return new Date(y, (mo || 1) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
+
 export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
-  const monthData = getDataByMonth(selectedMonth) || getLatestData();
+  const months = getAvailableMonths().slice().reverse();
+  const [refMonth, setRefMonth] = useState(selectedMonth);
+  const monthData = getDataByMonth(refMonth) || getLatestData();
   const units = monthData.units.map((u) => u.name);
   const [unitA, setUnitA] = useState(units[0] ?? "");
   const [unitB, setUnitB] = useState(units[1] ?? units[0] ?? "");
@@ -52,9 +59,15 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 overflow-hidden">
       <div className="px-4 py-3 border-b border-border/40 flex items-center gap-4 flex-wrap">
-        <h3 className="font-display font-bold uppercase tracking-tight text-sm text-muted-foreground flex-1">
+        <h3 className="font-display font-semibold text-sm sm:text-base text-foreground flex-1">
           Comparativo de Unidades
         </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground">Mês de referência</span>
+          <Select value={refMonth} onChange={(e) => setRefMonth(e.target.value)} className="w-40">
+            {months.map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
+          </Select>
+        </div>
         <Select value={unitA} onChange={(e) => setUnitA(e.target.value)} className="w-44">
           {units.map((u) => <option key={u} value={u}>{u}</option>)}
         </Select>
@@ -87,7 +100,7 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
                   ? "text-success"
                   : "text-destructive";
                 return (
-                  <tr key={row.key} className="border-b border-border/20 hover:bg-white/5">
+                  <tr key={row.key} className="border-b border-border/20 hover:bg-muted/50">
                     <td className="px-4 py-2.5 text-muted-foreground">{row.label}</td>
                     <td className="px-4 py-2.5 text-right font-semibold">{formatVal(vA, row.format)}</td>
                     <td className="px-4 py-2.5 text-right font-semibold text-muted-foreground">{formatVal(vB, row.format)}</td>
