@@ -46,7 +46,16 @@ const columns: Column[] = [
     key: "inadimplenciaPerc", label: "Inadimplência", align: "right",
     renderValue: (v) => ({ text: `${v.toFixed(1)}%`, className: v > 8 ? "text-destructive" : v > 5 ? "text-warning" : "text-success" }),
   },
+  {
+    key: "icv", label: "Conversão", align: "right",
+    renderValue: (v) => ({ text: fmtPct(v, true), className: v > 0.6 ? "text-success" : v > 0.4 ? "text-warning" : "text-destructive" }),
+  },
   { key: "vendasOnline", label: "Vendas Online", align: "right", renderValue: (v) => ({ text: fmt(v), className: "tabular-nums font-semibold" }) },
+  { key: "diarias", label: "Diárias", align: "right", renderValue: (v) => ({ text: fmt(v ?? 0), className: "tabular-nums" }) },
+  { key: "personal", label: "Personal", align: "right", renderValue: (v) => ({ text: fmt(v ?? 0), className: "tabular-nums" }) },
+  { key: "camisetas", label: "Camisetas", align: "right", renderValue: (v) => ({ text: fmt(v ?? 0), className: "tabular-nums" }) },
+  { key: "coqueteleiras", label: "Coqueteleiras", align: "right", renderValue: (v) => ({ text: fmt(v ?? 0), className: "tabular-nums" }) },
+  { key: "notaGoogle", label: "Nota Google", align: "right", renderValue: (v) => ({ text: (v ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }), className: "tabular-nums" }) },
 ];
 
 function diffPercent(current: number, ref: number): number | null {

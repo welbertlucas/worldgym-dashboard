@@ -71,7 +71,7 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
         <Select value={unitA} onChange={(e) => setUnitA(e.target.value)} className="w-44">
           {units.map((u) => <option key={u} value={u}>{u}</option>)}
         </Select>
-        <span className="text-muted-foreground text-sm">vs</span>
+        <span className="text-muted-foreground text-sm">x</span>
         <Select value={unitB} onChange={(e) => setUnitB(e.target.value)} className="w-44">
           {units.map((u) => <option key={u} value={u}>{u}</option>)}
         </Select>

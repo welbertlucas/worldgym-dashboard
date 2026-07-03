@@ -117,12 +117,12 @@ const Index = () => {
             <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
               <img src={wgLogo} alt="World Gym" className="h-10 sm:h-14 w-auto" />
               <div className="sm:border-l border-border/60 sm:pl-6">
-                <h1 className="font-display text-xl sm:text-3xl font-bold tracking-tight text-foreground">
+                <h1 className="font-display text-xl sm:text-3xl font-bold uppercase tracking-tight text-foreground">
                   Dashboard de Resultados
                 </h1>
-                <p className="text-muted-foreground mt-1 text-xs sm:text-sm font-medium">
+                <p className="text-muted-foreground mt-1 text-[10px] sm:text-xs uppercase font-semibold tracking-[0.15em]">
                   {selectedUnit ? selectedUnit : "Rede"} • {formatDate(fullMonthData.month)}
-                  {compareMonth && ` vs ${formatDate(compareMonth)}`}
+                  {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
               </div>
             </div>
@@ -155,7 +155,7 @@ const Index = () => {
         {comparison && (
           <section>
             <div className="flex items-center gap-4 mb-4 sm:mb-6">
-              <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground">Comparativo de Períodos</h2>
+              <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Comparativo de Períodos</h2>
               <div className="h-px flex-1 bg-border/60" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -176,7 +176,7 @@ const Index = () => {
         {/* KPIs */}
         <section>
           <div className="flex items-center gap-4 mb-4 sm:mb-6">
-            <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground">Métricas Principais</h2>
+            <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Métricas Principais</h2>
             <div className="h-px flex-1 bg-border/60" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6">
@@ -201,7 +201,7 @@ const Index = () => {
         {/* Gráficos */}
         <section>
           <div className="flex items-center gap-4 mb-4 sm:mb-6">
-            <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground">Gráficos de Performance</h2>
+            <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Gráficos de Performance</h2>
             <div className="h-px flex-1 bg-border/60" />
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">

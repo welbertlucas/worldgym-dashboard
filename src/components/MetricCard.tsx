@@ -12,33 +12,33 @@ interface MetricCardProps {
 
 const variantStyles = {
   default: {
-    card: "border-border/60 bg-secondary/20",
-    icon: "bg-muted text-muted-foreground",
+    border: "border-l-primary",
+    icon: "bg-primary/10 text-primary",
     value: "text-foreground",
   },
   success: {
-    card: "border-success/20 bg-success/5",
-    icon: "bg-success/15 text-success",
-    value: "text-foreground",
+    border: "border-l-success",
+    icon: "bg-success/10 text-success",
+    value: "text-success",
   },
   warning: {
-    card: "border-warning/20 bg-warning/5",
-    icon: "bg-warning/15 text-warning",
-    value: "text-foreground",
+    border: "border-l-warning",
+    icon: "bg-warning/10 text-warning",
+    value: "text-warning",
   },
   destructive: {
-    card: "border-destructive/20 bg-destructive/5",
-    icon: "bg-destructive/15 text-destructive",
-    value: "text-foreground",
+    border: "border-l-destructive",
+    icon: "bg-destructive/10 text-destructive",
+    value: "text-destructive",
   },
 };
 
 export function MetricCard({ title, value, subtitle, icon: Icon, variant = "default", className }: MetricCardProps) {
   const styles = variantStyles[variant];
   return (
-    <div className={cn("rounded-lg border p-4 flex flex-col gap-3", styles.card, className)}>
+    <div className={cn("rounded-lg border border-border/60 border-l-4 bg-white p-4 flex flex-col gap-3 shadow-sm", styles.border, className)}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">{title}</span>
+        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{title}</span>
         <div className={cn("p-2 rounded-md", styles.icon)}>
           <Icon className="w-4 h-4" />
         </div>

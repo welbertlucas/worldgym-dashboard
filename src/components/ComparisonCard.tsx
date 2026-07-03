@@ -36,8 +36,8 @@ export function ComparisonCard({ title, value1, value2, diff, month1, month2, fo
   const DiffIcon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown;
 
   return (
-    <div className="rounded-lg border border-border/60 bg-secondary/20 p-4 flex flex-col gap-3">
-      <span className="text-xs font-medium text-muted-foreground">{title}</span>
+    <div className={cn("rounded-lg border border-border/60 border-l-4 bg-white p-4 flex flex-col gap-3 shadow-sm", isNeutral ? "border-l-primary" : isPositive === !invertColors ? "border-l-success" : "border-l-destructive")}>
+      <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{title}</span>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <p className="text-[10px] text-muted-foreground uppercase">{formatMonthLabel(month1)}</p>
@@ -51,7 +51,7 @@ export function ComparisonCard({ title, value1, value2, diff, month1, month2, fo
       <div className={cn("flex items-center gap-1 text-xs font-semibold", diffColor)}>
         <DiffIcon className="w-3.5 h-3.5" />
         <span>
-          {isNeutral ? "Sem variação" : `${isPositive ? "+" : ""}${diff.toFixed(1)}${format === "currency" || format === "number" ? "%" : "pp"}`}
+          {isNeutral ? "Sem variação" : `${isPositive ? "+" : ""}${diff.toFixed(1)}%`}
         </span>
       </div>
     </div>

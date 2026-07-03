@@ -25,10 +25,8 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-4">
-        <span className="text-muted-foreground font-normal">Média 12m: {fmtCurrency(avgFaturamento)} · </span>
-        Faturamento vs Recebimento
-      </h3>
+      <h3 className="text-sm font-semibold text-foreground mb-1">Faturamento x Recebimento</h3>
+      <p className="text-xs text-muted-foreground mb-4">Média dos últimos 12 meses: {fmtCurrency(avgFaturamento)}</p>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />

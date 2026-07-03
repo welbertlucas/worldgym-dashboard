@@ -21,10 +21,8 @@ export function RenovacoesChart({ selectedUnit }: RenovacoesChartProps) {
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-4">
-        <span className="text-muted-foreground font-normal">Média 12m: {avgRenovacoes.toFixed(1)}% · </span>
-        Taxa de Renovação (%)
-      </h3>
+      <h3 className="text-sm font-semibold text-foreground mb-1">Taxa de Renovação (%)</h3>
+      <p className="text-xs text-muted-foreground mb-4">Média dos últimos 12 meses: {avgRenovacoes.toFixed(1)}%</p>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
