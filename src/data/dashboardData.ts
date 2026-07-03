@@ -37,7 +37,14 @@ export let dashboardData: MonthData[] = [];
 
 function parseBR(s: string | undefined): number {
   if (!s || s.trim() === "") return 0;
-  return parseFloat(s.replace(/"/g, "").replace(",", ".")) || 0;
+  let cleaned = s.replace(/"/g, "").trim();
+  // Strip BRL currency prefix (R$)
+  cleaned = cleaned.replace(/^R\$\s*/, "");
+  // Strip percent suffix — do NOT divide by 100 here; column context handles scaling
+  cleaned = cleaned.replace(/%\s*$/, "").trim();
+  // Brazilian number format: period = thousands separator, comma = decimal
+  cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+  return parseFloat(cleaned) || 0;
 }
 
 function parseCSV(csv: string): MonthData[] {
