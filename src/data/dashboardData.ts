@@ -47,6 +47,11 @@ function parseBR(s: string | undefined): number {
   return parseFloat(cleaned) || 0;
 }
 
+function normalizeMonth(raw: string): string {
+  // Normalize "yyyy-M" → "yyyy-MM" (Google Sheets sometimes omits leading zero)
+  return raw.replace(/^(\d{4})-(\d)$/, "$1-0$2");
+}
+
 function parseCSV(csv: string): MonthData[] {
   const lines = csv
     .split("\n")
@@ -88,7 +93,7 @@ function parseCSV(csv: string): MonthData[] {
     const cols = parseCSVLine(lines[i]);
     if (cols.length < 3) continue;
 
-    const month = cols[iMes]?.trim() ?? "";
+    const month = normalizeMonth(cols[iMes]?.trim() ?? "");
     const unit = cols[iUnidade]?.trim() ?? "";
     if (!month || !unit) continue;
 
