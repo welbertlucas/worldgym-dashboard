@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { getDataByMonth, getAvailableUnits, getLatestData } from "@/data/dashboardData";
+import { useEffect, useState } from "react";
+import { getDataByMonth, getLatestData } from "@/data/dashboardData";
 import { Select } from "@/components/ui/select";
 
 interface UnitComparisonProps {
@@ -33,11 +33,19 @@ function formatVal(v: number, format: typeof rows[0]["format"]) {
 }
 
 export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
-  const units = getAvailableUnits();
-  const [unitA, setUnitA] = useState(units[0] ?? "");
-  const [unitB, setUnitB] = useState(units[1] ?? "");
-
   const monthData = getDataByMonth(selectedMonth) || getLatestData();
+  const units = monthData.units.map((u) => u.name);
+  const [unitA, setUnitA] = useState(units[0] ?? "");
+  const [unitB, setUnitB] = useState(units[1] ?? units[0] ?? "");
+
+  // Units differ month to month (units can open/close), so re-pick valid
+  // defaults whenever the selected month no longer contains the current picks.
+  useEffect(() => {
+    if (!units.includes(unitA)) setUnitA(units[0] ?? "");
+    if (!units.includes(unitB)) setUnitB(units[1] ?? units[0] ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthData.month]);
+
   const dataA = monthData.units.find((u) => u.name === unitA);
   const dataB = monthData.units.find((u) => u.name === unitB);
 
