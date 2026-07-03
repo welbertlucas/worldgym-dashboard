@@ -12,23 +12,33 @@ const fmt = (n: number) =>
 const fmtPct = (n: number, multiply = false) =>
   `${(multiply ? n * 100 : n).toFixed(1)}%`;
 
-const rows: { label: string; key: string; format: "currency" | "percent_mul" | "percent" | "number" }[] = [
+type RowFormat = "currency" | "percent_mul" | "percent" | "number" | "decimal";
+
+const rows: { label: string; key: string; format: RowFormat; compute?: (u: Record<string, number>) => number }[] = [
   { label: "Faturamento", key: "faturamento", format: "currency" },
+  { label: "Recebimento", key: "recebimento", format: "currency" },
   { label: "Ticket Médio", key: "ticketMedio", format: "currency" },
   { label: "Adimplentes", key: "adimplentes", format: "number" },
   { label: "Novos Contratos", key: "novosContratos", format: "number" },
   { label: "Cancelados", key: "cancelados", format: "number" },
+  { label: "Saldo de Clientes", key: "saldo", format: "number", compute: (u) => u.novosContratos - u.cancelados },
   { label: "Churn", key: "churn", format: "percent_mul" },
   { label: "Renovação", key: "renovacoes", format: "percent_mul" },
   { label: "Inadimplência %", key: "inadimplenciaPerc", format: "percent" },
-  { label: "ICV", key: "icv", format: "percent_mul" },
+  { label: "Taxa de Conversão", key: "icv", format: "percent_mul" },
   { label: "Vendas Online", key: "vendasOnline", format: "currency" },
+  { label: "Diárias", key: "diarias", format: "currency" },
+  { label: "Taxa de Personal", key: "personal", format: "currency" },
+  { label: "Camisetas", key: "camisetas", format: "currency" },
+  { label: "Coqueteleiras", key: "coqueteleiras", format: "currency" },
+  { label: "Nota do Google", key: "notaGoogle", format: "decimal" },
 ];
 
-function formatVal(v: number, format: typeof rows[0]["format"]) {
+function formatVal(v: number, format: RowFormat) {
   if (format === "currency") return fmt(v);
   if (format === "percent_mul") return fmtPct(v, true);
   if (format === "percent") return fmtPct(v);
+  if (format === "decimal") return v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
   return v.toLocaleString("pt-BR");
 }
 
@@ -90,8 +100,10 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
             </thead>
             <tbody>
               {rows.map((row) => {
-                const vA = (dataA as unknown as Record<string, number>)[row.key] ?? 0;
-                const vB = (dataB as unknown as Record<string, number>)[row.key] ?? 0;
+                const recA = dataA as unknown as Record<string, number>;
+                const recB = dataB as unknown as Record<string, number>;
+                const vA = row.compute ? row.compute(recA) : recA[row.key] ?? 0;
+                const vB = row.compute ? row.compute(recB) : recB[row.key] ?? 0;
                 const diff = vB !== 0 ? ((vA - vB) / Math.abs(vB)) * 100 : 0;
                 const isGoodMetric = !["churn", "cancelados", "inadimplenciaPerc"].includes(row.key);
                 const diffColor = Math.abs(diff) < 0.5

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getDataByMonth, getAvailableMonths, getLatestData, UnitData } from "@/data/dashboardData";
 import { Select } from "@/components/ui/select";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { formatAbbreviatedNumber } from "@/lib/utils";
 
 interface TopUnitsTableProps {
   selectedMonth: string;
@@ -29,33 +30,33 @@ type Column = {
 
 const columns: Column[] = [
   { key: "name", label: "Unidade", align: "left" },
-  { key: "faturamento", label: "Faturamento", align: "right", renderValue: (v) => ({ text: fmt(v), className: "tabular-nums font-semibold" }) },
-  { key: "ticketMedio", label: "Ticket Médio", align: "right", renderValue: (v) => ({ text: fmt(v), className: "tabular-nums font-semibold" }) },
-  { key: "adimplentes", label: "Adimplentes", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums" }) },
+  { key: "faturamento", label: "Faturamento", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v), className: "tabular-nums font-semibold" }) },
+  { key: "ticketMedio", label: "Ticket", align: "right", renderValue: (v) => ({ text: fmt(v), className: "tabular-nums font-semibold" }) },
+  { key: "adimplentes", label: "Adimpl.", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums" }) },
   { key: "novosContratos", label: "Novos", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums text-success" }) },
-  { key: "cancelados", label: "Cancelados", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums text-destructive" }) },
+  { key: "cancelados", label: "Cancel.", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums text-destructive" }) },
   {
     key: "churn", label: "Churn", align: "right",
     renderValue: (v) => ({ text: fmtPct(v, true), className: v > 0.08 ? "text-destructive" : v > 0.05 ? "text-warning" : "text-success" }),
   },
   {
-    key: "renovacoes", label: "Renovação", align: "right",
+    key: "renovacoes", label: "Renov.", align: "right",
     renderValue: (v) => ({ text: fmtPct(v, true), className: v < 0.4 ? "text-destructive" : v < 0.6 ? "text-warning" : "text-success" }),
   },
   {
-    key: "inadimplenciaPerc", label: "Inadimplência", align: "right",
+    key: "inadimplenciaPerc", label: "Inadimpl.", align: "right",
     renderValue: (v) => ({ text: `${v.toFixed(1)}%`, className: v > 8 ? "text-destructive" : v > 5 ? "text-warning" : "text-success" }),
   },
   {
-    key: "icv", label: "Conversão", align: "right",
+    key: "icv", label: "Convers.", align: "right",
     renderValue: (v) => ({ text: fmtPct(v, true), className: v > 0.6 ? "text-success" : v > 0.4 ? "text-warning" : "text-destructive" }),
   },
-  { key: "vendasOnline", label: "Vendas Online", align: "right", renderValue: (v) => ({ text: fmt(v), className: "tabular-nums font-semibold" }) },
-  { key: "diarias", label: "Diárias", align: "right", renderValue: (v) => ({ text: fmt(v ?? 0), className: "tabular-nums" }) },
-  { key: "personal", label: "Personal", align: "right", renderValue: (v) => ({ text: fmt(v ?? 0), className: "tabular-nums" }) },
-  { key: "camisetas", label: "Camisetas", align: "right", renderValue: (v) => ({ text: fmt(v ?? 0), className: "tabular-nums" }) },
-  { key: "coqueteleiras", label: "Coqueteleiras", align: "right", renderValue: (v) => ({ text: fmt(v ?? 0), className: "tabular-nums" }) },
-  { key: "notaGoogle", label: "Nota Google", align: "right", renderValue: (v) => ({ text: (v ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }), className: "tabular-nums" }) },
+  { key: "vendasOnline", label: "V. Online", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v), className: "tabular-nums font-semibold" }) },
+  { key: "diarias", label: "Diárias", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
+  { key: "personal", label: "Personal", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
+  { key: "camisetas", label: "Camisetas", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
+  { key: "coqueteleiras", label: "Coquet.", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
+  { key: "notaGoogle", label: "Nota G.", align: "right", renderValue: (v) => ({ text: (v ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }), className: "tabular-nums" }) },
 ];
 
 function diffPercent(current: number, ref: number): number | null {
@@ -111,21 +112,21 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border/40 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <tr className="border-b border-border/40 text-[9px] uppercase tracking-wide text-muted-foreground">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-2 select-none cursor-pointer hover:text-foreground transition-colors ${col.align === "right" ? "text-right" : "text-left"}`}
+                  className={`px-1.5 py-1.5 select-none cursor-pointer hover:text-foreground transition-colors whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"}`}
                   onClick={() => handleSort(col.key)}
                 >
-                  <span className={`inline-flex items-center gap-1 ${col.align === "right" ? "flex-row-reverse" : ""}`}>
+                  <span className={`inline-flex items-center gap-0.5 ${col.align === "right" ? "flex-row-reverse" : ""}`}>
                     {col.label}
                     {sortKey === col.key ? (
-                      sortDir === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />
+                      sortDir === "desc" ? <ChevronDown className="w-2.5 h-2.5" /> : <ChevronUp className="w-2.5 h-2.5" />
                     ) : (
-                      <ChevronsUpDown className="w-3 h-3 opacity-30" />
+                      <ChevronsUpDown className="w-2.5 h-2.5 opacity-30" />
                     )}
                   </span>
                 </th>
@@ -137,7 +138,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
               const ref = refData?.units.find((u) => u.name === unit.name);
               return (
                 <tr key={unit.name} className={`border-b border-border/20 hover:bg-muted/50 transition-colors ${i === 0 && sortKey === "faturamento" && sortDir === "desc" ? "bg-primary/5" : ""}`}>
-                  <td className="px-4 py-2.5 font-semibold">{unit.name}</td>
+                  <td className="px-1.5 py-1.5 font-semibold max-w-[110px]">{unit.name}</td>
                   {columns.slice(1).map((col) => {
                     const value = unit[col.key as keyof UnitData] as number;
                     const refValue = ref ? (ref[col.key as keyof UnitData] as number) : null;
@@ -150,10 +151,10 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
                       : "text-destructive";
                     const { text, className } = col.renderValue!(value);
                     return (
-                      <td key={col.key} className="px-4 py-2.5 text-right">
+                      <td key={col.key} className="px-1.5 py-1.5 text-right whitespace-nowrap">
                         <div className={className}>{text}</div>
                         {refMonth && (
-                          <div className={`text-[10px] font-sans ${diffColor}`}>
+                          <div className={`text-[9px] font-sans ${diffColor}`}>
                             {diff == null || Math.abs(diff) < 0.5 ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(1)}%`}
                           </div>
                         )}
