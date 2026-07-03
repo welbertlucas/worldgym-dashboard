@@ -17,10 +17,14 @@ export function RenovacoesChart({ selectedUnit }: RenovacoesChartProps) {
     month: formatMonth(m.month),
     renovacoes: parseFloat(((selectedUnit ? getUnitData(m.month, selectedUnit)?.renovacoes ?? 0 : m.total.renovacoes) * 100).toFixed(2)),
   }));
+  const avgRenovacoes = data.reduce((s, d) => s + d.renovacoes, 0) / (data.length || 1);
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-4">Taxa de Renovação (%)</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">
+        <span className="text-muted-foreground font-normal">Média 12m: {avgRenovacoes.toFixed(1)}% · </span>
+        Taxa de Renovação (%)
+      </h3>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />

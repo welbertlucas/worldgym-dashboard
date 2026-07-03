@@ -17,10 +17,14 @@ export function ChurnChart({ selectedUnit }: ChurnChartProps) {
     month: formatMonth(m.month),
     churn: parseFloat(((selectedUnit ? getUnitData(m.month, selectedUnit)?.churn ?? 0 : m.total.churn) * 100).toFixed(2)),
   }));
+  const avgChurn = data.reduce((s, d) => s + d.churn, 0) / (data.length || 1);
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-4">Taxa de Churn (%)</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">
+        <span className="text-muted-foreground font-normal">Média 12m: {avgChurn.toFixed(1)}% · </span>
+        Taxa de Churn (%)
+      </h3>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />

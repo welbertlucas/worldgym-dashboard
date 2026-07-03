@@ -29,8 +29,8 @@ type Column = {
 
 const columns: Column[] = [
   { key: "name", label: "Unidade", align: "left" },
-  { key: "faturamento", label: "Faturamento", align: "right", renderValue: (v) => ({ text: fmt(v), className: "font-mono tabular-nums" }) },
-  { key: "ticketMedio", label: "Ticket Médio", align: "right", renderValue: (v) => ({ text: fmt(v), className: "font-mono tabular-nums" }) },
+  { key: "faturamento", label: "Faturamento", align: "right", renderValue: (v) => ({ text: fmt(v), className: "tabular-nums font-semibold" }) },
+  { key: "ticketMedio", label: "Ticket Médio", align: "right", renderValue: (v) => ({ text: fmt(v), className: "tabular-nums font-semibold" }) },
   { key: "adimplentes", label: "Adimplentes", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums" }) },
   { key: "novosContratos", label: "Novos", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums text-success" }) },
   { key: "cancelados", label: "Cancelados", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums text-destructive" }) },
@@ -46,7 +46,7 @@ const columns: Column[] = [
     key: "inadimplenciaPerc", label: "Inadimplência", align: "right",
     renderValue: (v) => ({ text: `${v.toFixed(1)}%`, className: v > 8 ? "text-destructive" : v > 5 ? "text-warning" : "text-success" }),
   },
-  { key: "vendasOnline", label: "Vendas Online", align: "right", renderValue: (v) => ({ text: fmt(v), className: "font-mono tabular-nums" }) },
+  { key: "vendasOnline", label: "Vendas Online", align: "right", renderValue: (v) => ({ text: fmt(v), className: "tabular-nums font-semibold" }) },
 ];
 
 function diffPercent(current: number, ref: number): number | null {
@@ -67,7 +67,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
 
   const monthData = getDataByMonth(selectedMonth) || getLatestData();
   const refData = refMonth ? getDataByMonth(refMonth) : null;
-  const months = getAvailableMonths().slice().reverse();
+  const months = getAvailableMonths();
 
   const units = [...monthData.units].sort((a, b) => {
     const va = sortKey === "name" ? a.name : (a[sortKey] as number);

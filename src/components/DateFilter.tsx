@@ -19,7 +19,7 @@ function formatMonth(m: string) {
 }
 
 export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthChange, onCompareMonthChange, onUnitChange }: DateFilterProps) {
-  const months = getAvailableMonths().slice().reverse();
+  const months = getAvailableMonths();
   const units = getAvailableUnits();
 
   return (

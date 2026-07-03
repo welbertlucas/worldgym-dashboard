@@ -13,7 +13,7 @@ function formatMonth(m: string) {
 }
 
 const fmtCurrency = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", compactDisplay: "short", minimumFractionDigits: 0 }).format(v);
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", compactDisplay: "short", minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(v);
 
 export function RevenueChart({ selectedUnit }: RevenueChartProps) {
   const data = dashboardData.slice(-12).map((m) => {
@@ -21,10 +21,14 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
     const rec = selectedUnit ? getUnitData(m.month, selectedUnit)?.recebimento ?? 0 : m.total.recebimento;
     return { month: formatMonth(m.month), faturamento: val, recebimento: rec };
   });
+  const avgFaturamento = data.reduce((s, d) => s + d.faturamento, 0) / (data.length || 1);
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-4">Faturamento vs Recebimento</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">
+        <span className="text-muted-foreground font-normal">Média 12m: {fmtCurrency(avgFaturamento)} · </span>
+        Faturamento vs Recebimento
+      </h3>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />

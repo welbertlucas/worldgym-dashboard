@@ -22,10 +22,14 @@ export default function NovosContratosChart({ selectedUnit }: NovosContratosChar
       : m.total.cancelados;
     return { month: formatMonth(m.month), novos, cancelados, saldo: novos - cancelados };
   });
+  const avgNovos = data.reduce((s, d) => s + d.novos, 0) / (data.length || 1);
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-4">Novos Contratos vs Cancelamentos</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">
+        <span className="text-muted-foreground font-normal">Média 12m: {avgNovos.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} · </span>
+        Novos Contratos vs Cancelamentos
+      </h3>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />

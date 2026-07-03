@@ -13,17 +13,21 @@ function formatMonth(m: string) {
 }
 
 const fmtCurrency = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", compactDisplay: "short", minimumFractionDigits: 0 }).format(v);
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", compactDisplay: "short", minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(v);
 
 export function VendasOnlineChart({ selectedUnit }: VendasOnlineChartProps) {
   const data = dashboardData.slice(-12).map((m) => ({
     month: formatMonth(m.month),
     vendas: selectedUnit ? getUnitData(m.month, selectedUnit)?.vendasOnline ?? 0 : m.total.vendasOnline,
   }));
+  const avgVendas = data.reduce((s, d) => s + d.vendas, 0) / (data.length || 1);
 
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-4">Vendas Online</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">
+        <span className="text-muted-foreground font-normal">Média 12m: {fmtCurrency(avgVendas)} · </span>
+        Vendas Online
+      </h3>
       <ResponsiveContainer width="100%" height={250}>
         <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>

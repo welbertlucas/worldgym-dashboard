@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import wgLogo from "@/assets/wg-logo.png";
 
 const Index = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -114,9 +115,7 @@ const Index = () => {
         <div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
-              <div className="bg-primary p-1.5 sm:p-2 rounded-sm shadow-lg shadow-primary/20 flex items-center justify-center">
-                <span className="text-white font-black text-sm sm:text-base leading-none tracking-tight">WG</span>
-              </div>
+              <img src={wgLogo} alt="World Gym" className="h-10 sm:h-14 w-auto" />
               <div className="sm:border-l border-border/60 sm:pl-6">
                 <h1 className="font-display text-xl sm:text-3xl font-bold tracking-tight text-foreground">
                   Dashboard de Resultados

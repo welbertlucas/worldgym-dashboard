@@ -38,7 +38,7 @@ function formatMonth(m: string) {
 }
 
 export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
-  const months = getAvailableMonths().slice().reverse();
+  const months = getAvailableMonths();
   const [refMonth, setRefMonth] = useState(selectedMonth);
   const monthData = getDataByMonth(refMonth) || getLatestData();
   const units = monthData.units.map((u) => u.name);
