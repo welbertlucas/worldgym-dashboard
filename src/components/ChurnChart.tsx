@@ -15,7 +15,7 @@ function formatMonth(m: string) {
 export function ChurnChart({ selectedUnit }: ChurnChartProps) {
   const data = dashboardData.slice(-12).map((m) => ({
     month: formatMonth(m.month),
-    churn: parseFloat(((selectedUnit ? getUnitData(m.month, selectedUnit)?.churn ?? 0 : m.total.churn) * 100).toFixed(2)),
+    churn: parseFloat((selectedUnit ? getUnitData(m.month, selectedUnit)?.churn ?? 0 : m.total.churn).toFixed(2)),
   }));
   const avgChurn = data.reduce((s, d) => s + d.churn, 0) / (data.length || 1);
 

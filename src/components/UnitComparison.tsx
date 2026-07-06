@@ -9,10 +9,9 @@ interface UnitComparisonProps {
 const fmt = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 
-const fmtPct = (n: number, multiply = false) =>
-  `${(multiply ? n * 100 : n).toFixed(1)}%`;
+const fmtPct = (n: number) => `${n.toFixed(1)}%`;
 
-type RowFormat = "currency" | "percent_mul" | "percent" | "number" | "decimal";
+type RowFormat = "currency" | "percent" | "number" | "decimal";
 
 const rows: { label: string; key: string; format: RowFormat; compute?: (u: Record<string, number>) => number }[] = [
   { label: "Faturamento", key: "faturamento", format: "currency" },
@@ -22,10 +21,10 @@ const rows: { label: string; key: string; format: RowFormat; compute?: (u: Recor
   { label: "Novos Contratos", key: "novosContratos", format: "number" },
   { label: "Cancelados", key: "cancelados", format: "number" },
   { label: "Saldo de Clientes", key: "saldo", format: "number", compute: (u) => u.novosContratos - u.cancelados },
-  { label: "Churn", key: "churn", format: "percent_mul" },
-  { label: "Renovação", key: "renovacoes", format: "percent_mul" },
+  { label: "Churn", key: "churn", format: "percent" },
+  { label: "Renovação", key: "renovacoes", format: "percent" },
   { label: "Inadimplência %", key: "inadimplenciaPerc", format: "percent" },
-  { label: "Taxa de Conversão", key: "icv", format: "percent_mul" },
+  { label: "Taxa de Conversão", key: "icv", format: "percent" },
   { label: "Vendas Online", key: "vendasOnline", format: "currency" },
   { label: "Diárias", key: "diarias", format: "currency" },
   { label: "Taxa de Personal", key: "personal", format: "currency" },
@@ -36,7 +35,6 @@ const rows: { label: string; key: string; format: RowFormat; compute?: (u: Recor
 
 function formatVal(v: number, format: RowFormat) {
   if (format === "currency") return fmt(v);
-  if (format === "percent_mul") return fmtPct(v, true);
   if (format === "percent") return fmtPct(v);
   if (format === "decimal") return v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
   return v.toLocaleString("pt-BR");

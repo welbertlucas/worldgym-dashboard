@@ -11,8 +11,7 @@ interface TopUnitsTableProps {
 const fmt = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 
-const fmtPct = (n: number, multiply = false) =>
-  `${(multiply ? n * 100 : n).toFixed(1)}%`;
+const fmtPct = (n: number) => `${n.toFixed(1)}%`;
 
 // Metrics where a decrease is the desired direction (used to color the
 // reference-month delta green/red correctly, matching the direction of
@@ -37,11 +36,11 @@ const columns: Column[] = [
   { key: "cancelados", label: "Cancel.", align: "right", renderValue: (v) => ({ text: v.toLocaleString("pt-BR"), className: "tabular-nums text-destructive" }) },
   {
     key: "churn", label: "Churn", align: "right",
-    renderValue: (v) => ({ text: fmtPct(v, true), className: v > 0.08 ? "text-destructive" : v > 0.05 ? "text-warning" : "text-success" }),
+    renderValue: (v) => ({ text: fmtPct(v), className: v > 8 ? "text-destructive" : v > 5 ? "text-warning" : "text-success" }),
   },
   {
     key: "renovacoes", label: "Renov.", align: "right",
-    renderValue: (v) => ({ text: fmtPct(v, true), className: v < 0.4 ? "text-destructive" : v < 0.6 ? "text-warning" : "text-success" }),
+    renderValue: (v) => ({ text: fmtPct(v), className: v < 40 ? "text-destructive" : v < 60 ? "text-warning" : "text-success" }),
   },
   {
     key: "inadimplenciaPerc", label: "Inadimpl.", align: "right",
@@ -49,7 +48,7 @@ const columns: Column[] = [
   },
   {
     key: "icv", label: "Convers.", align: "right",
-    renderValue: (v) => ({ text: fmtPct(v, true), className: v > 0.6 ? "text-success" : v > 0.4 ? "text-warning" : "text-destructive" }),
+    renderValue: (v) => ({ text: fmtPct(v), className: v > 60 ? "text-success" : v > 40 ? "text-warning" : "text-destructive" }),
   },
   { key: "vendasOnline", label: "V. Online", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v), className: "tabular-nums font-semibold" }) },
   { key: "diarias", label: "Diárias", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },

@@ -290,12 +290,12 @@ export function comparePeriods(
     faturamento: { month1: d1.faturamento, month2: d2.faturamento, diff: diffPercent(d1.faturamento, d2.faturamento) },
     ticketMedio: { month1: d1.ticketMedio, month2: d2.ticketMedio, diff: diffPercent(d1.ticketMedio, d2.ticketMedio) },
     adimplentes: { month1: d1.adimplentes, month2: d2.adimplentes, diff: diffPercent(d1.adimplentes, d2.adimplentes) },
-    churn: { month1: d1.churn * 100, month2: d2.churn * 100, diff: (d1.churn - d2.churn) * 100 },
-    icv: { month1: d1.icv * 100, month2: d2.icv * 100, diff: (d1.icv - d2.icv) * 100 },
+    churn: { month1: d1.churn, month2: d2.churn, diff: d1.churn - d2.churn },
+    icv: { month1: d1.icv, month2: d2.icv, diff: d1.icv - d2.icv },
     vendasOnline: { month1: d1.vendasOnline, month2: d2.vendasOnline, diff: diffPercent(d1.vendasOnline, d2.vendasOnline) },
     novosContratos: { month1: nc1, month2: nc2, diff: diffPercent(nc1, nc2) },
     saldoClientes: { month1: nc1 - d1.cancelados, month2: nc2 - d2.cancelados, diff: diffPercent(nc1 - d1.cancelados, nc2 - d2.cancelados) },
     inadimplenciaPerc: { month1: d1.inadimplenciaPerc, month2: d2.inadimplenciaPerc, diff: d1.inadimplenciaPerc - d2.inadimplenciaPerc },
-    renovacoes: { month1: d1.renovacoes * 100, month2: d2.renovacoes * 100, diff: (d1.renovacoes - d2.renovacoes) * 100 },
+    renovacoes: { month1: d1.renovacoes, month2: d2.renovacoes, diff: d1.renovacoes - d2.renovacoes },
   };
 }

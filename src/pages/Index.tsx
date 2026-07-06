@@ -85,7 +85,7 @@ const Index = () => {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
-  const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
+  const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
 
   const parseMonth = (value: string) => {
     const [y, m] = value.split("-").map(Number);
@@ -187,8 +187,8 @@ const Index = () => {
             <MetricCard title="Adimplentes" value={currentData.total.adimplentes.toLocaleString("pt-BR")} icon={Users} variant="default" className="lg:col-span-2" />
             <MetricCard title="Saldo de Clientes" value={(currentData.units.reduce((sum, unit) => sum + unit.novosContratos, 0) - currentData.total.cancelados).toLocaleString("pt-BR")} icon={Users} variant="default" className="lg:col-span-2" />
             <MetricCard title="Taxa de Renovação" value={formatPercentage(currentData.total.renovacoes)} icon={TrendingUp} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Taxa de Churn" value={formatPercentage(currentData.total.churn)} icon={AlertCircle} variant={currentData.total.churn < 0.05 ? "success" : currentData.total.churn < 0.08 ? "warning" : "destructive"} className="lg:col-span-2" />
-            <MetricCard title="Taxa de Inadimplência" value={formatPercentage(currentData.total.inadimplenciaPerc / 100)} icon={AlertCircle} variant={currentData.total.inadimplenciaPerc < 5 ? "success" : currentData.total.inadimplenciaPerc < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
+            <MetricCard title="Taxa de Churn" value={formatPercentage(currentData.total.churn)} icon={AlertCircle} variant={currentData.total.churn < 5 ? "success" : currentData.total.churn < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
+            <MetricCard title="Taxa de Inadimplência" value={formatPercentage(currentData.total.inadimplenciaPerc)} icon={AlertCircle} variant={currentData.total.inadimplenciaPerc < 5 ? "success" : currentData.total.inadimplenciaPerc < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
             <MetricCard title="Taxa de Conversão" value={formatPercentage(currentData.total.icv)} icon={TrendingUp} variant="success" className="lg:col-span-2" />
             <MetricCard title="Diárias" value={formatCurrency(currentData.total.diarias ?? 0)} icon={Calendar} variant="default" className="lg:col-span-2" />
             <MetricCard title="Taxa de Personal" value={formatCurrency(currentData.total.personal ?? 0)} icon={Dumbbell} variant="default" className="lg:col-span-2" />

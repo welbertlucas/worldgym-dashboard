@@ -15,7 +15,7 @@ function formatMonth(m: string) {
 export function RenovacoesChart({ selectedUnit }: RenovacoesChartProps) {
   const data = dashboardData.slice(-12).map((m) => ({
     month: formatMonth(m.month),
-    renovacoes: parseFloat(((selectedUnit ? getUnitData(m.month, selectedUnit)?.renovacoes ?? 0 : m.total.renovacoes) * 100).toFixed(2)),
+    renovacoes: parseFloat((selectedUnit ? getUnitData(m.month, selectedUnit)?.renovacoes ?? 0 : m.total.renovacoes).toFixed(2)),
   }));
   const avgRenovacoes = data.reduce((s, d) => s + d.renovacoes, 0) / (data.length || 1);
 
