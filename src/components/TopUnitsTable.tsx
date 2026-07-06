@@ -2,7 +2,7 @@ import { useState } from "react";
 import { getDataByMonth, getAvailableMonths, getLatestData, UnitData } from "@/data/dashboardData";
 import { Select } from "@/components/ui/select";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { formatAbbreviatedNumber } from "@/lib/utils";
+import { cn, formatAbbreviatedNumber } from "@/lib/utils";
 
 interface TopUnitsTableProps {
   selectedMonth: string;
@@ -151,7 +151,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
                     const { text, className } = col.renderValue!(value);
                     return (
                       <td key={col.key} className="px-1.5 py-1.5 text-right whitespace-nowrap">
-                        <div className={className}>{text}</div>
+                        <div className={cn("font-semibold", className)}>{text}</div>
                         {refMonth && (
                           <div className={`text-[9px] font-sans ${diffColor}`}>
                             {diff == null || Math.abs(diff) < 0.5 ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(1)}%`}
