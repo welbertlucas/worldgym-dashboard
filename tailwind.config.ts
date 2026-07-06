@@ -6,7 +6,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["Inter", "sans-serif"],
+        display: ["Oswald", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

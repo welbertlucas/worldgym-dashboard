@@ -48,7 +48,7 @@ export function ComparisonCard({ title, value1, value2, diff, month1, month2, fo
           <p className="text-base font-bold text-muted-foreground">{formatValue(value2, format)}</p>
         </div>
       </div>
-      <div className={cn("flex items-center gap-1 text-xs font-semibold", diffColor)}>
+      <div className={cn("flex items-center gap-1 text-xs font-bold", diffColor)}>
         <DiffIcon className="w-3.5 h-3.5" />
         <span>
           {isNeutral ? "Sem variação" : `${isPositive ? "+" : ""}${diff.toFixed(1)}%`}

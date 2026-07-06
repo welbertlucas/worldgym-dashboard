@@ -40,12 +40,12 @@ export function MetricCard({ title, value, subtitle, icon: Icon, variant = "defa
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{title}</span>
         <div className={cn("p-2 rounded-md", styles.icon)}>
-          <Icon className="w-4 h-4" />
+          <Icon className="w-6 h-6" />
         </div>
       </div>
       <div>
-        <p className={cn("text-2xl font-bold tracking-tight", styles.value)}>{value}</p>
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+        <p className={cn("font-display text-4xl font-bold tracking-tight", styles.value)}>{value}</p>
+        {subtitle && <p className="text-xs font-semibold text-muted-foreground mt-1">{subtitle}</p>}
       </div>
     </div>
   );
