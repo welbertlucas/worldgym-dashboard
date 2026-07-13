@@ -55,7 +55,7 @@ const columns: Column[] = [
   { key: "personal", label: "Personal", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
   { key: "camisetas", label: "Camisetas", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
   { key: "coqueteleiras", label: "Coquet.", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
-  { key: "notaGoogle", label: "Nota G.", align: "right", renderValue: (v) => ({ text: (v ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }), className: "tabular-nums" }) },
+  { key: "notaGoogle", label: "Nota G.", align: "right", renderValue: (v) => ({ text: v ? v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—", className: "tabular-nums" }) },
 ];
 
 function diffPercent(current: number, ref: number): number | null {
