@@ -76,6 +76,7 @@ const Index = () => {
           camisetas: unitData.camisetas,
           coqueteleiras: unitData.coqueteleiras,
           notaGoogle: unitData.notaGoogle,
+          nps: unitData.nps,
         },
       }
     : fullMonthData;
