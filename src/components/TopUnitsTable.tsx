@@ -50,6 +50,7 @@ const columns: Column[] = [
   { key: "camisetas", label: "Camisetas", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
   { key: "coqueteleiras", label: "Coquet.", align: "right", renderValue: (v) => ({ text: formatAbbreviatedNumber(v ?? 0), className: "tabular-nums" }) },
   { key: "notaGoogle", label: "Nota G.", align: "right", renderValue: (v) => ({ text: v ? v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—", className: "tabular-nums" }) },
+  { key: "nps", label: "NPS", align: "right", renderValue: (v) => ({ text: v ? v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—", className: "tabular-nums" }) },
 ];
 
 export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {

@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   TrendingUp, Users, DollarSign, AlertCircle, ShoppingCart,
-  RefreshCw, Calendar, Dumbbell, Shirt, Coffee, Star,
+  RefreshCw, Calendar, Dumbbell, Shirt, Coffee, Star, Smile,
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -195,6 +195,7 @@ const Index = () => {
             <MetricCard title="Camisetas" value={formatCurrency(currentData.total.camisetas ?? 0)} icon={Shirt} variant="default" className="lg:col-span-2" />
             <MetricCard title="Coqueteleiras" value={formatCurrency(currentData.total.coqueteleiras ?? 0)} icon={Coffee} variant="default" className="lg:col-span-2" />
             <MetricCard title="Nota do Google" value={(currentData.total.notaGoogle ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} icon={Star} variant="success" className="lg:col-span-2" />
+            <MetricCard title="NPS" value={currentData.total.nps ? currentData.total.nps.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={Smile} variant="success" className="lg:col-span-2" />
           </div>
         </section>
 
