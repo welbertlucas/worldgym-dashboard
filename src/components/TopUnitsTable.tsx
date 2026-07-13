@@ -141,7 +141,8 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
                   {columns.slice(1).map((col) => {
                     const value = unit[col.key as keyof UnitData] as number;
                     const refValue = ref ? (ref[col.key as keyof UnitData] as number) : null;
-                    const diff = refValue != null ? diffPercent(value, refValue) : null;
+                    // Nota Google ausente (0) na planilha não é uma queda real — apenas sem dado ainda.
+                    const diff = col.key === "notaGoogle" && !value ? null : refValue != null ? diffPercent(value, refValue) : null;
                     const isGood = !BAD_WHEN_UP.has(col.key as string);
                     const diffColor = diff == null || Math.abs(diff) < 0.5
                       ? "text-muted-foreground"
