@@ -101,7 +101,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
       <div className="px-4 py-3 border-b border-border/40 flex items-center gap-4 flex-wrap">
         <h3 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground flex-1">Desempenho por Unidade</h3>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground">Mês de referência</span>
+          <span className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground">Comparar com</span>
           <Select value={refMonth ?? ""} onChange={(e) => setRefMonth(e.target.value || null)} className="w-40">
             <option value="">— nenhum —</option>
             {months.filter((m) => m !== monthData.month).map((m) => (
