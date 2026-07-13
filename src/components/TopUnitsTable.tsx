@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { getDataByMonth, getAvailableMonths, getLatestData, UnitData } from "@/data/dashboardData";
-import { Select } from "@/components/ui/select";
+import { getDataByMonth, getLatestData, UnitData } from "@/data/dashboardData";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { cn, formatAbbreviatedNumber } from "@/lib/utils";
+import { formatAbbreviatedNumber } from "@/lib/utils";
 
 interface TopUnitsTableProps {
   selectedMonth: string;
@@ -12,11 +11,6 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 
 const fmtPct = (n: number) => `${n.toFixed(1)}%`;
-
-// Metrics where a decrease is the desired direction (used to color the
-// reference-month delta green/red correctly, matching the direction of
-// the existing threshold coloring below).
-const BAD_WHEN_UP = new Set(["cancelados", "churn", "inadimplenciaPerc"]);
 
 type ColumnKey = keyof UnitData | "name";
 
@@ -58,25 +52,11 @@ const columns: Column[] = [
   { key: "notaGoogle", label: "Nota G.", align: "right", renderValue: (v) => ({ text: v ? v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—", className: "tabular-nums" }) },
 ];
 
-function diffPercent(current: number, ref: number): number | null {
-  if (ref === 0) return null;
-  return ((current - ref) / Math.abs(ref)) * 100;
-}
-
-function formatMonth(m: string) {
-  const [y, mo] = m.split("-").map(Number);
-  const d = new Date(y, (mo || 1) - 1, 1);
-  return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-}
-
 export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
   const [sortKey, setSortKey] = useState<ColumnKey>("faturamento");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [refMonth, setRefMonth] = useState<string | null>(null);
 
   const monthData = getDataByMonth(selectedMonth) || getLatestData();
-  const refData = refMonth ? getDataByMonth(refMonth) : null;
-  const months = getAvailableMonths();
 
   const units = [...monthData.units].sort((a, b) => {
     const va = sortKey === "name" ? a.name : (a[sortKey] as number);
@@ -100,15 +80,6 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
     <div className="rounded-lg border border-border/60 bg-secondary/20 overflow-hidden">
       <div className="px-4 py-3 border-b border-border/40 flex items-center gap-4 flex-wrap">
         <h3 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground flex-1">Desempenho por Unidade</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground">Comparar com</span>
-          <Select value={refMonth ?? ""} onChange={(e) => setRefMonth(e.target.value || null)} className="w-40">
-            <option value="">— nenhum —</option>
-            {months.filter((m) => m !== monthData.month).map((m) => (
-              <option key={m} value={m}>{formatMonth(m)}</option>
-            ))}
-          </Select>
-        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -133,37 +104,20 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
             </tr>
           </thead>
           <tbody>
-            {units.map((unit, i) => {
-              const ref = refData?.units.find((u) => u.name === unit.name);
-              return (
-                <tr key={unit.name} className={`border-b border-border/20 hover:bg-muted/50 transition-colors ${i === 0 && sortKey === "faturamento" && sortDir === "desc" ? "bg-primary/5" : ""}`}>
-                  <td className="px-1.5 py-1.5 font-semibold max-w-[110px]">{unit.name}</td>
-                  {columns.slice(1).map((col) => {
-                    const value = unit[col.key as keyof UnitData] as number;
-                    const refValue = ref ? (ref[col.key as keyof UnitData] as number) : null;
-                    // Nota Google ausente (0) na planilha não é uma queda real — apenas sem dado ainda.
-                    const diff = col.key === "notaGoogle" && !value ? null : refValue != null ? diffPercent(value, refValue) : null;
-                    const isGood = !BAD_WHEN_UP.has(col.key as string);
-                    const diffColor = diff == null || Math.abs(diff) < 0.5
-                      ? "text-muted-foreground"
-                      : diff > 0 === isGood
-                      ? "text-success"
-                      : "text-destructive";
-                    const { text, className } = col.renderValue!(value);
-                    return (
-                      <td key={col.key} className="px-1.5 py-1.5 text-right whitespace-nowrap">
-                        <div className={cn("font-semibold", className)}>{text}</div>
-                        {refMonth && (
-                          <div className={`text-[9px] font-sans ${diffColor}`}>
-                            {diff == null || Math.abs(diff) < 0.5 ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(1)}%`}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
+            {units.map((unit, i) => (
+              <tr key={unit.name} className={`border-b border-border/20 hover:bg-muted/50 transition-colors ${i === 0 && sortKey === "faturamento" && sortDir === "desc" ? "bg-primary/5" : ""}`}>
+                <td className="px-1.5 py-1.5 font-semibold max-w-[110px]">{unit.name}</td>
+                {columns.slice(1).map((col) => {
+                  const value = unit[col.key as keyof UnitData] as number;
+                  const { text, className } = col.renderValue!(value);
+                  return (
+                    <td key={col.key} className={`px-1.5 py-1.5 text-right whitespace-nowrap font-semibold ${className ?? ""}`}>
+                      {text}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
