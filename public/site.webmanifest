@@ -1,0 +1,13 @@
+{
+  "name": "World Gym – Dashboard de Resultados",
+  "short_name": "World Gym",
+  "start_url": "/worldgym-dashboard/",
+  "scope": "/worldgym-dashboard/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "/worldgym-dashboard/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/worldgym-dashboard/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
