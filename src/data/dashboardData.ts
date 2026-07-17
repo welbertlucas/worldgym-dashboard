@@ -138,7 +138,23 @@ function parseCSV(csv: string): MonthData[] {
   const result: MonthData[] = [];
   for (const [month, entry] of monthMap.entries()) {
     const units = entry.units;
-    const total = entry.total ?? buildTotal(month, units);
+    // If there is no TOTAL row, compute it from individual units.
+    // If there IS a TOTAL row but it has zero for the newer metric columns
+    // (which happens when the spreadsheet's SUM formula was not updated to
+    // include those columns), fall back to computing each field from units
+    // so the dashboard shows the correct totals instead of zeros.
+    const csvTotal = entry.total;
+    const computed = buildTotal(month, units);
+    const total: UnitData = csvTotal
+      ? {
+          ...csvTotal,
+          personal:      csvTotal.personal      || computed.personal,
+          camisetas:     csvTotal.camisetas      || computed.camisetas,
+          coqueteleiras: csvTotal.coqueteleiras  || computed.coqueteleiras,
+          notaGoogle:    csvTotal.notaGoogle     || computed.notaGoogle,
+          nps:           csvTotal.nps            || computed.nps,
+        }
+      : computed;
     result.push({ month, units, total });
   }
 
@@ -151,6 +167,14 @@ function buildTotal(month: string, units: UnitData[]): UnitData {
     units.reduce((s, u) => s + (u[key] as number), 0);
   const avg = (key: keyof UnitData) =>
     units.length ? sum(key) / units.length : 0;
+  // Average only over units that have submitted a value (non-zero),
+  // so units without data don't pull the average toward zero.
+  const avgNonZero = (key: keyof UnitData) => {
+    const nonZero = units.filter((u) => (u[key] as number) > 0);
+    return nonZero.length
+      ? nonZero.reduce((s, u) => s + (u[key] as number), 0) / nonZero.length
+      : 0;
+  };
   return {
     name: "TOTAL",
     faturamento: sum("faturamento"),
@@ -173,8 +197,8 @@ function buildTotal(month: string, units: UnitData[]): UnitData {
     personal: sum("personal"),
     camisetas: sum("camisetas"),
     coqueteleiras: sum("coqueteleiras"),
-    notaGoogle: avg("notaGoogle"),
-    nps: avg("nps"),
+    notaGoogle: avgNonZero("notaGoogle"),
+    nps: avgNonZero("nps"),
   };
 }
 
