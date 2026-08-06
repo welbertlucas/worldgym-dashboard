@@ -25,6 +25,7 @@ export interface UnitData {
   coqueteleiras: number;
   notaGoogle: number;
   nps: number;
+  reclameAqui: number;
 }
 
 export interface MonthData {
@@ -86,6 +87,7 @@ function parseCSV(csv: string): MonthData[] {
   const iCoqueteleiras = col("coqueteleiras");
   const iNotaGoogle = col("nota google");
   const iNps = col("nps");
+  const iReclameAqui = col("reclame aqui");
 
   const monthMap = new Map<string, { units: UnitData[]; total: UnitData | null }>();
 
@@ -121,6 +123,7 @@ function parseCSV(csv: string): MonthData[] {
       coqueteleiras: iCoqueteleiras >= 0 ? parseBR(cols[iCoqueteleiras]) : 0,
       notaGoogle: iNotaGoogle >= 0 ? parseBR(cols[iNotaGoogle]) : 0,
       nps: iNps >= 0 ? parseBR(cols[iNps]) : 0,
+      reclameAqui: iReclameAqui >= 0 ? parseBR(cols[iReclameAqui]) : 0,
     };
 
     if (!monthMap.has(month)) {
@@ -199,6 +202,7 @@ function buildTotal(month: string, units: UnitData[]): UnitData {
     coqueteleiras: sum("coqueteleiras"),
     notaGoogle: avgNonZero("notaGoogle"),
     nps: avgNonZero("nps"),
+    reclameAqui: 0,
   };
 }
 

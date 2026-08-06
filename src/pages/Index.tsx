@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   TrendingUp, Users, DollarSign, AlertCircle, ShoppingCart,
-  RefreshCw, Calendar, Dumbbell, Shirt, Coffee, Star, Smile,
+  RefreshCw, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -77,6 +77,7 @@ const Index = () => {
           coqueteleiras: unitData.coqueteleiras,
           notaGoogle: unitData.notaGoogle,
           nps: unitData.nps,
+          reclameAqui: unitData.reclameAqui,
         },
       }
     : fullMonthData;
@@ -191,12 +192,15 @@ const Index = () => {
             <MetricCard title="Taxa de Churn" value={formatPercentage(currentData.total.churn)} icon={AlertCircle} variant={currentData.total.churn < 5 ? "success" : currentData.total.churn < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
             <MetricCard title="Taxa de Inadimplência" value={formatPercentage(currentData.total.inadimplenciaPerc)} icon={AlertCircle} variant={currentData.total.inadimplenciaPerc < 5 ? "success" : currentData.total.inadimplenciaPerc < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
             <MetricCard title="Taxa de Conversão" value={formatPercentage(currentData.total.icv)} icon={TrendingUp} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Diárias" value={formatCurrency(currentData.total.diarias ?? 0)} icon={Calendar} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Taxa de Personal" value={formatCurrency(currentData.total.personal ?? 0)} icon={Dumbbell} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Camisetas" value={formatCurrency(currentData.total.camisetas ?? 0)} icon={Shirt} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Coqueteleiras" value={formatCurrency(currentData.total.coqueteleiras ?? 0)} icon={Coffee} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Nota do Google" value={(currentData.total.notaGoogle ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} icon={Star} variant="success" className="lg:col-span-2" />
+            <MetricCard title="Diárias" value={currentData.total.diarias ? formatCurrency(currentData.total.diarias) : "—"} icon={Calendar} variant="default" className="lg:col-span-2" />
+            <MetricCard title="Taxa de Personal" value={currentData.total.personal ? formatCurrency(currentData.total.personal) : "—"} icon={Dumbbell} variant="default" className="lg:col-span-2" />
+            <MetricCard title="Camisetas" value={currentData.total.camisetas ? formatCurrency(currentData.total.camisetas) : "—"} icon={Shirt} variant="default" className="lg:col-span-2" />
+            <MetricCard title="Coqueteleiras" value={currentData.total.coqueteleiras ? formatCurrency(currentData.total.coqueteleiras) : "—"} icon={Coffee} variant="default" className="lg:col-span-2" />
+            <MetricCard title="Nota do Google" value={currentData.total.notaGoogle ? currentData.total.notaGoogle.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={Star} variant="success" className="lg:col-span-2" />
             <MetricCard title="NPS" value={currentData.total.nps ? currentData.total.nps.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={Smile} variant="success" className="lg:col-span-2" />
+            {!selectedUnit && (
+              <MetricCard title="Nota Reclame Aqui" value={fullMonthData.total.reclameAqui ? fullMonthData.total.reclameAqui.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={MessageSquare} variant="success" className="lg:col-span-2" />
+            )}
           </div>
         </section>
 
