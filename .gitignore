@@ -3,3 +3,10 @@ dist
 dist-ssr
 *.local
 .DS_Store
+
+# Segredos e backups locais
+.env
+backups/
+
+# Configuração local do Claude Code (permissões específicas desta máquina)
+.claude/settings.local.json
