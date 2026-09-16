@@ -183,6 +183,7 @@ const Index = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6">
             <MetricCard title="Faturamento" value={formatAbbreviatedNumber(currentData.total.faturamento)} icon={DollarSign} variant="success" className="lg:col-span-2" />
+            <MetricCard title="Recebimento" value={formatAbbreviatedNumber(currentData.total.recebimento)} icon={DollarSign} variant="success" className="lg:col-span-2" />
             <MetricCard title="Ticket Médio" value={formatCurrency(currentData.total.ticketMedio)} icon={DollarSign} variant="default" className="lg:col-span-2" />
             <MetricCard title="Vendas Online" value={formatCurrency(currentData.total.vendasOnline)} subtitle={currentData.total.faturamento ? `${((currentData.total.vendasOnline / currentData.total.faturamento) * 100).toFixed(2)}% do faturamento` : undefined} icon={ShoppingCart} variant="default" className="lg:col-span-2" />
             <MetricCard title="Novos Contratos" value={currentData.units.reduce((sum, unit) => sum + unit.novosContratos, 0).toLocaleString("pt-BR")} icon={TrendingUp} variant="success" className="lg:col-span-2" />
