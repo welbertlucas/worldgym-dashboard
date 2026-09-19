@@ -10,3 +10,5 @@ backups/
 
 # Configuração local do Claude Code (permissões específicas desta máquina)
 .claude/settings.local.json
+.vercel
+.env*

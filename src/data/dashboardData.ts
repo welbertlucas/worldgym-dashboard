@@ -1,5 +1,7 @@
-const SHEET_ID = "1TGh4MEDDbuRgJMkfYltP6II2s42z7L2Gv6RV7X9K1kg";
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`;
+// A planilha deixou de ser pública — os dados agora passam por uma função na Vercel
+// (api/sheet-data.js) que lê com uma conta de serviço do Google, pra não depender de
+// "qualquer pessoa com o link" conseguir ver os dados direto na planilha.
+const CSV_URL = "https://worldgym-dashboard-sigma.vercel.app/api/sheet-data";
 
 export interface UnitData {
   name: string;
