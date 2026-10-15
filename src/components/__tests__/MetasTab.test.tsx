@@ -106,3 +106,13 @@ describe("MetaCard", () => {
     expect(html).toContain("reduzir");
   });
 });
+
+describe("meta única da rede", () => {
+  const unica: Meta[] = [{ month: "2026-09", unit: "TOTAL", key: "faturamento", ouro: 300000 }];
+  it("chama de 'Meta' (sem Bronze/Prata/Ouro nem 'abaixo do bronze')", () => {
+    const html = renderToString(<MetasTab data={data} metas={unica} month="2026-09" />).replace(/<!-- -->/g, "");
+    expect(html).toContain("da meta");
+    expect(html).toMatch(/Meta\s*<span[^>]*>R\$\s?300/);
+    expect(html).not.toMatch(/Bronze|Prata|abaixo do bronze/);
+  });
+});

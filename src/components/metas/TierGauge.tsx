@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
 import {
-  META_INDICATORS, TIER_LABEL, TIERS, bulletScale, formatMetaValue, progressToNext, tierReached,
+  META_INDICATORS, TIER_LABEL, TIERS, bulletScale, isSingleGoal, formatMetaValue, progressToNext, tierReached,
   type BulletScale, type Meta, type MetaKey, type Tier, type TierResult,
 } from "@/data/metas";
 import { cn } from "@/lib/utils";
@@ -22,15 +22,21 @@ export function formatGap(key: MetaKey, gap: number): string {
 }
 
 /** Em mês em andamento, "abaixo do bronze" é um estado provisório, não um resultado. */
-export function tierName(tier: TierResult, partial: boolean): string {
+export function tierName(tier: TierResult, partial: boolean, single = false): string {
+  if (single) return tier === "abaixo" ? (partial ? "Ainda abaixo da meta" : "Abaixo da meta") : "Meta atingida";
   return tier === "abaixo" && partial ? "Ainda abaixo do bronze" : TIER_LABEL[tier];
 }
 
-export function TierBadge({ tier, partial = false }: { tier: TierResult; partial?: boolean }) {
+/** Nome do nível numa frase ("da meta Bronze"; meta única: "da meta"). */
+export function levelOf(tier: Tier, single: boolean): string {
+  return single ? "meta" : `meta ${TIER_LABEL[tier]}`;
+}
+
+export function TierBadge({ tier, partial = false, single = false }: { tier: TierResult; partial?: boolean; single?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap">
       <span className="h-2 w-2 rounded-full" style={{ background: TIER_COLOR[tier] }} aria-hidden />
-      {tierName(tier, partial)}
+      {tierName(tier, partial, single)}
     </span>
   );
 }
@@ -69,7 +75,7 @@ export function TierChips({ metaKey, actual, meta }: { metaKey: MetaKey; actual:
       {TIERS.filter((t) => meta[t] !== undefined).map((t) => (
         <li key={t} className={cn("flex items-center gap-1.5 text-xs", ok(t) ? "text-foreground font-semibold" : "text-muted-foreground")}>
           <span className="h-2 w-2 rounded-full" style={{ background: TIER_COLOR[t] }} aria-hidden />
-          {TIER_LABEL[t]} <span className="tabular-nums">{formatMetaValue(metaKey, meta[t]!)}</span>
+          {isSingleGoal(meta) ? "Meta" : TIER_LABEL[t]} <span className="tabular-nums">{formatMetaValue(metaKey, meta[t]!)}</span>
           {ok(t) && <><Check className="w-3.5 h-3.5 text-success" aria-hidden /><span className="sr-only">atingido</span></>}
         </li>
       ))}
@@ -82,6 +88,7 @@ interface MetaCardProps { metaKey: MetaKey; actual: number; meta: Meta; partial:
 /** Cartão de uma meta: velocímetro com as faixas Bronze/Prata/Ouro, realizado, próximo nível e níveis cadastrados. */
 export function MetaCard({ metaKey, actual, meta, partial }: MetaCardProps) {
   const reached = tierReached(metaKey, actual, meta);
+  const single = isSingleGoal(meta);
   const { pct, next } = progressToNext(metaKey, actual, meta);
   const scale = bulletScale(metaKey, actual, meta);
   const lower = META_INDICATORS[metaKey].lowerIsBetter;
@@ -93,7 +100,7 @@ export function MetaCard({ metaKey, actual, meta, partial }: MetaCardProps) {
     <article className="card-surface p-5 flex flex-col gap-3" aria-label={`Meta de ${META_INDICATORS[metaKey].label}`}>
       <header className="flex items-start justify-between gap-3">
         <h4 className="text-sm font-semibold text-foreground">{META_INDICATORS[metaKey].label}</h4>
-        <TierBadge tier={reached} partial={partial} />
+        <TierBadge tier={reached} partial={partial} single={single} />
       </header>
       {scale && (
         <div className="mx-auto w-full max-w-[17rem]">
@@ -102,7 +109,7 @@ export function MetaCard({ metaKey, actual, meta, partial }: MetaCardProps) {
             max={scale.max}
             value={actual}
             zones={scale.zones.map((z) => ({ from: z.from, to: z.to, color: TIER_COLOR[z.tier], opacity: z.tier === "abaixo" ? 0.3 : 0.8 }))}
-            label={`${META_INDICATORS[metaKey].label}: ${formatMetaValue(metaKey, actual)}, ${tierName(reached, partial)}`}
+            label={`${META_INDICATORS[metaKey].label}: ${formatMetaValue(metaKey, actual)}, ${tierName(reached, partial, single)}`}
           />
         </div>
       )}
@@ -111,8 +118,8 @@ export function MetaCard({ metaKey, actual, meta, partial }: MetaCardProps) {
         <p className="font-display text-[1.9rem] leading-none font-semibold tracking-tight text-foreground tabular-nums">{formatMetaValue(metaKey, actual)}</p>
         <p className="mt-1.5 text-xs text-muted-foreground">
           {next
-            ? <>{shownPct(pct, false)}% da meta {TIER_LABEL[next.tier]} • {lower ? "reduzir " : "faltam "}<b className="text-foreground tabular-nums">{formatGap(metaKey, next.gap)}</b></>
-            : "Todos os níveis atingidos"}
+            ? <>{shownPct(pct, false)}% da {levelOf(next.tier, single)} • {lower ? "reduzir " : "faltam "}<b className="text-foreground tabular-nums">{formatGap(metaKey, next.gap)}</b></>
+            : single ? "Meta atingida" : "Todos os níveis atingidos"}
         </p>
       </div>
       <TierChips metaKey={metaKey} actual={actual} meta={meta} />

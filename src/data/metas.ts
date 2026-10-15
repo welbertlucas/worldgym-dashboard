@@ -189,6 +189,11 @@ export function nextTier(key: MetaKey, actual: number, meta: Meta): { tier: Tier
   return null;
 }
 
+/** Meta de nível único (só uma das colunas Bronze/Prata/Ouro preenchida): a tela a chama de "Meta". */
+export function isSingleGoal(meta: Meta): boolean {
+  return TIERS.filter((t) => meta[t] !== undefined).length === 1;
+}
+
 /** Avisos de cadastro: níveis fora de ordem (bronze deveria ser o mais fácil e ouro o mais difícil). */
 export function metaWarnings(metas: Meta[]): string[] {
   const out: string[] = [];
