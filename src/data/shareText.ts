@@ -2,7 +2,7 @@ import { ALERT_LABELS, type Recommendation } from "@/data/recommendations";
 import { formatMonthLong } from "@/data/periods";
 
 const SEV = { critical: "🔴 Crítico", attention: "🟠 Atenção", info: "ℹ️ Informativo" } as const;
-export const DASHBOARD_URL = "https://welbertlucas.github.io/worldgym-dashboard/";
+export const DISCLAIMER = "_Recomendação gerada pela IA da World Gym Brasil e pode cometer erros. Por isso, lembre-se de conferir informações relevantes._";
 
 const bullets = (items: string[]) => items.map((i) => `• ${i}`).join("\n");
 
@@ -23,7 +23,8 @@ export function recommendationText(rec: Recommendation, evalMonth?: string | nul
     "", "*Como investigar:*", bullets(rec.investigate),
     "", "*Ação sugerida:*", bullets(rec.correct),
     "", `*Acompanhar:* ${rec.followUp}`,
-    "", `_World Gym Brasil • dashboard${evalMonth ? ` • avaliação de ${formatMonthLong(evalMonth)}` : ""}_`, DASHBOARD_URL,
+    ...(evalMonth ? ["", `_Avaliação do mês fechado: ${formatMonthLong(evalMonth)}_`] : []),
+    "", DISCLAIMER,
   );
   return parts.join("\n");
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
-import { recommendationText, DASHBOARD_URL } from "@/data/shareText";
+import { recommendationText, DISCLAIMER } from "@/data/shareText";
 import { type Recommendation } from "@/data/recommendations";
 
 const rec: Recommendation = {
@@ -18,13 +18,17 @@ describe("texto para WhatsApp", () => {
     const t = recommendationText(rec, "2026-09");
     for (const s of ["*🔴 Crítico • Gama*", "Queda de faturamento", "*Fato (dos dados):* Faturamento caiu 12,5%", "*Ano anterior:* −18%",
       "*Hipóteses (a verificar, não confirmadas):*\n• Menos vendas novas", "• Conferir funil de vendas", "• Plano de ação com prazo",
-      "*Acompanhar:* Rever no próximo fechamento.", "avaliação de setembro de 2026", DASHBOARD_URL]) expect(t).toContain(s);
+      "*Acompanhar:* Rever no próximo fechamento.", "Avaliação do mês fechado: setembro de 2026", DISCLAIMER]) expect(t).toContain(s);
+    expect(t.endsWith("conferir informações relevantes._")).toBe(true);
+    expect(t).not.toContain("http");
+    expect(t).not.toContain("github.io");
   });
 
   it("sem comparativo anual nem mês, omite essas partes", () => {
     const t = recommendationText({ ...rec, yoy: undefined }, null);
     expect(t).not.toContain("Ano anterior");
-    expect(t).not.toContain("avaliação de");
+    expect(t).not.toContain("Avaliação do mês");
+    expect(t.endsWith(DISCLAIMER)).toBe(true);
   });
 });
 
@@ -36,5 +40,21 @@ describe("botão de copiar no card", () => {
     expect(html).not.toContain("WhatsApp");
     const summary = html.slice(html.indexOf("<summary"), html.indexOf("</summary>"));
     expect(summary).not.toContain("<button");
+  });
+});
+
+import { RiscosTab } from "@/components/tabs/RiscosTab";
+import { type Alert } from "@/data/alerts";
+
+describe("tela de riscos em meias-luas", () => {
+  const mk = (id: string, severity: Alert["severity"]): Alert => ({ id, unit: "Gama", kind: "faturamento", severity, month: "2026-09", fact: "Faturamento caiu.", rule: "regra", weight: 0.1 });
+  it("resume críticos, atenção e informativos em meia-lua com a participação de cada um", () => {
+    const html = renderToString(<RiscosTab alerts={[mk("a", "critical"), mk("b", "critical"), mk("c", "attention"), mk("d", "info")]} evalMonth="2026-09" />).replace(/<!-- -->/g, "");
+    for (const s of ["Críticos", "Atenção", "Informativos", "50% de 4 itens", "25% de 4 itens"]) expect(html).toContain(s);
+    expect((html.match(/<svg/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(html).toContain("border-l-destructive");
+  });
+  it("sem alertas não quebra (0%)", () => {
+    expect(renderToString(<RiscosTab alerts={[]} evalMonth={null} />)).toContain("0% de 0 itens");
   });
 });

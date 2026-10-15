@@ -5,6 +5,8 @@ import { ShareButtons } from "@/components/tabs/ShareButtons";
 
 const sevLabel = { critical: "Crítico", attention: "Atenção", info: "Informativo" } as const;
 const sevVariant = { critical: "destructive", attention: "warning", info: "secondary" } as const;
+// Faixa lateral na cor da severidade (mesma semântica dos indicadores: vermelho, âmbar, neutro).
+const sevAccent = { critical: "border-l-destructive", attention: "border-l-warning", info: "border-l-border" } as const;
 
 function Block({ title, children, className }: { title: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
@@ -22,7 +24,7 @@ function List({ items }: { items: string[] }) {
 export function RecommendationCard({ rec, defaultOpen = false, flat = false, evalMonth }: { rec: Recommendation; defaultOpen?: boolean; flat?: boolean; evalMonth?: string | null }) {
   return (
     <div className="relative">
-    <details open={defaultOpen} className={flat ? "group" : "group card-surface open:shadow-md"}>
+    <details open={defaultOpen} className={flat ? "group" : `group card-surface border-l-[3px] ${sevAccent[rec.severity]} open:shadow-md`}>
       <summary
         className={`list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 sm:p-4 pr-[4rem] sm:pr-[4.5rem] flex items-start gap-3 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${flat ? "pl-5 sm:pl-6" : "rounded-2xl group-open:rounded-b-none"}`}
       >
