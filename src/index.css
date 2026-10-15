@@ -13,6 +13,8 @@
 
     --primary: 4 90% 50%;
     --primary-foreground: 0 0% 100%;
+    /* Vermelho da marca para TEXTO pequeno (contraste ≥ 4,5:1); o --primary segue para fundos e ícones. */
+    --primary-ink: 4 85% 44%;
 
     --secondary: 220 25% 97%;
     --secondary-foreground: 222 25% 18%;
@@ -23,13 +25,13 @@
     --accent: 220 25% 95%;
     --accent-foreground: 222 25% 18%;
 
-    --destructive: 0 72% 48%;
+    --destructive: 0 72% 47%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 32 92% 45%;
+    --warning: 32 95% 33%;
     --warning-foreground: 0 0% 100%;
 
-    --success: 142 65% 36%;
+    --success: 142 72% 28%;
     --success-foreground: 0 0% 100%;
 
     --radius: 1rem;

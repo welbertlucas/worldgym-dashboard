@@ -6,7 +6,9 @@ import { TopUnits } from "@/components/executiva/TopUnits";
 import { RevenueTrend } from "@/components/executiva/RevenueTrend";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { dashboardData } from "@/data/dashboardData";
-import { priorYearValue } from "@/components/chartData";
+import { priorYearValue, splitPartial } from "@/components/chartData";
+import { partialDot } from "@/components/PartialDot";
+import { monthKey } from "@/data/periods";
 import { month, unit } from "@/data/__tests__/helpers";
 
 afterEach(() => { dashboardData.length = 0; });
@@ -66,11 +68,44 @@ describe("Visão Executiva", () => {
     ).replace(/<!-- -->/g, "");
     for (const s of ["Visão executiva", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede", "Faturamento da rede", "Maiores faturamentos", "Prioridades da diretoria"]) expect(html).toContain(s);
     expect(html).toContain("vs. set. de 2025"); // comparativo anual quando o mês do ano anterior existe
+    expect(html).toContain("vs. mês anterior"); // mês fechado: compara com o anterior
+    expect(html).toContain("ago. de 2026"); // e mostra o valor anterior em cinza
     expect(html).toContain("Nenhum alerta crítico");
   });
 
   it("RevenueTrend aceita séries sem o ano anterior", () => {
     const m = month("2026-08", [unit("A")]);
     expect(renderToString(<RevenueTrend closed={[m]} all={[m]} />)).toContain("Faturamento da rede");
+  });
+});
+
+describe("mês em andamento", () => {
+  it("KPIs não mostram valor anterior nem comparações (não mistura parcial com fechado)", () => {
+    const cur = monthKey(new Date());
+    const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1);
+    const months = [month(monthKey(prevDate), [unit("A")]), month(cur, [unit("A")])];
+    dashboardData.push(...months);
+    const html = renderToString(
+      <ExecutivaTab month={months[1]} prev={months[0]} alerts={[]} evalMonth={null} deltas={[]} metas={[]} onOpenRiscos={() => {}} onOpenUnidades={() => {}} />,
+    ).replace(/<!-- -->/g, "");
+    expect(html).toContain("em andamento");
+    expect(html).not.toContain("vs. mês anterior");
+    expect(html).not.toContain("vs. set.");
+  });
+});
+
+describe("churn e demais tendências no mês parcial", () => {
+  it("o valor parcial sai da série da linha e vira um campo próprio (marcador isolado)", () => {
+    expect(splitPartial("churn", false, 7.5)).toEqual({ churn: 7.5, parcial: null });
+    expect(splitPartial("churn", true, 3)).toEqual({ churn: null, parcial: 3 });
+  });
+
+  it("o marcador só desenha onde há valor parcial, com o rótulo \"parcial\"", () => {
+    const dot = partialDot((v) => `${v}%`);
+    const none = renderToString(<svg>{dot({ cx: 10, cy: 10, payload: { parcial: null } })}</svg>);
+    expect(none).not.toContain("circle");
+    const some = renderToString(<svg>{dot({ cx: 10, cy: 10, payload: { parcial: 3 } })}</svg>);
+    expect(some).toContain("circle");
+    expect(some.replace(/<!-- -->/g, "")).toContain("parcial: 3%");
   });
 });

@@ -11,3 +11,11 @@ export function priorYearValue(month: string, unit: string | null, pick: (u: Uni
   const m = dashboardData.find((d) => d.month === base);
   return m ? pick(m.total) : null;
 }
+
+/**
+ * Separa o valor do mês em andamento da série dos meses fechados: o parcial vai para o campo "parcial"
+ * (marcador isolado) e nunca entra na linha de tendência. Só reposiciona o valor; não altera o cálculo.
+ */
+export function splitPartial<K extends string>(key: K, partial: boolean, value: number): Record<K | "parcial", number | null> {
+  return { [key]: partial ? null : value, parcial: partial ? value : null } as Record<K | "parcial", number | null>;
+}

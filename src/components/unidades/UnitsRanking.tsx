@@ -82,7 +82,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
                     onClick={() => { setKey(i.key); setReversed(false); }}
                     className={cn(
                       "rounded-full border px-3 py-1 text-sm transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      key === i.key ? "border-primary bg-primary/10 text-primary font-semibold" : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      key === i.key ? "border-primary bg-primary/10 text-primary-ink font-semibold" : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
                     )}
                   >
                     {i.label}

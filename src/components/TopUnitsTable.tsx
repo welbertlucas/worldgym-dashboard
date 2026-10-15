@@ -113,7 +113,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar unidade"
               aria-label="Buscar unidade"
-              className="h-10 w-48 rounded-xl border border-input bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-10 w-48 rounded-xl border border-input bg-white pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div role="group" aria-label="Colunas exibidas" className="inline-flex max-w-full flex-wrap gap-0.5 rounded-2xl sm:rounded-full bg-secondary p-1 border border-border/70">

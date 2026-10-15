@@ -37,6 +37,7 @@ function EmptyState() {
         Preencha a aba <b>Metas</b> da planilha: uma linha por unidade, mês e indicador, com os três níveis. Use a unidade <b>Rede</b> (ou <b>TOTAL</b>) para a meta da rede.
         Bronze é o nível mais fácil e ouro o mais difícil; para churn e inadimplência, em que menos é melhor, o ouro é o menor valor. Os níveis podem ficar em branco.
       </p>
+      <div className="overflow-x-auto">
       <table className="text-xs border border-border">
         <thead><tr className="bg-secondary">{["Mês", "Unidade", "Indicador", "Bronze", "Prata", "Ouro"].map((h) => <th key={h} className="px-3 py-1.5 text-left border-r border-border">{h}</th>)}</tr></thead>
         <tbody>
@@ -44,6 +45,7 @@ function EmptyState() {
           <tr><td className="px-3 py-1.5">2026-10</td><td className="px-3 py-1.5">Rede</td><td className="px-3 py-1.5">Churn</td><td className="px-3 py-1.5">8,0%</td><td className="px-3 py-1.5">6,5%</td><td className="px-3 py-1.5">5,0%</td></tr>
         </tbody>
       </table>
+      </div>
       <p className="text-xs text-muted-foreground">Indicadores aceitos: {Object.values(META_INDICATORS).map((i) => i.label).join(", ")}. Mês no formato aaaa-mm.</p>
     </div>
   );

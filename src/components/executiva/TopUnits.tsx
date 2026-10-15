@@ -26,7 +26,7 @@ export function TopUnits({ units, monthLabel, partial, onOpen, limit = 6 }: { un
       <button
         type="button"
         onClick={onOpen}
-        className="mt-5 self-start rounded-lg text-sm font-semibold text-primary hover:text-primary/80 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-5 self-start rounded-lg text-sm font-semibold text-primary-ink hover:text-primary-ink/80 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Ver todas as unidades
       </button>

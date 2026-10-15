@@ -182,8 +182,11 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-3 shrink-0">
             {loadedAt && (
-              <p className="hidden md:block text-xs text-muted-foreground tabular-nums">
-                Carregado às {loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+              <p
+                className="hidden md:block text-xs text-muted-foreground tabular-nums"
+                title="Horário em que este navegador buscou os dados. Não indica a última edição da planilha."
+              >
+                Dados carregados às {loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
             <Button

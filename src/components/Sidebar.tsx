@@ -31,7 +31,7 @@ function NavList({ active, onChange, criticalCount, collapsed = false }: NavProp
                   "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors motion-reduce:transition-none",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   collapsed && "justify-center px-0",
-                  isActive ? "bg-secondary text-foreground font-semibold" : "text-muted-foreground font-medium hover:bg-secondary/70 hover:text-foreground"
+                  isActive ? "bg-foreground/[0.07] text-foreground font-semibold" : "text-muted-foreground font-medium hover:bg-secondary/70 hover:text-foreground"
                 )}
               >
                 <Icon className={cn("w-[18px] h-[18px] shrink-0", isActive && "text-primary")} aria-hidden />

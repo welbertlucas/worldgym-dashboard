@@ -129,7 +129,7 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded-full bg-destructive/10 text-destructive font-semibold px-3 py-1">{critical} críticos</span>
             <span className="rounded-full bg-warning/10 text-warning font-semibold px-3 py-1">{attention} em atenção</span>
-            <button type="button" onClick={onOpenRiscos} className="rounded-lg text-primary font-semibold underline underline-offset-4 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver todos os riscos e recomendações</button>
+            <button type="button" onClick={onOpenRiscos} className="rounded-lg text-primary-ink font-semibold underline underline-offset-4 hover:text-primary-ink/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver todos os riscos e recomendações</button>
           </div>
         </div>
         {recs.length ? (
