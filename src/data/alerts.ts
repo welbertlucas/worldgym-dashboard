@@ -1,7 +1,7 @@
 import { type MonthData, type UnitData } from "@/data/dashboardData";
 import { ALERT_CONFIG as C } from "@/data/alertConfig";
 import { getLastClosedMonth, formatMonthLong } from "@/data/periods";
-import { META_INDICATORS, TIER_LABEL, attainment, actualFor, formatMetaValue, lowestTier, tierReached, type Meta } from "@/data/metas";
+import { META_INDICATORS, TIER_LABEL, attainment, actualFor, formatMetaValue, isSingleGoal, lowestTier, tierReached, type Meta } from "@/data/metas";
 
 export type AlertKind =
   | "faturamento" | "vendasOnline" | "churn" | "inadimplencia" | "recebimento" | "meta" | "dado"
@@ -151,8 +151,8 @@ export function computeAlerts(data: MonthData[], metas: Meta[] = [], now: Date =
     push({ unit: mt.unit === "TOTAL" ? "Rede" : mt.unit, kind: "meta", metaKey: mt.key,
       severity: att < C.meta.criticalPct ? "critical" : "attention",
       weight: unitRow ? unitRow.faturamento / totalFat : 1,
-      rule: `abaixo do nível ${TIER_LABEL[low.tier].toLowerCase()}${att < C.meta.criticalPct ? ` e menos de ${C.meta.criticalPct}% dele` : ""}`,
-      fact: `${META_INDICATORS[mt.key].label} abaixo da meta ${TIER_LABEL[low.tier].toLowerCase()}: ${formatMetaValue(mt.key, actual)} vs. ${formatMetaValue(mt.key, low.value)} (${pct(att)} do nível).` });
+      rule: `abaixo ${isSingleGoal(mt) ? "da meta" : `do nível ${TIER_LABEL[low.tier].toLowerCase()}`}${att < C.meta.criticalPct ? ` e menos de ${C.meta.criticalPct}% dela` : ""}`,
+      fact: `${META_INDICATORS[mt.key].label} abaixo da meta${isSingleGoal(mt) ? "" : ` ${TIER_LABEL[low.tier].toLowerCase()}`}: ${formatMetaValue(mt.key, actual)} vs. ${formatMetaValue(mt.key, low.value)} (${pct(att)} ${isSingleGoal(mt) ? "da meta" : "do nível"}).` });
   }
 
   return alerts.sort((a, b) => rank[a.severity] - rank[b.severity] || b.weight - a.weight);

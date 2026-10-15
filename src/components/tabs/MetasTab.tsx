@@ -7,7 +7,7 @@ import { MetaCard, TIER_COLOR, TierBadge, TierBullet, TierChips, shownPct, tierN
 import { GoalRing } from "@/components/metas/GoalRing";
 import { type MonthData } from "@/data/dashboardData";
 import {
-  META_INDICATORS, TIER_LABEL, TIERS, actualFor, bulletScale, formatMetaValue, getMeta, metaWarnings, progressToNext, resolveGoal, tierReached,
+  META_INDICATORS, TIER_LABEL, TIERS, actualFor, bulletScale, formatMetaValue, getMeta, isSingleGoal, metaWarnings, progressToNext, resolveGoal, tierReached,
   type Meta, type MetaKey, type TierResult,
 } from "@/data/metas";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
@@ -169,7 +169,7 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
                 </div>
                 <div className="sm:order-3 flex items-center gap-2">
                   <span className="text-sm font-semibold tabular-nums w-10 shrink-0 text-right">{shownPct(r.pct, r.done)}%</span>
-                  <span className="w-[10.5rem] flex justify-start"><TierBadge tier={r.tier} partial={partial} /></span>
+                  <span className="w-[10.5rem] flex justify-start"><TierBadge tier={r.tier} partial={partial} single={isSingleGoal(r.meta)} /></span>
                 </div>
                 <div className="col-span-2 sm:col-span-1 sm:order-2">{r.scale && <TierBullet scale={r.scale} thin />}</div>
                 <div className="col-span-2 sm:order-4 sm:col-span-3"><TierChips metaKey={k} actual={r.actual} meta={r.meta} /></div>
