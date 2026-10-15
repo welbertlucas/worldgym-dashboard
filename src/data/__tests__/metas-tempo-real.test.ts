@@ -60,3 +60,22 @@ describe("bulletScale (barra de faixas)", () => {
     expect(bulletScale("faturamento", 50, { month: "x", unit: "A", key: "faturamento" })).toBeNull();
   });
 });
+
+import { parseMetaMonth, parseMetasCSV as parseMetasMes } from "@/data/metas";
+
+describe("mês por nome na aba Metas", () => {
+  it("aceita nome, abreviação, mm/aaaa e aaaa-mm", () => {
+    expect(parseMetaMonth("Outubro", 2026)).toBe("2026-10");
+    expect(parseMetaMonth("out/2026", 2025)).toBe("2026-10");
+    expect(parseMetaMonth("Março de 2027", 2026)).toBe("2027-03");
+    expect(parseMetaMonth("10/2026", 2020)).toBe("2026-10");
+    expect(parseMetaMonth("2026-9", 2020)).toBe("2026-09");
+    expect(parseMetaMonth("abc", 2026)).toBeNull();
+  });
+  it("lê as linhas da planilha com mês 'Outubro'", () => {
+    const csv = 'Mês,Unidade,Indicador,Bronze,Prata,Ouro\nOutubro,Gama,Faturamento,"R$ 347.045,38","R$ 365.310,92","R$ 390.882,69"';
+    const r = parseMetasMes(csv, 2026);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ month: "2026-10", unit: "Gama", key: "faturamento", bronze: 347045.38 });
+  });
+});
