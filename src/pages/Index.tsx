@@ -13,7 +13,10 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
 import { MetasTab } from "@/components/tabs/MetasTab";
-import { computeAlerts } from "@/data/alerts";
+import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
+import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
+import { viewFor } from "@/data/kpiView";
+import { computeAlerts, sameMonthLastYear } from "@/data/alerts";
 import { computeUnitDeltas } from "@/data/unitMetrics";
 import { metasData, syncMetasFromSheets } from "@/data/metas";
 import { getLastClosedMonth, isPartialMonth } from "@/data/periods";
@@ -127,6 +130,14 @@ const Index = () => {
   const selIdx = months.indexOf(fullMonthData.month);
   const prevMonthData = selIdx > 0 ? dashboardData[selIdx - 1] : undefined;
   const partialSelected = isPartialMonth(fullMonthData.month);
+  // Indicadores em meia-lua: rede ou unidade selecionada, sempre comparados ao mês anterior (e ao mesmo mês do ano anterior se fechado).
+  const kpiUnit = selectedUnit && unitData ? selectedUnit : null;
+  const kpiCtx: KpiContext = {
+    cur: viewFor(fullMonthData.month, kpiUnit) ?? fullMonthData,
+    prev: viewFor(prevMonthData?.month, kpiUnit),
+    ly: partialSelected ? undefined : viewFor(sameMonthLastYear(fullMonthData.month), kpiUnit),
+    partial: partialSelected,
+  };
   const criticalCount = alerts.filter((a) => a.severity === "critical").length;
 
   const formatCurrency = (value: number) =>
@@ -258,22 +269,14 @@ const Index = () => {
             metas={metasData}
             onOpenRiscos={() => changeTab("riscos")}
             onOpenUnidades={() => changeTab("unidades")}
+            onOpenMetas={() => changeTab("metas")}
           />
         )}
 
         {activeTab === "comercial" && (
           <section>
             <SectionTitle>Comercial</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6 mb-6">
-            <MetricCard title="Novos Contratos" value={currentData.units.reduce((sum, unit) => sum + unit.novosContratos, 0).toLocaleString("pt-BR")} icon={TrendingUp} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Saldo de Clientes" value={(currentData.units.reduce((sum, unit) => sum + unit.novosContratos, 0) - currentData.total.cancelados).toLocaleString("pt-BR")} icon={Users} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Taxa de Conversão" value={formatPercentage(currentData.total.icv)} icon={TrendingUp} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Vendas Online" value={formatCurrency(currentData.total.vendasOnline)} subtitle={currentData.total.faturamento ? `${((currentData.total.vendasOnline / currentData.total.faturamento) * 100).toFixed(2)}% do faturamento` : undefined} icon={ShoppingCart} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Diárias" value={currentData.total.diarias ? formatCurrency(currentData.total.diarias) : "—"} icon={Calendar} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Taxa de Personal" value={currentData.total.personal ? formatCurrency(currentData.total.personal) : "—"} icon={Dumbbell} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Camisetas" value={currentData.total.camisetas ? formatCurrency(currentData.total.camisetas) : "—"} icon={Shirt} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Coqueteleiras" value={currentData.total.coqueteleiras ? formatCurrency(currentData.total.coqueteleiras) : "—"} icon={Coffee} variant="default" className="lg:col-span-2" />
-          </div>
+          <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={comercialSpecs} /></div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
               <NovosContratosChart selectedUnit={selectedUnit} />
               <VendasOnlineChart selectedUnit={selectedUnit} />
@@ -296,11 +299,7 @@ const Index = () => {
         {activeTab === "financeiro" && (
           <section>
             <SectionTitle>Financeiro</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6 mb-6">
-            <MetricCard title="Faturamento" value={formatAbbreviatedNumber(currentData.total.faturamento)} icon={DollarSign} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Recebimento" value={formatAbbreviatedNumber(currentData.total.recebimento)} icon={DollarSign} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Ticket Médio" value={formatCurrency(currentData.total.ticketMedio)} icon={DollarSign} variant="default" className="lg:col-span-2" />
-          </div>
+          <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={financeiroSpecs} columns="xl:grid-cols-3" /></div>
             <div className="grid grid-cols-1 gap-6 mb-6">
               <RevenueChart selectedUnit={selectedUnit} />
             </div>
@@ -310,17 +309,7 @@ const Index = () => {
         {activeTab === "retencao" && (
           <section>
             <SectionTitle>Retenção e Satisfação</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6 mb-6">
-            <MetricCard title="Adimplentes" value={currentData.total.adimplentes.toLocaleString("pt-BR")} icon={Users} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Taxa de Renovação" value={formatPercentage(currentData.total.renovacoes)} icon={TrendingUp} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Taxa de Churn" value={formatPercentage(currentData.total.churn)} icon={AlertCircle} variant={currentData.total.churn < 5 ? "success" : currentData.total.churn < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
-            <MetricCard title="Taxa de Inadimplência" value={formatPercentage(currentData.total.inadimplenciaPerc)} icon={AlertCircle} variant={currentData.total.inadimplenciaPerc < 5 ? "success" : currentData.total.inadimplenciaPerc < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
-            <MetricCard title="Nota do Google" value={currentData.total.notaGoogle ? currentData.total.notaGoogle.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={Star} variant="success" className="lg:col-span-2" />
-            <MetricCard title="NPS" value={currentData.total.nps ? currentData.total.nps.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={Smile} variant="success" className="lg:col-span-2" />
-            {!selectedUnit && (
-              <MetricCard title="Nota Reclame Aqui" value={fullMonthData.total.reclameAqui ? fullMonthData.total.reclameAqui.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={MessageSquare} variant="success" className="lg:col-span-2" />
-            )}
-          </div>
+          <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={retencaoSpecs(!selectedUnit)} columns="xl:grid-cols-4" /></div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
               <ChurnChart selectedUnit={selectedUnit} />
               <InadimplenciaChart selectedUnit={selectedUnit} />

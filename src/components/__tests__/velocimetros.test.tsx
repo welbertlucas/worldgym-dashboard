@@ -141,3 +141,65 @@ describe("DonutList", () => {
     expect(html).not.toContain("stroke-dasharray");
   });
 });
+
+import { KpiTile, variation, type KpiContext } from "@/components/kpi/KpiGrid";
+import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
+import { MetasKpiCard } from "@/components/executiva/MetasKpiCard";
+import { viewFor } from "@/data/kpiView";
+
+describe("indicadores em meia-lua nas demais abas", () => {
+  const A = month("2026-08", [unit("A", { faturamento: 1000, novosContratos: 100, diarias: 0, notaGoogle: 0 }), unit("B", { faturamento: 500, novosContratos: 50 })]);
+  const B = month("2026-09", [unit("A", { faturamento: 1100, novosContratos: 80, diarias: 50, notaGoogle: 4.5 }), unit("B", { faturamento: 400, novosContratos: 50 })]);
+  const ctx = (partial = false): KpiContext => ({ cur: B, prev: A, partial });
+  const html = (spec: (typeof comercialSpecs)[number], c = ctx()) => renderToString(<KpiTile ctx={c} spec={spec} />).replace(/<!-- -->/g, "");
+  const find = (specs: typeof comercialSpecs, t: string) => specs.find((s) => s.title === t)!;
+
+  it("variação: sem tom quando a direção é neutra; ignora base zero ou negativa em %", () => {
+    expect(variation(110, 100, "pct", null, "ago.")!.tone).toBe("neutral");
+    expect(variation(110, 100, "pct", true, "ago.")!.tone).toBe("good");
+    expect(variation(110, 100, "pct", false, "ago.")!.tone).toBe("bad");
+    expect(variation(1, 0, "pct", true, "x")).toBeUndefined();
+    expect(variation(1, -5, "pct", true, "x")).toBeUndefined();
+  });
+
+  it("novos contratos somam as unidades e comparam com o mês anterior citando o mês", () => {
+    const h = html(find(comercialSpecs, "Novos Contratos"));
+    expect(h).toContain("130"); // 80 + 50
+    expect(h).toContain("-13,3% vs. ago. de 2026");
+  });
+
+  it("mês em andamento: fluxo mostra % do mês anterior; taxa/nível compara direto; ambos marcados", () => {
+    const f = html(find(financeiroSpecs, "Faturamento"), ctx(true));
+    expect(f).toContain("Em andamento");
+    expect(f).toMatch(/\d+% de .+ de ago\. de 2026/); // quanto do mês anterior já foi alcançado
+    const t = html(find(retencaoSpecs(false), "Churn"), ctx(true));
+    expect(t).toContain("p.p. vs. ago. de 2026");
+  });
+
+  it("receita complementar: sem dado vira '—'; com dado é neutra (sem verde/vermelho)", () => {
+    const sem = html(find(comercialSpecs, "Diárias"), { cur: A, prev: undefined, partial: false });
+    expect(sem).toContain("—");
+    expect(sem).toContain("Sem dado neste mês");
+    const com = html(find(comercialSpecs, "Diárias"), { cur: B, prev: B, partial: false });
+    expect(com).not.toContain("bg-success/10");
+    expect(com).not.toContain("bg-destructive/10");
+  });
+
+  it("Reclame Aqui só entra para a rede; unidade selecionada usa a unidade", () => {
+    expect(retencaoSpecs(true).map((s) => s.title)).toContain("Nota Reclame Aqui");
+    expect(retencaoSpecs(false).map((s) => s.title)).not.toContain("Nota Reclame Aqui");
+    dashboardData.push(A, B);
+    const v = viewFor("2026-09", "A")!;
+    expect(v.total.name).toBe("A");
+    expect(viewFor("2026-09", "Z")).toBeUndefined();
+    expect(viewFor("2026-09", null)).toBe(B);
+  });
+
+  it("card de metas da rede: progresso no arco, metas atingidas e estado vazio", () => {
+    const h = renderToString(<MetasKpiCard goals={[{ tier: "abaixo", pct: 33.7, done: false, single: true }]} partial onOpen={() => {}} />).replace(/<!-- -->/g, "");
+    for (const s of ["Metas da rede", "33%", "0 de 1 meta atingida", "Em andamento", "Ver metas"]) expect(h).toContain(s);
+    const ok = renderToString(<MetasKpiCard goals={[{ tier: "ouro", pct: 100, done: true, single: true }]} partial={false} onOpen={() => {}} />);
+    expect(ok).toContain("100%");
+    expect(renderToString(<MetasKpiCard goals={[]} partial onOpen={() => {}} />)).toContain("Sem metas da rede");
+  });
+});
