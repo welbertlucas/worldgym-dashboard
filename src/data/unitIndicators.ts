@@ -21,6 +21,8 @@ export interface Indicator {
   /** Faixas de cor já usadas na tabela de desempenho. */
   tone?: (v: number) => Tone;
   toneHint?: string;
+  /** Limites numéricos das mesmas faixas de `tone` ([atenção, crítico/bom]); usados só para desenhar o velocímetro. */
+  toneStops?: [number, number];
 }
 
 export const CATEGORY_LABEL: Record<Category, string> = {
@@ -42,22 +44,22 @@ export const INDICATORS: Indicator[] = [
   { key: "vendasOnline", label: "Vendas online", category: "comercial", format: "currency", direction: "higher", value: field("vendasOnline") },
   {
     key: "icv", label: "Taxa de conversão", category: "comercial", format: "percent", direction: "higher", value: field("icv"),
-    tone: (v) => (v > 60 ? "good" : v > 40 ? "warn" : "bad"), toneHint: "verde acima de 60%, vermelho abaixo de 40%",
+    tone: (v) => (v > 60 ? "good" : v > 40 ? "warn" : "bad"), toneHint: "verde acima de 60%, vermelho abaixo de 40%", toneStops: [40, 60],
   },
   { key: "adimplentes", label: "Adimplentes", category: "retencao", format: "number", direction: "higher", value: field("adimplentes") },
   { key: "cancelados", label: "Cancelados", category: "retencao", format: "number", direction: "lower", value: field("cancelados") },
   { key: "saldo", label: "Saldo de clientes", category: "retencao", format: "number", direction: "higher", value: (u) => u.novosContratos - u.cancelados },
   {
     key: "churn", label: "Churn", category: "retencao", format: "percent", direction: "lower", value: field("churn"),
-    tone: (v) => (v > 8 ? "bad" : v > 5 ? "warn" : "good"), toneHint: "vermelho acima de 8%, verde até 5%",
+    tone: (v) => (v > 8 ? "bad" : v > 5 ? "warn" : "good"), toneHint: "vermelho acima de 8%, verde até 5%", toneStops: [5, 8],
   },
   {
     key: "renovacoes", label: "Renovação", category: "retencao", format: "percent", direction: "higher", value: field("renovacoes"),
-    tone: (v) => (v < 40 ? "bad" : v < 60 ? "warn" : "good"), toneHint: "vermelho abaixo de 40%, verde a partir de 60%",
+    tone: (v) => (v < 40 ? "bad" : v < 60 ? "warn" : "good"), toneHint: "vermelho abaixo de 40%, verde a partir de 60%", toneStops: [40, 60],
   },
   {
     key: "inadimplenciaPerc", label: "Inadimplência", category: "retencao", format: "percent", direction: "lower", value: field("inadimplenciaPerc"),
-    tone: (v) => (v > 8 ? "bad" : v > 5 ? "warn" : "good"), toneHint: "vermelho acima de 8%, verde até 5%",
+    tone: (v) => (v > 8 ? "bad" : v > 5 ? "warn" : "good"), toneHint: "vermelho acima de 8%, verde até 5%", toneStops: [5, 8],
   },
   { key: "notaGoogle", label: "Nota do Google", category: "retencao", format: "decimal", direction: "higher", value: field("notaGoogle"), zeroMeansNoData: true },
   { key: "nps", label: "NPS", category: "retencao", format: "decimal", direction: "higher", value: field("nps"), zeroMeansNoData: true },
@@ -170,4 +172,25 @@ export function reviewReason(ind: Indicator, c: Comparison): string {
   const missB = !hasData(ind, c.b);
   if (missA && missB) return "sem dado nas duas unidades";
   return missA ? "sem dado na primeira unidade" : "sem dado na segunda unidade";
+}
+
+export interface ToneZone { from: number; to: number; tone: Tone }
+
+/**
+ * Faixas verde/âmbar/vermelho do indicador como intervalos numéricos (0 → max), para o velocímetro.
+ * Usa os mesmos limites de `tone`: menor é melhor = bom, atenção, crítico; maior é melhor = crítico, atenção, bom.
+ */
+export function toneZones(ind: Indicator, max: number): ToneZone[] | null {
+  if (!ind.toneStops || !ind.direction) return null;
+  const [a, b] = ind.toneStops;
+  return ind.direction === "lower"
+    ? [{ from: 0, to: a, tone: "good" }, { from: a, to: b, tone: "warn" }, { from: b, to: max, tone: "bad" }]
+    : [{ from: 0, to: a, tone: "bad" }, { from: a, to: b, tone: "warn" }, { from: b, to: max, tone: "good" }];
+}
+
+/** Fim da escala do velocímetro: percentuais "maior é melhor" vão a 100; "menor é melhor", 1,5× o limite crítico (ou o valor, se maior). */
+export function gaugeMax(ind: Indicator, value: number): number {
+  if (ind.direction === "higher") return 100;
+  const stop = ind.toneStops?.[1] ?? 10;
+  return Math.max(stop * 1.5, Math.ceil(value * 1.1));
 }

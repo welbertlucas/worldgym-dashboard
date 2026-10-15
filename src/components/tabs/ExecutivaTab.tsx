@@ -5,6 +5,7 @@ import { Notice } from "@/components/Notice";
 import { UnitHighlights } from "@/components/UnitHighlights";
 import { RevenueTrend } from "@/components/executiva/RevenueTrend";
 import { TopUnits } from "@/components/executiva/TopUnits";
+import { HealthGauges } from "@/components/executiva/HealthGauges";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
 import { type MonthData, dashboardData } from "@/data/dashboardData";
 import { type Alert } from "@/data/alerts";
@@ -104,7 +105,7 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
               className={tile}
               title="Metas da rede"
               value={redeTiers.length ? `${reachedBronze} de ${redeTiers.length}` : "—"}
-              subtitle={redeTiers.length ? `Ouro ${tierCount("ouro")} • Prata ${tierCount("prata")} • Bronze ${tierCount("bronze")} • Abaixo ${tierCount("abaixo")}` : undefined}
+              subtitle={redeTiers.length ? `${partial ? "Parcial do mês • " : ""}Ouro ${tierCount("ouro")} • Prata ${tierCount("prata")} • Bronze ${tierCount("bronze")} • ${partial ? "Ainda abaixo" : "Abaixo"} ${tierCount("abaixo")}` : undefined}
               icon={Target}
               variant={!redeTiers.length ? "default" : reachedBronze === redeTiers.length ? "success" : tierCount("abaixo") * 2 >= redeTiers.length ? "destructive" : "warning"}
               empty={redeTiers.length ? undefined : { message: "Sem metas da rede cadastradas para este mês", hint: "Preencha a aba Metas da planilha para acompanhar os níveis bronze, prata e ouro." }}
@@ -119,6 +120,8 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
         </div>
         <TopUnits units={month.units} monthLabel={formatMonthLong(month.month)} partial={partial} onOpen={onOpenUnidades} />
       </section>
+
+      <HealthGauges total={month.total} partial={partial} />
 
       <section aria-labelledby="prioridades-titulo" className="card-surface overflow-hidden">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 sm:p-6">

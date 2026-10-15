@@ -184,3 +184,50 @@ export function formatMetaValue(key: MetaKey, v: number): string {
   if (f === "percent") return `${v.toFixed(1).replace(".", ",")}%`;
   return v.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Geometria de apresentação do acompanhamento de metas (anel e barra de faixas).
+// Não cria regra nova: usa tierReached/nextTier/attainment já existentes.
+
+/** Progresso rumo ao próximo nível ainda não atingido (0–100). `next` nulo = todos os níveis atingidos. */
+export function progressToNext(key: MetaKey, actual: number, meta: Meta): { pct: number; next: { tier: Tier; value: number; gap: number } | null } {
+  const next = nextTier(key, actual, meta);
+  if (!next) return { pct: 100, next: null };
+  const a = attainment(key, actual, next.value);
+  return { pct: a === null ? 0 : Math.max(0, Math.min(100, a)), next };
+}
+
+export interface BulletZone { from: number; to: number; tier: TierResult }
+export interface BulletScale {
+  max: number;
+  zones: BulletZone[];
+  /** Posição (0–100) de cada marco e do realizado ao longo da barra. */
+  markers: { tier: Tier; value: number; pos: number }[];
+  actualPos: number;
+}
+
+/**
+ * Barra de faixas: eixo em unidades reais do indicador, de 0 até um pouco além do maior valor relevante.
+ * Maior é melhor: abaixo → bronze → prata → ouro (da esquerda para a direita).
+ * Menor é melhor: ouro → prata → bronze → abaixo (o ouro é o menor valor).
+ */
+export function bulletScale(key: MetaKey, actual: number, meta: Meta): BulletScale | null {
+  const pts = TIERS.filter((t) => meta[t] !== undefined).map((t) => ({ tier: t, value: meta[t]! })).sort((a, b) => a.value - b.value);
+  if (!pts.length || !Number.isFinite(actual)) return null;
+  const lower = META_INDICATORS[key].lowerIsBetter;
+  const top = pts[pts.length - 1].value;
+  const max = Math.max(top * (lower ? 1.25 : 1.15), Math.max(actual, 0) * 1.05);
+  if (!(max > 0)) return null;
+  const zones: BulletZone[] = [];
+  if (lower) {
+    zones.push({ from: 0, to: pts[0].value, tier: pts[0].tier });
+    for (let i = 0; i < pts.length - 1; i++) zones.push({ from: pts[i].value, to: pts[i + 1].value, tier: pts[i + 1].tier });
+    zones.push({ from: top, to: max, tier: "abaixo" });
+  } else {
+    zones.push({ from: 0, to: pts[0].value, tier: "abaixo" });
+    for (let i = 0; i < pts.length - 1; i++) zones.push({ from: pts[i].value, to: pts[i + 1].value, tier: pts[i].tier });
+    zones.push({ from: top, to: max, tier: pts[pts.length - 1].tier });
+  }
+  const pos = (v: number) => Math.max(0, Math.min(100, (v / max) * 100));
+  return { max, zones, markers: pts.map((p) => ({ ...p, pos: pos(p.value) })), actualPos: pos(actual) };
+}
