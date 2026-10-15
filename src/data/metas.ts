@@ -253,3 +253,33 @@ export function bulletScale(key: MetaKey, actual: number, meta: Meta): BulletSca
   const pos = (v: number) => Math.max(0, Math.min(100, (v / max) * 100));
   return { max, zones, markers: pts.map((p) => ({ ...p, pos: pos(p.value) })), actualPos: pos(actual) };
 }
+
+/** Indicadores em valor absoluto que podem ser somados entre unidades. */
+const ADDITIVE: MetaKey[] = ["faturamento", "recebimento", "vendasOnline", "novosContratos"];
+
+export interface GoalTarget {
+  meta: Meta;
+  actual: number;
+  /** Quantas unidades compõem a meta (só na soma da rede). */
+  units?: number;
+}
+
+/**
+ * Meta e realizado de uma unidade ou da rede no mês.
+ * Rede sem meta própria ("TOTAL"): para indicadores somáveis, usa a soma das unidades que têm meta
+ * (realizado também só dessas unidades, para a conta fechar). Percentuais não são somados.
+ */
+export function resolveGoal(metas: Meta[], md: MonthData, month: string, unit: string | null, key: MetaKey): GoalTarget | null {
+  const own = getMeta(metas, month, unit ?? "TOTAL", key);
+  if (own) {
+    const actual = actualFor(md, unit ?? "TOTAL", key);
+    return actual === null ? null : { meta: own, actual };
+  }
+  if (unit !== null || !ADDITIVE.includes(key)) return null;
+  const rows = md.units.map((u) => ({ u, m: getMeta(metas, month, u.name, key) })).filter((r): r is { u: UnitData; m: Meta } => !!r.m);
+  if (!rows.length) return null;
+  const meta: Meta = { month, key, unit: "TOTAL" };
+  for (const t of TIERS) if (rows.every((r) => r.m[t] !== undefined)) meta[t] = rows.reduce((s, r) => s + r.m[t]!, 0);
+  if (!TIERS.some((t) => meta[t] !== undefined)) return null;
+  return { meta, actual: rows.reduce((s, r) => s + r.u[key], 0), units: rows.length };
+}

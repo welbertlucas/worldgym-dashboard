@@ -340,7 +340,7 @@ const Index = () => {
           />
         )}
 
-        {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} />}
+        {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 
         {activeTab === "riscos" && <RiscosTab alerts={alerts} evalMonth={evalMonth} />}
         </main>

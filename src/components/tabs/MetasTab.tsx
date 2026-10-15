@@ -4,10 +4,10 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { Select } from "@/components/ui/select";
 import { MetaCard, TIER_COLOR, TierBadge, TierBullet, TierChips, shownPct, tierName } from "@/components/metas/TierGauge";
-import { DonutList } from "@/components/DonutList";
+import { GoalRing } from "@/components/metas/GoalRing";
 import { type MonthData } from "@/data/dashboardData";
 import {
-  META_INDICATORS, TIER_LABEL, TIERS, actualFor, bulletScale, formatMetaValue, getMeta, metaWarnings, progressToNext, tierReached,
+  META_INDICATORS, TIER_LABEL, TIERS, actualFor, bulletScale, formatMetaValue, getMeta, metaWarnings, progressToNext, resolveGoal, tierReached,
   type Meta, type MetaKey, type TierResult,
 } from "@/data/metas";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
@@ -39,7 +39,7 @@ function EmptyState() {
   );
 }
 
-export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Meta[]; month: string }) {
+export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[]; metas: Meta[]; month: string; unit?: string | null }) {
   const keysWithMetas = (Object.keys(META_INDICATORS) as MetaKey[]).filter((k) => metas.some((m) => m.key === k));
   const [key, setKey] = useState<MetaKey | "">("");
   if (!metas.length) return <div><SectionTitle level="page">Metas</SectionTitle><EmptyState /></div>;
@@ -70,7 +70,12 @@ export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Met
     return { name: u.name, meta, actual, tier, pct: prog.pct, done: prog.next === null, scale: bulletScale(k, actual, meta) };
   }).filter((r): r is NonNullable<typeof r> => r !== null)
     .sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.pct - a.pct);
-  const tierCounts = (["ouro", "prata", "bronze", "abaixo"] as TierResult[]).map((t) => ({ t, n: unitRows.filter((r) => r.tier === t).length }));
+
+  // Rosca: unidade selecionada no filtro do topo (ou a rede), no indicador escolhido
+  const ringKeys = md ? keysWithMetas.filter((kk) => resolveGoal(metas, md, shownMonth, unit, kk)) : [];
+  const rk = (key && ringKeys.includes(key) ? key : ringKeys[0]) as MetaKey | undefined;
+  const ring = md && rk ? resolveGoal(metas, md, shownMonth, unit, rk) : null;
+  const ringName = unit ?? "Rede";
 
   // Histórico (rede) do indicador escolhido: realizado × níveis de meta
   const evoKey = k ?? keysWithMetas[0];
@@ -101,6 +106,34 @@ export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Met
         )}
       </div>
 
+      <section aria-labelledby="metas-anel">
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+          <h3 id="metas-anel" className="text-base font-semibold text-foreground">Atingimento • {ringName}</h3>
+          {ringKeys.length > 1 && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="metas-anel-indicador" className="text-xs font-medium text-muted-foreground">Indicador</label>
+              <Select id="metas-anel-indicador" value={rk} onChange={(e) => setKey(e.target.value as MetaKey)} className="w-52">
+                {ringKeys.map((x) => <option key={x} value={x}>{META_INDICATORS[x].label}</option>)}
+              </Select>
+            </div>
+          )}
+        </div>
+        {ring && rk ? (
+          <GoalRing
+            metaKey={rk}
+            actual={ring.actual}
+            meta={ring.meta}
+            partial={partial}
+            title={META_INDICATORS[rk].label}
+            subtitle={`${ringName} • ${formatMonthLong(shownMonth)}${partial ? " • parcial do mês em andamento" : ""}${ring.units ? ` • soma das ${ring.units} ${ring.units === 1 ? "unidade" : "unidades"} com meta (realizado e metas só dela${ring.units === 1 ? "" : "s"})` : ""}`}
+          />
+        ) : (
+          <p className="card-surface px-5 py-8 text-center text-sm text-muted-foreground">
+            {ringName === "Rede" ? "A rede não tem meta cadastrada neste mês." : `${ringName} não tem meta cadastrada em ${formatMonthLong(shownMonth)}.`} Preencha a aba Metas da planilha.
+          </p>
+        )}
+      </section>
+
       {redeCards.length > 0 && (
         <section aria-labelledby="metas-rede">
           <h3 id="metas-rede" className="text-base font-semibold text-foreground mb-3">Rede</h3>
@@ -127,15 +160,6 @@ export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Met
               </Select>
             </div>
           </div>
-          <DonutList
-            className="mb-4"
-            title="Unidades por nível"
-            subtitle={`${META_INDICATORS[k].label} • ${partial ? "parcial do mês em andamento" : "resultado do mês"}`}
-            center={{ value: String(unitRows.length), caption: unitRows.length === 1 ? "unidade" : "unidades" }}
-            items={tierCounts.map(({ t: tier, n }) => ({
-              label: tierName(tier, partial), value: n, color: TIER_COLOR[tier], valueText: `${n} ${n === 1 ? "unidade" : "unidades"}`,
-            }))}
-          />
           <ol className="card-surface divide-y divide-border">
             {unitRows.map((r) => (
               <li key={r.name} className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[11rem_minmax(0,1fr)_13.5rem] items-center gap-x-4 gap-y-2 px-4 py-3">

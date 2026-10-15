@@ -79,3 +79,26 @@ describe("mês por nome na aba Metas", () => {
     expect(r[0]).toMatchObject({ month: "2026-10", unit: "Gama", key: "faturamento", bronze: 347045.38 });
   });
 });
+
+import { resolveGoal, type Meta as MetaT } from "@/data/metas";
+
+describe("resolveGoal", () => {
+  const u = (name: string, faturamento: number, churn = 5) => ({ name, faturamento, churn } as never);
+  const md = { month: "2026-10", total: { faturamento: 999, churn: 7 }, units: [u("A", 100), u("B", 50), u("C", 70)] } as never;
+  const m = (unit: string, key: string, bronze: number, prata?: number): MetaT => ({ month: "2026-10", unit, key, bronze, prata } as never);
+  it("unidade: meta e realizado da própria unidade", () => {
+    expect(resolveGoal([m("A", "faturamento", 90)], md, "2026-10", "A", "faturamento")).toMatchObject({ actual: 100, meta: { bronze: 90 } });
+  });
+  it("rede com meta própria usa o total", () => {
+    expect(resolveGoal([m("TOTAL", "faturamento", 800)], md, "2026-10", null, "faturamento")).toMatchObject({ actual: 999 });
+  });
+  it("rede sem meta própria soma só as unidades com meta (e o realizado delas)", () => {
+    const r = resolveGoal([m("A", "faturamento", 90, 110), m("B", "faturamento", 40)], md, "2026-10", null, "faturamento");
+    expect(r).toMatchObject({ actual: 150, units: 2, meta: { bronze: 130 } });
+    expect(r!.meta.prata).toBeUndefined(); // B não tem prata: não soma pela metade
+  });
+  it("percentuais não são somados e unidade sem meta devolve null", () => {
+    expect(resolveGoal([m("A", "churn", 8)], md, "2026-10", null, "churn")).toBeNull();
+    expect(resolveGoal([m("A", "faturamento", 90)], md, "2026-10", "B", "faturamento")).toBeNull();
+  });
+});
