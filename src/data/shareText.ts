@@ -18,8 +18,12 @@ export function recommendationText(rec: Recommendation, evalMonth?: string | nul
     `*Fato (dos dados):* ${rec.fact}`,
   ];
   if (rec.yoy) parts.push("", `*Ano anterior:* ${rec.yoy.fact}`);
+  const ev = [...rec.evidence.signals, ...rec.evidence.context];
+  if (ev.length) parts.push("", "*O que os dados indicam:*", bullets(ev));
+  if (rec.evidence.quiet.length) parts.push(`Sem sinal relevante em: ${rec.evidence.quiet.join(", ").toLowerCase()}.`);
+  const tag = { indicio: " (indício nos dados)", "sem-indicio": " (sem sinal nos dados)", neutro: "" } as const;
   parts.push(
-    "", "*Hipóteses (a verificar, não confirmadas):*", bullets(rec.hypotheses),
+    "", "*Hipóteses (a verificar, não confirmadas):*", bullets(rec.hypotheses.map((h) => `${h.text}${tag[h.support]}`)),
     "", "*Como investigar:*", bullets(rec.investigate),
     "", "*Ação sugerida:*", bullets(rec.correct),
     "", `*Acompanhar:* ${rec.followUp}`,

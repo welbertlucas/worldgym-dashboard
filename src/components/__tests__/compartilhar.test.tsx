@@ -9,7 +9,8 @@ const rec: Recommendation = {
   fact: "Faturamento caiu 12,5% vs. mês anterior (R$ 300.000 → R$ 262.500).",
   rule: "queda ≥ 12%",
   yoy: { reading: "confirmed", fact: "−18% vs. set. de 2025." },
-  hypotheses: ["Menos vendas novas"], investigate: ["Conferir funil de vendas"], correct: ["Plano de ação com prazo"],
+  evidence: { signals: ["Novos contratos -31,0% vs. o mês anterior (130 → 90)"], quiet: ["Ticket médio"], context: ["Faturamento: unidade -12,5% e rede -3,0% — a piora é mais da unidade do que da rede (sinal de causa local)."] },
+  hypotheses: [{ text: "Menos vendas novas", support: "indicio" }], investigate: ["Conferir funil de vendas"], correct: ["Plano de ação com prazo"],
   followUp: "Rever no próximo fechamento.",
 };
 
@@ -17,7 +18,7 @@ describe("texto para WhatsApp", () => {
   it("inclui unidade, fato, hipóteses marcadas como não confirmadas, ações, acompanhamento e mês avaliado", () => {
     const t = recommendationText(rec, "2026-09");
     for (const s of ["*🔴 Crítico • Gama*", "Queda de faturamento", "*Fato (dos dados):* Faturamento caiu 12,5%", "*Ano anterior:* −18%",
-      "*Hipóteses (a verificar, não confirmadas):*\n• Menos vendas novas", "• Conferir funil de vendas", "• Plano de ação com prazo",
+      "*O que os dados indicam:*\n• Novos contratos -31,0%", "Sem sinal relevante em: ticket médio.", "• Menos vendas novas (indício nos dados)", "• Conferir funil de vendas", "• Plano de ação com prazo",
       "*Acompanhar:* Rever no próximo fechamento.", "Avaliação do mês fechado: setembro de 2026", DISCLAIMER]) expect(t).toContain(s);
     expect(t.endsWith("conferir informações relevantes._")).toBe(true);
     expect(t).not.toContain("http");
