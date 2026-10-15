@@ -27,15 +27,26 @@ describe("MetasTab", () => {
     expect(html).toContain("Churn");
     expect(html).toMatch(/Prata|Bronze|Ouro|Abaixo do bronze/);
     expect(html).toContain("da meta"); // % do próximo nível
-    expect(html).toContain("Unidades por nível");
+    expect(html).toContain("Atingimento • Rede");
     expect(html).not.toContain("Mês em andamento"); // mês fechado: sem aviso de parcial
   });
 
   it("mostra os valores de bronze, prata e ouro de cada unidade", () => {
     const html = renderToString(<MetasTab data={data} metas={metas} month="2026-09" />).replace(/<!-- -->/g, "");
-    const lista = html.slice(html.indexOf("Unidades por nível"));
+    const lista = html.slice(html.indexOf("metas-unidades"));
     expect((lista.match(/Bronze\s*<span[^>]*>[^<]*100/g) ?? []).length).toBeGreaterThanOrEqual(2); // unidades A e B
     expect(lista).toMatch(/Ouro\s*<span[^>]*>[^<]*150/);
+  });
+
+  it("rosca: unidade selecionada usa o realizado e a meta dela; rede soma só as unidades com meta", () => {
+    const rede = renderToString(<MetasTab data={data} metas={metas.filter((m) => m.unit !== "TOTAL")} month="2026-09" />).replace(/<!-- -->/g, "");
+    expect(rede).toContain("Atingimento • Rede");
+    expect(rede).toContain("soma das 2 unidades com meta");
+    const a = renderToString(<MetasTab data={data} metas={metas} month="2026-09" unit="A" />).replace(/<!-- -->/g, "");
+    expect(a).toContain("Atingimento • A");
+    expect(a).toMatch(/Realizado<\/span><span[^>]*>R\$\s?130/); // faturamento da unidade A
+    const sem = renderToString(<MetasTab data={data} metas={metas} month="2026-09" unit="Z" />).replace(/<!-- -->/g, "");
+    expect(sem).toContain("Z não tem meta cadastrada");
   });
 
   it("avisa sobre níveis fora de ordem", () => {
