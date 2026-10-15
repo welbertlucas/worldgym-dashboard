@@ -5,6 +5,7 @@ import { RecommendationCard } from "@/components/tabs/RecommendationCard";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Select } from "@/components/ui/select";
 import { formatMonthLong } from "@/data/periods";
+import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 
 export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: string | null }) {
   const [sev, setSev] = useState<"all" | Severity>("all");
@@ -21,17 +22,21 @@ export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: s
         {evalMonth ? <>Avaliação do último mês fechado: <b>{formatMonthLong(evalMonth)}</b>, comparado ao mês anterior. O mês em andamento não entra nos alertas.</> : "Ainda não há mês fechado para avaliar."}{" "}
         Cada item separa o <b>fato</b> (calculado da planilha) das <b>hipóteses</b> (causas a verificar — o dashboard não conhece as causas).
       </p>
-      <div className="grid grid-cols-3 gap-3 max-w-xl" role="group" aria-label="Alertas por severidade">
-        {([
-          ["critical", "Críticos", "text-destructive", "bg-destructive/10"],
-          ["attention", "Atenção", "text-warning", "bg-warning/10"],
-          ["info", "Informativos", "text-muted-foreground", "bg-secondary"],
-        ] as const).map(([s, label, color, bg]) => (
-          <div key={s} className={`rounded-2xl px-4 py-3 ${bg}`}>
-            <p className={`font-display text-3xl font-semibold leading-none ${color}`}>{count(s)}</p>
-            <p className="text-xs font-medium text-muted-foreground mt-1.5">{label}</p>
-          </div>
-        ))}
+      <div className="card-surface overflow-hidden" role="group" aria-label="Alertas por severidade">
+        <div className="-mr-px -mb-px grid grid-cols-1 sm:grid-cols-3">
+          {([
+            ["critical", "Críticos", "bad"],
+            ["attention", "Atenção", "warn"],
+            ["info", "Informativos", "neutral"],
+          ] as const).map(([sv, label, tone]) => {
+            const n = count(sv);
+            const share = alerts.length ? n / alerts.length : 0;
+            return (
+              <KpiGaugeCard key={sv} title={label} value={String(n)} fill={share} marker={null} tone={tone}
+                details={[{ text: `${Math.round(share * 100)}% de ${alerts.length} ${alerts.length === 1 ? "item" : "itens"}`, tone: "neutral" }]} />
+            );
+          })}
+        </div>
       </div>
       <div role="group" aria-label="Filtros de alertas" className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-2xl border border-border bg-secondary/50 p-3 sm:p-4">
         <div className="flex flex-col gap-1 flex-1 min-w-[11rem] sm:flex-none">
