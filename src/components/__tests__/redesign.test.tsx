@@ -68,8 +68,7 @@ describe("Visão Executiva", () => {
     ).replace(/<!-- -->/g, "");
     for (const s of ["Visão executiva", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede", "Faturamento da rede", "Maiores faturamentos", "Prioridades da diretoria"]) expect(html).toContain(s);
     expect(html).toContain("vs. set. de 2025"); // comparativo anual quando o mês do ano anterior existe
-    expect(html).toContain("vs. mês anterior"); // mês fechado: compara com o anterior
-    expect(html).toContain("ago. de 2026"); // e mostra o valor anterior em cinza
+    expect(html).toContain("vs. ago. de 2026"); // mês fechado: compara com o mês anterior, citando o mês
     expect(html).toContain("Nenhum alerta crítico");
   });
 
@@ -80,7 +79,7 @@ describe("Visão Executiva", () => {
 });
 
 describe("mês em andamento", () => {
-  it("KPIs não mostram valor anterior nem comparações (não mistura parcial com fechado)", () => {
+  it("KPIs sinalizam 'Em andamento'; taxas comparam com o mês anterior de forma provisória e valores absolutos mostram o % do mês anterior", () => {
     const cur = monthKey(new Date());
     const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1);
     const months = [month(monthKey(prevDate), [unit("A")]), month(cur, [unit("A")])];
@@ -89,8 +88,10 @@ describe("mês em andamento", () => {
       <ExecutivaTab month={months[1]} prev={months[0]} alerts={[]} evalMonth={null} deltas={[]} metas={[]} onOpenRiscos={() => {}} onOpenUnidades={() => {}} />,
     ).replace(/<!-- -->/g, "");
     expect(html).toContain("em andamento");
-    expect(html).not.toContain("vs. mês anterior");
-    expect(html).not.toContain("vs. set.");
+    expect(html).toContain("Em andamento");
+    expect(html).toContain("provisória");
+    expect(html).toMatch(/100% de R\$[^<]* de /); // faturamento parcial = quanto do mês anterior já foi alcançado
+    expect(html).not.toContain("vs. set. de 2025"); // sem comparativo anual em mês parcial
   });
 });
 
