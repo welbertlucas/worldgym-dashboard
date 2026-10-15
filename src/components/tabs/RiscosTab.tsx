@@ -55,7 +55,7 @@ export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: s
       {shown.length === 0 ? (
         <p className="card-surface p-6 text-sm text-muted-foreground">Nenhum alerta com os filtros atuais.</p>
       ) : (
-        <div className="space-y-2">{shown.map((r, i) => <RecommendationCard key={r.id} rec={r} defaultOpen={i === 0 && r.severity === "critical"} />)}</div>
+        <div className="space-y-2">{shown.map((r, i) => <RecommendationCard key={r.id} rec={r} evalMonth={evalMonth} defaultOpen={i === 0 && r.severity === "critical"} />)}</div>
       )}
       <details className="card-surface p-4 text-sm text-muted-foreground">
         <summary className="cursor-pointer font-semibold text-foreground rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Como os alertas são calculados</summary>

@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { type Recommendation, ALERT_LABELS } from "@/data/recommendations";
 import { Badge } from "@/components/ui/badge";
+import { ShareButtons } from "@/components/tabs/ShareButtons";
 
 const sevLabel = { critical: "Crítico", attention: "Atenção", info: "Informativo" } as const;
 const sevVariant = { critical: "destructive", attention: "warning", info: "secondary" } as const;
@@ -18,11 +19,12 @@ function List({ items }: { items: string[] }) {
   return <ul className="list-disc pl-5 space-y-1">{items.map((h) => <li key={h}>{h}</li>)}</ul>;
 }
 
-export function RecommendationCard({ rec, defaultOpen = false, flat = false }: { rec: Recommendation; defaultOpen?: boolean; flat?: boolean }) {
+export function RecommendationCard({ rec, defaultOpen = false, flat = false, evalMonth }: { rec: Recommendation; defaultOpen?: boolean; flat?: boolean; evalMonth?: string | null }) {
   return (
+    <div className="relative">
     <details open={defaultOpen} className={flat ? "group" : "group card-surface open:shadow-md"}>
       <summary
-        className={`list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 sm:p-4 flex items-start gap-3 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${flat ? "px-5 sm:px-6" : "rounded-2xl group-open:rounded-b-none"}`}
+        className={`list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 sm:p-4 pr-[5.5rem] sm:pr-[12rem] flex items-start gap-3 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${flat ? "pl-5 sm:pl-6" : "rounded-2xl group-open:rounded-b-none"}`}
       >
         <Badge variant={sevVariant[rec.severity]} className="mt-0.5 shrink-0">{sevLabel[rec.severity]}</Badge>
         <div className="min-w-0 flex-1">
@@ -63,5 +65,7 @@ export function RecommendationCard({ rec, defaultOpen = false, flat = false }: {
         <p className="md:col-span-2 text-xs text-muted-foreground border-t border-border pt-3"><b>Acompanhar:</b> {rec.followUp}</p>
       </div>
     </details>
+    <ShareButtons rec={rec} evalMonth={evalMonth} className={`absolute right-3 sm:right-4 top-2.5 sm:top-3 ${flat ? "right-4 sm:right-6" : ""}`} />
+    </div>
   );
 }
