@@ -4,7 +4,6 @@ import { MetasTab } from "@/components/tabs/MetasTab";
 import { month, unit } from "@/data/__tests__/helpers";
 import { type Meta } from "@/data/metas";
 import { monthKey } from "@/data/periods";
-import { MetaCard } from "@/components/metas/TierGauge";
 
 const data = [month("2026-08", [unit("A"), unit("B")]), month("2026-09", [unit("A", { faturamento: 130000 }), unit("B", { faturamento: 90000 })])];
 const metas: Meta[] = [
@@ -70,40 +69,6 @@ describe("MetasTab", () => {
     expect(html).not.toContain(">Abaixo do bronze<");
     // unidades ordenadas pelo nível: B (prata) antes de A (abaixo)
     expect(html.indexOf(">B<")).toBeLessThan(html.indexOf(">A<"));
-  });
-});
-
-describe("MetaCard", () => {
-  const meta: Meta = { month: "2026-10", unit: "A", key: "faturamento", bronze: 100, prata: 120, ouro: 150 };
-
-  it("mostra o % do próximo nível e quanto falta (maior é melhor)", () => {
-    const html = renderToString(<MetaCard metaKey="faturamento" actual={50} meta={meta} partial />).replace(/<!-- -->/g, "");
-    expect(html).toContain("50%");
-    expect(html).toContain("da meta Bronze");
-    expect(html).toContain("faltam");
-  });
-
-  it("menor é melhor: pede para reduzir", () => {
-    const churn: Meta = { month: "2026-10", unit: "A", key: "churn", bronze: 8, prata: 6, ouro: 4 };
-    const html = renderToString(<MetaCard metaKey="churn" actual={10} meta={churn} partial={false} />).replace(/<!-- -->/g, "");
-    expect(html).toContain("reduzir");
-    expect(html).toContain("80%");
-  });
-
-  it("todos os níveis atingidos", () => {
-    const html = renderToString(<MetaCard metaKey="faturamento" actual={160} meta={meta} partial={false} />);
-    expect(html).toContain("Todos os níveis atingidos");
-    expect(html).toContain("<svg"); // velocímetro
-    expect(html).toContain("<line"); // ponteiro
-  });
-
-  it("nunca mostra 100% antes de atingir o nível; folga em % vira p.p. com casas suficientes", () => {
-    const inad: Meta = { month: "2026-10", unit: "A", key: "inadimplenciaPerc", bronze: 8, prata: 6, ouro: 4 };
-    const html = renderToString(<MetaCard metaKey="inadimplenciaPerc" actual={8.01} meta={inad} partial />).replace(/<!-- -->/g, "");
-    expect(html).toContain("99%");
-    expect(html).not.toContain("100%");
-    expect(html).toContain("0,01 p.p.");
-    expect(html).toContain("reduzir");
   });
 });
 

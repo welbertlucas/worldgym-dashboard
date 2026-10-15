@@ -4,7 +4,6 @@ import {
   type BulletScale, type Meta, type MetaKey, type Tier, type TierResult,
 } from "@/data/metas";
 import { cn } from "@/lib/utils";
-import { GaugeMeter } from "@/components/GaugeMeter";
 
 export const TIER_COLOR: Record<TierResult, string> = {
   ouro: "hsl(43 90% 48%)", prata: "hsl(220 9% 60%)", bronze: "hsl(25 60% 45%)", abaixo: "hsl(0 72% 51%)",
@@ -80,49 +79,5 @@ export function TierChips({ metaKey, actual, meta }: { metaKey: MetaKey; actual:
         </li>
       ))}
     </ul>
-  );
-}
-
-interface MetaCardProps { metaKey: MetaKey; actual: number; meta: Meta; partial: boolean }
-
-/** Cartão de uma meta: velocímetro com as faixas Bronze/Prata/Ouro, realizado, próximo nível e níveis cadastrados. */
-export function MetaCard({ metaKey, actual, meta, partial }: MetaCardProps) {
-  const reached = tierReached(metaKey, actual, meta);
-  const single = isSingleGoal(meta);
-  const { pct, next } = progressToNext(metaKey, actual, meta);
-  const scale = bulletScale(metaKey, actual, meta);
-  const lower = META_INDICATORS[metaKey].lowerIsBetter;
-  // Maior é melhor: a escala começa na metade do menor nível, para as faixas Bronze/Prata/Ouro ficarem legíveis
-  // (começar em 0 deixa a faixa "abaixo" ocupando quase todo o arco). O percentual exato está no texto.
-  const levels = TIERS.map((t) => meta[t]).filter((v): v is number => v !== undefined);
-  const gaugeMin = lower || !levels.length ? 0 : Math.min(...levels) * 0.5;
-  return (
-    <article className="card-surface p-5 flex flex-col gap-3" aria-label={`Meta de ${META_INDICATORS[metaKey].label}`}>
-      <header className="flex items-start justify-between gap-3">
-        <h4 className="text-sm font-semibold text-foreground">{META_INDICATORS[metaKey].label}</h4>
-        <TierBadge tier={reached} partial={partial} single={single} />
-      </header>
-      {scale && (
-        <div className="mx-auto w-full max-w-[17rem]">
-          <GaugeMeter
-            min={gaugeMin}
-            max={scale.max}
-            value={actual}
-            zones={scale.zones.map((z) => ({ from: z.from, to: z.to, color: TIER_COLOR[z.tier], opacity: z.tier === "abaixo" ? 0.3 : 0.8 }))}
-            label={`${META_INDICATORS[metaKey].label}: ${formatMetaValue(metaKey, actual)}, ${tierName(reached, partial, single)}`}
-          />
-        </div>
-      )}
-      <div className="text-center -mt-1">
-        <p className="text-xs text-muted-foreground">{partial ? "Realizado até agora" : "Realizado"}</p>
-        <p className="font-display text-[1.9rem] leading-none font-semibold tracking-tight text-foreground tabular-nums">{formatMetaValue(metaKey, actual)}</p>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {next
-            ? <>{shownPct(pct, false)}% da {levelOf(next.tier, single)} • {lower ? "reduzir " : "faltam "}<b className="text-foreground tabular-nums">{formatGap(metaKey, next.gap)}</b></>
-            : single ? "Meta atingida" : "Todos os níveis atingidos"}
-        </p>
-      </div>
-      <TierChips metaKey={metaKey} actual={actual} meta={meta} />
-    </article>
   );
 }

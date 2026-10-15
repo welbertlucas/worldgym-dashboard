@@ -1,39 +1,66 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
-import { GaugeMeter, arcPath, gaugeAngle } from "@/components/GaugeMeter";
+import { HalfMoon, arcAngle, arcPath } from "@/components/HalfMoon";
+import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
+import { absoluteGauge, rateGauge } from "@/data/kpiGauge";
 import { DonutList, shares } from "@/components/DonutList";
-import { HealthGauges } from "@/components/executiva/HealthGauges";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { dashboardData } from "@/data/dashboardData";
 import { INDICATOR_BY_KEY, gaugeMax, toneZones } from "@/data/unitIndicators";
 import { month, unit } from "@/data/__tests__/helpers";
+import { monthKey } from "@/data/periods";
 
 afterEach(() => { dashboardData.length = 0; });
 
-describe("GaugeMeter (geometria)", () => {
-  it("mapeia o valor para 0–180° e limita às pontas", () => {
-    expect(gaugeAngle(0, 0, 100)).toBe(0);
-    expect(gaugeAngle(50, 0, 100)).toBe(90);
-    expect(gaugeAngle(100, 0, 100)).toBe(180);
-    expect(gaugeAngle(-5, 0, 100)).toBe(0);
-    expect(gaugeAngle(500, 0, 100)).toBe(180);
-    expect(gaugeAngle(5, 5, 5)).toBe(0); // escala inválida não quebra
+describe("HalfMoon (geometria)", () => {
+  it("mapeia a fração para 0–180° e limita às pontas", () => {
+    expect(arcAngle(0)).toBe(0);
+    expect(arcAngle(0.5)).toBe(90);
+    expect(arcAngle(1)).toBe(180);
+    expect(arcAngle(-1)).toBe(0);
+    expect(arcAngle(7)).toBe(180);
+    expect(arcAngle(NaN)).toBe(0);
   });
 
   it("arco do topo vai do ponto esquerdo ao direito, passando por cima", () => {
-    const d = arcPath(0, 180, 80);
-    expect(d).toMatch(/^M 20\.00 100\.00 A 80 80 0 0 1 180\.00 100\.00$/);
+    expect(arcPath(0, 180, 80)).toMatch(/^M 20\.00 100\.00 A 80 80 0 0 1 180\.00 100\.00$/);
   });
 
-  it("desenha faixas, ponteiro e rótulos; ignora faixas sem largura", () => {
-    const html = renderToString(
-      <GaugeMeter max={100} value={64} label="Conversão: 64%" ticks={[{ value: 0, text: "0%" }, { value: 100, text: "100%" }]}
-        zones={[{ from: 0, to: 40, color: "red" }, { from: 40, to: 60, color: "orange" }, { from: 60, to: 100, color: "green" }, { from: 100, to: 100, color: "x" }]} />,
-    );
-    expect((html.match(/<path/g) ?? []).length).toBe(3);
-    expect(html).toContain("<line");
-    expect(html).toContain('aria-label="Conversão: 64%"');
-    expect(html).toContain(">100%<");
+  it("desenha trilho, arco e marca (sem ponteiro); sem preenchimento não há arco colorido", () => {
+    const html = renderToString(<HalfMoon fill={0.4} marker={0.8} color="green" label="Churn: 3%">3%</HalfMoon>);
+    expect((html.match(/<path/g) ?? []).length).toBe(2);
+    expect((html.match(/<line/g) ?? []).length).toBe(1);
+    expect(html).not.toContain("<circle");
+    expect(html).toContain('aria-label="Churn: 3%"');
+    expect((renderToString(<HalfMoon fill={0} color="green" label="x" />).match(/<path/g) ?? []).length).toBe(1);
+  });
+});
+
+describe("modelo dos indicadores em meia-lua", () => {
+  it("valor absoluto: arco = realizado ÷ mês anterior; a marca do mês anterior fica em 80%", () => {
+    const g = absoluteGauge(100, 100, false);
+    expect(g.marker).toBeCloseTo(0.8);
+    expect(g.fill).toBeCloseTo(0.8);
+    expect(g.tone).toBe("good");
+    expect(absoluteGauge(97, 100, false).tone).toBe("warn");
+    expect(absoluteGauge(90, 100, false).tone).toBe("bad");
+    expect(absoluteGauge(500, 100, false).fill).toBe(1);
+  });
+
+  it("mês em andamento: sem cor de bom/ruim; sem mês anterior: arco vazio", () => {
+    expect(absoluteGauge(30, 100, true).tone).toBe("neutral");
+    expect(absoluteGauge(30, 100, true).fill).toBeCloseTo(0.24);
+    expect(absoluteGauge(30, undefined, false)).toEqual({ fill: 0, marker: null, tone: "neutral" });
+  });
+
+  it("taxas: cor pela faixa de leitura existente e marca do mês anterior", () => {
+    const churn = INDICATOR_BY_KEY.churn;
+    const g = rateGauge(churn, 3, 4.5);
+    expect(g.tone).toBe(churn.tone!(3));
+    expect(g.tone).toBe("good");
+    expect(g.fill).toBeCloseTo(3 / 12);
+    expect(g.marker).toBeCloseTo(4.5 / 12);
+    expect(rateGauge(INDICATOR_BY_KEY.renovacoes, 44, undefined)).toMatchObject({ tone: "warn", marker: null });
   });
 });
 
@@ -55,23 +82,35 @@ describe("faixas dos velocímetros = regras de cor existentes", () => {
   });
 });
 
-describe("HealthGauges", () => {
-  it("mostra os quatro indicadores com valor, faixas e dica de leitura", () => {
-    const html = renderToString(<HealthGauges total={unit("TOTAL", { churn: 8.8, inadimplenciaPerc: 7, renovacoes: 44.7, icv: 63.6 })} partial={false} />).replace(/<!-- -->/g, "");
-    for (const s of ["Saúde da carteira", "Churn", "Inadimplência", "Renovação", "Taxa de conversão", "8,8%", "7,0%", "44,7%", "63,6%", "vermelho acima de 8%"]) expect(html).toContain(s);
-    expect((html.match(/<line/g) ?? []).length).toBe(4); // um ponteiro por velocímetro
-    expect(html).not.toContain("parciais");
+describe("Visão Executiva em meias-luas", () => {
+  const props = { alerts: [], evalMonth: "2026-09", deltas: [], metas: [], onOpenRiscos: () => {}, onOpenUnidades: () => {} };
+
+  it("cartão: número dentro do arco, chips de comparação e aviso de parcial", () => {
+    const html = renderToString(<KpiGaugeCard title="Churn" value="3,0%" fill={0.25} marker={0.4} tone="good" partial
+      details={[{ text: "-1,5 p.p. vs. set. de 2026", tone: "good", direction: "down" }]} />);
+    for (const s of ["Churn", "3,0%", "Em andamento", "-1,5 p.p. vs. set. de 2026"]) expect(html).toContain(s);
+    expect(html).not.toContain("<line x1=\"100\""); // sem ponteiro central
   });
 
-  it("mês em andamento é identificado como parcial", () => {
-    expect(renderToString(<HealthGauges total={unit("TOTAL")} partial />)).toContain("parciais");
-  });
-
-  it("aparece na Visão Executiva", () => {
+  it("mês fechado: oito indicadores, comparação com o mês anterior e sem 'Em andamento'", () => {
+    const ant = month("2026-08", [unit("A"), unit("B")]);
     const m = month("2026-09", [unit("A"), unit("B")]);
-    dashboardData.push(m);
-    const html = renderToString(<ExecutivaTab month={m} alerts={[]} evalMonth="2026-09" deltas={[]} metas={[]} onOpenRiscos={() => {}} onOpenUnidades={() => {}} />);
-    expect(html).toContain("Saúde da carteira");
+    dashboardData.push(ant, m);
+    const html = renderToString(<ExecutivaTab month={m} prev={ant} {...props} />).replace(/<!-- -->/g, "");
+    for (const s of ["Faturamento", "Recebimento", "Vendas Online", "Churn", "Inadimplência", "Renovação", "Conversão", "Metas da rede", "A marca no arco é o mês anterior"]) expect(html).toContain(s);
+    expect(html).not.toContain("Em andamento");
+    expect(html).not.toContain("Saúde da carteira");
+  });
+
+  it("mês em andamento: taxa compara com o mês anterior; valor absoluto mostra quanto do mês anterior já foi alcançado", () => {
+    const cur = monthKey(new Date());
+    const ant = month("2000-01", [unit("A", { faturamento: 1000000, churn: 4 })]);
+    const m = month(cur, [unit("A", { faturamento: 250000, churn: 3 })]);
+    dashboardData.push(ant, m);
+    const html = renderToString(<ExecutivaTab month={m} prev={ant} {...props} />).replace(/<!-- -->/g, "");
+    expect(html).toContain("Em andamento");
+    expect(html).toContain("0,0 p.p. vs. jan. de 2000"); // taxa parcial comparada com o mês anterior (o total do helper não varia)
+    expect(html).toMatch(/25% de R\$\s?1,0M de jan\. de 2000/); // faturamento parcial
   });
 });
 

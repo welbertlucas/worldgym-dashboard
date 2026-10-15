@@ -1,13 +1,15 @@
-import { DollarSign, ShoppingCart, AlertCircle, Target, Wallet, Users } from "lucide-react";
+import { Target } from "lucide-react";
 import { MetricCard, type MetricDetail } from "@/components/MetricCard";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { UnitHighlights } from "@/components/UnitHighlights";
 import { RevenueTrend } from "@/components/executiva/RevenueTrend";
 import { TopUnits } from "@/components/executiva/TopUnits";
-import { HealthGauges } from "@/components/executiva/HealthGauges";
+import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
+import { absoluteGauge, rateGauge } from "@/data/kpiGauge";
+import { INDICATOR_BY_KEY } from "@/data/unitIndicators";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
-import { type MonthData, dashboardData } from "@/data/dashboardData";
+import { type MonthData, type UnitData, dashboardData } from "@/data/dashboardData";
 import { type Alert } from "@/data/alerts";
 import { buildRecommendations } from "@/data/recommendations";
 import { type UnitDelta } from "@/data/unitMetrics";
@@ -43,7 +45,6 @@ const only = (...xs: (MetricDetail | undefined)[]) => xs.filter((x): x is Metric
 
 export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, onOpenRiscos, onOpenUnidades }: Props) {
   const partial = isPartialMonth(month.month);
-  const cmp = partial ? undefined : prev; // mês em andamento não é comparado
   const t = month.total;
   const critical = alerts.filter((a) => a.severity === "critical").length;
   const attention = alerts.filter((a) => a.severity === "attention").length;
@@ -59,50 +60,62 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
 
   // Mini-gráficos: últimos 12 meses FECHADOS (o mês em andamento não entra, para não parecer queda).
   const closed = dashboardData.filter((d) => !isPartialMonth(d.month)).slice(-12);
-  const spark = (pick: (m: MonthData) => number) => closed.map(pick);
 
   // Mesmo mês do ano anterior (só para mês fechado e se existir na planilha).
   const ly = partial ? undefined : dashboardData.find((d) => d.month === sameMonthLastYear(month.month));
   const shortMonth = (m: string) => new Date(Number(m.slice(0, 4)), Number(m.slice(5)) - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
   const lyShort = ly ? shortMonth(ly.month) : "";
-  const vsPrev = (cur: number, base: number | undefined, mode: "pct" | "pp", higher: boolean) => variation(cur, base, mode, higher, "mês anterior");
+  const prevShort = prev ? shortMonth(prev.month) : "";
+  const vsPrev = (cur: number, base: number | undefined, mode: "pct" | "pp", higher: boolean) => variation(cur, base, mode, higher, prevShort);
   const vsYear = (cur: number, base: number | undefined, mode: "pct" | "pp", higher: boolean) => (ly ? variation(cur, base, mode, higher, lyShort) : undefined);
-  // Linha tracejada dos mini-gráficos: o mesmo mês do ano anterior, quando existe.
-  const sparkPrior = (pick: (m: MonthData) => number) => closed.map((m) => {
-    const l = dashboardData.find((d) => d.month === sameMonthLastYear(m.month));
-    return l ? pick(l) : null;
-  });
-  const previous = (text: string) => (cmp ? { value: text, label: shortMonth(cmp.month) } : undefined);
   const partialMonthData = dashboardData.filter((d) => isPartialMonth(d.month)).slice(-1)[0];
 
   const recebRatio = t.faturamento ? (t.recebimento / t.faturamento) * 100 : 0;
-  const level = (v: number) => (v < 5 ? "success" : v < 8 ? "warning" : "destructive") as "success" | "warning" | "destructive";
   const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
-  const tile = "bg-white";
+
+  // Valor absoluto: arco = realizado ÷ mês anterior. Mês em andamento mostra quanto do mês anterior já foi alcançado.
+  const absTile = (title: string, pick: (u: UnitData) => number, fmt: (v: number) => string, extra: MetricDetail[] = []) => {
+    const cur = pick(t), base = prev ? pick(prev.total) : undefined;
+    const g = absoluteGauge(cur, base, partial);
+    const details = partial
+      ? only(...extra, base ? { text: `${Math.floor((cur / base) * 100)}% de ${fmt(base)} de ${prevShort}`, tone: "neutral" } : undefined)
+      : only(...extra, vsPrev(cur, base, "pct", true), vsYear(cur, ly ? pick(ly.total) : undefined, "pct", true));
+    return <KpiGaugeCard title={title} value={fmt(cur)} {...g} details={details} partial={partial} />;
+  };
+  // Taxa: arco na escala do indicador, cor pela faixa de leitura existente, marca = mês anterior (comparação provisória se parcial).
+  const rateTile = (key: "churn" | "inadimplenciaPerc" | "renovacoes" | "icv", title: string) => {
+    const ind = INDICATOR_BY_KEY[key];
+    const higher = ind.direction === "higher";
+    const cur = ind.value(t), base = prev ? ind.value(prev.total) : undefined;
+    const g = rateGauge(ind, cur, base);
+    return <KpiGaugeCard title={title} value={pctText(cur)} {...g} details={only(vsPrev(cur, base, "pp", higher), vsYear(cur, ly ? ind.value(ly.total) : undefined, "pp", higher))} partial={partial} />;
+  };
 
   return (
     <div className="space-y-8 sm:space-y-10">
       {partial && (
         <Notice>
-          <b>{formatMonthLong(month.month)} está em andamento</b> — os valores são parciais e não são comparados nem geram alertas.
+          <b>{formatMonthLong(month.month)} está em andamento</b> — os valores são parciais: a comparação com o mês anterior é provisória e não gera alertas.
           {evalMonth && <> Alertas e destaques usam o último mês fechado: <b>{formatMonthLong(evalMonth)}</b>.</>}
         </Notice>
       )}
 
       <section aria-labelledby="indicadores-titulo">
-        <SectionTitle level="page" hint="Totais da rede no mês selecionado. A linha tracejada de cada indicador é o mesmo mês do ano anterior.">
+        <SectionTitle level="page" hint="Totais da rede no mês selecionado. A marca no arco é o mês anterior.">
           <span id="indicadores-titulo">Visão executiva</span>
         </SectionTitle>
         <div className="card-surface overflow-hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-px bg-border">
-            <MetricCard bare className={tile} title="Faturamento" value={formatAbbreviatedNumber(t.faturamento)} previous={previous(formatAbbreviatedNumber(cmp?.total.faturamento ?? 0))} details={only(vsPrev(t.faturamento, cmp?.total.faturamento, "pct", true), vsYear(t.faturamento, ly?.total.faturamento, "pct", true))} icon={DollarSign} variant="success" spark={spark((m) => m.total.faturamento)} sparkCompare={sparkPrior((m) => m.total.faturamento)} />
-            <MetricCard bare className={tile} title="Recebimento" value={formatAbbreviatedNumber(t.recebimento)} previous={previous(formatAbbreviatedNumber(cmp?.total.recebimento ?? 0))} details={only({ text: `${pctText(recebRatio)} do faturamento`, tone: "neutral" }, vsPrev(t.recebimento, cmp?.total.recebimento, "pct", true), vsYear(t.recebimento, ly?.total.recebimento, "pct", true))} icon={Wallet} variant={recebRatio < 90 ? "warning" : "success"} spark={spark((m) => m.total.recebimento)} sparkCompare={sparkPrior((m) => m.total.recebimento)} />
-            <MetricCard bare className={tile} title="Vendas Online" value={brl(t.vendasOnline)} previous={previous(brl(cmp?.total.vendasOnline ?? 0))} details={only(vsPrev(t.vendasOnline, cmp?.total.vendasOnline, "pct", true), vsYear(t.vendasOnline, ly?.total.vendasOnline, "pct", true))} icon={ShoppingCart} variant="default" spark={spark((m) => m.total.vendasOnline)} sparkCompare={sparkPrior((m) => m.total.vendasOnline)} />
-            <MetricCard bare className={tile} title="Churn" value={pctText(t.churn)} previous={previous(pctText(cmp?.total.churn ?? 0))} details={only(vsPrev(t.churn, cmp?.total.churn, "pp", false), vsYear(t.churn, ly?.total.churn, "pp", false))} icon={AlertCircle} variant={level(t.churn)} spark={spark((m) => m.total.churn)} sparkCompare={sparkPrior((m) => m.total.churn)} />
-            <MetricCard bare className={tile} title="Inadimplência" value={pctText(t.inadimplenciaPerc)} previous={previous(pctText(cmp?.total.inadimplenciaPerc ?? 0))} details={only(vsPrev(t.inadimplenciaPerc, cmp?.total.inadimplenciaPerc, "pp", false), vsYear(t.inadimplenciaPerc, ly?.total.inadimplenciaPerc, "pp", false))} icon={Users} variant={level(t.inadimplenciaPerc)} spark={spark((m) => m.total.inadimplenciaPerc)} sparkCompare={sparkPrior((m) => m.total.inadimplenciaPerc)} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-border">
+            {absTile("Faturamento", (u) => u.faturamento, formatAbbreviatedNumber)}
+            {absTile("Recebimento", (u) => u.recebimento, formatAbbreviatedNumber, [{ text: `${pctText(recebRatio)} do faturamento`, tone: "neutral" }])}
+            {absTile("Vendas Online", (u) => u.vendasOnline, brl)}
+            {rateTile("churn", "Churn")}
+            {rateTile("inadimplenciaPerc", "Inadimplência")}
+            {rateTile("renovacoes", "Renovação")}
+            {rateTile("icv", "Conversão")}
             <MetricCard
               bare
-              className={tile}
+              className="bg-white"
               title="Metas da rede"
               value={redeTiers.length ? `${reachedBronze} de ${redeTiers.length}` : "—"}
               subtitle={redeTiers.length ? `${partial ? "Parcial do mês • " : ""}Ouro ${tierCount("ouro")} • Prata ${tierCount("prata")} • Bronze ${tierCount("bronze")} • ${partial ? "Ainda abaixo" : "Abaixo"} ${tierCount("abaixo")}` : undefined}
@@ -120,8 +133,6 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
         </div>
         <TopUnits units={month.units} monthLabel={formatMonthLong(month.month)} partial={partial} onOpen={onOpenUnidades} />
       </section>
-
-      <HealthGauges total={month.total} partial={partial} />
 
       <section aria-labelledby="prioridades-titulo" className="card-surface overflow-hidden">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 sm:p-6">
