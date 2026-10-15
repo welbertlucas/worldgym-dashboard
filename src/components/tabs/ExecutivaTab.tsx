@@ -104,7 +104,7 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
               className={tile}
               title="Metas da rede"
               value={redeTiers.length ? `${reachedBronze} de ${redeTiers.length}` : "—"}
-              subtitle={redeTiers.length ? `Ouro ${tierCount("ouro")} • Prata ${tierCount("prata")} • Bronze ${tierCount("bronze")} • Abaixo ${tierCount("abaixo")}` : undefined}
+              subtitle={redeTiers.length ? `${partial ? "Parcial do mês • " : ""}Ouro ${tierCount("ouro")} • Prata ${tierCount("prata")} • Bronze ${tierCount("bronze")} • ${partial ? "Ainda abaixo" : "Abaixo"} ${tierCount("abaixo")}` : undefined}
               icon={Target}
               variant={!redeTiers.length ? "default" : reachedBronze === redeTiers.length ? "success" : tierCount("abaixo") * 2 >= redeTiers.length ? "destructive" : "warning"}
               empty={redeTiers.length ? undefined : { message: "Sem metas da rede cadastradas para este mês", hint: "Preencha a aba Metas da planilha para acompanhar os níveis bronze, prata e ouro." }}

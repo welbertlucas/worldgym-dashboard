@@ -31,6 +31,9 @@ import {
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
+/** Intervalo da atualização automática dos dados (planilha e metas). */
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+
 const Index = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [compareMonth, setCompareMonth] = useState<string | null>(null);
@@ -54,13 +57,14 @@ const Index = () => {
   };
   const [, forceTick] = useState(0);
 
-  const refresh = async (silent = false) => {
+  /** `keepSelection`: atualização automática, que não troca o mês que o usuário está olhando. */
+  const refresh = async (silent = false, keepSelection = false) => {
     setSyncing(true);
     const [res] = await Promise.all([syncDashboardDataFromSheets(), syncMetasFromSheets()]);
     setSyncing(false);
     if (res.ok) {
       setLoadedAt(new Date());
-      setSelectedMonth(getLatestData().month);
+      setSelectedMonth((cur) => (keepSelection && cur ? cur : getLatestData().month));
       forceTick((n) => n + 1);
       if (!silent) toast({ title: "Dados atualizados", description: `${res.count} meses carregados da planilha.` });
     } else if (!silent) {
@@ -70,6 +74,11 @@ const Index = () => {
 
   useEffect(() => {
     refresh(true);
+    // Acompanhamento em tempo real: recarrega a planilha a cada 5 minutos, só com a aba visível.
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") refresh(true, true);
+    }, AUTO_REFRESH_MS);
+    return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
