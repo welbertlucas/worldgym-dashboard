@@ -24,7 +24,7 @@ export function RecommendationCard({ rec, defaultOpen = false, flat = false, eva
     <div className="relative">
     <details open={defaultOpen} className={flat ? "group" : "group card-surface open:shadow-md"}>
       <summary
-        className={`list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 sm:p-4 pr-[5.5rem] sm:pr-[12rem] flex items-start gap-3 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${flat ? "pl-5 sm:pl-6" : "rounded-2xl group-open:rounded-b-none"}`}
+        className={`list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 sm:p-4 pr-[4rem] sm:pr-[4.5rem] flex items-start gap-3 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${flat ? "pl-5 sm:pl-6" : "rounded-2xl group-open:rounded-b-none"}`}
       >
         <Badge variant={sevVariant[rec.severity]} className="mt-0.5 shrink-0">{sevLabel[rec.severity]}</Badge>
         <div className="min-w-0 flex-1">

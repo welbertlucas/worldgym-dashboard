@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
-import { recommendationText, whatsappUrl, DASHBOARD_URL } from "@/data/shareText";
+import { recommendationText, DASHBOARD_URL } from "@/data/shareText";
 import { type Recommendation } from "@/data/recommendations";
 
 const rec: Recommendation = {
@@ -26,26 +26,15 @@ describe("texto para WhatsApp", () => {
     expect(t).not.toContain("Ano anterior");
     expect(t).not.toContain("avaliação de");
   });
-
-  it("link do WhatsApp codifica o texto (acentos, quebras de linha, &)", () => {
-    const u = whatsappUrl("Gama & Asa Norte\nfaturamento: R$ 1.000 ação");
-    expect(u.startsWith("https://wa.me/?text=")).toBe(true);
-    expect(u).toContain("Gama%20%26%20Asa%20Norte%0Afaturamento");
-    expect(u).not.toContain(" ");
-    expect(decodeURIComponent(u.split("text=")[1])).toBe("Gama & Asa Norte\nfaturamento: R$ 1.000 ação");
-  });
 });
 
-describe("botões de compartilhar no card", () => {
-  it("cada card tem link do WhatsApp (nova aba, sem opener) e botão de copiar, fora do <summary>", () => {
+describe("botão de copiar no card", () => {
+  it("cada card tem o botão de copiar, fora do <summary>, e nenhum link externo", () => {
     const html = renderToString(<RecommendationCard rec={rec} evalMonth="2026-09" />);
-    expect(html).toContain('href="https://wa.me/?text=');
-    expect(html).toContain('target="_blank"');
-    expect(html).toContain('rel="noopener noreferrer"');
-    expect(html).toContain("Compartilhar no WhatsApp: Gama");
     expect(html).toContain("Copiar texto: Gama");
+    expect(html).not.toContain("wa.me");
+    expect(html).not.toContain("WhatsApp");
     const summary = html.slice(html.indexOf("<summary"), html.indexOf("</summary>"));
-    expect(summary).not.toContain("wa.me");
     expect(summary).not.toContain("<button");
   });
 });

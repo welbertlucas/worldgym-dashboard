@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, MessageCircle } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { type Recommendation } from "@/data/recommendations";
-import { recommendationText, whatsappUrl } from "@/data/shareText";
+import { recommendationText } from "@/data/shareText";
 
 const btn = "inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -26,7 +26,7 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-/** Compartilhar no WhatsApp e copiar o texto de um risco/recomendação. */
+/** Copiar o texto de um risco/recomendação (formatado para colar no WhatsApp). */
 export function ShareButtons({ rec, evalMonth, className }: { rec: Recommendation; evalMonth?: string | null; className?: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   useEffect(() => {
@@ -39,17 +39,6 @@ export function ShareButtons({ rec, evalMonth, className }: { rec: Recommendatio
   return (
     <div className={className}>
       <div className="flex items-center gap-1.5">
-        <a
-          href={whatsappUrl(recommendationText(rec, evalMonth))}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-9 w-9 sm:w-auto items-center justify-center gap-1.5 rounded-full border border-[hsl(168_76%_26%/0.35)] bg-white text-[hsl(168_76%_24%)] hover:bg-[hsl(168_76%_26%/0.08)] sm:px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`Compartilhar no WhatsApp: ${label}`}
-          title="Compartilhar no WhatsApp"
-        >
-          <MessageCircle className="h-4 w-4" aria-hidden />
-          <span className="hidden sm:inline" aria-hidden>WhatsApp</span>
-        </a>
         <button
           type="button"
           className={btn}
