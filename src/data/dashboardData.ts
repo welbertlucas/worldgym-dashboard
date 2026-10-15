@@ -55,7 +55,7 @@ function normalizeMonth(raw: string): string {
   return raw.replace(/^(\d{4})-(\d)$/, "$1-0$2");
 }
 
-function parseCSV(csv: string): MonthData[] {
+export function parseCSV(csv: string): MonthData[] {
   const lines = csv
     .split("\n")
     .map((l) => l.trim())
@@ -93,13 +93,22 @@ function parseCSV(csv: string): MonthData[] {
 
   const monthMap = new Map<string, { units: UnitData[]; total: UnitData | null }>();
 
+  // Linhas com o mês em branco (já aconteceu com a 1ª linha da planilha) herdam o mês
+  // da linha anterior; se ainda não houve nenhuma, o da primeira linha que tiver mês.
+  const firstMonth = lines
+    .slice(1)
+    .map((l) => normalizeMonth(parseCSVLine(l)[iMes]?.trim() ?? ""))
+    .find(Boolean);
+  let lastMonth = "";
+
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i]);
     if (cols.length < 3) continue;
 
-    const month = normalizeMonth(cols[iMes]?.trim() ?? "");
+    const month = normalizeMonth(cols[iMes]?.trim() ?? "") || lastMonth || firstMonth || "";
     const unit = cols[iUnidade]?.trim() ?? "";
     if (!month || !unit) continue;
+    lastMonth = month;
 
     const row: UnitData = {
       name: unit,

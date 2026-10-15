@@ -1,4 +1,5 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
+import { isPartialMonth } from "@/data/periods";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
@@ -20,14 +21,15 @@ export default function NovosContratosChart({ selectedUnit }: NovosContratosChar
     const cancelados = selectedUnit
       ? getUnitData(m.month, selectedUnit)?.cancelados ?? 0
       : m.total.cancelados;
-    return { month: formatMonth(m.month), novos, cancelados, saldo: novos - cancelados };
+    return { month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month), novos, cancelados, saldo: novos - cancelados };
   });
-  const avgNovos = data.reduce((s, d) => s + d.novos, 0) / (data.length || 1);
+  const closedData = data.filter((d) => !d.partial);
+  const avgNovos = closedData.reduce((s, d) => s + d.novos, 0) / (closedData.length || 1);
 
   return (
-    <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Novos Contratos x Cancelamentos</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses: {avgNovos.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</p>
+    <div className="card-surface p-5">
+      <h3 className="text-sm font-semibold text-foreground mb-1">Novos Contratos x Cancelamentos</h3>
+      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {avgNovos.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</p>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />

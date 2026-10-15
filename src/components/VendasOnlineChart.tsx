@@ -1,4 +1,5 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
+import { isPartialMonth } from "@/data/periods";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
@@ -17,15 +18,16 @@ const fmtCurrency = (v: number) =>
 
 export function VendasOnlineChart({ selectedUnit }: VendasOnlineChartProps) {
   const data = dashboardData.slice(-12).map((m) => ({
-    month: formatMonth(m.month),
+    month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month),
     vendas: selectedUnit ? getUnitData(m.month, selectedUnit)?.vendasOnline ?? 0 : m.total.vendasOnline,
   }));
-  const avgVendas = data.reduce((s, d) => s + d.vendas, 0) / (data.length || 1);
+  const closedData = data.filter((d) => !d.partial);
+  const avgVendas = closedData.reduce((s, d) => s + d.vendas, 0) / (closedData.length || 1);
 
   return (
-    <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Vendas Online</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses: {fmtCurrency(avgVendas)}</p>
+    <div className="card-surface p-5">
+      <h3 className="text-sm font-semibold text-foreground mb-1">Vendas Online</h3>
+      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {fmtCurrency(avgVendas)}</p>
       <ResponsiveContainer width="100%" height={250}>
         <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>

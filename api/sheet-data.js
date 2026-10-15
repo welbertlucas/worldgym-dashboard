@@ -15,6 +15,9 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
 ]);
 
+// Abas que o endpoint aceita via ?sheet=... (lista fechada). Sem o parâmetro lê a primeira aba.
+const ALLOWED_SHEETS = new Set(["Metas"]);
+
 function escapeCsvField(value) {
   const s = value ?? "";
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -45,8 +48,15 @@ export default async function handler(req, res) {
     const client = await auth.getClient();
     const { token } = await client.getAccessToken();
 
+    const sheet = typeof req.query?.sheet === "string" ? req.query.sheet : "";
+    if (sheet && !ALLOWED_SHEETS.has(sheet)) {
+      res.status(400).json({ error: "Aba não permitida" });
+      return;
+    }
+    const range = sheet ? `${encodeURIComponent(`'${sheet}'`)}!A1:Z2000` : "A1:Z2000";
+
     const sheetsRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/A1:Z2000?majorDimension=ROWS`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?majorDimension=ROWS`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!sheetsRes.ok) {

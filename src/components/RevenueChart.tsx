@@ -1,4 +1,5 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
+import { isPartialMonth } from "@/data/periods";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
@@ -19,14 +20,15 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
   const data = dashboardData.slice(-12).map((m) => {
     const val = selectedUnit ? getUnitData(m.month, selectedUnit)?.faturamento ?? 0 : m.total.faturamento;
     const rec = selectedUnit ? getUnitData(m.month, selectedUnit)?.recebimento ?? 0 : m.total.recebimento;
-    return { month: formatMonth(m.month), faturamento: val, recebimento: rec };
+    return { month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month), faturamento: val, recebimento: rec };
   });
-  const avgFaturamento = data.reduce((s, d) => s + d.faturamento, 0) / (data.length || 1);
+  const closedData = data.filter((d) => !d.partial);
+  const avgFaturamento = closedData.reduce((s, d) => s + d.faturamento, 0) / (closedData.length || 1);
 
   return (
-    <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Faturamento x Recebimento</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses: {fmtCurrency(avgFaturamento)}</p>
+    <div className="card-surface p-5">
+      <h3 className="text-sm font-semibold text-foreground mb-1">Faturamento x Recebimento</h3>
+      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {fmtCurrency(avgFaturamento)}</p>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />

@@ -7,8 +7,8 @@
     --background: 0 0% 100%;
     --foreground: 222 25% 14%;
 
-    --border: 220 20% 91%;
-    --input: 220 20% 91%;
+    --border: 222 16% 91%;
+    --input: 222 14% 88%;
     --ring: 4 90% 50%;
 
     --primary: 4 90% 50%;
@@ -32,7 +32,13 @@
     --success: 142 65% 36%;
     --success-foreground: 0 0% 100%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
+  }
+}
+
+@layer components {
+  .card-surface {
+    @apply rounded-2xl border border-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)];
   }
 }
 
@@ -43,7 +49,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: "Inter", sans-serif;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: "cv11", "ss01", "tnum";
     -webkit-font-smoothing: antialiased;
   }
 }

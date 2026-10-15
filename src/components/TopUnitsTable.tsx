@@ -78,14 +78,14 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
   if (!units.length) return null;
 
   return (
-    <div className="rounded-lg border border-border/60 bg-secondary/20 overflow-hidden">
+    <div className="card-surface overflow-hidden">
       <div className="px-4 py-3 border-b border-border/40 flex items-center gap-4 flex-wrap">
-        <h3 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground flex-1">Desempenho por Unidade</h3>
+        <h3 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground flex-1">Desempenho por Unidade</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border/40 text-[9px] uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b border-border/40 text-[11px] font-medium text-muted-foreground">
               {columns.map((col) => (
                 <th
                   key={col.key}

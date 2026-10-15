@@ -10,6 +10,16 @@ import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { UnitComparison } from "@/components/UnitComparison";
+import { TabBar, SectionTitle } from "@/components/TabBar";
+import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
+import { RiscosTab } from "@/components/tabs/RiscosTab";
+import { MetasTab } from "@/components/tabs/MetasTab";
+import { UnitDeltaChart } from "@/components/UnitDeltaChart";
+import { UnitHighlights } from "@/components/UnitHighlights";
+import { computeAlerts } from "@/data/alerts";
+import { computeUnitDeltas } from "@/data/unitMetrics";
+import { metasData, syncMetasFromSheets } from "@/data/metas";
+import { getLastClosedMonth, isPartialMonth } from "@/data/periods";
 import {
   getLatestData, getDataByMonth, comparePeriods, dashboardData,
   getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets,
@@ -28,11 +38,12 @@ const Index = () => {
   const [compareMonth, setCompareMonth] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [activeTab, setActiveTab] = useState("executiva");
   const [, forceTick] = useState(0);
 
   const refresh = async (silent = false) => {
     setSyncing(true);
-    const res = await syncDashboardDataFromSheets();
+    const [res] = await Promise.all([syncDashboardDataFromSheets(), syncMetasFromSheets()]);
     setSyncing(false);
     if (res.ok) {
       setSelectedMonth(getLatestData().month);
@@ -84,6 +95,15 @@ const Index = () => {
 
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, selectedUnit) : null;
 
+  const months = dashboardData.map((d) => d.month);
+  const evalMonth = getLastClosedMonth(months);
+  const alerts = computeAlerts(dashboardData, metasData);
+  const evalIdx = evalMonth ? months.indexOf(evalMonth) : -1;
+  const unitDeltas = evalIdx > 0 ? computeUnitDeltas(dashboardData[evalIdx], dashboardData[evalIdx - 1]) : [];
+  const selIdx = months.indexOf(fullMonthData.month);
+  const prevMonthData = selIdx > 0 ? dashboardData[selIdx - 1] : undefined;
+  const partialSelected = isPartialMonth(fullMonthData.month);
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
@@ -113,16 +133,16 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border/60 backdrop-blur-sm sticky top-0 z-50 bg-background/95 shadow-sm">
-        <div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-            <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
-              <img src={wgLogo} alt="World Gym" className="h-10 sm:h-14 w-auto" />
-              <div className="sm:border-l border-border/60 sm:pl-6">
-                <h1 className="font-display text-xl sm:text-3xl font-bold uppercase tracking-tight text-foreground">
-                  Dashboard de Resultados
+      <header className="border-b border-border sticky top-0 z-50 bg-white/85 backdrop-blur-md">
+        <div className="container mx-auto px-3 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <img src={wgLogo} alt="World Gym" className="h-9 sm:h-11 w-auto shrink-0" />
+              <div className="min-w-0 sm:border-l sm:border-border sm:pl-4">
+                <h1 className="text-base sm:text-xl font-semibold tracking-tight text-foreground leading-tight truncate">
+                  Dashboard de resultados
                 </h1>
-                <p className="text-muted-foreground mt-1 text-[10px] sm:text-xs uppercase font-semibold tracking-[0.15em]">
+                <p className="text-muted-foreground text-xs sm:text-sm truncate first-letter:uppercase">
                   {selectedUnit ? selectedUnit : "Rede"} • {formatDate(fullMonthData.month)}
                   {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
@@ -133,10 +153,10 @@ const Index = () => {
               size="sm"
               onClick={() => refresh(false)}
               disabled={syncing}
-              className="self-start sm:self-auto text-xs font-semibold"
+              className="shrink-0 text-xs font-medium"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Atualizando..." : "Atualizar da planilha"}
+              <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{syncing ? "Atualizando..." : "Atualizar da planilha"}</span>
             </Button>
           </div>
         </div>
@@ -156,10 +176,7 @@ const Index = () => {
         {/* Comparativo */}
         {comparison && (
           <section>
-            <div className="flex items-center gap-4 mb-4 sm:mb-6">
-              <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Comparativo de Períodos</h2>
-              <div className="h-px flex-1 bg-border/60" />
-            </div>
+            <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <ComparisonCard title="Faturamento" value1={comparison.faturamento.month1} value2={comparison.faturamento.month2} diff={comparison.faturamento.diff} month1={comparison.month1} month2={comparison.month2} format="currency" />
               <ComparisonCard title="Ticket Médio" value1={comparison.ticketMedio.month1} value2={comparison.ticketMedio.month2} diff={comparison.ticketMedio.diff} month1={comparison.month1} month2={comparison.month2} format="currency" />
@@ -175,65 +192,117 @@ const Index = () => {
           </section>
         )}
 
-        {/* KPIs */}
-        <section>
-          <div className="flex items-center gap-4 mb-4 sm:mb-6">
-            <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Métricas Principais</h2>
-            <div className="h-px flex-1 bg-border/60" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6">
-            <MetricCard title="Faturamento" value={formatAbbreviatedNumber(currentData.total.faturamento)} icon={DollarSign} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Recebimento" value={formatAbbreviatedNumber(currentData.total.recebimento)} icon={DollarSign} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Ticket Médio" value={formatCurrency(currentData.total.ticketMedio)} icon={DollarSign} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Vendas Online" value={formatCurrency(currentData.total.vendasOnline)} subtitle={currentData.total.faturamento ? `${((currentData.total.vendasOnline / currentData.total.faturamento) * 100).toFixed(2)}% do faturamento` : undefined} icon={ShoppingCart} variant="default" className="lg:col-span-2" />
+        <TabBar
+          tabs={[
+            { id: "executiva", label: "Visão Executiva" },
+            { id: "comercial", label: "Comercial" },
+            { id: "financeiro", label: "Financeiro" },
+            { id: "retencao", label: "Retenção" },
+            { id: "unidades", label: "Unidades" },
+            { id: "metas", label: "Metas" },
+            { id: "riscos", label: "Riscos e Recomendações", badge: alerts.filter((a) => a.severity === "critical").length },
+          ]}
+          active={activeTab}
+          onChange={setActiveTab}
+        />
+
+        {partialSelected && activeTab !== "executiva" && (
+          <p className="text-xs font-semibold text-warning">{formatDate(fullMonthData.month)} está em andamento — valores parciais.</p>
+        )}
+
+        {activeTab === "executiva" && (
+          <ExecutivaTab
+            month={fullMonthData}
+            prev={prevMonthData}
+            alerts={alerts}
+            evalMonth={evalMonth}
+            deltas={unitDeltas}
+            metas={metasData}
+            onOpenRiscos={() => setActiveTab("riscos")}
+          />
+        )}
+
+        {activeTab === "comercial" && (
+          <section>
+            <SectionTitle>Comercial</SectionTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6 mb-6">
             <MetricCard title="Novos Contratos" value={currentData.units.reduce((sum, unit) => sum + unit.novosContratos, 0).toLocaleString("pt-BR")} icon={TrendingUp} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Adimplentes" value={currentData.total.adimplentes.toLocaleString("pt-BR")} icon={Users} variant="default" className="lg:col-span-2" />
             <MetricCard title="Saldo de Clientes" value={(currentData.units.reduce((sum, unit) => sum + unit.novosContratos, 0) - currentData.total.cancelados).toLocaleString("pt-BR")} icon={Users} variant="default" className="lg:col-span-2" />
-            <MetricCard title="Taxa de Renovação" value={formatPercentage(currentData.total.renovacoes)} icon={TrendingUp} variant="success" className="lg:col-span-2" />
-            <MetricCard title="Taxa de Churn" value={formatPercentage(currentData.total.churn)} icon={AlertCircle} variant={currentData.total.churn < 5 ? "success" : currentData.total.churn < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
-            <MetricCard title="Taxa de Inadimplência" value={formatPercentage(currentData.total.inadimplenciaPerc)} icon={AlertCircle} variant={currentData.total.inadimplenciaPerc < 5 ? "success" : currentData.total.inadimplenciaPerc < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
             <MetricCard title="Taxa de Conversão" value={formatPercentage(currentData.total.icv)} icon={TrendingUp} variant="success" className="lg:col-span-2" />
+            <MetricCard title="Vendas Online" value={formatCurrency(currentData.total.vendasOnline)} subtitle={currentData.total.faturamento ? `${((currentData.total.vendasOnline / currentData.total.faturamento) * 100).toFixed(2)}% do faturamento` : undefined} icon={ShoppingCart} variant="default" className="lg:col-span-2" />
             <MetricCard title="Diárias" value={currentData.total.diarias ? formatCurrency(currentData.total.diarias) : "—"} icon={Calendar} variant="default" className="lg:col-span-2" />
             <MetricCard title="Taxa de Personal" value={currentData.total.personal ? formatCurrency(currentData.total.personal) : "—"} icon={Dumbbell} variant="default" className="lg:col-span-2" />
             <MetricCard title="Camisetas" value={currentData.total.camisetas ? formatCurrency(currentData.total.camisetas) : "—"} icon={Shirt} variant="default" className="lg:col-span-2" />
             <MetricCard title="Coqueteleiras" value={currentData.total.coqueteleiras ? formatCurrency(currentData.total.coqueteleiras) : "—"} icon={Coffee} variant="default" className="lg:col-span-2" />
+          </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+              <NovosContratosChart selectedUnit={selectedUnit} />
+              <VendasOnlineChart selectedUnit={selectedUnit} />
+            </div>
+          </section>
+        )}
+
+        {activeTab === "financeiro" && (
+          <section>
+            <SectionTitle>Financeiro</SectionTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6 mb-6">
+            <MetricCard title="Faturamento" value={formatAbbreviatedNumber(currentData.total.faturamento)} icon={DollarSign} variant="success" className="lg:col-span-2" />
+            <MetricCard title="Recebimento" value={formatAbbreviatedNumber(currentData.total.recebimento)} icon={DollarSign} variant="success" className="lg:col-span-2" />
+            <MetricCard title="Ticket Médio" value={formatCurrency(currentData.total.ticketMedio)} icon={DollarSign} variant="default" className="lg:col-span-2" />
+          </div>
+            <div className="grid grid-cols-1 gap-6 mb-6">
+              <RevenueChart selectedUnit={selectedUnit} />
+            </div>
+          </section>
+        )}
+
+        {activeTab === "retencao" && (
+          <section>
+            <SectionTitle>Retenção e Satisfação</SectionTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-6 mb-6">
+            <MetricCard title="Adimplentes" value={currentData.total.adimplentes.toLocaleString("pt-BR")} icon={Users} variant="default" className="lg:col-span-2" />
+            <MetricCard title="Taxa de Renovação" value={formatPercentage(currentData.total.renovacoes)} icon={TrendingUp} variant="success" className="lg:col-span-2" />
+            <MetricCard title="Taxa de Churn" value={formatPercentage(currentData.total.churn)} icon={AlertCircle} variant={currentData.total.churn < 5 ? "success" : currentData.total.churn < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
+            <MetricCard title="Taxa de Inadimplência" value={formatPercentage(currentData.total.inadimplenciaPerc)} icon={AlertCircle} variant={currentData.total.inadimplenciaPerc < 5 ? "success" : currentData.total.inadimplenciaPerc < 8 ? "warning" : "destructive"} className="lg:col-span-2" />
             <MetricCard title="Nota do Google" value={currentData.total.notaGoogle ? currentData.total.notaGoogle.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={Star} variant="success" className="lg:col-span-2" />
             <MetricCard title="NPS" value={currentData.total.nps ? currentData.total.nps.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={Smile} variant="success" className="lg:col-span-2" />
             {!selectedUnit && (
               <MetricCard title="Nota Reclame Aqui" value={fullMonthData.total.reclameAqui ? fullMonthData.total.reclameAqui.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—"} icon={MessageSquare} variant="success" className="lg:col-span-2" />
             )}
           </div>
-        </section>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+              <ChurnChart selectedUnit={selectedUnit} />
+              <InadimplenciaChart selectedUnit={selectedUnit} />
+            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+              <RenovacoesChart selectedUnit={selectedUnit} />
+            </div>
+          </section>
+        )}
 
-        {/* Gráficos */}
-        <section>
-          <div className="flex items-center gap-4 mb-4 sm:mb-6">
-            <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-foreground">Gráficos de Performance</h2>
-            <div className="h-px flex-1 bg-border/60" />
+        {activeTab === "unidades" && (
+          <div className="space-y-6 sm:space-y-8">
+            {unitDeltas.length > 0 && evalMonth && (
+              <section>
+                <SectionTitle>Evolução entre unidades</SectionTitle>
+                <div className="space-y-6">
+                  <UnitHighlights deltas={unitDeltas} />
+                  <UnitDeltaChart deltas={unitDeltas} curMonth={evalMonth} prevMonth={dashboardData[evalIdx - 1].month} />
+                </div>
+              </section>
+            )}
+            <section>
+              <TopUnitsTable selectedMonth={fullMonthData.month} />
+            </section>
+            <section>
+              <UnitComparison selectedMonth={fullMonthData.month} />
+            </section>
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-            <RevenueChart selectedUnit={selectedUnit} />
-            <NovosContratosChart selectedUnit={selectedUnit} />
-          </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-            <VendasOnlineChart selectedUnit={selectedUnit} />
-            <ChurnChart selectedUnit={selectedUnit} />
-          </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-            <RenovacoesChart selectedUnit={selectedUnit} />
-            <InadimplenciaChart selectedUnit={selectedUnit} />
-          </div>
-        </section>
+        )}
 
-        {/* Tabela por unidade */}
-        <section>
-          <TopUnitsTable selectedMonth={fullMonthData.month} />
-        </section>
+        {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} />}
 
-        {/* Comparativo unidade vs unidade */}
-        <section>
-          <UnitComparison selectedMonth={fullMonthData.month} />
-        </section>
+        {activeTab === "riscos" && <RiscosTab alerts={alerts} evalMonth={evalMonth} />}
       </main>
     </div>
   );

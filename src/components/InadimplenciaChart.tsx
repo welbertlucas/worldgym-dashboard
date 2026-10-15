@@ -1,4 +1,5 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
+import { isPartialMonth } from "@/data/periods";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
 } from "recharts";
@@ -14,15 +15,16 @@ function formatMonth(m: string) {
 
 export default function InadimplenciaChart({ selectedUnit }: InadimplenciaChartProps) {
   const data = dashboardData.slice(-12).map((m) => ({
-    month: formatMonth(m.month),
+    month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month),
     inadimplencia: parseFloat((selectedUnit ? getUnitData(m.month, selectedUnit)?.inadimplenciaPerc ?? 0 : m.total.inadimplenciaPerc).toFixed(2)),
   }));
-  const avgInadimplencia = data.reduce((s, d) => s + d.inadimplencia, 0) / (data.length || 1);
+  const closedData = data.filter((d) => !d.partial);
+  const avgInadimplencia = closedData.reduce((s, d) => s + d.inadimplencia, 0) / (closedData.length || 1);
 
   return (
-    <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <h3 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Taxa de Inadimplência (%)</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses: {avgInadimplencia.toFixed(1)}%</p>
+    <div className="card-surface p-5">
+      <h3 className="text-sm font-semibold text-foreground mb-1">Taxa de Inadimplência (%)</h3>
+      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {avgInadimplencia.toFixed(1)}%</p>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />

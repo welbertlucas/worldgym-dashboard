@@ -36,15 +36,15 @@ export function ComparisonCard({ title, value1, value2, diff, month1, month2, fo
   const DiffIcon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown;
 
   return (
-    <div className={cn("rounded-lg border border-border/60 border-l-4 bg-white p-4 flex flex-col gap-3 shadow-sm", isNeutral ? "border-l-primary" : isPositive === !invertColors ? "border-l-success" : "border-l-destructive")}>
-      <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{title}</span>
+    <div className={"card-surface p-5 flex flex-col gap-3"}>
+      <span className="text-sm font-semibold text-foreground">{title}</span>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase">{formatMonthLabel(month1)}</p>
+          <p className="text-xs text-muted-foreground">{formatMonthLabel(month1)}</p>
           <p className="text-base font-bold">{formatValue(value1, format)}</p>
         </div>
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase">{formatMonthLabel(month2)}</p>
+          <p className="text-xs text-muted-foreground">{formatMonthLabel(month2)}</p>
           <p className="text-base font-bold text-muted-foreground">{formatValue(value2, format)}</p>
         </div>
       </div>

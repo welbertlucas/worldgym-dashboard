@@ -25,7 +25,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
   return (
     <div className="flex flex-wrap gap-3 items-end">
       <div className="flex flex-col gap-1">
-        <label className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground">Mês de referência</label>
+        <label className="text-xs font-medium text-muted-foreground">Mês de referência</label>
         <Select value={selectedMonth} onChange={(e) => onMonthChange(e.target.value)} className="w-48">
           {months.map((m) => (
             <option key={m} value={m}>{formatMonth(m)}</option>
@@ -34,7 +34,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground">Comparar com</label>
+        <label className="text-xs font-medium text-muted-foreground">Comparar com</label>
         <div className="flex gap-1">
           <Select
             value={compareMonth ?? ""}
@@ -55,7 +55,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-[10px] uppercase font-semibold tracking-widest text-muted-foreground">Unidade</label>
+        <label className="text-xs font-medium text-muted-foreground">Unidade</label>
         <div className="flex gap-1">
           <Select
             value={selectedUnit ?? ""}
