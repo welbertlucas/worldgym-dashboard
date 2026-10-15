@@ -31,6 +31,13 @@ describe("MetasTab", () => {
     expect(html).not.toContain("Mês em andamento"); // mês fechado: sem aviso de parcial
   });
 
+  it("mostra os valores de bronze, prata e ouro de cada unidade", () => {
+    const html = renderToString(<MetasTab data={data} metas={metas} month="2026-09" />).replace(/<!-- -->/g, "");
+    const lista = html.slice(html.indexOf("Unidades por nível"));
+    expect((lista.match(/Bronze\s*<span[^>]*>[^<]*100/g) ?? []).length).toBeGreaterThanOrEqual(2); // unidades A e B
+    expect(lista).toMatch(/Ouro\s*<span[^>]*>[^<]*150/);
+  });
+
   it("avisa sobre níveis fora de ordem", () => {
     const html = renderToString(<MetasTab data={data} metas={[{ ...metas[1], bronze: 999999 }]} month="2026-09" />);
     expect(html).toContain("fora de ordem");

@@ -3,7 +3,7 @@ import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianG
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { Select } from "@/components/ui/select";
-import { MetaCard, TIER_COLOR, TierBadge, TierBullet, shownPct, tierName } from "@/components/metas/TierGauge";
+import { MetaCard, TIER_COLOR, TierBadge, TierBullet, TierChips, shownPct, tierName } from "@/components/metas/TierGauge";
 import { DonutList } from "@/components/DonutList";
 import { type MonthData } from "@/data/dashboardData";
 import {
@@ -148,6 +148,7 @@ export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Met
                   <span className="w-[10.5rem] flex justify-start"><TierBadge tier={r.tier} partial={partial} /></span>
                 </div>
                 <div className="col-span-2 sm:col-span-1 sm:order-2">{r.scale && <TierBullet scale={r.scale} thin />}</div>
+                <div className="col-span-2 sm:order-4 sm:col-span-3"><TierChips metaKey={k} actual={r.actual} meta={r.meta} /></div>
               </li>
             ))}
           </ol>
