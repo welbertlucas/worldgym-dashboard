@@ -34,7 +34,7 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
   const t = month.total;
   const critical = alerts.filter((a) => a.severity === "critical").length;
   const attention = alerts.filter((a) => a.severity === "attention").length;
-  const recs = buildRecommendations(alerts.filter((a) => a.severity !== "info")).slice(0, 5);
+  const recs = buildRecommendations(alerts.filter((a) => a.severity !== "info"), dashboardData).slice(0, 5);
 
   // Metas da rede no mês exibido: progresso rumo ao próximo nível e nível atingido
   const redeGoals: RedeGoal[] = metas

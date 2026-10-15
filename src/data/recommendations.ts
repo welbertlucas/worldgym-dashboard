@@ -1,9 +1,13 @@
 import { type Alert, type AlertKind, type Severity, type YoyReading } from "@/data/alerts";
+import { type MonthData } from "@/data/dashboardData";
+import { buildEvidence, type ProbeKey } from "@/data/evidence";
 
 // Recomendações por regra (sem IA e sem chamada externa). Cada uma separa o FATO (vem do alerta,
 // calculado da planilha) das HIPÓTESES (causas a verificar — nunca afirmadas) e das AÇÕES.
 interface Template {
   hypotheses: string[];
+  /** Ações prioritárias quando os dados dão sinal dos indicadores indicados (entram antes das ações-padrão). */
+  focus?: { probes: ProbeKey[]; text: string }[];
   investigate: string[];
   correct: string[];
   followUp: string;
@@ -11,6 +15,11 @@ interface Template {
 
 const TEMPLATES: Record<AlertKind, Template> = {
   faturamento: {
+    focus: [
+      { probes: ["novos", "conv"], text: "Os dados mostram queda de entrada: priorizar ação comercial local (captação, conversão e equipe de vendas)" },
+      { probes: ["cancel", "base", "renov", "inad"], text: "Os dados mostram perda de base: priorizar retenção da carteira em risco (renovação, cobrança e contato com quem pode cancelar)" },
+      { probes: ["ticket"], text: "O ticket médio caiu: revisar descontos, mix de planos e política de preço da unidade" },
+    ],
     hypotheses: ["Queda de novos contratos ou de renovações no período", "Aumento de cancelamentos ou de inadimplência", "Mudança de preço/mix de planos ou desconto promocional", "Evento pontual (obra, fechamento parcial, feriados)"],
     investigate: ["Abrir a aba Comercial/Retenção da unidade e comparar novos contratos, cancelados e renovação com o mês anterior", "Confirmar com o gerente se houve evento pontual no mês"],
     correct: ["Se for perda de entrada: reforçar ação comercial local; se for perda de base: plano de retenção para a carteira em risco"],
@@ -23,6 +32,10 @@ const TEMPLATES: Record<AlertKind, Template> = {
     followUp: "Vendas online do mês seguinte vs. média dos 3 meses anteriores",
   },
   churn: {
+    focus: [
+      { probes: ["renov"], text: "A renovação também caiu: priorizar o contato antes do vencimento do contrato" },
+      { probes: ["satisf"], text: "A nota do Google caiu: ouvir os alunos (pesquisa rápida) antes de agir nos cancelamentos" },
+    ],
     hypotheses: ["Vencimento de planos contratados em campanha anterior", "Insatisfação (verificar Nota Google/NPS da unidade)", "Concorrência nova na região", "Falha no processo de renovação"],
     investigate: ["Levantar motivos de cancelamento da unidade no mês (a planilha não os tem)", "Comparar churn com renovação e inadimplência da mesma unidade"],
     correct: ["Contato ativo com alunos em fim de contrato e com baixa frequência; revisar o processo de renovação"],
@@ -47,6 +60,10 @@ const TEMPLATES: Record<AlertKind, Template> = {
     followUp: "Nível de meta atingido no próximo mês fechado",
   },
   yoyFaturamento: {
+    focus: [
+      { probes: ["base"], text: "A base de alunos é menor que a do ano anterior: meta de adimplentes e plano de recuperação de carteira" },
+      { probes: ["novos", "conv"], text: "A entrada de alunos também caiu: plano comercial com meta de contratos" },
+    ],
     hypotheses: ["Perda de tração ao longo do ano (base de alunos menor que a do mesmo mês do ano anterior)", "Mudança de preço, mix de planos ou desconto em relação ao ano anterior", "Concorrência nova na região ou mudança no entorno da unidade"],
     investigate: ["Comparar adimplentes, novos contratos e cancelados da unidade com o mesmo mês do ano anterior", "Verificar se a unidade passou por obra, mudança de horário ou de equipe no período"],
     correct: ["Plano de recuperação com meta de adimplentes e de novos contratos para os próximos meses"],
@@ -90,6 +107,29 @@ const TEMPLATES: Record<AlertKind, Template> = {
   },
 };
 
+/** Quais indicadores dão indício de cada hipótese (as hipóteses seguem "a verificar"). */
+const HYPOTHESIS_PROBES: Record<string, ProbeKey[]> = {
+  "Queda de novos contratos ou de renovações no período": ["novos", "renov"],
+  "Aumento de cancelamentos ou de inadimplência": ["cancel", "inad"],
+  "Mudança de preço/mix de planos ou desconto promocional": ["ticket"],
+  "Insatisfação (verificar Nota Google/NPS da unidade)": ["satisf"],
+  "Falha no processo de renovação": ["renov"],
+  "Inadimplência elevada": ["inad"],
+  "Perda de tração ao longo do ano (base de alunos menor que a do mesmo mês do ano anterior)": ["base"],
+  "Mudança de preço, mix de planos ou desconto em relação ao ano anterior": ["ticket"],
+  "Queda de satisfação (verificar Nota Google/NPS)": ["satisf"],
+  "Mudança no tipo de contrato vendido (menos contratos, ticket diferente)": ["ticket"],
+  "Menor volume de captação (campanhas, equipe comercial, divulgação) que no ano anterior": ["conv", "novos"],
+  "Canal online menos divulgado ou menos usado que no ano anterior": []
+};
+
+export type Support = "indicio" | "sem-indicio" | "neutro";
+export interface Hypothesis {
+  text: string;
+  /** indicio = os dados mostram sinal; sem-indicio = olhamos os dados e não há sinal; neutro = a planilha não tem como testar. */
+  support: Support;
+}
+
 export interface Recommendation {
   id: string;
   unit: string;
@@ -99,24 +139,43 @@ export interface Recommendation {
   fact: string;
   rule: string;
   yoy?: YoyReading;
-  hypotheses: string[];
+  /** O que os números da planilha mostram além do fato do alerta (sinais, indicadores sem sinal e contexto). */
+  evidence: { signals: string[]; quiet: string[]; context: string[] };
+  hypotheses: Hypothesis[];
   investigate: string[];
   correct: string[];
   followUp: string;
 }
 
 const sevScore: Record<Severity, number> = { critical: 3, attention: 2, info: 0.5 };
+const supportRank: Record<Support, number> = { indicio: 0, neutro: 1, "sem-indicio": 2 };
 
-/** Prioridade = severidade × (peso da unidade no faturamento da rede, com piso para não zerar unidades pequenas). */
-export function buildRecommendations(alerts: Alert[]): Recommendation[] {
+/**
+ * Prioridade = severidade × (peso da unidade no faturamento da rede, com piso para não zerar unidades pequenas).
+ * Com `data` (todos os meses da planilha), cada recomendação ganha as evidências dos números e as hipóteses
+ * são ordenadas pelo que os dados indicam; sem `data`, mantém o texto-padrão.
+ */
+export function buildRecommendations(alerts: Alert[], data: MonthData[] = []): Recommendation[] {
   return alerts
     .map((a) => {
       const t = TEMPLATES[a.kind];
+      const ev = data.length ? buildEvidence(a, data) : null;
+      const hypotheses: Hypothesis[] = t.hypotheses
+        .map((text, i) => {
+          const probes = HYPOTHESIS_PROBES[text] ?? [];
+          const seen = probes.filter((k) => ev?.checked.has(k));
+          const support: Support = !ev || !seen.length ? "neutro" : seen.some((k) => ev.supported.has(k)) ? "indicio" : "sem-indicio";
+          return { text, support, i };
+        })
+        .sort((x, y) => supportRank[x.support] - supportRank[y.support] || x.i - y.i)
+        .map(({ text, support }) => ({ text, support }));
+      const prioritized = (t.focus ?? []).filter((f) => f.probes.some((k) => ev?.supported.has(k))).map((f) => f.text);
       return {
         id: a.id, unit: a.unit, kind: a.kind, severity: a.severity,
         priority: sevScore[a.severity] * (0.5 + Math.min(a.weight, 0.2) * 5),
         fact: a.fact, rule: a.rule, yoy: a.yoy,
-        hypotheses: t.hypotheses, investigate: t.investigate, correct: t.correct, followUp: t.followUp,
+        evidence: { signals: ev?.signals.map((x) => x.text) ?? [], quiet: ev?.quiet ?? [], context: ev?.context ?? [] },
+        hypotheses, investigate: t.investigate, correct: [...prioritized, ...t.correct], followUp: t.followUp,
       };
     })
     .sort((x, y) => y.priority - x.priority);

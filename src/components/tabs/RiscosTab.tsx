@@ -5,12 +5,13 @@ import { RecommendationCard } from "@/components/tabs/RecommendationCard";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Select } from "@/components/ui/select";
 import { formatMonthLong } from "@/data/periods";
+import { dashboardData } from "@/data/dashboardData";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 
 export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: string | null }) {
   const [sev, setSev] = useState<"all" | Severity>("all");
   const [unit, setUnit] = useState("");
-  const recs = buildRecommendations(alerts);
+  const recs = buildRecommendations(alerts, dashboardData);
   const units = Array.from(new Set(recs.map((r) => r.unit))).sort();
   const shown = recs.filter((r) => (sev === "all" || r.severity === sev) && (!unit || r.unit === unit));
   const count = (s: Severity) => alerts.filter((a) => a.severity === s).length;
