@@ -104,7 +104,7 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
           </div>
         </div>
         {recs.length ? (
-          <div className="divide-y divide-border border-t border-border">{recs.map((r) => <RecommendationCard key={r.id} rec={r} flat />)}</div>
+          <div className="divide-y divide-border border-t border-border">{recs.map((r) => <RecommendationCard key={r.id} rec={r} flat evalMonth={evalMonth} />)}</div>
         ) : (
           <p className="border-t border-border p-5 text-sm text-muted-foreground">Nenhum alerta crítico ou de atenção no último mês fechado.</p>
         )}
