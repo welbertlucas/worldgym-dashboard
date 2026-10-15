@@ -1,7 +1,7 @@
-import { type UnitData, type MonthData } from "@/data/dashboardData";
+import { type UnitData, type MonthData, dashboardData } from "@/data/dashboardData";
 
 // Aba "Metas" da planilha — colunas: Mês | Unidade | Indicador | Bronze | Prata | Ouro
-// Unidade "TOTAL" (ou "Rede") = meta da rede. Mês no formato aaaa-mm.
+// Unidade "TOTAL" (ou "Rede") = meta da rede. Mês: aaaa-mm, ou por nome ("Outubro", "out/2026", "10/2026"); sem ano, vale o ano do último mês da planilha.
 const METAS_URL = "https://worldgym-dashboard-sigma.vercel.app/api/sheet-data?sheet=Metas";
 
 export type MetaKey = keyof Pick<
@@ -75,8 +75,30 @@ function splitLine(line: string): string[] {
   return out;
 }
 
+function defaultMetaYear(): number {
+  const last = dashboardData[dashboardData.length - 1]?.month;
+  return last ? Number(last.slice(0, 4)) : new Date().getFullYear();
+}
+
+const MONTH_NAMES = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+/** Converte o texto da coluna Mês em "aaaa-mm". Aceita aaaa-mm, "Outubro", "out/2026", "10/2026". null se não reconhecer. */
+export function parseMetaMonth(raw: string, defaultYear: number): string | null {
+  const t = raw.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  let m = t.match(/^(\d{4})-(\d{1,2})$/);
+  if (m) return +m[2] >= 1 && +m[2] <= 12 ? `${m[1]}-${m[2].padStart(2, "0")}` : null;
+  m = t.match(/^(\d{1,2})[\/.-](\d{4})$/);
+  if (m) return +m[1] >= 1 && +m[1] <= 12 ? `${m[2]}-${m[1].padStart(2, "0")}` : null;
+  m = t.match(/^([a-z]+)\.?(?:\s*(?:de|\/|-)?\s*(\d{2}|\d{4}))?$/);
+  if (!m) return null;
+  const idx = MONTH_NAMES.findIndex((n) => n === m![1] || (m![1].length >= 3 && n.startsWith(m![1])));
+  if (idx < 0) return null;
+  const year = m[2] ? (m[2].length === 2 ? 2000 + +m[2] : +m[2]) : defaultYear;
+  return `${year}-${String(idx + 1).padStart(2, "0")}`;
+}
+
 /** Devolve [] se o CSV não tiver o formato da aba Metas (ex.: endpoint ainda devolve a aba principal). */
-export function parseMetasCSV(csv: string): Meta[] {
+export function parseMetasCSV(csv: string, defaultYear: number = defaultMetaYear()): Meta[] {
   const lines = csv.split("\n").map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return [];
   const header = splitLine(lines[0]).map((h) => h.trim().toLowerCase());
@@ -88,10 +110,10 @@ export function parseMetasCSV(csv: string): Meta[] {
   const out: Meta[] = [];
   for (const line of lines.slice(1)) {
     const c = splitLine(line);
-    const month = (c[iM] ?? "").trim().replace(/^(\d{4})-(\d)$/, "$1-0$2");
+    const month = parseMetaMonth(c[iM] ?? "", defaultYear);
     const unitRaw = (c[iU] ?? "").trim();
     const key = INDICATOR_ALIASES[(c[iI] ?? "").trim().toLowerCase()];
-    if (!/^\d{4}-\d{2}$/.test(month) || !unitRaw || !key) continue;
+    if (!month || !unitRaw || !key) continue;
     const meta: Meta = { month, key, unit: ["REDE", "TOTAL"].includes(unitRaw.toUpperCase()) ? "TOTAL" : unitRaw };
     for (const tier of TIERS) {
       const v = iT[tier] >= 0 ? parseBR(c[iT[tier]]) : NaN;
