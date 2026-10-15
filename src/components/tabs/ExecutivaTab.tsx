@@ -5,6 +5,7 @@ import { Notice } from "@/components/Notice";
 import { UnitHighlights } from "@/components/UnitHighlights";
 import { RevenueTrend } from "@/components/executiva/RevenueTrend";
 import { TopUnits } from "@/components/executiva/TopUnits";
+import { HealthGauges } from "@/components/executiva/HealthGauges";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
 import { type MonthData, dashboardData } from "@/data/dashboardData";
 import { type Alert } from "@/data/alerts";
@@ -119,6 +120,8 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
         </div>
         <TopUnits units={month.units} monthLabel={formatMonthLong(month.month)} partial={partial} onOpen={onOpenUnidades} />
       </section>
+
+      <HealthGauges total={month.total} partial={partial} />
 
       <section aria-labelledby="prioridades-titulo" className="card-surface overflow-hidden">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 sm:p-6">

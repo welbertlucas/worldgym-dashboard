@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sidebar, MobileDrawer } from "@/components/Sidebar";
 import { Notice } from "@/components/Notice";
+import { DonutList } from "@/components/DonutList";
 import {
   TrendingUp, Users, DollarSign, AlertCircle, ShoppingCart,
   RefreshCw, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
@@ -277,6 +278,18 @@ const Index = () => {
               <NovosContratosChart selectedUnit={selectedUnit} />
               <VendasOnlineChart selectedUnit={selectedUnit} />
             </div>
+            <DonutList
+              title="Receitas complementares"
+              subtitle="Participação de cada receita na soma das quatro"
+              center={{ value: formatAbbreviatedNumber(currentData.total.diarias + currentData.total.personal + currentData.total.camisetas + currentData.total.coqueteleiras), caption: "soma das quatro" }}
+              empty="Sem receitas complementares lançadas neste mês."
+              items={[
+                { label: "Diárias", value: currentData.total.diarias, color: "hsl(222 25% 22%)", valueText: formatCurrency(currentData.total.diarias) },
+                { label: "Taxa de personal", value: currentData.total.personal, color: "hsl(4 90% 50%)", valueText: formatCurrency(currentData.total.personal) },
+                { label: "Camisetas", value: currentData.total.camisetas, color: "hsl(222 14% 52%)", valueText: formatCurrency(currentData.total.camisetas) },
+                { label: "Coqueteleiras", value: currentData.total.coqueteleiras, color: "hsl(220 14% 78%)", valueText: formatCurrency(currentData.total.coqueteleiras) },
+              ]}
+            />
           </section>
         )}
 

@@ -3,7 +3,8 @@ import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianG
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { Select } from "@/components/ui/select";
-import { MetaCard, TIER_COLOR, TierBadge, TierBullet, shownPct } from "@/components/metas/TierGauge";
+import { MetaCard, TIER_COLOR, TierBadge, TierBullet, shownPct, tierName } from "@/components/metas/TierGauge";
+import { DonutList } from "@/components/DonutList";
 import { type MonthData } from "@/data/dashboardData";
 import {
   META_INDICATORS, TIER_LABEL, TIERS, actualFor, bulletScale, formatMetaValue, getMeta, metaWarnings, progressToNext, tierReached,
@@ -126,14 +127,15 @@ export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Met
               </Select>
             </div>
           </div>
-          <ul className="mb-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground" aria-label="Unidades por nível">
-            {tierCounts.map(({ t, n }) => (
-              <li key={t} className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ background: TIER_COLOR[t] }} aria-hidden />
-                {t === "abaixo" && partial ? "Ainda abaixo do bronze" : TIER_LABEL[t]} <b className="text-foreground tabular-nums">{n}</b>
-              </li>
-            ))}
-          </ul>
+          <DonutList
+            className="mb-4"
+            title="Unidades por nível"
+            subtitle={`${META_INDICATORS[k].label} • ${partial ? "parcial do mês em andamento" : "resultado do mês"}`}
+            center={{ value: String(unitRows.length), caption: unitRows.length === 1 ? "unidade" : "unidades" }}
+            items={tierCounts.map(({ t: tier, n }) => ({
+              label: tierName(tier, partial), value: n, color: TIER_COLOR[tier], valueText: `${n} ${n === 1 ? "unidade" : "unidades"}`,
+            }))}
+          />
           <ol className="card-surface divide-y divide-border">
             {unitRows.map((r) => (
               <li key={r.name} className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[11rem_minmax(0,1fr)_13.5rem] items-center gap-x-4 gap-y-2 px-4 py-3">

@@ -4,6 +4,7 @@ import {
   type BulletScale, type Meta, type MetaKey, type Tier, type TierResult,
 } from "@/data/metas";
 import { cn } from "@/lib/utils";
+import { GaugeMeter } from "@/components/GaugeMeter";
 
 export const TIER_COLOR: Record<TierResult, string> = {
   ouro: "hsl(43 90% 48%)", prata: "hsl(220 9% 60%)", bronze: "hsl(25 60% 45%)", abaixo: "hsl(0 72% 51%)",
@@ -31,27 +32,6 @@ export function TierBadge({ tier, partial = false }: { tier: TierResult; partial
       <span className="h-2 w-2 rounded-full" style={{ background: TIER_COLOR[tier] }} aria-hidden />
       {tierName(tier, partial)}
     </span>
-  );
-}
-
-/** Anel de progresso rumo ao próximo nível (0–100%). */
-export function ProgressRing({ pct, color, size = 92, label }: { pct: number; color: string; size?: number; label?: number }) {
-  const r = 36;
-  const c = 2 * Math.PI * r;
-  const shown = Math.max(0, Math.min(100, pct));
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg viewBox="0 0 88 88" width={size} height={size} role="img" aria-label={`${label ?? Math.round(shown)}% da meta`}>
-        <circle cx="44" cy="44" r={r} fill="none" stroke="hsl(222 16% 92%)" strokeWidth="8" />
-        <circle
-          cx="44" cy="44" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
-          strokeDasharray={`${(shown / 100) * c} ${c}`} transform="rotate(-90 44 44)"
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center font-display text-xl font-semibold tabular-nums text-foreground">
-        {label ?? Math.round(shown)}%
-      </span>
-    </div>
   );
 }
 
@@ -99,33 +79,43 @@ export function TierChips({ metaKey, actual, meta }: { metaKey: MetaKey; actual:
 
 interface MetaCardProps { metaKey: MetaKey; actual: number; meta: Meta; partial: boolean }
 
-/** Cartão de uma meta: anel, valor realizado, próximo nível, barra de faixas e níveis. */
+/** Cartão de uma meta: velocímetro com as faixas Bronze/Prata/Ouro, realizado, próximo nível e níveis cadastrados. */
 export function MetaCard({ metaKey, actual, meta, partial }: MetaCardProps) {
   const reached = tierReached(metaKey, actual, meta);
   const { pct, next } = progressToNext(metaKey, actual, meta);
   const scale = bulletScale(metaKey, actual, meta);
-  const ringColor = TIER_COLOR[next ? next.tier : "ouro"];
+  const lower = META_INDICATORS[metaKey].lowerIsBetter;
+  // Maior é melhor: a escala começa na metade do menor nível, para as faixas Bronze/Prata/Ouro ficarem legíveis
+  // (começar em 0 deixa a faixa "abaixo" ocupando quase todo o arco). O percentual exato está no texto.
+  const levels = TIERS.map((t) => meta[t]).filter((v): v is number => v !== undefined);
+  const gaugeMin = lower || !levels.length ? 0 : Math.min(...levels) * 0.5;
   return (
-    <article className="card-surface p-5 flex flex-col gap-4" aria-label={`Meta de ${META_INDICATORS[metaKey].label}`}>
+    <article className="card-surface p-5 flex flex-col gap-3" aria-label={`Meta de ${META_INDICATORS[metaKey].label}`}>
       <header className="flex items-start justify-between gap-3">
         <h4 className="text-sm font-semibold text-foreground">{META_INDICATORS[metaKey].label}</h4>
         <TierBadge tier={reached} partial={partial} />
       </header>
-      <div className="flex items-center gap-4">
-        <ProgressRing pct={pct} color={ringColor} label={shownPct(pct, !next)} />
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{partial ? "Realizado até agora" : "Realizado"}</p>
-          <p className="font-display text-[1.75rem] leading-none font-semibold tracking-tight text-foreground tabular-nums">{formatMetaValue(metaKey, actual)}</p>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {next
-              ? <>{shownPct(pct, false)}% da meta {TIER_LABEL[next.tier]} • {META_INDICATORS[metaKey].lowerIsBetter ? "reduzir " : "faltam "}<b className="text-foreground tabular-nums">{formatGap(metaKey, next.gap)}</b></>
-              : "Todos os níveis atingidos"}
-          </p>
+      {scale && (
+        <div className="mx-auto w-full max-w-[17rem]">
+          <GaugeMeter
+            min={gaugeMin}
+            max={scale.max}
+            value={actual}
+            zones={scale.zones.map((z) => ({ from: z.from, to: z.to, color: TIER_COLOR[z.tier], opacity: z.tier === "abaixo" ? 0.3 : 0.8 }))}
+            label={`${META_INDICATORS[metaKey].label}: ${formatMetaValue(metaKey, actual)}, ${tierName(reached, partial)}`}
+          />
         </div>
+      )}
+      <div className="text-center -mt-1">
+        <p className="text-xs text-muted-foreground">{partial ? "Realizado até agora" : "Realizado"}</p>
+        <p className="font-display text-[1.9rem] leading-none font-semibold tracking-tight text-foreground tabular-nums">{formatMetaValue(metaKey, actual)}</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {next
+            ? <>{shownPct(pct, false)}% da meta {TIER_LABEL[next.tier]} • {lower ? "reduzir " : "faltam "}<b className="text-foreground tabular-nums">{formatGap(metaKey, next.gap)}</b></>
+            : "Todos os níveis atingidos"}
+        </p>
       </div>
-      {scale && <TierBullet scale={scale} />}
       <TierChips metaKey={metaKey} actual={actual} meta={meta} />
     </article>
   );
 }
-

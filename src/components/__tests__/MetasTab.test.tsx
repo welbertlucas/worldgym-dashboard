@@ -75,7 +75,8 @@ describe("MetaCard", () => {
   it("todos os níveis atingidos", () => {
     const html = renderToString(<MetaCard metaKey="faturamento" actual={160} meta={meta} partial={false} />);
     expect(html).toContain("Todos os níveis atingidos");
-    expect(html).toContain("100%");
+    expect(html).toContain("<svg"); // velocímetro
+    expect(html).toContain("<line"); // ponteiro
   });
 
   it("nunca mostra 100% antes de atingir o nível; folga em % vira p.p. com casas suficientes", () => {
