@@ -1,5 +1,6 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
+import { priorYearValue } from "@/components/chartData";
 import { ChartCard } from "@/components/ChartCard";
 import { AXIS_TICK, GRID, TOOLTIP_STYLE, PARTIAL_BAND } from "@/components/chartTheme";
 import {
@@ -17,7 +18,7 @@ function formatMonth(m: string) {
 
 export default function InadimplenciaChart({ selectedUnit }: InadimplenciaChartProps) {
   const data = dashboardData.slice(-12).map((m) => ({
-    month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month),
+    month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month), anterior: priorYearValue(m.month, selectedUnit, (u) => u.inadimplenciaPerc),
     inadimplencia: parseFloat((selectedUnit ? getUnitData(m.month, selectedUnit)?.inadimplenciaPerc ?? 0 : m.total.inadimplenciaPerc).toFixed(2)),
   }));
   const partialIdx = data.findIndex((d) => d.partial);
@@ -28,20 +29,21 @@ export default function InadimplenciaChart({ selectedUnit }: InadimplenciaChartP
   const avgInadimplencia = closedData.reduce((s, d) => s + d.inadimplencia, 0) / (closedData.length || 1);
 
   return (
-    <ChartCard title="Taxa de Inadimplência (%)" subtitle={<>Média dos últimos 12 meses fechados: {avgInadimplencia.toFixed(1)}%</>}>
+    <ChartCard title="Taxa de Inadimplência (%)" subtitle={<>Média dos últimos 12 meses fechados: {avgInadimplencia.toFixed(1)}% • tracejado: mesmo mês do ano anterior</>}>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+          <CartesianGrid vertical={false} stroke={GRID} />
           {partialLabel && <ReferenceArea x1={partialFrom} x2={partialLabel} {...PARTIAL_BAND} />}
-          <XAxis dataKey="month" tick={AXIS_TICK} />
-          <YAxis tickFormatter={(v) => `${v}%`} tick={AXIS_TICK} />
+          <XAxis dataKey="month" tick={AXIS_TICK} axisLine={false} tickLine={false} tickMargin={8} />
+          <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} tick={AXIS_TICK} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
-            formatter={(v: number) => [`${v}%`, "Inadimplência"]}
+            formatter={(v: number, n: string) => [`${v}%`, n === "anterior" ? "Ano anterior" : "Inadimplência"]}
           />
           <ReferenceLine y={5} stroke="hsl(38 92% 50%)" strokeDasharray="4 4" strokeWidth={1} label={{ value: "5%", fill: "hsl(38 92% 50%)", fontSize: 11, position: "insideTopRight" }} />
           <ReferenceLine y={8} stroke="hsl(0 72% 51%)" strokeDasharray="4 4" strokeWidth={1} label={{ value: "8%", fill: "hsl(0 72% 51%)", fontSize: 11, position: "insideTopRight" }} />
-          <Line type="monotone" dataKey="inadimplencia" stroke="hsl(38 92% 50%)" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+          <Line type="monotone" dataKey="anterior" stroke="hsl(220 9% 62%)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} connectNulls isAnimationActive={false} />
+          <Line type="monotone" dataKey="inadimplencia" stroke="hsl(222 25% 22%)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
     </ChartCard>

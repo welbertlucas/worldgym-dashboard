@@ -37,6 +37,7 @@ const Index = () => {
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("executiva");
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -58,6 +59,7 @@ const Index = () => {
     const [res] = await Promise.all([syncDashboardDataFromSheets(), syncMetasFromSheets()]);
     setSyncing(false);
     if (res.ok) {
+      setLoadedAt(new Date());
       setSelectedMonth(getLatestData().month);
       forceTick((n) => n + 1);
       if (!silent) toast({ title: "Dados atualizados", description: `${res.count} meses carregados da planilha.` });
@@ -178,6 +180,12 @@ const Index = () => {
                 </p>
               </div>
             </div>
+            <div className="flex items-center gap-3 shrink-0">
+            {loadedAt && (
+              <p className="hidden md:block text-xs text-muted-foreground tabular-nums">
+                Carregado às {loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -189,6 +197,7 @@ const Index = () => {
               <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
               <span className="hidden sm:inline">{syncing ? "Atualizando..." : "Atualizar da planilha"}</span>
             </Button>
+            </div>
           </div>
         </header>
 
@@ -235,6 +244,7 @@ const Index = () => {
             deltas={unitDeltas}
             metas={metasData}
             onOpenRiscos={() => changeTab("riscos")}
+            onOpenUnidades={() => changeTab("unidades")}
           />
         )}
 

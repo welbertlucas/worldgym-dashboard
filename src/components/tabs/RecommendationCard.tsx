@@ -18,11 +18,11 @@ function List({ items }: { items: string[] }) {
   return <ul className="list-disc pl-5 space-y-1">{items.map((h) => <li key={h}>{h}</li>)}</ul>;
 }
 
-export function RecommendationCard({ rec, defaultOpen = false }: { rec: Recommendation; defaultOpen?: boolean }) {
+export function RecommendationCard({ rec, defaultOpen = false, flat = false }: { rec: Recommendation; defaultOpen?: boolean; flat?: boolean }) {
   return (
-    <details open={defaultOpen} className="group card-surface open:shadow-md">
+    <details open={defaultOpen} className={flat ? "group" : "group card-surface open:shadow-md"}>
       <summary
-        className="list-none [&::-webkit-details-marker]:hidden cursor-pointer rounded-2xl p-3 sm:p-4 flex items-start gap-3 hover:bg-secondary/50 group-open:rounded-b-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={`list-none [&::-webkit-details-marker]:hidden cursor-pointer p-3 sm:p-4 flex items-start gap-3 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${flat ? "px-5 sm:px-6" : "rounded-2xl group-open:rounded-b-none"}`}
       >
         <Badge variant={sevVariant[rec.severity]} className="mt-0.5 shrink-0">{sevLabel[rec.severity]}</Badge>
         <div className="min-w-0 flex-1">
@@ -35,7 +35,7 @@ export function RecommendationCard({ rec, defaultOpen = false }: { rec: Recommen
         <ChevronDown className="w-4 h-4 mt-1 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden />
       </summary>
 
-      <div className="border-t border-border p-3 sm:p-4 grid gap-4 md:grid-cols-2">
+      <div className={`border-t border-border grid gap-4 md:grid-cols-2 ${flat ? "p-5 sm:p-6 bg-secondary/30" : "p-3 sm:p-4"}`}>
         <Block title={<Badge variant="outline">Fato (dos dados)</Badge>} className="md:col-span-2">
           <div className="rounded-xl bg-secondary/60 px-3 py-2.5">
             {rec.fact} <span className="text-muted-foreground text-xs">Regra: {rec.rule}.</span>

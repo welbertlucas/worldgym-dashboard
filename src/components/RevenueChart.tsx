@@ -32,17 +32,17 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
     <ChartCard title="Faturamento x Recebimento" subtitle={<>Média dos últimos 12 meses fechados: {fmtCurrency(avgFaturamento)}</>}>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+          <CartesianGrid vertical={false} stroke={GRID} />
           {partialLabel && <ReferenceArea x1={partialLabel} x2={partialLabel} {...PARTIAL_BAND} />}
-          <XAxis dataKey="month" tick={AXIS_TICK} />
-          <YAxis tickFormatter={fmtCurrency} tick={AXIS_TICK} width={70} />
+          <XAxis dataKey="month" tick={AXIS_TICK} axisLine={false} tickLine={false} tickMargin={8} />
+          <YAxis axisLine={false} tickLine={false} tickFormatter={fmtCurrency} tick={AXIS_TICK} width={70} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             formatter={(v: number, name: string) => [fmtCurrency(v), name === "faturamento" ? "Faturamento" : "Recebimento"]}
           />
           <Legend formatter={(v) => v === "faturamento" ? "Faturamento" : "Recebimento"} wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="faturamento" fill="hsl(4 90% 50%)" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="recebimento" fill="hsl(220 15% 78%)" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="faturamento" fill="hsl(4 90% 50%)" radius={[4, 4, 0, 0]} maxBarSize={16} />
+          <Bar dataKey="recebimento" fill="hsl(220 15% 78%)" radius={[4, 4, 0, 0]} maxBarSize={16} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>

@@ -26,8 +26,9 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
   const noData = units.filter((u) => !hasData(ind, ind.value(u))).map((u) => u.name);
   // Melhor primeiro quando há regra (menor primeiro para "menor é melhor"); sem regra, do maior para o menor valor.
   const lowerFirst = ind.direction === "lower";
-  const rows = [...withData].sort((a, b) => (lowerFirst ? a.v - b.v : b.v - a.v));
-  if (reversed) rows.reverse();
+  const bestFirst = [...withData].sort((a, b) => (lowerFirst ? a.v - b.v : b.v - a.v));
+  const position = new Map(bestFirst.map((r, i) => [r.name, i + 1])); // posição real, mesmo com a ordem invertida
+  const rows = reversed ? [...bestFirst].reverse() : bestFirst;
 
   const min = Math.min(0, ...rows.map((r) => r.v));
   const max = Math.max(0, ...rows.map((r) => r.v));
@@ -111,10 +112,11 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
                 const left = r.v >= 0 ? zero : zero - (-r.v / span) * 100;
                 const width = (Math.abs(r.v) / span) * 100;
                 return (
-                  <li key={r.name} className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[10rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1">
-                    <span className="text-sm text-foreground truncate">{r.name}</span>
-                    <span className="sm:order-3 text-sm font-semibold tabular-nums text-right">{formatIndicator(ind, r.v)}</span>
-                    <div className="col-span-2 sm:col-span-1 sm:order-2 relative h-2.5 rounded-full bg-secondary" aria-hidden>
+                  <li key={r.name} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_12rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1">
+                    <span className="text-xs text-muted-foreground tabular-nums">{position.get(r.name)}</span>
+                    <span className="text-sm font-medium text-foreground truncate">{r.name}</span>
+                    <span className="sm:order-4 text-sm font-semibold tabular-nums text-right">{formatIndicator(ind, r.v)}</span>
+                    <div className="col-span-3 sm:col-span-1 sm:order-3 relative h-2 rounded-full bg-secondary" aria-hidden>
                       <div className={cn("absolute inset-y-0 rounded-full", tone ? TONE_BAR[tone] : "bg-foreground/70")} style={{ left: `${left}%`, width: `${Math.max(width, 0.6)}%` }} />
                       {zero > 0 && <div className="absolute inset-y-[-3px] w-px bg-foreground/40" style={{ left: `${zero}%` }} />}
                     </div>

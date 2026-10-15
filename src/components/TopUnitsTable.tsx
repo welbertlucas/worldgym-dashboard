@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, Search, Table2 } from "lucide-react";
 import { getDataByMonth, getLatestData, UnitData } from "@/data/dashboardData";
 import { INDICATOR_BY_KEY, type Tone } from "@/data/unitIndicators";
 import { formatAbbreviatedNumber, cn } from "@/lib/utils";
@@ -62,6 +62,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>("main");
+  const [open, setOpen] = useState(false); // tabela completa fica recolhida: a leitura principal é o ranking
 
   const monthData = getDataByMonth(selectedMonth) || getLatestData();
   const visible = columns.filter((c) => c.key === "name" || view === "all" || c.group === view);
@@ -87,9 +88,23 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
         <div>
           <h3 className="text-base font-semibold text-foreground">Desempenho detalhado</h3>
-          <p className="text-sm text-muted-foreground">Todas as unidades e indicadores. Clique no título de uma coluna para ordenar.</p>
+          <p className="text-sm text-muted-foreground">Todas as unidades e indicadores, com busca, filtro de colunas e ordenação.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 max-w-full">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls="tabela-detalhada"
+          className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Table2 className="w-4 h-4" aria-hidden />
+          {open ? "Ocultar tabela completa" : "Mostrar tabela completa"}
+        </button>
+      </div>
+
+      {open && (
+        <div id="tabela-detalhada">
+      <div className="flex flex-wrap items-center gap-2 max-w-full mb-3">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <input
@@ -116,8 +131,6 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
             ))}
           </div>
         </div>
-      </div>
-
       <div className="rounded-2xl border border-border bg-white overflow-auto max-h-[34rem]">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-20 bg-white">
@@ -161,6 +174,8 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
         {units.length === 0 && <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma unidade encontrada para “{query}”.</p>}
       </div>
       <p className="text-xs text-muted-foreground mt-2" aria-live="polite">{units.length} de {monthData.units.length} unidades</p>
+        </div>
+      )}
     </section>
   );
 }

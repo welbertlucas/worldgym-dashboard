@@ -33,16 +33,16 @@ export default function NovosContratosChart({ selectedUnit }: NovosContratosChar
     <ChartCard title="Novos Contratos x Cancelamentos" subtitle={<>Média dos últimos 12 meses fechados: {avgNovos.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</>}>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+          <CartesianGrid vertical={false} stroke={GRID} />
           {partialLabel && <ReferenceArea x1={partialLabel} x2={partialLabel} {...PARTIAL_BAND} />}
-          <XAxis dataKey="month" tick={AXIS_TICK} />
-          <YAxis tick={AXIS_TICK} />
+          <XAxis dataKey="month" tick={AXIS_TICK} axisLine={false} tickLine={false} tickMargin={8} />
+          <YAxis axisLine={false} tickLine={false} tick={AXIS_TICK} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="novos" name="Novos" fill="hsl(142 71% 45%)" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="cancelados" name="Cancelados" fill="hsl(0 72% 51%)" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="novos" name="Novos" fill="hsl(142 71% 45%)" radius={[4, 4, 0, 0]} maxBarSize={16} />
+          <Bar dataKey="cancelados" name="Cancelados" fill="hsl(0 72% 51%)" radius={[4, 4, 0, 0]} maxBarSize={16} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>

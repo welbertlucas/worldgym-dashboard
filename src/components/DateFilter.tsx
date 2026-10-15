@@ -22,14 +22,14 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
   const months = getAvailableMonths();
   const units = getAvailableUnits();
 
-  const field = "flex flex-col gap-1 min-w-0";
-  const label = "text-xs font-medium text-muted-foreground";
+  const field = "flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 min-w-0";
+  const label = "text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap";
 
   return (
-    <div role="group" aria-label="Filtros do dashboard" className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-x-4 sm:gap-y-3 rounded-2xl border border-border bg-secondary/50 p-3 sm:p-4">
+    <div role="group" aria-label="Filtros do dashboard" className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 border-b border-border pb-4">
       <div className={field}>
         <label htmlFor="filtro-mes" className={label}>Mês de referência</label>
-        <Select id="filtro-mes" value={selectedMonth} onChange={(e) => onMonthChange(e.target.value)} className="sm:w-52">
+        <Select id="filtro-mes" value={selectedMonth} onChange={(e) => onMonthChange(e.target.value)} className="h-9 sm:w-48">
           {months.map((m) => (
             <option key={m} value={m}>{formatMonth(m)}</option>
           ))}
@@ -43,7 +43,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
             id="filtro-comparar"
             value={compareMonth ?? ""}
             onChange={(e) => onCompareMonthChange(e.target.value || null)}
-            className="sm:w-52"
+            className="h-9 sm:w-48"
           >
             <option value="">— sem comparação —</option>
             {months.filter((m) => m !== selectedMonth).map((m) => (
@@ -65,7 +65,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
             id="filtro-unidade"
             value={selectedUnit ?? ""}
             onChange={(e) => onUnitChange(e.target.value || null)}
-            className="sm:w-52"
+            className="h-9 sm:w-48"
           >
             <option value="">Toda a rede</option>
             {units.map((u) => (
