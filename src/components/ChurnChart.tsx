@@ -1,7 +1,9 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
+import { ChartCard } from "@/components/ChartCard";
+import { AXIS_TICK, GRID, TOOLTIP_STYLE, PARTIAL_BAND } from "@/components/chartTheme";
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea,
 } from "recharts";
 
 interface ChurnChartProps {
@@ -18,27 +20,30 @@ export function ChurnChart({ selectedUnit }: ChurnChartProps) {
     month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month),
     churn: parseFloat((selectedUnit ? getUnitData(m.month, selectedUnit)?.churn ?? 0 : m.total.churn).toFixed(2)),
   }));
+  const partialIdx = data.findIndex((d) => d.partial);
+  const partialLabel = partialIdx >= 0 ? data[partialIdx].month : undefined;
+  // Eixo de pontos: sombreia o último trecho (do último mês fechado até o parcial).
+  const partialFrom = partialIdx > 0 ? data[partialIdx - 1].month : partialLabel;
   const closedData = data.filter((d) => !d.partial);
   const avgChurn = closedData.reduce((s, d) => s + d.churn, 0) / (closedData.length || 1);
 
   return (
-    <div className="card-surface p-5">
-      <h3 className="text-sm font-semibold text-foreground mb-1">Taxa de Churn (%)</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {avgChurn.toFixed(1)}%</p>
+    <ChartCard title="Taxa de Churn (%)" subtitle={<>Média dos últimos 12 meses fechados: {avgChurn.toFixed(1)}%</>}>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
-          <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+          {partialLabel && <ReferenceArea x1={partialFrom} x2={partialLabel} {...PARTIAL_BAND} />}
+          <XAxis dataKey="month" tick={AXIS_TICK} />
+          <YAxis tickFormatter={(v) => `${v}%`} tick={AXIS_TICK} />
           <Tooltip
-            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={TOOLTIP_STYLE}
             formatter={(v: number) => [`${v}%`, "Churn"]}
           />
-          <ReferenceLine y={5} stroke="hsl(38 92% 50%)" strokeDasharray="4 4" label={{ value: "5%", fill: "hsl(38 92% 50%)", fontSize: 10 }} />
-          <ReferenceLine y={8} stroke="hsl(0 72% 51%)" strokeDasharray="4 4" label={{ value: "8%", fill: "hsl(0 72% 51%)", fontSize: 10 }} />
+          <ReferenceLine y={5} stroke="hsl(38 92% 50%)" strokeDasharray="4 4" strokeWidth={1} label={{ value: "5%", fill: "hsl(38 92% 50%)", fontSize: 11, position: "insideTopRight" }} />
+          <ReferenceLine y={8} stroke="hsl(0 72% 51%)" strokeDasharray="4 4" strokeWidth={1} label={{ value: "8%", fill: "hsl(0 72% 51%)", fontSize: 11, position: "insideTopRight" }} />
           <Line type="monotone" dataKey="churn" stroke="hsl(0 72% 51%)" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
         </LineChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   );
 }

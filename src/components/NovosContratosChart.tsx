@@ -1,7 +1,9 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
+import { ChartCard } from "@/components/ChartCard";
+import { AXIS_TICK, GRID, TOOLTIP_STYLE, PARTIAL_BAND } from "@/components/chartTheme";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceArea,
 } from "recharts";
 
 interface NovosContratosChartProps {
@@ -23,26 +25,26 @@ export default function NovosContratosChart({ selectedUnit }: NovosContratosChar
       : m.total.cancelados;
     return { month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month), novos, cancelados, saldo: novos - cancelados };
   });
+  const partialLabel = data.find((d) => d.partial)?.month;
   const closedData = data.filter((d) => !d.partial);
   const avgNovos = closedData.reduce((s, d) => s + d.novos, 0) / (closedData.length || 1);
 
   return (
-    <div className="card-surface p-5">
-      <h3 className="text-sm font-semibold text-foreground mb-1">Novos Contratos x Cancelamentos</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {avgNovos.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</p>
+    <ChartCard title="Novos Contratos x Cancelamentos" subtitle={<>Média dos últimos 12 meses fechados: {avgNovos.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}</>}>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
-          <YAxis tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+          {partialLabel && <ReferenceArea x1={partialLabel} x2={partialLabel} {...PARTIAL_BAND} />}
+          <XAxis dataKey="month" tick={AXIS_TICK} />
+          <YAxis tick={AXIS_TICK} />
           <Tooltip
-            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={TOOLTIP_STYLE}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="novos" name="Novos" fill="hsl(142 71% 45%)" radius={[2, 2, 0, 0]} />
           <Bar dataKey="cancelados" name="Cancelados" fill="hsl(0 72% 51%)" radius={[2, 2, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   );
 }

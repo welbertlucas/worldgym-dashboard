@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, LabelList } from "recharts";
+import { AXIS_TICK, GRID, TOOLTIP_STYLE } from "@/components/chartTheme";
 import { type UnitDelta, type TrendKey, TREND_META } from "@/data/unitMetrics";
 import { Select } from "@/components/ui/select";
 import { formatMonthLong } from "@/data/periods";
@@ -28,16 +29,28 @@ export function UnitDeltaChart({ deltas, curMonth, prevMonth }: { deltas: UnitDe
       </p>
       <ResponsiveContainer width="100%" height={Math.max(260, data.length * 26)}>
         <BarChart data={data} layout="vertical" margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
-          <XAxis type="number" tickFormatter={(v) => `${v}${meta.mode === "pct" ? "%" : ""}`} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
-          <YAxis type="category" dataKey="unit" width={120} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} interval={0} />
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+          <XAxis type="number" padding={{ left: 36, right: 36 }} tickFormatter={(v) => `${v}${meta.mode === "pct" ? "%" : ""}`} tick={AXIS_TICK} />
+          <YAxis type="category" dataKey="unit" width={120} tick={AXIS_TICK} interval={0} />
           <Tooltip
-            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={TOOLTIP_STYLE}
             formatter={(v: number) => [`${v > 0 ? "+" : ""}${v}${unitSuffix}`, meta.label]}
           />
-          <ReferenceLine x={0} stroke="hsl(220 10% 46%)" />
+          <ReferenceLine x={0} stroke="hsl(222 14% 28%)" strokeWidth={1.5} />
           <Bar dataKey="value" radius={[0, 2, 2, 0]}>
             {data.map((d) => <Cell key={d.unit} fill={(d.value > 0) === meta.higherIsBetter ? GOOD : BAD} />)}
+            <LabelList
+              dataKey="value"
+              content={({ x, y, width, height, value }) => {
+                const nx = Number(x), nw = Number(width), v = Number(value);
+                const right = Math.max(nx, nx + nw), left = Math.min(nx, nx + nw);
+                return (
+                  <text x={v >= 0 ? right + 4 : left - 4} y={Number(y) + Number(height) / 2} dy={4} textAnchor={v >= 0 ? "start" : "end"} fontSize={11} fontWeight={600} fill="hsl(222 25% 14%)">
+                    {`${v > 0 ? "+" : ""}${v.toFixed(1).replace(".", ",")}${unitSuffix.trim()}`}
+                  </text>
+                );
+              }}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>

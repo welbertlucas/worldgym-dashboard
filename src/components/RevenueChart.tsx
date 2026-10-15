@@ -1,7 +1,9 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
+import { ChartCard } from "@/components/ChartCard";
+import { AXIS_TICK, GRID, TOOLTIP_STYLE, PARTIAL_BAND } from "@/components/chartTheme";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceArea,
 } from "recharts";
 
 interface RevenueChartProps {
@@ -22,20 +24,20 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
     const rec = selectedUnit ? getUnitData(m.month, selectedUnit)?.recebimento ?? 0 : m.total.recebimento;
     return { month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month), faturamento: val, recebimento: rec };
   });
+  const partialLabel = data.find((d) => d.partial)?.month;
   const closedData = data.filter((d) => !d.partial);
   const avgFaturamento = closedData.reduce((s, d) => s + d.faturamento, 0) / (closedData.length || 1);
 
   return (
-    <div className="card-surface p-5">
-      <h3 className="text-sm font-semibold text-foreground mb-1">Faturamento x Recebimento</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {fmtCurrency(avgFaturamento)}</p>
+    <ChartCard title="Faturamento x Recebimento" subtitle={<>Média dos últimos 12 meses fechados: {fmtCurrency(avgFaturamento)}</>}>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
-          <YAxis tickFormatter={fmtCurrency} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} width={70} />
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+          {partialLabel && <ReferenceArea x1={partialLabel} x2={partialLabel} {...PARTIAL_BAND} />}
+          <XAxis dataKey="month" tick={AXIS_TICK} />
+          <YAxis tickFormatter={fmtCurrency} tick={AXIS_TICK} width={70} />
           <Tooltip
-            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={TOOLTIP_STYLE}
             formatter={(v: number, name: string) => [fmtCurrency(v), name === "faturamento" ? "Faturamento" : "Recebimento"]}
           />
           <Legend formatter={(v) => v === "faturamento" ? "Faturamento" : "Recebimento"} wrapperStyle={{ fontSize: 11 }} />
@@ -43,6 +45,6 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
           <Bar dataKey="recebimento" fill="hsl(220 15% 78%)" radius={[2, 2, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   );
 }

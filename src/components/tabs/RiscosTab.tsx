@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type Alert, type Severity } from "@/data/alerts";
 import { buildRecommendations, ALERT_LABELS } from "@/data/recommendations";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
-import { SectionTitle } from "@/components/TabBar";
+import { SectionTitle } from "@/components/SectionTitle";
 import { Select } from "@/components/ui/select";
 import { formatMonthLong } from "@/data/periods";
 
@@ -21,30 +21,44 @@ export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: s
         {evalMonth ? <>Avaliação do último mês fechado: <b>{formatMonthLong(evalMonth)}</b>, comparado ao mês anterior. O mês em andamento não entra nos alertas.</> : "Ainda não há mês fechado para avaliar."}{" "}
         Cada item separa o <b>fato</b> (calculado da planilha) das <b>hipóteses</b> (causas a verificar — o dashboard não conhece as causas).
       </p>
-      <div className="flex flex-wrap gap-3 items-end">
-        <div className="flex gap-2 text-xs font-bold">
-          <span className="rounded bg-destructive/10 text-destructive px-2 py-1">{count("critical")} críticos</span>
-          <span className="rounded bg-warning/10 text-warning px-2 py-1">{count("attention")} atenção</span>
-          <span className="rounded bg-secondary px-2 py-1 text-muted-foreground">{count("info")} informativos</span>
+      <div className="grid grid-cols-3 gap-3 max-w-xl" role="group" aria-label="Alertas por severidade">
+        {([
+          ["critical", "Críticos", "text-destructive", "bg-destructive/10"],
+          ["attention", "Atenção", "text-warning", "bg-warning/10"],
+          ["info", "Informativos", "text-muted-foreground", "bg-secondary"],
+        ] as const).map(([s, label, color, bg]) => (
+          <div key={s} className={`rounded-2xl px-4 py-3 ${bg}`}>
+            <p className={`font-display text-3xl font-semibold leading-none ${color}`}>{count(s)}</p>
+            <p className="text-xs font-medium text-muted-foreground mt-1.5">{label}</p>
+          </div>
+        ))}
+      </div>
+      <div role="group" aria-label="Filtros de alertas" className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-2xl border border-border bg-secondary/50 p-3 sm:p-4">
+        <div className="flex flex-col gap-1 flex-1 min-w-[11rem] sm:flex-none">
+          <label htmlFor="filtro-severidade" className="text-xs font-medium text-muted-foreground">Severidade</label>
+          <Select id="filtro-severidade" value={sev} onChange={(e) => setSev(e.target.value as "all" | Severity)} className="sm:w-52">
+            <option value="all">Todas as severidades</option>
+            <option value="critical">Crítico</option>
+            <option value="attention">Atenção</option>
+            <option value="info">Informativo</option>
+          </Select>
         </div>
-        <Select value={sev} onChange={(e) => setSev(e.target.value as "all" | Severity)} className="w-52">
-          <option value="all">Todas as severidades</option>
-          <option value="critical">Crítico</option>
-          <option value="attention">Atenção</option>
-          <option value="info">Informativo</option>
-        </Select>
-        <Select value={unit} onChange={(e) => setUnit(e.target.value)} className="w-48">
-          <option value="">Todas as unidades</option>
-          {units.map((u) => <option key={u} value={u}>{u}</option>)}
-        </Select>
+        <div className="flex flex-col gap-1 flex-1 min-w-[11rem] sm:flex-none">
+          <label htmlFor="filtro-unidade-risco" className="text-xs font-medium text-muted-foreground">Unidade</label>
+          <Select id="filtro-unidade-risco" value={unit} onChange={(e) => setUnit(e.target.value)} className="sm:w-52">
+            <option value="">Todas as unidades</option>
+            {units.map((u) => <option key={u} value={u}>{u}</option>)}
+          </Select>
+        </div>
+        <p className="text-sm text-muted-foreground sm:ml-auto" aria-live="polite">{shown.length} de {recs.length} itens</p>
       </div>
       {shown.length === 0 ? (
         <p className="card-surface p-6 text-sm text-muted-foreground">Nenhum alerta com os filtros atuais.</p>
       ) : (
         <div className="space-y-2">{shown.map((r, i) => <RecommendationCard key={r.id} rec={r} defaultOpen={i === 0 && r.severity === "critical"} />)}</div>
       )}
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer font-semibold">Como os alertas são calculados</summary>
+      <details className="card-surface p-4 text-sm text-muted-foreground">
+        <summary className="cursor-pointer font-semibold text-foreground rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Como os alertas são calculados</summary>
         <ul className="list-disc pl-5 mt-2 space-y-0.5">
           <li>{ALERT_LABELS.faturamento}: queda ≥ 7% (crítico ≥ 12%) vs. mês anterior, ou queda atípica para a própria unidade.</li>
           <li>{ALERT_LABELS.vendasOnline}: queda ≥ 30% vs. média dos 3 meses anteriores (base ≥ R$ 500).</li>

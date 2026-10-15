@@ -1,7 +1,9 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
+import { ChartCard } from "@/components/ChartCard";
+import { AXIS_TICK, GRID, TOOLTIP_STYLE, PARTIAL_BAND } from "@/components/chartTheme";
 import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea,
 } from "recharts";
 
 interface VendasOnlineChartProps {
@@ -21,13 +23,15 @@ export function VendasOnlineChart({ selectedUnit }: VendasOnlineChartProps) {
     month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month),
     vendas: selectedUnit ? getUnitData(m.month, selectedUnit)?.vendasOnline ?? 0 : m.total.vendasOnline,
   }));
+  const partialIdx = data.findIndex((d) => d.partial);
+  const partialLabel = partialIdx >= 0 ? data[partialIdx].month : undefined;
+  // Eixo de pontos: sombreia o último trecho (do último mês fechado até o parcial).
+  const partialFrom = partialIdx > 0 ? data[partialIdx - 1].month : partialLabel;
   const closedData = data.filter((d) => !d.partial);
   const avgVendas = closedData.reduce((s, d) => s + d.vendas, 0) / (closedData.length || 1);
 
   return (
-    <div className="card-surface p-5">
-      <h3 className="text-sm font-semibold text-foreground mb-1">Vendas Online</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {fmtCurrency(avgVendas)}</p>
+    <ChartCard title="Vendas Online" subtitle={<>Média dos últimos 12 meses fechados: {fmtCurrency(avgVendas)}</>}>
       <ResponsiveContainer width="100%" height={250}>
         <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>
@@ -36,16 +40,17 @@ export function VendasOnlineChart({ selectedUnit }: VendasOnlineChartProps) {
               <stop offset="95%" stopColor="hsl(4 90% 50%)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
-          <YAxis tickFormatter={fmtCurrency} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} width={70} />
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+          {partialLabel && <ReferenceArea x1={partialFrom} x2={partialLabel} {...PARTIAL_BAND} />}
+          <XAxis dataKey="month" tick={AXIS_TICK} />
+          <YAxis tickFormatter={fmtCurrency} tick={AXIS_TICK} width={70} />
           <Tooltip
-            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={TOOLTIP_STYLE}
             formatter={(v: number) => [fmtCurrency(v), "Vendas Online"]}
           />
           <Area type="monotone" dataKey="vendas" stroke="hsl(4 90% 50%)" fill="url(#vendasGrad)" strokeWidth={2} />
         </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   );
 }

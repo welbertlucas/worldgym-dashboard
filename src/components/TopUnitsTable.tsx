@@ -83,13 +83,13 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
         <h3 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground flex-1">Desempenho por Unidade</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-xs min-w-[1100px]">
           <thead>
             <tr className="border-b border-border/40 text-[11px] font-medium text-muted-foreground">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-1.5 py-1.5 select-none cursor-pointer hover:text-foreground transition-colors whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"}`}
+                  className={`px-2 py-2 select-none cursor-pointer hover:text-foreground transition-colors whitespace-nowrap ${col.align === "right" ? "text-right" : "text-left"} ${col.key === "name" ? "sticky left-0 z-10 bg-white" : ""}`}
                   onClick={() => handleSort(col.key)}
                 >
                   <span className={`inline-flex items-center gap-0.5 ${col.align === "right" ? "flex-row-reverse" : ""}`}>
@@ -107,12 +107,12 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
           <tbody>
             {units.map((unit, i) => (
               <tr key={unit.name} className={`border-b border-border/20 hover:bg-muted/50 transition-colors ${i === 0 && sortKey === "faturamento" && sortDir === "desc" ? "bg-primary/5" : ""}`}>
-                <td className="px-1.5 py-1.5 font-semibold max-w-[110px]">{unit.name}</td>
+                <td className={`px-2 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 ${i === 0 && sortKey === "faturamento" && sortDir === "desc" ? "bg-[#fef4f3]" : "bg-white"}`}>{unit.name}</td>
                 {columns.slice(1).map((col) => {
                   const value = unit[col.key as keyof UnitData] as number;
                   const { text, className } = col.renderValue!(value);
                   return (
-                    <td key={col.key} className={`px-1.5 py-1.5 text-right whitespace-nowrap font-semibold ${className ?? ""}`}>
+                    <td key={col.key} className={`px-2 py-2 text-right whitespace-nowrap font-semibold tabular-nums ${className ?? ""}`}>
                       {text}
                     </td>
                   );
