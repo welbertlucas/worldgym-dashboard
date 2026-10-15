@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
-import { TopUnitsTable } from "@/components/TopUnitsTable";
 import { ChurnChart } from "@/components/ChurnChart";
 import { RenovacoesChart } from "@/components/RenovacoesChart";
 import NovosContratosChart from "@/components/NovosContratosChart";
@@ -9,13 +8,11 @@ import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
-import { UnitComparison } from "@/components/UnitComparison";
+import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
 import { MetasTab } from "@/components/tabs/MetasTab";
-import { UnitDeltaChart } from "@/components/UnitDeltaChart";
-import { UnitHighlights } from "@/components/UnitHighlights";
 import { computeAlerts } from "@/data/alerts";
 import { computeUnitDeltas } from "@/data/unitMetrics";
 import { metasData, syncMetasFromSheets } from "@/data/metas";
@@ -300,23 +297,12 @@ const Index = () => {
         )}
 
         {activeTab === "unidades" && (
-          <div className="space-y-6 sm:space-y-8">
-            {unitDeltas.length > 0 && evalMonth && (
-              <section>
-                <SectionTitle>Evolução entre unidades</SectionTitle>
-                <div className="space-y-6">
-                  <UnitHighlights deltas={unitDeltas} />
-                  <UnitDeltaChart deltas={unitDeltas} curMonth={evalMonth} prevMonth={dashboardData[evalIdx - 1].month} />
-                </div>
-              </section>
-            )}
-            <section>
-              <TopUnitsTable selectedMonth={fullMonthData.month} />
-            </section>
-            <section>
-              <UnitComparison selectedMonth={fullMonthData.month} />
-            </section>
-          </div>
+          <UnidadesTab
+            selectedMonth={fullMonthData.month}
+            evalMonth={evalMonth}
+            prevEvalMonth={evalIdx > 0 ? dashboardData[evalIdx - 1].month : null}
+            deltas={unitDeltas}
+          />
         )}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} />}
