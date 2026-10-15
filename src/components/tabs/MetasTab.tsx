@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from "recharts";
-import { SectionTitle } from "@/components/TabBar";
+import { SectionTitle } from "@/components/SectionTitle";
 import { Select } from "@/components/ui/select";
 import { type MonthData } from "@/data/dashboardData";
 import {
@@ -10,9 +10,11 @@ import {
   type Meta, type MetaKey, type TierResult,
 } from "@/data/metas";
 import { formatMonthLong } from "@/data/periods";
+import { Notice } from "@/components/Notice";
+import { AXIS_TICK, GRID, TOOLTIP_STYLE } from "@/components/chartTheme";
 
-const axis = { fontSize: 10, fill: "hsl(220 10% 46%)" };
-const tip = { background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 };
+const axis = AXIS_TICK;
+const tip = TOOLTIP_STYLE;
 const TIER_COLOR: Record<TierResult, string> = {
   ouro: "hsl(43 90% 48%)", prata: "hsl(220 9% 60%)", bronze: "hsl(25 60% 45%)", abaixo: "hsl(0 72% 51%)",
 };
@@ -35,6 +37,7 @@ function EmptyState() {
         Preencha a aba <b>Metas</b> da planilha: uma linha por unidade, mês e indicador, com os três níveis. Use a unidade <b>Rede</b> (ou <b>TOTAL</b>) para a meta da rede.
         Bronze é o nível mais fácil e ouro o mais difícil; para churn e inadimplência, em que menos é melhor, o ouro é o menor valor. Os níveis podem ficar em branco.
       </p>
+      <div className="overflow-x-auto">
       <table className="text-xs border border-border">
         <thead><tr className="bg-secondary">{["Mês", "Unidade", "Indicador", "Bronze", "Prata", "Ouro"].map((h) => <th key={h} className="px-3 py-1.5 text-left border-r border-border">{h}</th>)}</tr></thead>
         <tbody>
@@ -42,6 +45,7 @@ function EmptyState() {
           <tr><td className="px-3 py-1.5">2026-10</td><td className="px-3 py-1.5">Rede</td><td className="px-3 py-1.5">Churn</td><td className="px-3 py-1.5">8,0%</td><td className="px-3 py-1.5">6,5%</td><td className="px-3 py-1.5">5,0%</td></tr>
         </tbody>
       </table>
+      </div>
       <p className="text-xs text-muted-foreground">Indicadores aceitos: {Object.values(META_INDICATORS).map((i) => i.label).join(", ")}. Mês no formato aaaa-mm.</p>
     </div>
   );
@@ -92,10 +96,10 @@ export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Met
       </div>
 
       {warnings.length > 0 && (
-        <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm">
+        <Notice icon="alert">
           <b>Confira o cadastro na planilha:</b>
           <ul className="list-disc pl-5">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
-        </div>
+        </Notice>
       )}
 
       {summary.length > 0 && (
@@ -124,7 +128,7 @@ export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Met
         <p className="text-xs text-muted-foreground mb-4">Evolução mensal; as linhas mostram bronze, prata e ouro de cada mês.</p>
         <ResponsiveContainer width="100%" height={270}>
           <ComposedChart data={evolution} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
             <XAxis dataKey="month" tick={axis} />
             <YAxis tick={axis} width={70} tickFormatter={(v) => (info.format === "currency" ? new Intl.NumberFormat("pt-BR", { notation: "compact" }).format(v) : String(v))} />
             <Tooltip contentStyle={tip} formatter={(v: number, n: string) => [formatMetaValue(k, v), n]} />
@@ -142,7 +146,7 @@ export function MetasTab({ data, metas, month }: { data: MonthData[]; metas: Met
         {byUnit.length ? (
           <ResponsiveContainer width="100%" height={Math.max(220, byUnit.length * 26)}>
             <BarChart data={byUnit} layout="vertical" margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
               <XAxis type="number" tick={axis} tickFormatter={(v) => `${v}%`} />
               <YAxis type="category" dataKey="unit" width={120} tick={axis} interval={0} />
               <Tooltip contentStyle={tip} formatter={(v: number, _n, p) => [`${v}% do ${TIER_LABEL[p.payload.top.tier as TierResult].toLowerCase()} — realizado ${formatMetaValue(k, p.payload.realizado)} • nível: ${TIER_LABEL[p.payload.tier as TierResult]}`, "Progresso"]} />

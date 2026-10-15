@@ -1,7 +1,11 @@
 import { dashboardData, getUnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
+import { priorYearValue, splitPartial } from "@/components/chartData";
+import { partialDot } from "@/components/PartialDot";
+import { ChartCard } from "@/components/ChartCard";
+import { AXIS_TICK, GRID, TOOLTIP_STYLE, PARTIAL_BAND } from "@/components/chartTheme";
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea,
 } from "recharts";
 
 interface RenovacoesChartProps {
@@ -15,29 +19,34 @@ function formatMonth(m: string) {
 
 export function RenovacoesChart({ selectedUnit }: RenovacoesChartProps) {
   const data = dashboardData.slice(-12).map((m) => ({
-    month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month),
-    renovacoes: parseFloat((selectedUnit ? getUnitData(m.month, selectedUnit)?.renovacoes ?? 0 : m.total.renovacoes).toFixed(2)),
+    month: formatMonth(m.month) + (isPartialMonth(m.month) ? " (parc.)" : ""), partial: isPartialMonth(m.month), anterior: priorYearValue(m.month, selectedUnit, (u) => u.renovacoes),
+    ...splitPartial("renovacoes", isPartialMonth(m.month), parseFloat((selectedUnit ? getUnitData(m.month, selectedUnit)?.renovacoes ?? 0 : m.total.renovacoes).toFixed(2))),
   }));
+  const partialIdx = data.findIndex((d) => d.partial);
+  const partialLabel = partialIdx >= 0 ? data[partialIdx].month : undefined;
+  // Eixo de pontos: sombreia o último trecho (do último mês fechado até o parcial).
+  const partialFrom = partialIdx > 0 ? data[partialIdx - 1].month : partialLabel;
   const closedData = data.filter((d) => !d.partial);
-  const avgRenovacoes = closedData.reduce((s, d) => s + d.renovacoes, 0) / (closedData.length || 1);
+  const avgRenovacoes = closedData.reduce((s, d) => s + (d.renovacoes ?? 0), 0) / (closedData.length || 1);
 
   return (
-    <div className="card-surface p-5">
-      <h3 className="text-sm font-semibold text-foreground mb-1">Taxa de Renovação (%)</h3>
-      <p className="text-xs font-semibold text-muted-foreground mb-4">Média dos últimos 12 meses fechados: {avgRenovacoes.toFixed(1)}%</p>
+    <ChartCard title="Taxa de Renovação (%)" subtitle={<>Média dos últimos 12 meses fechados: {avgRenovacoes.toFixed(1)}% • tracejado: mesmo mês do ano anterior • círculo vazado: mês em andamento (parcial)</>}>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 20% 91%)" />
-          <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} />
-          <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "hsl(220 10% 46%)" }} domain={[0, 100]} />
+          <CartesianGrid vertical={false} stroke={GRID} />
+          {partialLabel && <ReferenceArea x1={partialFrom} x2={partialLabel} {...PARTIAL_BAND} />}
+          <XAxis dataKey="month" tick={AXIS_TICK} axisLine={false} tickLine={false} tickMargin={8} />
+          <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} tick={AXIS_TICK} domain={[0, 100]} />
           <Tooltip
-            contentStyle={{ background: "hsl(0 0% 100%)", border: "1px solid hsl(220 20% 91%)", borderRadius: 6, fontSize: 12 }}
-            formatter={(v: number) => [`${v}%`, "Renovação"]}
+            contentStyle={TOOLTIP_STYLE}
+            formatter={(v: number, n: string) => [`${v}%`, n === "parcial" ? "Em andamento (parcial)" : n === "anterior" ? "Ano anterior" : "Renovação"]}
           />
-          <ReferenceLine y={60} stroke="hsl(142 71% 45%)" strokeDasharray="4 4" label={{ value: "60%", fill: "hsl(142 71% 45%)", fontSize: 10 }} />
-          <Line type="monotone" dataKey="renovacoes" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+          <ReferenceLine y={60} stroke="hsl(142 71% 45%)" strokeDasharray="4 4" strokeWidth={1} label={{ value: "60%", fill: "hsl(142 71% 45%)", fontSize: 11, position: "insideTopRight" }} />
+          <Line type="monotone" dataKey="anterior" stroke="hsl(220 9% 62%)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} connectNulls isAnimationActive={false} />
+          <Line type="monotone" dataKey="renovacoes" stroke="hsl(222 25% 22%)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+          <Line type="monotone" dataKey="parcial" stroke="none" dot={partialDot((v) => `${v.toLocaleString("pt-BR")}%`)} activeDot={false} legendType="none" isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   );
 }

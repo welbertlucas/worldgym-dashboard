@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
-import { TopUnitsTable } from "@/components/TopUnitsTable";
 import { ChurnChart } from "@/components/ChurnChart";
 import { RenovacoesChart } from "@/components/RenovacoesChart";
 import NovosContratosChart from "@/components/NovosContratosChart";
@@ -9,13 +8,11 @@ import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
-import { UnitComparison } from "@/components/UnitComparison";
-import { TabBar, SectionTitle } from "@/components/TabBar";
+import { UnidadesTab } from "@/components/tabs/UnidadesTab";
+import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
 import { MetasTab } from "@/components/tabs/MetasTab";
-import { UnitDeltaChart } from "@/components/UnitDeltaChart";
-import { UnitHighlights } from "@/components/UnitHighlights";
 import { computeAlerts } from "@/data/alerts";
 import { computeUnitDeltas } from "@/data/unitMetrics";
 import { metasData, syncMetasFromSheets } from "@/data/metas";
@@ -25,13 +22,14 @@ import {
   getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets,
 } from "@/data/dashboardData";
 import { Button } from "@/components/ui/button";
+import { Sidebar, MobileDrawer } from "@/components/Sidebar";
+import { Notice } from "@/components/Notice";
 import {
   TrendingUp, Users, DollarSign, AlertCircle, ShoppingCart,
-  RefreshCw, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
+  RefreshCw, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import wgLogo from "@/assets/wg-logo.png";
 
 const Index = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -39,6 +37,21 @@ const Index = () => {
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("executiva");
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("wg-sidebar-collapsed") === "1"; } catch { return false; }
+  });
+  const toggleSidebar = () => setSidebarCollapsed((c) => {
+    try { localStorage.setItem("wg-sidebar-collapsed", c ? "0" : "1"); } catch { /* armazenamento indisponível */ }
+    return !c;
+  });
+  const mainRef = useRef<HTMLElement>(null);
+  const changeTab = (id: string) => {
+    setActiveTab(id);
+    mainRef.current?.scrollIntoView({ block: "start" });
+  };
   const [, forceTick] = useState(0);
 
   const refresh = async (silent = false) => {
@@ -46,6 +59,7 @@ const Index = () => {
     const [res] = await Promise.all([syncDashboardDataFromSheets(), syncMetasFromSheets()]);
     setSyncing(false);
     if (res.ok) {
+      setLoadedAt(new Date());
       setSelectedMonth(getLatestData().month);
       forceTick((n) => n + 1);
       if (!silent) toast({ title: "Dados atualizados", description: `${res.count} meses carregados da planilha.` });
@@ -103,6 +117,7 @@ const Index = () => {
   const selIdx = months.indexOf(fullMonthData.month);
   const prevMonthData = selIdx > 0 ? dashboardData[selIdx - 1] : undefined;
   const partialSelected = isPartialMonth(fullMonthData.month);
+  const criticalCount = alerts.filter((a) => a.severity === "critical").length;
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
@@ -132,13 +147,30 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border sticky top-0 z-50 bg-white/85 backdrop-blur-md">
-        <div className="container mx-auto px-3 sm:px-6 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <img src={wgLogo} alt="World Gym" className="h-9 sm:h-11 w-auto shrink-0" />
-              <div className="min-w-0 sm:border-l sm:border-border sm:pl-4">
+    <div className="min-h-screen bg-background lg:flex">
+      <Sidebar
+        active={activeTab}
+        onChange={changeTab}
+        criticalCount={criticalCount}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebar}
+      />
+      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} criticalCount={criticalCount} />
+
+      <div className="flex-1 min-w-0">
+        <header className="border-b border-border sticky top-0 z-40 bg-white/85 backdrop-blur-md">
+          <div className="px-3 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Abrir menu de navegação"
+                aria-haspopup="dialog"
+                className="lg:hidden rounded-xl p-2 -ml-1 text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Menu className="w-5 h-5" aria-hidden />
+              </button>
+              <div className="min-w-0">
                 <h1 className="text-base sm:text-xl font-semibold tracking-tight text-foreground leading-tight truncate">
                   Dashboard de resultados
                 </h1>
@@ -148,21 +180,31 @@ const Index = () => {
                 </p>
               </div>
             </div>
+            <div className="flex items-center gap-3 shrink-0">
+            {loadedAt && (
+              <p
+                className="hidden md:block text-xs text-muted-foreground tabular-nums"
+                title="Horário em que este navegador buscou os dados. Não indica a última edição da planilha."
+              >
+                Dados carregados às {loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            )}
             <Button
               variant="outline"
               size="sm"
               onClick={() => refresh(false)}
               disabled={syncing}
+              aria-label="Atualizar da planilha"
               className="shrink-0 text-xs font-medium"
             >
-              <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
               <span className="hidden sm:inline">{syncing ? "Atualizando..." : "Atualizar da planilha"}</span>
             </Button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="container mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-8">
+        <main ref={mainRef} className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 sm:space-y-8 max-w-[1600px] scroll-mt-20">
         {/* Filtros */}
         <DateFilter
           selectedMonth={fullMonthData.month}
@@ -192,22 +234,8 @@ const Index = () => {
           </section>
         )}
 
-        <TabBar
-          tabs={[
-            { id: "executiva", label: "Visão Executiva" },
-            { id: "comercial", label: "Comercial" },
-            { id: "financeiro", label: "Financeiro" },
-            { id: "retencao", label: "Retenção" },
-            { id: "unidades", label: "Unidades" },
-            { id: "metas", label: "Metas" },
-            { id: "riscos", label: "Riscos e Recomendações", badge: alerts.filter((a) => a.severity === "critical").length },
-          ]}
-          active={activeTab}
-          onChange={setActiveTab}
-        />
-
         {partialSelected && activeTab !== "executiva" && (
-          <p className="text-xs font-semibold text-warning">{formatDate(fullMonthData.month)} está em andamento — valores parciais.</p>
+          <Notice><b>{formatDate(fullMonthData.month)}</b> está em andamento — os valores são parciais.</Notice>
         )}
 
         {activeTab === "executiva" && (
@@ -218,7 +246,8 @@ const Index = () => {
             evalMonth={evalMonth}
             deltas={unitDeltas}
             metas={metasData}
-            onOpenRiscos={() => setActiveTab("riscos")}
+            onOpenRiscos={() => changeTab("riscos")}
+            onOpenUnidades={() => changeTab("unidades")}
           />
         )}
 
@@ -281,29 +310,19 @@ const Index = () => {
         )}
 
         {activeTab === "unidades" && (
-          <div className="space-y-6 sm:space-y-8">
-            {unitDeltas.length > 0 && evalMonth && (
-              <section>
-                <SectionTitle>Evolução entre unidades</SectionTitle>
-                <div className="space-y-6">
-                  <UnitHighlights deltas={unitDeltas} />
-                  <UnitDeltaChart deltas={unitDeltas} curMonth={evalMonth} prevMonth={dashboardData[evalIdx - 1].month} />
-                </div>
-              </section>
-            )}
-            <section>
-              <TopUnitsTable selectedMonth={fullMonthData.month} />
-            </section>
-            <section>
-              <UnitComparison selectedMonth={fullMonthData.month} />
-            </section>
-          </div>
+          <UnidadesTab
+            selectedMonth={fullMonthData.month}
+            evalMonth={evalMonth}
+            prevEvalMonth={evalIdx > 0 ? dashboardData[evalIdx - 1].month : null}
+            deltas={unitDeltas}
+          />
         )}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} />}
 
         {activeTab === "riscos" && <RiscosTab alerts={alerts} evalMonth={evalMonth} />}
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
