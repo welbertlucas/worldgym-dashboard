@@ -83,6 +83,21 @@ export function formatIndicator(ind: Indicator, v: number): string {
   }
 }
 
+export const isPercentIndicator = (ind: Indicator) => ind.format === "percent";
+
+/** Diferença absoluta com sinal: "p.p." nos percentuais (nunca "%"), unidade do indicador nos demais. */
+export function formatDelta(ind: Indicator, d: number): string {
+  const sign = d > 0 ? "+" : d < 0 ? "−" : "";
+  const abs = Math.abs(d);
+  if (ind.format === "percent") return `${sign}${abs.toFixed(abs < 0.1 && abs > 0 ? 2 : 1).replace(".", ",")} p.p.`;
+  return `${sign}${formatIndicator(ind, abs)}`;
+}
+
+/** Variação relativa com sinal, sempre em "%". */
+export function formatRelative(d: number): string {
+  return `${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d).toFixed(1).replace(".", ",")}%`;
+}
+
 /** Diferença relativa de A sobre B, em %. Fórmula idêntica à do comparativo anterior (0 quando B é zero). */
 export function relativeDiff(a: number, b: number): number {
   return b !== 0 ? ((a - b) / Math.abs(b)) * 100 : 0;
@@ -101,7 +116,10 @@ export type CompareState =
 export interface Comparison {
   a: number;
   b: number;
+  /** Diferença relativa em % (fórmula existente). */
   diff: number | null;
+  /** Diferença absoluta A − B, na unidade do indicador (p.p. nos percentuais). Complementar à relativa. */
+  delta: number | null;
   winner: "a" | "b" | null;
   state: CompareState;
 }
@@ -109,13 +127,14 @@ export interface Comparison {
 export function compareIndicator(ind: Indicator, ua: UnitData, ub: UnitData): Comparison {
   const a = ind.value(ua);
   const b = ind.value(ub);
-  if (!hasData(ind, a) || !hasData(ind, b)) return { a, b, diff: null, winner: null, state: "nodata" };
-  if (b === 0) return { a, b, diff: null, winner: null, state: "uncomputable" };
+  if (!hasData(ind, a) || !hasData(ind, b)) return { a, b, diff: null, delta: null, winner: null, state: "nodata" };
+  if (b === 0) return { a, b, diff: null, delta: null, winner: null, state: "uncomputable" };
   const diff = relativeDiff(a, b);
-  if (Math.abs(diff) < EQUAL_BELOW_PCT) return { a, b, diff, winner: null, state: "equal" };
-  if (!ind.direction) return { a, b, diff, winner: null, state: "neutral" };
+  const delta = a - b;
+  if (Math.abs(diff) < EQUAL_BELOW_PCT) return { a, b, diff, delta, winner: null, state: "equal" };
+  if (!ind.direction) return { a, b, diff, delta, winner: null, state: "neutral" };
   const aIsFavorable = (diff > 0) === (ind.direction === "higher");
-  return { a, b, diff, winner: aIsFavorable ? "a" : "b", state: "ok" };
+  return { a, b, diff, delta, winner: aIsFavorable ? "a" : "b", state: "ok" };
 }
 
 export interface CompareSummary {
@@ -124,7 +143,7 @@ export interface CompareSummary {
   equal: number;
   neutral: number;
   /** Sem comparação possível (sem dado ou base zero): precisam de análise adicional. */
-  needsReview: Indicator[];
+  needsReview: { indicator: Indicator; comparison: Comparison }[];
   /** Maiores diferenças relativas entre os indicadores comparáveis. */
   biggest: { indicator: Indicator; comparison: Comparison }[];
 }
@@ -137,9 +156,18 @@ export function summarizeComparison(ua: UnitData, ub: UnitData, biggestCount = 3
     if (comparison.state === "ok") { comparison.winner === "a" ? out.winsA++ : out.winsB++; }
     else if (comparison.state === "equal") out.equal++;
     else if (comparison.state === "neutral") out.neutral++;
-    else out.needsReview.push(indicator);
+    else out.needsReview.push({ indicator, comparison });
     if (comparison.diff !== null && comparison.state !== "equal") comparable.push({ indicator, comparison });
   }
   out.biggest = comparable.sort((x, y) => Math.abs(y.comparison.diff!) - Math.abs(x.comparison.diff!)).slice(0, biggestCount);
   return out;
+}
+
+/** Por que o indicador não pôde ser comparado (texto para o usuário). */
+export function reviewReason(ind: Indicator, c: Comparison): string {
+  if (c.state === "uncomputable") return "segunda unidade com valor zero: base de comparação zero";
+  const missA = !hasData(ind, c.a);
+  const missB = !hasData(ind, c.b);
+  if (missA && missB) return "sem dado nas duas unidades";
+  return missA ? "sem dado na primeira unidade" : "sem dado na segunda unidade";
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Check, Minus } from "lucide-react";
 import { getDataByMonth, getLatestData, getAvailableMonths, type UnitData } from "@/data/dashboardData";
 import {
-  CATEGORY_LABEL, INDICATORS, compareIndicator, formatIndicator, summarizeComparison,
+  CATEGORY_LABEL, INDICATORS, compareIndicator, formatDelta, formatIndicator, formatRelative, isPercentIndicator, reviewReason, summarizeComparison,
   type Category, type Comparison, type Indicator,
 } from "@/data/unitIndicators";
 import { Select } from "@/components/ui/select";
@@ -22,18 +22,19 @@ function formatMonth(m: string) {
   return new Date(y, (mo || 1) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
-const pctText = (d: number) => `${d > 0 ? "+" : ""}${d.toFixed(1).replace(".", ",")}%`;
-
-function DiffCell({ c }: { c: Comparison }) {
+function DiffCell({ ind, c }: { ind: Indicator; c: Comparison }) {
   if (c.state === "nodata") return <span className="text-xs text-muted-foreground">Sem dado</span>;
   if (c.state === "uncomputable") return <span className="text-xs text-muted-foreground">Sem base de comparação</span>;
   if (c.state === "equal") return <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Minus className="w-3.5 h-3.5" aria-hidden />Equivalente</span>;
   const Arrow = c.diff! > 0 ? ArrowUpRight : ArrowDownRight;
+  // Percentuais: diferença em p.p. em destaque + variação relativa (%) logo abaixo; demais: só a variação relativa.
+  const percent = isPercentIndicator(ind);
   return (
     <span className="inline-flex flex-col items-end leading-tight">
       <span className="inline-flex items-center gap-0.5 text-sm font-semibold tabular-nums text-foreground">
-        <Arrow className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />{pctText(c.diff!)}
+        <Arrow className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />{percent ? formatDelta(ind, c.delta!) : formatRelative(c.diff!)}
       </span>
+      {percent && <span className="text-[11px] text-muted-foreground tabular-nums">{formatRelative(c.diff!)} relativo</span>}
       {c.state === "neutral" && <span className="text-[11px] text-muted-foreground">sem regra</span>}
     </span>
   );
@@ -55,18 +56,20 @@ function Row({ ind, ua, ub }: { ind: Indicator; ua: UnitData; ub: UnitData }) {
   const scale = Math.max(Math.abs(c.a), Math.abs(c.b));
   const showBars = c.state !== "nodata" && scale > 0;
   const w = (v: number) => `${(Math.abs(v) / scale) * 100}%`;
+  // Valor negativo: barra listrada (comprimento = valor absoluto), para não parecer positivo.
+  const fill = (v: number, color: string) => (v < 0 ? `repeating-linear-gradient(135deg, ${color} 0 4px, transparent 4px 8px)` : color);
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[10.5rem_minmax(0,1fr)_7.5rem] items-center gap-x-4 gap-y-1.5 py-2.5">
       <span className="text-sm font-medium text-foreground">{ind.label}</span>
-      <div className="sm:order-3 text-right"><DiffCell c={c} /></div>
+      <div className="sm:order-3 text-right"><DiffCell ind={ind} c={c} /></div>
       <div className="col-span-2 sm:col-span-1 sm:order-2 flex items-center gap-2">
         <ValueCell ind={ind} value={c.a} side="a" winner={c.winner === "a"} />
         <div className="flex-1 flex items-center gap-px" aria-hidden>
           <div className="flex-1 h-2.5 rounded-l-full bg-secondary flex justify-end overflow-hidden">
-            {showBars && <div className="h-full" style={{ width: w(c.a), background: COLOR_A }} />}
+            {showBars && <div className="h-full" style={{ width: w(c.a), background: fill(c.a, COLOR_A) }} />}
           </div>
           <div className="flex-1 h-2.5 rounded-r-full bg-secondary overflow-hidden">
-            {showBars && <div className="h-full" style={{ width: w(c.b), background: COLOR_B }} />}
+            {showBars && <div className="h-full" style={{ width: w(c.b), background: fill(c.b, COLOR_B) }} />}
           </div>
         </div>
         <ValueCell ind={ind} value={c.b} side="b" winner={c.winner === "b"} />
@@ -146,25 +149,42 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
             <div>
               <h4 className="text-sm font-semibold mb-2">Maiores diferenças</h4>
               {summary.biggest.length ? (
-                <ul className="space-y-1 text-sm">
+                <ul className="space-y-2.5 text-sm">
                   {summary.biggest.map(({ indicator, comparison }) => (
-                    <li key={indicator.key} className="flex items-center justify-between gap-2">
-                      <span className="truncate">{indicator.label}</span>
-                      <span className="tabular-nums font-semibold shrink-0">{pctText(comparison.diff!)}</span>
+                    <li key={indicator.key}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="truncate">{indicator.label}</span>
+                        <span className="tabular-nums font-semibold shrink-0">
+                          {isPercentIndicator(indicator) ? formatDelta(indicator, comparison.delta!) : formatRelative(comparison.diff!)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        <span className="inline-block h-2 w-2 rounded-full mr-1" style={{ background: COLOR_A }} aria-hidden />{formatIndicator(indicator, comparison.a)}
+                        <span className="mx-1.5">vs.</span>
+                        <span className="inline-block h-2 w-2 rounded-full mr-1" style={{ background: COLOR_B }} aria-hidden />{formatIndicator(indicator, comparison.b)}
+                        {isPercentIndicator(indicator)
+                          ? <> · {formatRelative(comparison.diff!)} relativo</>
+                          : <> · diferença de {formatDelta(indicator, comparison.delta!)}</>}
+                        {!indicator.direction && <> · sem regra</>}
+                      </p>
                     </li>
                   ))}
                 </ul>
               ) : <p className="text-sm text-muted-foreground">Nenhuma diferença calculável.</p>}
-              <p className="text-[11px] text-muted-foreground mt-1">Diferença da primeira unidade em relação à segunda.</p>
+              <p className="text-[11px] text-muted-foreground mt-2">Ordenadas pela variação relativa da primeira unidade sobre a segunda. Percentuais altos podem vir de valores pequenos: confira os valores de cada unidade.</p>
             </div>
             <div>
               <h4 className="text-sm font-semibold mb-2">Precisam de análise adicional</h4>
               {summary.needsReview.length ? (
-                <ul className="flex flex-wrap gap-1.5">
-                  {summary.needsReview.map((i) => <li key={i.key} className="rounded-full border border-border bg-white px-2.5 py-0.5 text-xs text-muted-foreground">{i.label}</li>)}
+                <ul className="space-y-1.5 text-sm">
+                  {summary.needsReview.map(({ indicator, comparison }) => (
+                    <li key={indicator.key}>
+                      <span className="font-medium">{indicator.label}</span>
+                      <span className="block text-xs text-muted-foreground">{reviewReason(indicator, comparison)}</span>
+                    </li>
+                  ))}
                 </ul>
               ) : <p className="text-sm text-muted-foreground">Todos os indicadores têm comparação.</p>}
-              <p className="text-[11px] text-muted-foreground mt-1">Sem dado em uma das unidades ou sem base de comparação.</p>
             </div>
           </div>
 
@@ -184,7 +204,7 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
 
           <p className="mt-4 text-xs text-muted-foreground">
             <Check className="inline w-3 h-3 text-success align-[-1px]" aria-hidden /> indica o resultado favorável. Maior é melhor, exceto em churn, cancelados e inadimplência, onde menor é melhor.
-            Receitas complementares não têm regra de interpretação e não indicam favorável. A diferença é relativa à segunda unidade.
+            Receitas complementares não têm regra de interpretação e não indicam favorável. Barras listradas indicam valor negativo (o comprimento é o valor absoluto). Nos indicadores percentuais, a diferença é mostrada em pontos percentuais (p.p.) e a variação relativa (%) aparece separada. A variação relativa é calculada sobre a segunda unidade.
           </p>
         </>
       )}
