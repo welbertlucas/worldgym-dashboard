@@ -3,7 +3,7 @@ import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianG
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { Select } from "@/components/ui/select";
-import { MetaCard, TIER_COLOR, TierBadge, TierBullet, TierChips, shownPct, tierName } from "@/components/metas/TierGauge";
+import { TIER_COLOR, TierBadge, TierBullet, TierChips, shownPct, tierName } from "@/components/metas/TierGauge";
 import { GoalRing } from "@/components/metas/GoalRing";
 import { type MonthData } from "@/data/dashboardData";
 import {
@@ -50,13 +50,6 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
   const md = data.find((d) => d.month === shownMonth);
   const partial = isPartialMonth(shownMonth);
   const warnings = metaWarnings(metas.filter((m) => m.month === shownMonth));
-
-  // Rede: um cartão por indicador com meta da rede neste mês
-  const redeCards = keysWithMetas.map((kk) => {
-    const meta = getMeta(metas, shownMonth, "TOTAL", kk);
-    const actual = md ? actualFor(md, "TOTAL", kk) : null;
-    return meta && actual !== null ? { kk, meta, actual } : null;
-  }).filter((r): r is NonNullable<typeof r> => r !== null);
 
   // Unidades: indicador escolhido, ordenadas por nível atingido e progresso
   const keysThisMonth = keysWithMetas.filter((kk) => metas.some((m) => m.month === shownMonth && m.key === kk && m.unit !== "TOTAL"));
@@ -133,15 +126,6 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
           </p>
         )}
       </section>
-
-      {redeCards.length > 0 && (
-        <section aria-labelledby="metas-rede">
-          <h3 id="metas-rede" className="text-base font-semibold text-foreground mb-3">Rede</h3>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {redeCards.map((c) => <MetaCard key={c.kk} metaKey={c.kk} actual={c.actual} meta={c.meta} partial={partial} />)}
-          </div>
-        </section>
-      )}
 
       {k && (
         <section aria-labelledby="metas-unidades">
