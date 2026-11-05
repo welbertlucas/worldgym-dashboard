@@ -77,7 +77,11 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // conciliação bancária). Em Salvador/08-2026 eram R$ 666 mil de "Transferência | Pix" que inflavam o mês.
 const live = (r) => !r.cancellationDate && (r.idMemberPayer || r.idProspectPayer);
 
-export async function unitMonth(idBranch, ym) {
+// Hoje no horário de Brasília (AAAA-MM-DD). O Brasil não tem horário de verão desde 2019.
+export const hojeBR = (agora = Date.now()) => new Date(agora - 3 * 3600 * 1000).toISOString().slice(0, 10);
+const dia = (iso) => String(iso ?? "").slice(0, 10);
+
+export async function unitMonth(idBranch, ym, hoje = hojeBR()) {
   const [a, b] = monthRange(ym);
   const [dueAll, paidAll] = await Promise.all([
     fetchAll(`/receivables?idBranch=${idBranch}&dueDateStart=${a}&dueDateEnd=${b}`),
@@ -85,16 +89,27 @@ export async function unitMonth(idBranch, ym) {
   ]);
   const due = dueAll.filter(live);
   const paid = paidAll.filter(live);
-  // Pagantes do mês = pessoas com título vencendo no mês. Inadimplente = quem ainda não tinha pago
-  // algum desses títulos no último dia do mês (dá pra reconstruir o passado, porque o EVO guarda a data do pagamento).
+  const emAndamento = hoje.slice(0, 7) === ym;
+  const soma = (rs) => round2(rs.reduce((s, r) => s + (r.ammount || 0), 0));
+
+  // Faturamento = títulos que JÁ venceram no mês (no mês em andamento, até hoje). O que ainda vai vencer
+  // até o fim do mês é a previsão de faturamento. Em mês fechado os dois são iguais.
+  const jaVenceu = emAndamento ? due.filter((r) => dia(r.dueDate) <= hoje) : due;
+
+  // Pagantes = pessoas com título já vencido no mês. Inadimplente = quem não tinha pago algum desses títulos
+  // no fim do mês (mês fechado) ou ainda não pagou e já passou do vencimento (mês em andamento).
+  // Dá para reconstruir o passado porque o EVO guarda a data do pagamento.
   const quem = (r) => r.idMemberPayer || `p${r.idProspectPayer}`;
-  const pagantes = new Set(due.map(quem));
-  const devendo = new Set(due.filter((r) => !r.chargeDate || r.chargeDate.slice(0, 10) > b).map(quem));
+  const base = emAndamento ? due.filter((r) => dia(r.dueDate) < hoje) : due;
+  const naoPago = emAndamento ? (r) => !r.chargeDate : (r) => !r.chargeDate || dia(r.chargeDate) > b;
+  const pagantes = new Set(base.map(quem));
+  const devendo = new Set(base.filter(naoPago).map(quem));
   const recebimento = round2(paid.reduce((s, r) => s + (r.ammountPaid || 0), 0));
   return {
-    faturamento: round2(due.reduce((s, r) => s + (r.ammount || 0), 0)),
+    faturamento: soma(jaVenceu),
+    previsaoFaturamento: soma(due),
     recebimento,
-    titulosVencidos: due.length,
+    titulosVencidos: jaVenceu.length,
     titulosPagos: paid.length,
     pagantes: pagantes.size,
     adimplentes: pagantes.size - devendo.size,

@@ -31,6 +31,8 @@ export interface UnitData {
   notaGoogle: number;
   nps: number;
   reclameAqui: number;
+  /** Mês em andamento: o que ainda vai vencer até o fim do mês + o já vencido (vem do EVO). */
+  previsaoFaturamento?: number;
   /** Contratos ativos hoje (foto do EVO; só existe no mês corrente). */
   alunosAtivos?: number;
   contratosAtivos?: number;
@@ -277,7 +279,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 
 export interface EvoMonth {
   month: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -309,6 +311,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       }
       unit.faturamento = e.faturamento;
       unit.recebimento = e.recebimento;
+      unit.previsaoFaturamento = e.previsaoFaturamento;
       // Etapa 2: inadimplência vem do EVO quando o mês já foi calculado com ela (bateu com a planilha em
       // 0,2 p.p. de diferença mediana). Ticket médio e adimplentes do EVO ainda não batem; seguem da planilha.
       if (e.inadimplentes !== undefined) {
@@ -329,6 +332,9 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...md.total,
       faturamento: md.units.reduce((s, u) => s + u.faturamento, 0),
       recebimento: md.units.reduce((s, u) => s + u.recebimento, 0),
+      ...(evo.units.some((e) => e.previsaoFaturamento !== undefined)
+        ? { previsaoFaturamento: md.units.reduce((s, u) => s + (u.previsaoFaturamento ?? u.faturamento), 0) }
+        : {}),
       ...(evo.units.some((e) => e.inadimplentes !== undefined)
         ? (() => {
             const t = buildTotal(evo.month, md.units);

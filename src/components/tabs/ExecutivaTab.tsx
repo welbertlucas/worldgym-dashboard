@@ -58,6 +58,10 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
   const recebRatio = t.faturamento ? (t.recebimento / t.faturamento) * 100 : 0;
   const specs: KpiSpec[] = [
     { title: "Faturamento", kind: "flow", pick: (v) => v.total.faturamento, fmt: formatAbbreviatedNumber },
+    // Só no mês em andamento: o que ainda vai vencer até o fim do mês somado ao que já venceu (mês fechado = faturamento).
+    ...(partial && t.previsaoFaturamento !== undefined
+      ? [{ title: "Previsão de faturamento", kind: "flow" as const, pick: (v: MonthData) => v.total.previsaoFaturamento ?? v.total.faturamento, fmt: formatAbbreviatedNumber }]
+      : []),
     { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do faturamento`, tone: "neutral" }] },
     { title: "Vendas Online", kind: "flow", pick: (v) => v.total.vendasOnline, fmt: brl },
     { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pctText },
