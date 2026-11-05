@@ -31,6 +31,8 @@ export interface UnitData {
   notaGoogle: number;
   nps: number;
   reclameAqui: number;
+  /** Inadimplência calculada pelo EVO (e não vinda da planilha). */
+  inadimplenciaEvo?: boolean;
   /** Mês em andamento: o que ainda vai vencer até o fim do mês + o já vencido (vem do EVO). */
   previsaoFaturamento?: number;
   /** Contratos ativos hoje (foto do EVO; só existe no mês corrente). */
@@ -51,6 +53,8 @@ export interface MonthData {
 }
 
 export let dashboardData: MonthData[] = [];
+/** Quando o EVO foi consultado pela última vez pela rotina diária (ISO), ou null se o EVO não respondeu. */
+export let evoAtualizadoEm: string | null = null;
 
 function parseBR(s: string | undefined): number {
   if (!s || s.trim() === "") return 0;
@@ -267,7 +271,9 @@ export async function syncDashboardDataFromSheets(): Promise<{
     const res = await authFetch(CSV_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const csv = await res.text();
-    const parsed = mergeEvo(parseCSV(csv), await fetchEvoMonths());
+    const evoMonths = await fetchEvoMonths();
+    evoAtualizadoEm = evoMonths.map((m) => m.generatedAt ?? "").sort().pop() || null;
+    const parsed = mergeEvo(parseCSV(csv), evoMonths);
     if (parsed.length === 0) throw new Error("Nenhum dado encontrado na planilha.");
     dashboardData.length = 0;
     dashboardData.push(...parsed);
@@ -279,6 +285,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 
 export interface EvoMonth {
   month: string;
+  generatedAt?: string;
   units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
@@ -316,6 +323,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       // 0,2 p.p. de diferença mediana). Ticket médio e adimplentes do EVO ainda não batem; seguem da planilha.
       if (e.inadimplentes !== undefined) {
         unit.inadimplentes = e.inadimplentes;
+        unit.inadimplenciaEvo = true;
         unit.inadimplenciaPerc = e.inadimplenciaPerc ?? unit.inadimplenciaPerc;
       }
       if (e.alunosAtivos !== undefined) {
@@ -338,7 +346,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(evo.units.some((e) => e.inadimplentes !== undefined)
         ? (() => {
             const t = buildTotal(evo.month, md.units);
-            return { inadimplentes: t.inadimplentes, inadimplenciaPerc: t.inadimplenciaPerc };
+            return { inadimplentes: t.inadimplentes, inadimplenciaPerc: t.inadimplenciaPerc, inadimplenciaEvo: true };
           })()
         : {}),
     };

@@ -22,7 +22,7 @@ import { metasData, syncMetasFromSheets } from "@/data/metas";
 import { getLastClosedMonth, isPartialMonth } from "@/data/periods";
 import {
   getLatestData, getDataByMonth, comparePeriods, dashboardData,
-  getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets,
+  getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets, evoAtualizadoEm,
 } from "@/data/dashboardData";
 import { Button } from "@/components/ui/button";
 import { Sidebar, MobileDrawer } from "@/components/Sidebar";
@@ -206,9 +206,10 @@ const Index = () => {
             {loadedAt && (
               <p
                 className="hidden md:block text-xs text-muted-foreground tabular-nums"
-                title="Horário em que este navegador buscou os dados. Não indica a última edição da planilha."
+                title="Primeira hora: quando este navegador buscou os dados. EVO atualizado: última vez que a rotina leu o EVO (faturamento, recebimento e inadimplência). Não indica a última edição da planilha."
               >
                 Dados carregados às {loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                {evoAtualizadoEm && <> · EVO atualizado em {new Date(evoAtualizadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</>}
               </p>
             )}
             <Button

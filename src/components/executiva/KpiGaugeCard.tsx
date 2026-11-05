@@ -26,10 +26,12 @@ interface Props {
   partial?: boolean;
   /** Conteúdo extra abaixo dos chips (ex.: link). */
   footer?: ReactNode;
+  /** De onde vem o número (EVO ou planilha). */
+  source?: string;
 }
 
 /** Indicador em meia-lua: número dentro do arco, comparado ao mês anterior (marca no arco + chips). */
-export function KpiGaugeCard({ title, value, fill, marker, tone, details, partial, footer }: Props) {
+export function KpiGaugeCard({ title, value, fill, marker, tone, details, partial, footer, source }: Props) {
   return (
     <div className={cn("p-5 flex flex-col items-center gap-3 text-center", TILE_FRAME)}>
       <div className="flex w-full items-center justify-between gap-2">
@@ -53,6 +55,7 @@ export function KpiGaugeCard({ title, value, fill, marker, tone, details, partia
         </ul>
       )}
       {footer}
+      {source && <p className="mt-auto text-[11px] text-muted-foreground">Fonte: {source}</p>}
     </div>
   );
 }

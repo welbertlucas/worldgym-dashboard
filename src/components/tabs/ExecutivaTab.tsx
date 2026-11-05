@@ -10,7 +10,7 @@ import { type MonthData, dashboardData } from "@/data/dashboardData";
 import { type Alert } from "@/data/alerts";
 import { buildRecommendations } from "@/data/recommendations";
 import { type UnitDelta } from "@/data/unitMetrics";
-import { actualFor, isSingleGoal, progressToNext, tierReached, type Meta, type MetaKey } from "@/data/metas";
+import { actualFor, formatMetaValue, highestTier, isSingleGoal, progressToNext, resolveGoal, tierReached, TIER_LABEL, type Meta, type MetaKey } from "@/data/metas";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { sameMonthLastYear } from "@/data/alerts";
 import { formatAbbreviatedNumber } from "@/lib/utils";
@@ -55,12 +55,23 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
   const ly = partial ? undefined : dashboardData.find((d) => d.month === sameMonthLastYear(month.month));
   const ctx: KpiContext = { cur: month, prev, ly, partial };
   const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  // Ritmo do mês: em que nível da meta de faturamento a previsão fecha o mês.
+  const goal = resolveGoal(metas, month, month.month, null, "faturamento");
+  const ritmoDaMeta = (previsao: number): KpiSpec["extra"] => {
+    if (!goal) return undefined;
+    const top = highestTier(goal.meta);
+    const nivel = tierReached("faturamento", previsao, goal.meta);
+    return [
+      { text: `No ritmo atual: ${nivel === "abaixo" ? "abaixo do bronze" : `nível ${TIER_LABEL[nivel]}`}`, tone: nivel === "abaixo" ? "bad" : "good" },
+      ...(top ? [{ text: `${Math.floor((previsao / top.value) * 100)}% da meta ${TIER_LABEL[top.tier]} (${formatMetaValue("faturamento", top.value)})`, tone: "neutral" as const }] : []),
+    ];
+  };
   const recebRatio = t.faturamento ? (t.recebimento / t.faturamento) * 100 : 0;
   const specs: KpiSpec[] = [
     { title: "Faturamento", kind: "flow", pick: (v) => v.total.faturamento, fmt: formatAbbreviatedNumber },
     // Só no mês em andamento: o que ainda vai vencer até o fim do mês somado ao que já venceu (mês fechado = faturamento).
     ...(partial && t.previsaoFaturamento !== undefined
-      ? [{ title: "Previsão de faturamento", kind: "flow" as const, pick: (v: MonthData) => v.total.previsaoFaturamento ?? v.total.faturamento, fmt: formatAbbreviatedNumber }]
+      ? [{ title: "Previsão de faturamento", kind: "flow" as const, pick: (v: MonthData) => v.total.previsaoFaturamento ?? v.total.faturamento, fmt: formatAbbreviatedNumber, extra: ritmoDaMeta(t.previsaoFaturamento!) }]
       : []),
     { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do faturamento`, tone: "neutral" }] },
     { title: "Vendas Online", kind: "flow", pick: (v) => v.total.vendasOnline, fmt: brl },

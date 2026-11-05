@@ -28,6 +28,14 @@ export interface KpiSpec {
   noDataIfZero?: boolean;
 }
 
+const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Recebimento"]);
+/** Fonte do número: faturamento e recebimento vêm do EVO; inadimplência também, nos meses em que o EVO a calculou. */
+function sourceOf(title: string, v: MonthView): string {
+  if (EVO_TITLES.has(title)) return "EVO";
+  if (title === "Inadimplência" && v.total.inadimplenciaEvo) return "EVO";
+  return "planilha";
+}
+
 export interface KpiContext {
   cur: MonthView;
   prev?: MonthView;
@@ -62,8 +70,10 @@ export function KpiTile({ ctx, spec }: { ctx: KpiContext; spec: KpiSpec }) {
   const prevLabel = prevV ? shortMonth(prevV.month) : "";
   const lyLabel = lyV ? shortMonth(lyV.month) : "";
 
-  if (spec.noDataIfZero && cur === 0) {
-    return <KpiGaugeCard title={spec.title} value="—" fill={0} marker={null} tone="neutral" partial={partial} details={[{ text: "Sem dado neste mês", tone: "neutral" }]} />;
+  const source = sourceOf(spec.title, curV);
+  // Zero no mês em andamento quase sempre é "ainda não lançado" (a planilha só ganha a linha no fim): não vira queda de 100%.
+  if ((spec.noDataIfZero || partial) && cur === 0) {
+    return <KpiGaugeCard title={spec.title} value="—" fill={0} marker={null} tone="neutral" partial={partial} source={source} details={[{ text: partial && !spec.noDataIfZero ? "Ainda não lançado neste mês" : "Sem dado neste mês", tone: "neutral" }]} />;
   }
 
   let g: GaugeModel;
@@ -79,7 +89,7 @@ export function KpiTile({ ctx, spec }: { ctx: KpiContext; spec: KpiSpec }) {
     ? only(...extra, base && base > 0 ? { text: `${Math.floor((cur / base) * 100)}% de ${spec.fmt(base)} de ${prevLabel}`, tone: "neutral" } : undefined)
     : only(...extra, variation(cur, base, mode, higher, prevLabel), variation(cur, lyVal, mode, higher, lyLabel));
 
-  return <KpiGaugeCard title={spec.title} value={spec.fmt(cur)} {...g} details={details} partial={partial} />;
+  return <KpiGaugeCard title={spec.title} value={spec.fmt(cur)} {...g} details={details} partial={partial} source={source} />;
 }
 
 /** Grade de indicadores: uma única superfície com linhas finas entre os cartões (sem células cinzas no fim da linha). */
