@@ -52,7 +52,7 @@ export function TrendCard({ ind, rows, unitLabel, refLabel }: Props) {
                     <div className="rounded-xl border border-border bg-white px-3 py-2 text-xs shadow-md">
                       <p className="font-semibold text-foreground first-letter:uppercase">{formatMonthLong(r.month)}</p>
                       <p className="mt-1 flex items-center gap-1.5"><span className="h-0.5 w-3 rounded" style={{ background: BRAND }} />{unitLabel}<b className="ml-auto pl-3 tabular-nums">{r.unit === null ? "—" : formatIndicator(ind, r.unit)}</b></p>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-muted-foreground"><span className="h-0.5 w-3 rounded" style={{ background: REF }} />{refLabel}<b className="ml-auto pl-3 tabular-nums">{r.ref === null ? "—" : formatIndicator(ind, r.ref)}</b></p>
+                      <p className="mt-0.5 flex items-center gap-1.5 text-muted-foreground"><span className="h-0.5 w-3 rounded" style={{ background: REF }} />{refLabel}{r.refMonth ? ` (${short(r.refMonth)})` : ""}<b className="ml-auto pl-3 tabular-nums">{r.ref === null ? "—" : formatIndicator(ind, r.ref)}</b></p>
                     </div>
                   );
                 }}

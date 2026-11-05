@@ -6,7 +6,7 @@ import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi
 import { TrendCard } from "@/components/unidades/TrendCard";
 import { dashboardData, getAvailableUnits, type UnitData } from "@/data/dashboardData";
 import { INDICATOR_BY_KEY, formatIndicator } from "@/data/unitIndicators";
-import { PERIODOS, posicaoNaRede, seriesFor } from "@/data/unitSeries";
+import { PERIODOS, mesesNoIntervalo, posicaoNaRede, seriesPorMeses, type Referencia } from "@/data/unitSeries";
 import { viewFor } from "@/data/kpiView";
 import { sameMonthLastYear } from "@/data/alerts";
 import { formatMonthLong, getLastClosedMonth, isPartialMonth } from "@/data/periods";
@@ -30,10 +30,18 @@ const unitSpecs: KpiSpec[] = [
 export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
   const units = useMemo(() => getAvailableUnits(), []);
   const [unit, setUnit] = useState(initialUnit ?? units[0] ?? "");
-  const [refUnit, setRefUnit] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState<number>(12);
+  const fechados = useMemo(() => dashboardData.filter((d) => !isPartialMonth(d.month)).map((d) => d.month), []);
+  // "media" | "ano" | "anterior" | "u:<nome da unidade>"
+  const [refKey, setRefKey] = useState("media");
+  const [de, setDe] = useState(fechados[Math.max(0, fechados.length - 12)] ?? "");
+  const [ate, setAte] = useState(fechados[fechados.length - 1] ?? "");
   useEffect(() => { if (initialUnit) setUnit(initialUnit); }, [initialUnit]);
-  useEffect(() => { if (refUnit === unit) setRefUnit(null); }, [unit, refUnit]);
+  useEffect(() => { if (refKey === `u:${unit}`) setRefKey("media"); }, [unit, refKey]);
+  const escolherAtalho = (n: number) => { setDe(fechados[Math.max(0, fechados.length - n)] ?? ""); setAte(fechados[fechados.length - 1] ?? ""); };
+  const atalhoAtivo = PERIODOS.find((p) => ate === fechados[fechados.length - 1] && de === fechados[Math.max(0, fechados.length - p.n)])?.n;
+  const mesesGrafico = mesesNoIntervalo(dashboardData, de, ate);
+  const referencia: Referencia = refKey === "ano" ? { tipo: "ano" } : refKey === "anterior" ? { tipo: "anterior" } : refKey.startsWith("u:") ? { tipo: "unidade", nome: refKey.slice(2) } : { tipo: "media" };
+  const refLabel = refKey === "ano" ? `${unit} no ano anterior` : refKey === "anterior" ? `${unit} no período anterior` : refKey.startsWith("u:") ? refKey.slice(2) : "Média das unidades";
 
   const months = dashboardData.map((d) => d.month);
   const partial = isPartialMonth(selectedMonth);
@@ -53,7 +61,6 @@ export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
   const unitNow: UnitData | undefined = dashboardData.find((d) => d.month === selectedMonth)?.units.find((u) => u.name === unit);
   const contratos = [...dashboardData].reverse().map((d) => d.units.find((u) => u.name === unit)).find((u) => u?.alunosAtivos !== undefined);
 
-  const refLabel = refUnit ?? "Média das unidades";
   return (
     <div className="space-y-8 sm:space-y-10">
       <div>
@@ -67,25 +74,38 @@ export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Comparar com
-            <Select value={refUnit ?? ""} onChange={(e) => setRefUnit(e.target.value || null)} className="h-9 w-56 text-sm font-normal text-foreground">
-              <option value="">Média das unidades</option>
-              {units.filter((u) => u !== unit).map((u) => <option key={u} value={u}>{u}</option>)}
+            <Select value={refKey} onChange={(e) => setRefKey(e.target.value)} className="h-9 w-64 text-sm font-normal text-foreground">
+              <option value="media">Média das unidades</option>
+              <option value="ano">Ela mesma, um ano antes</option>
+              <option value="anterior">Ela mesma, período anterior</option>
+              <optgroup label="Outra unidade">
+                {units.filter((u) => u !== unit).map((u) => <option key={u} value={`u:${u}`}>{u}</option>)}
+              </optgroup>
             </Select>
           </label>
           <div role="group" aria-label="Período dos gráficos" className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Período dos gráficos
-            <div className="inline-flex overflow-hidden rounded-lg border border-border">
-              {PERIODOS.map((p) => (
-                <button
-                  key={p.n}
-                  type="button"
-                  aria-pressed={periodo === p.n}
-                  onClick={() => setPeriodo(p.n)}
-                  className={cn("h-9 px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", periodo === p.n ? "bg-foreground text-background" : "bg-white text-foreground hover:bg-secondary")}
-                >
-                  {p.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex overflow-hidden rounded-lg border border-border">
+                {PERIODOS.map((p) => (
+                  <button
+                    key={p.n}
+                    type="button"
+                    aria-pressed={atalhoAtivo === p.n}
+                    onClick={() => escolherAtalho(p.n)}
+                    className={cn("h-9 px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", atalhoAtivo === p.n ? "bg-foreground text-background" : "bg-white text-foreground hover:bg-secondary")}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <Select aria-label="Mês inicial" value={de} onChange={(e) => setDe(e.target.value)} className="h-9 w-44 text-sm font-normal text-foreground">
+                {fechados.map((m) => <option key={m} value={m}>{formatMonthLong(m)}</option>)}
+              </Select>
+              <span aria-hidden>até</span>
+              <Select aria-label="Mês final" value={ate} onChange={(e) => setAte(e.target.value)} className="h-9 w-44 text-sm font-normal text-foreground">
+                {fechados.map((m) => <option key={m} value={m}>{formatMonthLong(m)}</option>)}
+              </Select>
             </div>
           </div>
         </div>
@@ -127,13 +147,13 @@ export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
       )}
 
       <section aria-labelledby="evolucao-un-titulo">
-        <h3 id="evolucao-un-titulo" className="text-base font-semibold text-foreground">Evolução nos últimos {periodo} meses fechados</h3>
+        <h3 id="evolucao-un-titulo" className="text-base font-semibold text-foreground">Evolução de {mesesGrafico.length} {mesesGrafico.length === 1 ? "mês" : "meses"}: {mesesGrafico.length ? `${formatMonthLong(mesesGrafico[0])} a ${formatMonthLong(mesesGrafico[mesesGrafico.length - 1])}` : "sem meses fechados no intervalo"}</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          <span className="font-medium text-[hsl(4_90%_50%)]">{unit}</span> contra <span className="font-medium">{refLabel.toLowerCase() === "média das unidades" ? "a média das unidades" : refLabel}</span> (linha tracejada).
+          <span className="font-medium text-[hsl(4_90%_50%)]">{unit}</span> contra <span className="font-medium">{refKey === "media" ? "a média das unidades" : refLabel}</span> (linha tracejada).
         </p>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {TREND_KEYS.map((k) => (
-            <TrendCard key={k} ind={INDICATOR_BY_KEY[k]} rows={seriesFor(dashboardData, unit, INDICATOR_BY_KEY[k], periodo, refUnit)} unitLabel={unit} refLabel={refLabel} />
+            <TrendCard key={k} ind={INDICATOR_BY_KEY[k]} rows={seriesPorMeses(dashboardData, unit, INDICATOR_BY_KEY[k], mesesGrafico, referencia)} unitLabel={unit} refLabel={refLabel} />
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Meses sem dado lançado aparecem como lacuna. Inadimplência vem do EVO a partir de 11/2025; antes, da planilha.</p>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { posicaoNaRede, seriesFor, ultimosFechados, valorOuNulo } from "@/data/unitSeries";
+import { deslocar, mesesNoIntervalo, posicaoNaRede, seriesFor, seriesPorMeses, ultimosFechados, valorOuNulo } from "@/data/unitSeries";
 import { INDICATOR_BY_KEY } from "@/data/unitIndicators";
 import { month, unit } from "./helpers";
 
@@ -44,5 +44,36 @@ describe("posição na rede", () => {
 
   it("sem regra de direção não tem posição", () => {
     expect(posicaoNaRede(data[2], "Gama", INDICATOR_BY_KEY.diarias)).toBeNull();
+  });
+});
+
+describe("comparar a unidade com ela mesma", () => {
+  const ano = [
+    month("2025-09", [unit("Gama", { faturamento: 50 })]),
+    month("2025-10", [unit("Gama", { faturamento: 80 })]),
+    ...data,
+  ];
+  const fat = INDICATOR_BY_KEY.faturamento;
+
+  it("deslocar soma meses atravessando o ano", () => {
+    expect(deslocar("2026-02", -12)).toBe("2025-02");
+    expect(deslocar("2026-01", -1)).toBe("2025-12");
+    expect(deslocar("2026-11", 3)).toBe("2027-02");
+  });
+
+  it("contra o ano anterior: cada mês aponta para o mesmo mês um ano antes", () => {
+    const r = seriesPorMeses(ano, "Gama", fat, ["2026-09", "2026-10"], { tipo: "ano" });
+    expect(r.map((x) => [x.unit, x.ref, x.refMonth])).toEqual([[200, 50, "2025-09"], [300, 80, "2025-10"]]);
+  });
+
+  it("contra o período anterior: desloca pela quantidade de meses escolhida", () => {
+    const r = seriesPorMeses(ano, "Gama", fat, ["2026-09", "2026-10"], { tipo: "anterior" });
+    expect(r.map((x) => x.refMonth)).toEqual(["2026-07", "2026-08"]);
+    expect(r.map((x) => x.ref)).toEqual([null, 100]);
+  });
+
+  it("intervalo escolhido: só meses fechados, e aceita datas invertidas", () => {
+    expect(mesesNoIntervalo(ano, "2026-09", "2026-08", now)).toEqual(["2026-08", "2026-09"]);
+    expect(mesesNoIntervalo(ano, "2026-10", "2026-12", now)).toEqual(["2026-10"]);
   });
 });

@@ -11,6 +11,8 @@ export const PERIODOS = [
 
 export interface SeriesRow {
   month: string;
+  /** Mês de onde veio a referência, quando a unidade é comparada com ela mesma. */
+  refMonth?: string;
   /** Valor da unidade (null = sem dado naquele mês). */
   unit: number | null;
   /** Referência: a outra unidade escolhida ou a média das unidades da rede. */
@@ -27,20 +29,48 @@ export function ultimosFechados(data: MonthData[], n: number, now: Date = new Da
   return data.filter((m) => !isPartialMonth(m.month, now)).slice(-n);
 }
 
-export function seriesFor(data: MonthData[], unitName: string, ind: Indicator, n: number, refUnit: string | null, now: Date = new Date()): SeriesRow[] {
-  return ultimosFechados(data, n, now).map((m) => {
-    const u = m.units.find((x) => x.name === unitName);
-    const unit = u ? valorOuNulo(ind, ind.value(u)) : null;
-    let ref: number | null;
-    if (refUnit) {
-      const r = m.units.find((x) => x.name === refUnit);
-      ref = r ? valorOuNulo(ind, ind.value(r)) : null;
-    } else {
-      const vals = m.units.map((x) => valorOuNulo(ind, ind.value(x))).filter((v): v is number => v !== null);
-      ref = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+/** Com o que a unidade é comparada nos gráficos. */
+export type Referencia =
+  | { tipo: "media" } // média das unidades da rede
+  | { tipo: "unidade"; nome: string } // outra unidade, no mesmo mês
+  | { tipo: "ano" } // ela mesma, 12 meses antes
+  | { tipo: "anterior" }; // ela mesma, no período imediatamente anterior (mesma quantidade de meses)
+
+/** Soma `k` meses a "AAAA-MM". */
+export function deslocar(ym: string, k: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 1 + k, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Meses fechados entre `de` e `ate` (inclusive). Se vierem invertidos, troca. */
+export function mesesNoIntervalo(data: MonthData[], de: string, ate: string, now: Date = new Date()): string[] {
+  const [a, b] = de <= ate ? [de, ate] : [ate, de];
+  return data.filter((m) => !isPartialMonth(m.month, now) && m.month >= a && m.month <= b).map((m) => m.month);
+}
+
+export function seriesPorMeses(data: MonthData[], unitName: string, ind: Indicator, meses: string[], ref: Referencia): SeriesRow[] {
+  const doMes = (ym: string) => data.find((m) => m.month === ym);
+  const valorDa = (ym: string, nome: string) => {
+    const u = doMes(ym)?.units.find((x) => x.name === nome);
+    return u ? valorOuNulo(ind, ind.value(u)) : null;
+  };
+  return meses.map((month) => {
+    const unit = valorDa(month, unitName);
+    if (ref.tipo === "unidade") return { month, unit, ref: valorDa(month, ref.nome) };
+    if (ref.tipo === "ano" || ref.tipo === "anterior") {
+      const refMonth = deslocar(month, ref.tipo === "ano" ? -12 : -meses.length);
+      return { month, unit, ref: valorDa(refMonth, unitName), refMonth };
     }
-    return { month: m.month, unit, ref };
+    const vals = (doMes(month)?.units ?? []).map((x) => valorOuNulo(ind, ind.value(x))).filter((v): v is number => v !== null);
+    return { month, unit, ref: vals.length ? vals.reduce((t, v) => t + v, 0) / vals.length : null };
   });
+}
+
+/** Últimos `n` meses fechados contra a média da rede ou outra unidade (atalho usado nos testes e nos presets). */
+export function seriesFor(data: MonthData[], unitName: string, ind: Indicator, n: number, refUnit: string | null, now: Date = new Date()): SeriesRow[] {
+  const meses = ultimosFechados(data, n, now).map((m) => m.month);
+  return seriesPorMeses(data, unitName, ind, meses, refUnit ? { tipo: "unidade", nome: refUnit } : { tipo: "media" });
 }
 
 export interface Posicao { posicao: number; de: number }
