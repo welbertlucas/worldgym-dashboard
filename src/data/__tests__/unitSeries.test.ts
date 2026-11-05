@@ -63,3 +63,15 @@ describe("zero é 'sem dado' nos indicadores de contagem e taxa", () => {
     for (const k of ["faturamento", "recebimento", "vendasOnline", "diarias"]) expect(hasData(INDICATOR_BY_KEY[k], 0)).toBe(true);
   });
 });
+
+describe("comparativo entre unidades no mês em andamento", () => {
+  it("zero em venda online ou receitas complementares vira 'sem dado', e faturamento continua comparável", async () => {
+    const { compareIndicator } = await import("@/data/unitIndicators");
+    const a = unit("Gama", { vendasOnline: 500, diarias: 100, faturamento: 100 });
+    const b = unit("Itapoã", { vendasOnline: 0, diarias: 0, faturamento: 50 });
+    expect(compareIndicator(INDICATOR_BY_KEY.vendasOnline, a, b, false).state).toBe("uncomputable");
+    expect(compareIndicator(INDICATOR_BY_KEY.vendasOnline, a, b, true).state).toBe("nodata");
+    expect(compareIndicator(INDICATOR_BY_KEY.diarias, a, b, true).state).toBe("nodata");
+    expect(compareIndicator(INDICATOR_BY_KEY.faturamento, a, b, true).state).toBe("ok");
+  });
+});

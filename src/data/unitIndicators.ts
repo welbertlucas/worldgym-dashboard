@@ -129,10 +129,14 @@ export interface Comparison {
   state: CompareState;
 }
 
-export function compareIndicator(ind: Indicator, ua: UnitData, ub: UnitData): Comparison {
+/** No mês em andamento a planilha ainda não tem a linha: zero em qualquer indicador (menos faturamento e recebimento, que vêm do EVO) é "não lançado". */
+const semDado = (ind: Indicator, v: number, partial: boolean) =>
+  !hasData(ind, v) || (partial && v === 0 && ind.key !== "faturamento" && ind.key !== "recebimento");
+
+export function compareIndicator(ind: Indicator, ua: UnitData, ub: UnitData, partial = false): Comparison {
   const a = ind.value(ua);
   const b = ind.value(ub);
-  if (!hasData(ind, a) || !hasData(ind, b)) return { a, b, diff: null, delta: null, winner: null, state: "nodata" };
+  if (semDado(ind, a, partial) || semDado(ind, b, partial)) return { a, b, diff: null, delta: null, winner: null, state: "nodata" };
   if (b === 0) return { a, b, diff: null, delta: null, winner: null, state: "uncomputable" };
   const diff = relativeDiff(a, b);
   const delta = a - b;
@@ -153,11 +157,11 @@ export interface CompareSummary {
   biggest: { indicator: Indicator; comparison: Comparison }[];
 }
 
-export function summarizeComparison(ua: UnitData, ub: UnitData, biggestCount = 3): CompareSummary {
+export function summarizeComparison(ua: UnitData, ub: UnitData, biggestCount = 3, partial = false): CompareSummary {
   const out: CompareSummary = { winsA: 0, winsB: 0, equal: 0, neutral: 0, needsReview: [], biggest: [] };
   const comparable: { indicator: Indicator; comparison: Comparison }[] = [];
   for (const indicator of INDICATORS) {
-    const comparison = compareIndicator(indicator, ua, ub);
+    const comparison = compareIndicator(indicator, ua, ub, partial);
     if (comparison.state === "ok") { comparison.winner === "a" ? out.winsA++ : out.winsB++; }
     else if (comparison.state === "equal") out.equal++;
     else if (comparison.state === "neutral") out.neutral++;
@@ -169,10 +173,10 @@ export function summarizeComparison(ua: UnitData, ub: UnitData, biggestCount = 3
 }
 
 /** Por que o indicador não pôde ser comparado (texto para o usuário). */
-export function reviewReason(ind: Indicator, c: Comparison): string {
+export function reviewReason(ind: Indicator, c: Comparison, partial = false): string {
   if (c.state === "uncomputable") return "segunda unidade com valor zero: base de comparação zero";
-  const missA = !hasData(ind, c.a);
-  const missB = !hasData(ind, c.b);
+  const missA = semDado(ind, c.a, partial);
+  const missB = semDado(ind, c.b, partial);
   if (missA && missB) return "sem dado nas duas unidades";
   return missA ? "sem dado na primeira unidade" : "sem dado na segunda unidade";
 }

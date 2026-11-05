@@ -6,6 +6,7 @@ import {
   type Category, type Comparison, type Indicator,
 } from "@/data/unitIndicators";
 import { Select } from "@/components/ui/select";
+import { isPartialMonth } from "@/data/periods";
 import { cn } from "@/lib/utils";
 
 interface UnitComparisonProps {
@@ -51,8 +52,8 @@ function ValueCell({ ind, value, side, winner }: { ind: Indicator; value: number
   );
 }
 
-function Row({ ind, ua, ub }: { ind: Indicator; ua: UnitData; ub: UnitData }) {
-  const c = compareIndicator(ind, ua, ub);
+function Row({ ind, ua, ub, partial }: { ind: Indicator; ua: UnitData; ub: UnitData; partial: boolean }) {
+  const c = compareIndicator(ind, ua, ub, partial);
   const scale = Math.max(Math.abs(c.a), Math.abs(c.b));
   const showBars = c.state !== "nodata" && scale > 0;
   const w = (v: number) => `${(Math.abs(v) / scale) * 100}%`;
@@ -107,9 +108,10 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthData.month]);
 
+  const partialMes = isPartialMonth(monthData.month);
   const dataA = monthData.units.find((u) => u.name === unitA);
   const dataB = monthData.units.find((u) => u.name === unitB);
-  const summary = dataA && dataB ? summarizeComparison(dataA, dataB) : null;
+  const summary = dataA && dataB ? summarizeComparison(dataA, dataB, 3, partialMes) : null;
 
   return (
     <section aria-labelledby="comparativo-titulo">
@@ -180,7 +182,7 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
                   {summary.needsReview.map(({ indicator, comparison }) => (
                     <li key={indicator.key}>
                       <span className="font-medium">{indicator.label}</span>
-                      <span className="block text-xs text-muted-foreground">{reviewReason(indicator, comparison)}</span>
+                      <span className="block text-xs text-muted-foreground">{reviewReason(indicator, comparison, partialMes)}</span>
                     </li>
                   ))}
                 </ul>
@@ -196,7 +198,7 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
                   <p className="hidden sm:block text-xs text-muted-foreground">Barras na mesma escala, a partir do zero</p>
                 </div>
                 <ul className="divide-y divide-border/60">
-                  {INDICATORS.filter((i) => i.category === cat).map((i) => <Row key={i.key} ind={i} ua={dataA} ub={dataB} />)}
+                  {INDICATORS.filter((i) => i.category === cat).map((i) => <Row key={i.key} ind={i} ua={dataA} ub={dataB} partial={partialMes} />)}
                 </ul>
               </div>
             ))}
