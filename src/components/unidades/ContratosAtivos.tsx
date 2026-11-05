@@ -1,67 +1,99 @@
+import { useState } from "react";
 import { type UnitData } from "@/data/dashboardData";
+import { type ContratosView, contratosView, pctTexto, somaContratos } from "@/data/contratosAtivos";
+import { ContratosTiles, COR_LOCAL, COR_PARCIAL, COR_REDE } from "@/components/unidades/ContratosTiles";
+import { UnitLink } from "@/components/UnitLink";
 import { cn } from "@/lib/utils";
 
+type Ordem = "especiais" | "personal" | "local" | "parcial" | "rede";
+const ORDENS: { id: Ordem; label: string }[] = [
+  { id: "especiais", label: "Especiais/VIP" },
+  { id: "personal", label: "Personal" },
+  { id: "local", label: "Local" },
+  { id: "parcial", label: "2 a 9" },
+  { id: "rede", label: "Rede" },
+];
 const n = (v: number) => v.toLocaleString("pt-BR");
-const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1).replace(".", ",")}%` : "—");
 
-/** Contratos ativos por unidade, com os especiais/VIP e os de personal. Só aparece quando o EVO trouxe a foto do dia. */
+/** Barra com a divisão dos contratos por alcance do plano (local, 2 a 9 e rede). */
+function BarraAlcance({ v }: { v: ContratosView }) {
+  const partes = [
+    { label: "Local", f: v.local, cor: COR_LOCAL },
+    { label: "2 a 9", f: v.parcial, cor: COR_PARCIAL },
+    { label: "Rede", f: v.rede, cor: COR_REDE },
+  ];
+  return (
+    <div>
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary" role="img" aria-label={partes.map((p) => `${p.label} ${pctTexto(p.f.pct)}`).join(", ")}>
+        {partes.map((p) => <div key={p.label} style={{ width: `${p.f.pct}%`, background: p.cor }} />)}
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
+        {partes.map((p) => (
+          <li key={p.label} className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.cor }} aria-hidden />
+            {p.label} <b className="font-semibold text-foreground">{n(p.f.n)}</b> ({pctTexto(p.f.pct)})
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Contratos ativos hoje: totais da rede e um cartão por unidade. Só aparece quando o EVO trouxe a foto do dia. */
 export function ContratosAtivos({ units }: { units: UnitData[] }) {
-  const rows = units
-    .filter((u) => u.alunosAtivos !== undefined)
-    .sort((a, b) => (b.contratosEspeciais ?? 0) - (a.contratosEspeciais ?? 0));
-  if (rows.length === 0) return null;
+  const [ordem, setOrdem] = useState<Ordem>("especiais");
+  const rede = somaContratos(units);
+  if (!rede) return null;
 
-  const sum = (k: "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede") => rows.reduce((s, u) => s + (u[k] ?? 0), 0);
-  const total = { alunos: sum("alunosAtivos"), contratos: sum("contratosAtivos"), especiais: sum("contratosEspeciais"), personal: sum("contratosPersonal"), local: sum("contratosLocal"), parcial: sum("contratosParcial"), rede: sum("contratosRede") };
+  const lista = units
+    .map((u) => ({ u, v: contratosView(u) }))
+    .filter((x): x is { u: UnitData; v: ContratosView } => x.v !== null)
+    .sort((a, b) => b.v[ordem].n - a.v[ordem].n);
 
   return (
-    <section aria-labelledby="contratos-titulo">
-      <h3 id="contratos-titulo" className="text-base font-semibold text-foreground">Contratos ativos: especiais/VIP e personal</h3>
-      <p className="text-sm text-muted-foreground mb-4">
-        Foto de hoje, direto do EVO. Especial/VIP = categoria VIP ou plano com “VIP” no nome e valor zero; personal = categoria ou nome “Personal”. Alcance do plano, conforme o EVO: local = 1 unidade; 2 a 9 = a própria e algumas vizinhas; rede = 10 ou mais.
-      </p>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-muted-foreground">
-            <tr>
-              <th className="text-left font-medium px-3 py-2">Unidade</th>
-              <th className="text-right font-medium px-3 py-2">Alunos ativos</th>
-              <th className="text-right font-medium px-3 py-2">Especiais/VIP</th>
-              <th className="text-right font-medium px-3 py-2">% do total</th>
-              <th className="text-right font-medium px-3 py-2">Personal</th>
-              <th className="text-right font-medium px-3 py-2">Plano local</th>
-              <th className="text-right font-medium px-3 py-2">2 a 9 unidades</th>
-              <th className="text-right font-medium px-3 py-2">Plano rede (10+)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((u) => (
-              <tr key={u.name} className="border-t border-border">
-                <td className="px-3 py-2">{u.name}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n(u.alunosAtivos ?? 0)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n(u.contratosEspeciais ?? 0)}</td>
-                <td className={cn("px-3 py-2 text-right tabular-nums text-muted-foreground")}>{pct(u.contratosEspeciais ?? 0, u.contratosAtivos ?? 0)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n(u.contratosPersonal ?? 0)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n(u.contratosLocal ?? 0)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n(u.contratosParcial ?? 0)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{n(u.contratosRede ?? 0)} <span className="text-muted-foreground">({pct(u.contratosRede ?? 0, u.contratosAtivos ?? 0)})</span></td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="border-t border-border bg-muted/30 font-medium">
-            <tr>
-              <td className="px-3 py-2">Rede</td>
-              <td className="px-3 py-2 text-right tabular-nums">{n(total.alunos)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{n(total.especiais)}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{pct(total.especiais, total.contratos)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{n(total.personal)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{n(total.local)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{n(total.parcial)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{n(total.rede)} <span className="text-muted-foreground font-normal">({pct(total.rede, total.contratos)})</span></td>
-            </tr>
-          </tfoot>
-        </table>
+    <section aria-labelledby="contratos-titulo" className="space-y-4">
+      <div>
+        <h3 id="contratos-titulo" className="text-base font-semibold text-foreground">Contratos ativos: especiais, personal e alcance do plano</h3>
+        <p className="text-sm text-muted-foreground">
+          Foto de hoje, direto do EVO. Percentuais sobre o total de contratos ativos ({n(rede.total)}). Local, 2 a 9 unidades e rede somam 100%; especiais/VIP e personal são recortes dentro deles.
+        </p>
       </div>
+
+      <ContratosTiles v={rede} />
+
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+        <h4 className="text-sm font-semibold text-foreground">Por unidade</h4>
+        <div role="group" aria-label="Ordenar por" className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          Ordenar por
+          {ORDENS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              aria-pressed={ordem === o.id}
+              onClick={() => setOrdem(o.id)}
+              className={cn("rounded-full border px-2.5 py-1 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", ordem === o.id ? "border-foreground bg-foreground text-background" : "border-border bg-white text-foreground hover:bg-secondary")}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {lista.map(({ u, v }) => (
+          <li key={u.name} className="card-surface p-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <h5 className="truncate text-sm font-semibold text-foreground"><UnitLink name={u.name} /></h5>
+              <span className="text-xs tabular-nums text-muted-foreground">{n(v.total)} contratos</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-secondary px-2.5 py-1 text-foreground tabular-nums">Especiais/VIP <b>{n(v.especiais.n)}</b> <span className="text-muted-foreground">({pctTexto(v.especiais.pct)})</span></span>
+              <span className="rounded-full bg-secondary px-2.5 py-1 text-foreground tabular-nums">Personal <b>{n(v.personal.n)}</b> <span className="text-muted-foreground">({pctTexto(v.personal.pct)})</span></span>
+            </div>
+            <div className="mt-3"><BarraAlcance v={v} /></div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

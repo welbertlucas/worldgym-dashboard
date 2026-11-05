@@ -6,6 +6,8 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { TrendCard } from "@/components/unidades/TrendCard";
+import { ContratosTiles } from "@/components/unidades/ContratosTiles";
+import { contratosView } from "@/data/contratosAtivos";
 import { dashboardData, getAvailableUnits, type UnitData } from "@/data/dashboardData";
 import { INDICATOR_BY_KEY, formatIndicator } from "@/data/unitIndicators";
 import { PERIODOS, mesesNoIntervalo, posicaoNaRede, seriesPorMeses } from "@/data/unitSeries";
@@ -73,7 +75,8 @@ export function UnidadeTab({ selectedMonth, initialUnit, openKey, compareMonth, 
     const topo = highestTier(meta);
     return [{ key, meta, actual, nivel: tierReached(key, actual, meta), proximo: nextTier(key, actual, meta), topo }];
   });
-  const contratos = [...dashboardData].reverse().map((d) => d.units.find((u) => u.name === unit)).find((u) => u?.alunosAtivos !== undefined);
+  const ultimoComContratos = [...dashboardData].reverse().map((d) => d.units.find((u) => u.name === unit)).find((u) => u?.contratosAtivos !== undefined);
+  const contratosDaUnidade = ultimoComContratos ? contratosView(ultimoComContratos) : null;
 
   return (
     <div className="space-y-8 sm:space-y-10">
@@ -167,21 +170,13 @@ export function UnidadeTab({ selectedMonth, initialUnit, openKey, compareMonth, 
         )}
       </section>
 
-      {contratos && (
-        <section aria-labelledby="contratos-un-titulo" className="card-surface p-5 sm:p-6">
-          <h3 id="contratos-un-titulo" className="text-base font-semibold text-foreground">Contratos ativos hoje</h3>
-          <p className="text-sm text-muted-foreground mb-4">Foto do EVO. Alcance do plano: local = 1 unidade; 2 a 9 = a própria e algumas vizinhas; rede = 10 ou mais.</p>
-          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-            {[
-              ["Alunos ativos", contratos.alunosAtivos], ["Especiais/VIP", contratos.contratosEspeciais], ["Personal", contratos.contratosPersonal],
-              ["Plano local", contratos.contratosLocal], ["2 a 9 unidades", contratos.contratosParcial], ["Plano rede (10+)", contratos.contratosRede],
-            ].map(([label, v]) => (
-              <div key={label as string} className="rounded-xl border border-border px-3 py-2.5">
-                <dt className="text-xs text-muted-foreground">{label as string}</dt>
-                <dd className="mt-0.5 font-display text-xl font-semibold tabular-nums text-foreground">{n(v as number | undefined)}</dd>
-              </div>
-            ))}
-          </dl>
+      {contratosDaUnidade && (
+        <section aria-labelledby="contratos-un-titulo" className="space-y-3">
+          <div>
+            <h3 id="contratos-un-titulo" className="text-base font-semibold text-foreground">Contratos ativos hoje</h3>
+            <p className="text-sm text-muted-foreground">Foto do EVO, sobre {contratosDaUnidade.total.toLocaleString("pt-BR")} contratos ativos. Local, 2 a 9 unidades e rede somam 100%; especiais/VIP e personal são recortes dentro deles.</p>
+          </div>
+          <ContratosTiles v={contratosDaUnidade} />
         </section>
       )}
 
