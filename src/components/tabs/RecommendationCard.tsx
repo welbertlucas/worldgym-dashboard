@@ -27,7 +27,7 @@ function Hypotheses({ items }: { items: Recommendation["hypotheses"] }) {
         <li key={h.text}>
           {h.text}
           {supportTag[h.support] && (
-            <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${h.support === "indicio" ? "bg-warning/10 text-warning" : "bg-secondary text-muted-foreground"}`}>
+            <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${h.support === "indicio" ? "bg-warning/10 text-warning" : "bg-secondary text-muted-foreground"}`}>
               {supportTag[h.support]}
             </span>
           )}

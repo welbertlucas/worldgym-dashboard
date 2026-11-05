@@ -29,7 +29,7 @@ export function GoalRing({ metaKey, actual, meta, partial, title, subtitle }: Pr
             {shown > 0 && <circle cx="50" cy="50" r={R} fill="none" stroke={color} strokeWidth="11" strokeLinecap="round" strokeDasharray={`${(shown / 100) * C} ${C}`} />}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-            <span className="text-[11px] text-muted-foreground">{partial ? "Realizado até agora" : "Realizado"}</span>
+            <span className="text-xs text-muted-foreground">{partial ? "Realizado até agora" : "Realizado"}</span>
             <span className="font-display text-[1.7rem] font-semibold leading-tight text-foreground tabular-nums">{formatMetaValue(metaKey, actual)}</span>
             <span className="mt-0.5 text-xs font-semibold tabular-nums" style={{ color: reached === "abaixo" ? undefined : color }}>
               {next ? `${shown}% da ${levelOf(next.tier, single)}` : single ? "Meta atingida" : "Todos os níveis atingidos"}

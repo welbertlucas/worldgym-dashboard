@@ -25,7 +25,7 @@ function BarraAlcance({ v }: { v: ContratosView }) {
       <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary" role="img" aria-label={partes.map((p) => `${p.label} ${pctTexto(p.f.pct)}`).join(", ")}>
         {partes.map((p) => <div key={p.label} style={{ width: `${p.f.pct}%`, background: p.cor }} />)}
       </div>
-      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
+      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
         {partes.map((p) => (
           <li key={p.label} className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.cor }} aria-hidden />

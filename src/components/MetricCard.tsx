@@ -78,7 +78,7 @@ export function MetricCard({ title, value, subtitle, details, icon: Icon, varian
         {previous && (
           <p className="text-right text-xs text-muted-foreground tabular-nums leading-tight" title={previous.label}>
             {previous.value}
-            <span className="block text-[11px]">{previous.label}</span>
+            <span className="block text-xs">{previous.label}</span>
           </p>
         )}
       </div>
@@ -88,7 +88,7 @@ export function MetricCard({ title, value, subtitle, details, icon: Icon, varian
           {details.map((d) => {
             const Arrow = d.direction ? arrow[d.direction] : null;
             return (
-              <li key={d.text} className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums", chipTone[d.tone])}>
+              <li key={d.text} className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", chipTone[d.tone])}>
                 {Arrow && <Arrow className="w-3 h-3 shrink-0" aria-hidden />}
                 {d.text}
               </li>

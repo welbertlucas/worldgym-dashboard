@@ -4,6 +4,7 @@ import { type MetricDetail } from "@/components/MetricCard";
 import { absoluteGauge, rateGauge, type GaugeModel } from "@/data/kpiGauge";
 import { type MonthView, shortMonth } from "@/data/kpiView";
 import { INDICATOR_BY_KEY } from "@/data/unitIndicators";
+import { AJUDA } from "@/data/indicadorAjuda";
 import { cn } from "@/lib/utils";
 
 /**
@@ -73,7 +74,7 @@ export function KpiTile({ ctx, spec }: { ctx: KpiContext; spec: KpiSpec }) {
   const source = sourceOf(spec.title, curV);
   // Zero no mês em andamento quase sempre é "ainda não lançado" (a planilha só ganha a linha no fim): não vira queda de 100%.
   if ((spec.noDataIfZero || partial) && cur === 0) {
-    return <KpiGaugeCard title={spec.title} value="—" fill={0} marker={null} tone="neutral" partial={partial} source={source} details={[{ text: partial && !spec.noDataIfZero ? "Ainda não lançado neste mês" : "Sem dado neste mês", tone: "neutral" }]} />;
+    return <KpiGaugeCard title={spec.title} value="—" fill={0} marker={null} tone="neutral" partial={partial} source={source} help={AJUDA[spec.title]} details={[{ text: partial && !spec.noDataIfZero ? "Ainda não lançado neste mês" : "Sem dado neste mês", tone: "neutral" }]} />;
   }
 
   let g: GaugeModel;
@@ -93,7 +94,7 @@ export function KpiTile({ ctx, spec }: { ctx: KpiContext; spec: KpiSpec }) {
 
   // Mês em andamento: as variações das taxas também ficam neutras (a base ainda é pequena).
   const shown = partial && ind ? details.map((d) => ({ ...d, tone: "neutral" as const })) : details;
-  return <KpiGaugeCard title={spec.title} value={spec.fmt(cur)} {...g} details={shown} partial={partial} source={source} />;
+  return <KpiGaugeCard title={spec.title} value={spec.fmt(cur)} {...g} details={shown} partial={partial} source={source} help={AJUDA[spec.title]} />;
 }
 
 /** Grade de indicadores: uma única superfície com linhas finas entre os cartões (sem células cinzas no fim da linha). */

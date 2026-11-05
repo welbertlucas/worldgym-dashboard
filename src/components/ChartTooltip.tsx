@@ -12,7 +12,7 @@ export function TooltipCard({ title, rows, note }: { title: string; rows: TipRow
           <b className="ml-auto pl-4 tabular-nums">{r.value}</b>
         </p>
       ))}
-      {note && <p className="mt-1.5 text-[11px] text-muted-foreground">{note}</p>}
+      {note && <p className="mt-1.5 text-xs text-muted-foreground">{note}</p>}
     </div>
   );
 }

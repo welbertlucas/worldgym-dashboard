@@ -223,10 +223,10 @@ const Index = () => {
                 <Menu className="w-5 h-5" aria-hidden />
               </button>
               <div className="min-w-0">
-                <h1 className="text-base sm:text-xl font-semibold tracking-tight text-foreground leading-tight truncate">
+                <h1 className="text-base sm:text-xl font-semibold tracking-tight text-foreground leading-tight sm:truncate">
                   Dashboard de resultados
                 </h1>
-                <p className="text-muted-foreground text-xs sm:text-sm truncate first-letter:uppercase">
+                <p className="text-muted-foreground text-xs sm:text-sm sm:truncate first-letter:uppercase">
                   {selectedUnit ? selectedUnit : "Rede"} • {formatDate(fullMonthData.month)}
                   {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
@@ -235,7 +235,7 @@ const Index = () => {
             <div className="flex items-center gap-3 shrink-0">
             {loadedAt && (
               <p
-                className="hidden md:block text-xs text-muted-foreground tabular-nums"
+                className="hidden xl:block text-xs text-muted-foreground tabular-nums"
                 title="Primeira hora: quando este navegador buscou os dados. EVO atualizado: última vez que a rotina leu o EVO (faturamento, recebimento e inadimplência). Não indica a última edição da planilha."
               >
                 Dados carregados às {loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -248,6 +248,7 @@ const Index = () => {
               onClick={() => refresh(false)}
               disabled={syncing}
               aria-label="Atualizar da planilha"
+              title={loadedAt ? `Dados carregados às ${loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${evoAtualizadoEm ? ` · EVO atualizado em ${new Date(evoAtualizadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}` : undefined}
               className="shrink-0 text-xs font-medium"
             >
               <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />

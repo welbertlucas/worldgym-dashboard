@@ -1,0 +1,23 @@
+/** Explicação curta de cada indicador (botão "i" dos cartões). Só diz o que sabemos da regra de cálculo. */
+export const AJUDA: Record<string, string> = {
+  Faturamento: "Soma dos títulos com vencimento no mês, sem os cancelados. No mês em andamento conta só o que já venceu até hoje. Vem do EVO.",
+  "Previsão de faturamento": "Faturamento do mês inteiro: o que já venceu mais o que ainda vai vencer até o último dia. Só aparece no mês em andamento. Vem do EVO.",
+  Recebimento: "Valor efetivamente pago no mês, pela data do pagamento, sem cancelados e sem transferências entre contas da própria empresa. Vem do EVO.",
+  Inadimplência: "Percentual de pagantes do mês com algum título vencido e ainda não pago no fim do mês (no mês em andamento, até hoje). Pagante é quem tem título vencendo no mês. Vem do EVO a partir de 11/2025; antes, da planilha.",
+  "Ticket Médio": "Na planilha, o recebimento dividido pelo número de alunos ativos. Vem da planilha.",
+  Adimplentes: "Alunos ativos em dia com os pagamentos, como lançado na planilha.",
+  "Novos Contratos": "Contratos novos do mês, como lançado na planilha.",
+  "Saldo de Clientes": "Novos contratos menos cancelados no mês. Vem da planilha.",
+  "Taxa de Conversão": "Percentual de oportunidades que viraram contrato, como lançado na planilha.",
+  Conversão: "Percentual de oportunidades que viraram contrato, como lançado na planilha.",
+  Churn: "Percentual de alunos que cancelaram no mês, como lançado na planilha. Menor é melhor.",
+  Renovação: "Percentual de contratos que renovaram no mês, como lançado na planilha.",
+  "Vendas Online": "Valor vendido pelos canais online no mês, como lançado na planilha.",
+  Diárias: "Receita de diárias, como lançado na planilha.",
+  "Taxa de Personal": "Receita da taxa de personal, como lançado na planilha.",
+  Camisetas: "Receita de camisetas, como lançado na planilha.",
+  Coqueteleiras: "Receita de coqueteleiras, como lançado na planilha.",
+  "Nota do Google": "Nota média da unidade no Google, como lançado na planilha.",
+  NPS: "Net Promoter Score da unidade, como lançado na planilha.",
+  "Nota Reclame Aqui": "Nota da rede no Reclame Aqui, como lançado na planilha.",
+};

@@ -56,7 +56,7 @@ export function DonutList({ title, subtitle, items, center, empty, className }: 
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
               <span className="font-display text-2xl font-semibold leading-none text-foreground tabular-nums">{center.value}</span>
-              <span className="mt-1 text-[11px] text-muted-foreground">{center.caption}</span>
+              <span className="mt-1 text-xs text-muted-foreground">{center.caption}</span>
             </div>
           </div>
           <ul className="flex-1 min-w-0 divide-y divide-border">

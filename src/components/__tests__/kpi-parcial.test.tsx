@@ -27,4 +27,12 @@ describe("indicadores do mês em andamento", () => {
     expect(renderToString(<KpiTile ctx={{ cur: view("2026-10", 1, { inadimplenciaPerc: 5, inadimplenciaEvo: true }), partial: false }} spec={inad} />)).toContain("EVO");
     expect(renderToString(<KpiTile ctx={{ cur: view("2026-10", 1, { inadimplenciaPerc: 5 }), partial: false }} spec={inad} />)).toContain("planilha");
   });
+
+  it("cada cartão tem o botão 'i' com a explicação do indicador", () => {
+    const fat: KpiSpec = { title: "Faturamento", kind: "flow", pick: (v) => v.total.faturamento, fmt: (n) => String(n) };
+    const html = renderToString(<KpiTile ctx={{ cur: view("2026-10", 1), partial: false }} spec={fat} />);
+    expect(html).toContain("Como é calculado: Faturamento");
+    const semAjuda: KpiSpec = { title: "Indicador sem texto", kind: "level", pick: (v) => v.total.adimplentes, fmt: (n) => String(n) };
+    expect(renderToString(<KpiTile ctx={{ cur: view("2026-10", 5), partial: false }} spec={semAjuda} />)).not.toContain("Como é calculado");
+  });
 });
