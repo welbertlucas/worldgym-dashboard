@@ -243,6 +243,8 @@ const Index = () => {
           onMonthChange={setSelectedMonth}
           onCompareMonthChange={setCompareMonth}
           onUnitChange={setSelectedUnit}
+          hideUnit={activeTab === "unidade"}
+          hideCompare={activeTab === "unidade"}
         />
 
         {/* Comparativo */}

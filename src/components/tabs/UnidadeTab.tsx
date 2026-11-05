@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Select } from "@/components/ui/select";
 import { SectionTitle } from "@/components/SectionTitle";
-import { Notice } from "@/components/Notice";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { TrendCard } from "@/components/unidades/TrendCard";
@@ -58,7 +57,7 @@ export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
   return (
     <div className="space-y-8 sm:space-y-10">
       <div>
-        <SectionTitle hint={`${formatMonthLong(selectedMonth)}${partial ? " (em andamento)" : ""}`}>Detalhe da unidade</SectionTitle>
+        <SectionTitle hint={`${formatMonthLong(selectedMonth)}${partial ? " (em andamento): os cartões são parciais; posição na rede e gráficos usam só meses fechados." : ""}`}>Detalhe da unidade</SectionTitle>
         <div role="group" aria-label="Filtros da unidade" className="flex flex-wrap items-end gap-x-6 gap-y-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Unidade
@@ -90,7 +89,6 @@ export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
             </div>
           </div>
         </div>
-        {partial && <div className="mt-4"><Notice>{formatMonthLong(selectedMonth)} está em andamento: os cartões são parciais. Posição na rede e gráficos usam só meses fechados.</Notice></div>}
       </div>
 
       <section aria-label={`Indicadores de ${unit}`}>

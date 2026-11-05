@@ -10,6 +10,9 @@ interface DateFilterProps {
   onMonthChange: (month: string) => void;
   onCompareMonthChange: (month: string | null) => void;
   onUnitChange: (unit: string | null) => void;
+  /** Páginas que têm filtro próprio de unidade e de comparação escondem os do topo. */
+  hideUnit?: boolean;
+  hideCompare?: boolean;
 }
 
 function formatMonth(m: string) {
@@ -18,7 +21,7 @@ function formatMonth(m: string) {
   return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
-export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthChange, onCompareMonthChange, onUnitChange }: DateFilterProps) {
+export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthChange, onCompareMonthChange, onUnitChange, hideUnit, hideCompare }: DateFilterProps) {
   const months = getAvailableMonths();
   const units = getAvailableUnits();
 
@@ -36,7 +39,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
         </Select>
       </div>
 
-      <div className={field}>
+      {!hideCompare && <div className={field}>
         <label htmlFor="filtro-comparar" className={label}>Comparar com</label>
         <div className="flex gap-1">
           <Select
@@ -56,9 +59,9 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
             </Button>
           )}
         </div>
-      </div>
+      </div>}
 
-      <div className={`${field} col-span-2 sm:col-span-1`}>
+      {!hideUnit && <div className={`${field} col-span-2 sm:col-span-1`}>
         <label htmlFor="filtro-unidade" className={label}>Unidade</label>
         <div className="flex gap-1">
           <Select
@@ -78,7 +81,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
             </Button>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -42,7 +42,7 @@ export function TrendCard({ ind, rows, unitLabel, refLabel }: Props) {
             <LineChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis dataKey="label" tick={AXIS_TICK} axisLine={false} tickLine={false} tickMargin={6} interval="preserveStartEnd" minTickGap={18} />
-              <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={52} tickFormatter={compact(ind)} domain={["auto", "auto"]} />
+              <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={64} tickFormatter={compact(ind)} domain={["auto", "auto"]} />
               <Tooltip
                 cursor={{ stroke: GRID }}
                 content={({ active, payload }) => {
