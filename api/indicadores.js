@@ -10,7 +10,14 @@ export default async function handler(req, res) {
   if (!exigirLogin(req, res)) return;
 
   try {
-    const { month } = req.query;
+    const { month, all } = req.query;
+    // ?all=1: todos os meses numa só resposta (o painel abre com uma consulta em vez de 36).
+    if (all) {
+      const meses = await listMonths();
+      const dados = (await Promise.all(meses.map((m) => loadMonth(m)))).filter(Boolean);
+      res.setHeader("Cache-Control", "private, max-age=300");
+      return res.status(200).json({ months: dados });
+    }
     if (!month) return res.status(200).json({ months: await listMonths() });
     if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: "month deve ser AAAA-MM" });
     const data = await loadMonth(month);

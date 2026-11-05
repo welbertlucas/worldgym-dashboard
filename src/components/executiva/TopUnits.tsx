@@ -1,3 +1,4 @@
+import { UnitLink } from "@/components/UnitLink";
 import { type UnitData } from "@/data/dashboardData";
 import { formatIndicator, INDICATOR_BY_KEY } from "@/data/unitIndicators";
 
@@ -14,7 +15,7 @@ export function TopUnits({ units, monthLabel, partial, onOpen, limit = 6 }: { un
         {rows.map((u, i) => (
           <li key={u.name}>
             <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="truncate"><span className="text-muted-foreground tabular-nums mr-2">{i + 1}</span><span className="font-medium text-foreground">{u.name}</span></span>
+              <span className="truncate"><span className="text-muted-foreground tabular-nums mr-2">{i + 1}</span><span className="font-medium text-foreground"><UnitLink name={u.name} /></span></span>
               <span className="font-semibold tabular-nums shrink-0">{formatIndicator(ind, u.faturamento)}</span>
             </div>
             <div className="mt-1.5 h-1.5 rounded-full bg-secondary overflow-hidden" aria-hidden>

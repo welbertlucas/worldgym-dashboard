@@ -71,8 +71,11 @@ export const INDICATORS: Indicator[] = [
 
 export const INDICATOR_BY_KEY: Record<string, Indicator> = Object.fromEntries(INDICATORS.map((i) => [i.key, i]));
 
+/** Indicadores em que zero nunca é um resultado real: é campo não lançado (ex.: mês em andamento, sem linha na planilha). */
+const ZERO_IS_NO_DATA = new Set(["ticketMedio", "novosContratos", "icv", "adimplentes", "cancelados", "saldo", "churn", "renovacoes", "inadimplenciaPerc"]);
+
 export function hasData(ind: Indicator, v: number): boolean {
-  return !(ind.zeroMeansNoData && v === 0);
+  return !((ind.zeroMeansNoData || ZERO_IS_NO_DATA.has(ind.key)) && v === 0);
 }
 
 export function formatIndicator(ind: Indicator, v: number): string {

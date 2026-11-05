@@ -10,6 +10,7 @@ import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { UnidadeTab } from "@/components/tabs/UnidadeTab";
+import { UnitNavProvider } from "@/components/UnitLink";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
@@ -44,6 +45,8 @@ const Index = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [compareMonth, setCompareMonth] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
+  /** Unidade aberta pelos links de nome; a página de detalhe começa nela. */
+  const [detailUnit, setDetailUnit] = useState<{ name: string; n: number } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("executiva");
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
@@ -67,6 +70,7 @@ const Index = () => {
     setActiveTab(id);
     mainRef.current?.scrollIntoView({ block: "start" });
   };
+  const openUnit = (name: string) => { setDetailUnit({ name, n: Date.now() }); changeTab("unidade"); };
   const [, forceTick] = useState(0);
 
   /** `keepSelection`: atualização automática, que não troca o mês que o usuário está olhando. */
@@ -76,7 +80,9 @@ const Index = () => {
     setSyncing(false);
     if (res.ok) {
       setLoadedAt(new Date());
-      setSelectedMonth((cur) => (keepSelection && cur ? cur : getLatestData().month));
+      // Abre no último mês FECHADO: o mês em andamento é parcial (e a planilha só ganha a linha dele no fim).
+      const abre = getLastClosedMonth(dashboardData.map((d) => d.month)) ?? getLatestData().month;
+      setSelectedMonth((cur) => (keepSelection && cur ? cur : abre));
       forceTick((n) => n + 1);
       if (!silent) toast({ title: "Dados atualizados", description: `${res.count} meses carregados da planilha.` });
     } else if (!silent) {
@@ -166,16 +172,33 @@ const Index = () => {
 
   if (!fullMonthData.month) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm">Carregando dados da planilha...</p>
+      <div className="min-h-screen bg-background lg:flex" role="status" aria-live="polite" aria-label="Carregando os dados do dashboard">
+        <div className="hidden lg:block w-64 shrink-0 border-r border-border p-4 space-y-3" aria-hidden>
+          {Array.from({ length: 8 }, (_, i) => <div key={i} className="h-9 rounded-lg bg-secondary animate-pulse motion-reduce:animate-none" />)}
+        </div>
+        <div className="flex-1 min-w-0 px-3 sm:px-6 lg:px-8 py-5 space-y-6" aria-hidden>
+          <div className="h-8 w-64 rounded-lg bg-secondary animate-pulse motion-reduce:animate-none" />
+          <div className="flex gap-3">
+            <div className="h-9 w-48 rounded-lg bg-secondary animate-pulse motion-reduce:animate-none" />
+            <div className="h-9 w-48 rounded-lg bg-secondary animate-pulse motion-reduce:animate-none" />
+          </div>
+          <div className="card-surface grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div key={i} className="p-5 flex flex-col items-center gap-3">
+                <div className="h-4 w-24 rounded bg-secondary animate-pulse motion-reduce:animate-none self-start" />
+                <div className="h-24 w-40 rounded-t-full bg-secondary animate-pulse motion-reduce:animate-none" />
+                <div className="h-5 w-32 rounded-full bg-secondary animate-pulse motion-reduce:animate-none" />
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">Carregando dados...</p>
         </div>
       </div>
     );
   }
 
   return (
+    <UnitNavProvider value={openUnit}>
     <div className="min-h-screen bg-background lg:flex">
       <Sidebar
         active={activeTab}
@@ -345,7 +368,7 @@ const Index = () => {
           />
         )}
 
-        {activeTab === "unidade" && <UnidadeTab selectedMonth={fullMonthData.month} initialUnit={selectedUnit} compareMonth={compareMonth} />}
+        {activeTab === "unidade" && <UnidadeTab selectedMonth={fullMonthData.month} initialUnit={detailUnit?.name ?? selectedUnit} openKey={detailUnit?.n} compareMonth={compareMonth} metas={metasData} />}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 
@@ -353,6 +376,7 @@ const Index = () => {
         </main>
       </div>
     </div>
+    </UnitNavProvider>
   );
 };
 

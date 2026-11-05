@@ -1,3 +1,4 @@
+import { UnitLink } from "@/components/UnitLink";
 import { ChevronDown } from "lucide-react";
 import { type Recommendation, type Support, ALERT_LABELS } from "@/data/recommendations";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +51,7 @@ export function RecommendationCard({ rec, defaultOpen = false, flat = false, eva
         <Badge variant={sevVariant[rec.severity]} className="mt-0.5 shrink-0">{sevLabel[rec.severity]}</Badge>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-semibold text-sm">{rec.unit}</span>
+            <span className="font-semibold text-sm"><UnitLink name={rec.unit} /></span>
             <span className="text-xs font-medium text-muted-foreground">{ALERT_LABELS[rec.kind]}</span>
           </p>
           <p className="text-sm text-foreground mt-0.5">{rec.fact}</p>

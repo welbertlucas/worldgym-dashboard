@@ -71,3 +71,24 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
 }
+
+/* Impressão / "Salvar como PDF": só o conteúdo da página, sem menu, cabeçalho e filtros. */
+@media print {
+  aside,
+  header,
+  [aria-label="Filtros do dashboard"],
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .card-surface,
+  section {
+    break-inside: avoid;
+  }
+}

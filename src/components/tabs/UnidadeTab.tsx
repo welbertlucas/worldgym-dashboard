@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { Printer } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { SectionTitle } from "@/components/SectionTitle";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
@@ -9,6 +11,7 @@ import { INDICATOR_BY_KEY, formatIndicator } from "@/data/unitIndicators";
 import { PERIODOS, mesesNoIntervalo, posicaoNaRede, seriesPorMeses } from "@/data/unitSeries";
 import { viewFor } from "@/data/kpiView";
 import { sameMonthLastYear } from "@/data/alerts";
+import { META_INDICATORS, TIER_LABEL, actualFor, formatMetaValue, getMeta, highestTier, nextTier, tierReached, type Meta, type MetaKey } from "@/data/metas";
 import { formatMonthLong, getLastClosedMonth, isPartialMonth } from "@/data/periods";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +19,10 @@ interface Props {
   selectedMonth: string;
   /** Unidade escolhida no filtro geral; vira a unidade inicial da página. */
   initialUnit: string | null;
+  /** Muda a cada clique num nome de unidade, para reabrir a mesma unidade depois de trocá-la na página. */
+  openKey?: number;
+  /** Metas cadastradas na aba Metas da planilha. */
+  metas: Meta[];
   /** Mês marcado em "Comparar com" no topo: os cartões passam a compará-lo com o mês exibido. */
   compareMonth: string | null;
 }
@@ -29,13 +36,13 @@ const unitSpecs: KpiSpec[] = [
 ];
 
 /** Página de uma unidade: indicadores do mês, posição na rede, contratos ativos e evolução no tempo contra a rede ou outra unidade. */
-export function UnidadeTab({ selectedMonth, initialUnit, compareMonth }: Props) {
+export function UnidadeTab({ selectedMonth, initialUnit, openKey, compareMonth, metas }: Props) {
   const units = useMemo(() => getAvailableUnits(), []);
   const [unit, setUnit] = useState(initialUnit ?? units[0] ?? "");
   const fechados = useMemo(() => dashboardData.filter((d) => !isPartialMonth(d.month)).map((d) => d.month), []);
   const [de, setDe] = useState(fechados[Math.max(0, fechados.length - 12)] ?? "");
   const [ate, setAte] = useState(fechados[fechados.length - 1] ?? "");
-  useEffect(() => { if (initialUnit) setUnit(initialUnit); }, [initialUnit]);
+  useEffect(() => { if (initialUnit) setUnit(initialUnit); }, [initialUnit, openKey]);
   const escolherAtalho = (n: number) => { setDe(fechados[Math.max(0, fechados.length - n)] ?? ""); setAte(fechados[fechados.length - 1] ?? ""); };
   const atalhoAtivo = PERIODOS.find((p) => ate === fechados[fechados.length - 1] && de === fechados[Math.max(0, fechados.length - p.n)])?.n;
   const mesesGrafico = mesesNoIntervalo(dashboardData, de, ate);
@@ -58,13 +65,28 @@ export function UnidadeTab({ selectedMonth, initialUnit, compareMonth }: Props) 
   const rankData = dashboardData.find((d) => d.month === rankMonth);
   const posicoes = RANK_KEYS.map((k) => ({ ind: INDICATOR_BY_KEY[k], pos: posicaoNaRede(rankData, unit, INDICATOR_BY_KEY[k]) }));
   const unitNow: UnitData | undefined = dashboardData.find((d) => d.month === selectedMonth)?.units.find((u) => u.name === unit);
+  const mesAtual = dashboardData.find((d) => d.month === selectedMonth);
+  const metasDaUnidade = (Object.keys(META_INDICATORS) as MetaKey[]).flatMap((key) => {
+    const meta = getMeta(metas, selectedMonth, unit, key);
+    const actual = mesAtual ? actualFor(mesAtual, unit, key) : null;
+    if (!meta || actual === null) return [];
+    const topo = highestTier(meta);
+    return [{ key, meta, actual, nivel: tierReached(key, actual, meta), proximo: nextTier(key, actual, meta), topo }];
+  });
   const contratos = [...dashboardData].reverse().map((d) => d.units.find((u) => u.name === unit)).find((u) => u?.alunosAtivos !== undefined);
 
   return (
     <div className="space-y-8 sm:space-y-10">
       <div>
-        <SectionTitle hint={`${formatMonthLong(selectedMonth)}${partial ? " (em andamento): os cartões são parciais; posição na rede e gráficos usam só meses fechados." : ""}`}>Detalhe da unidade</SectionTitle>
-        <div role="group" aria-label="Filtros da unidade" className="flex flex-wrap items-end gap-x-6 gap-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+  <SectionTitle hint={`${formatMonthLong(selectedMonth)}${partial ? " (em andamento): os cartões são parciais; posição na rede e gráficos usam só meses fechados." : ""}`}>Detalhe da unidade</SectionTitle>
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="no-print shrink-0 text-xs font-medium">
+            <Printer className="w-4 h-4" aria-hidden />
+            <span>Exportar PDF</span>
+          </Button>
+        </div>
+        <p className="hidden print:block text-sm text-muted-foreground">{unit} · {formatMonthLong(selectedMonth)} · emitido em {new Date().toLocaleDateString("pt-BR")}</p>
+        <div role="group" aria-label="Filtros da unidade" className="no-print flex flex-wrap items-end gap-x-6 gap-y-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Unidade
             <Select value={unit} onChange={(e) => setUnit(e.target.value)} className="h-9 w-56 text-sm font-normal text-foreground">
@@ -107,6 +129,42 @@ export function UnidadeTab({ selectedMonth, initialUnit, compareMonth }: Props) 
             </li>
           ))}
         </ul>
+      </section>
+
+      <section aria-labelledby="metas-un-titulo" className="card-surface p-5 sm:p-6">
+        <h3 id="metas-un-titulo" className="text-base font-semibold text-foreground">Metas de {formatMonthLong(selectedMonth)}</h3>
+        {metasDaUnidade.length === 0 ? (
+          <p className="mt-1 text-sm text-muted-foreground">Nenhuma meta cadastrada para {unit} neste mês. As metas ficam na aba “Metas” da planilha.</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground mb-4">Realizado até agora{partial ? " (mês em andamento, parcial)" : ""} contra os níveis de meta da unidade.</p>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="text-left font-medium px-3 py-2">Indicador</th>
+                    <th className="text-right font-medium px-3 py-2">Realizado</th>
+                    <th className="text-right font-medium px-3 py-2">Meta</th>
+                    <th className="text-left font-medium px-3 py-2">Situação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metasDaUnidade.map(({ key, actual, nivel, proximo, topo }) => (
+                    <tr key={key} className="border-t border-border">
+                      <td className="px-3 py-2">{META_INDICATORS[key].label}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatMetaValue(key, actual)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{topo ? `${TIER_LABEL[topo.tier]} ${formatMetaValue(key, topo.value)}` : "—"}</td>
+                      <td className="px-3 py-2">
+                        {nivel === "abaixo" ? "Abaixo da meta" : `Atingiu ${TIER_LABEL[nivel]}`}
+                        {proximo && <span className="text-muted-foreground"> · falta {formatMetaValue(key, proximo.gap)} para {TIER_LABEL[proximo.tier]}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </section>
 
       {contratos && (

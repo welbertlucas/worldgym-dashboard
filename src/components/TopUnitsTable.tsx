@@ -1,3 +1,4 @@
+import { UnitLink } from "@/components/UnitLink";
 import { useState } from "react";
 import { ChevronUp, ChevronDown, ChevronsUpDown, Search, Table2 } from "lucide-react";
 import { getDataByMonth, getLatestData, UnitData } from "@/data/dashboardData";
@@ -162,7 +163,7 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
               <tr key={unit.name} className="group border-b border-border/50 last:border-0 hover:bg-secondary/60">
                 {visible.map((col) => {
                   if (col.key === "name") {
-                    return <th key={col.key} scope="row" className="px-3 py-2 text-left font-semibold whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-secondary">{unit.name}</th>;
+                    return <th key={col.key} scope="row" className="px-3 py-2 text-left font-semibold whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-secondary"><UnitLink name={unit.name} /></th>;
                   }
                   const { text, className } = col.renderValue!(unit[col.key as keyof UnitData] as number);
                   return <td key={col.key} className={cn("px-3 py-2 text-right whitespace-nowrap font-medium tabular-nums", className)}>{text}</td>;

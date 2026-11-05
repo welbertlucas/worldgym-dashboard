@@ -357,6 +357,12 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
 
 async function fetchEvoMonths(): Promise<EvoMonth[]> {
   try {
+    // Uma consulta só com todos os meses; se a rota nova não responder, cai para uma consulta por mês.
+    const tudo = await authFetch(`${EVO_URL}?all=1`);
+    if (tudo.ok) {
+      const { months } = (await tudo.json()) as { months: unknown };
+      if (Array.isArray(months) && months.every((m) => typeof m === "object" && m !== null)) return months as EvoMonth[];
+    }
     const list = await authFetch(EVO_URL);
     if (!list.ok) return [];
     const { months } = (await list.json()) as { months: string[] };

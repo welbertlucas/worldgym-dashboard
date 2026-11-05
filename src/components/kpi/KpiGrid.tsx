@@ -83,13 +83,17 @@ export function KpiTile({ ctx, spec }: { ctx: KpiContext; spec: KpiSpec }) {
     if (higher === false && base && !(spec.kind === "flow" && partial)) g = { ...g, tone: cur <= base ? "good" : cur <= base * 1.05 ? "warn" : "bad" };
   }
   if (higher === null) g = { ...g, tone: "neutral" };
+  // Taxa do mês em andamento é parcial (poucos dias de base): sem cor de alarme.
+  if (partial && ind) g = { ...g, tone: "neutral" };
 
   const mode = ind ? "pp" : "pct";
   const details = spec.kind === "flow" && partial
     ? only(...extra, base && base > 0 ? { text: `${Math.floor((cur / base) * 100)}% de ${spec.fmt(base)} de ${prevLabel}`, tone: "neutral" } : undefined)
     : only(...extra, variation(cur, base, mode, higher, prevLabel), variation(cur, lyVal, mode, higher, lyLabel));
 
-  return <KpiGaugeCard title={spec.title} value={spec.fmt(cur)} {...g} details={details} partial={partial} source={source} />;
+  // Mês em andamento: as variações das taxas também ficam neutras (a base ainda é pequena).
+  const shown = partial && ind ? details.map((d) => ({ ...d, tone: "neutral" as const })) : details;
+  return <KpiGaugeCard title={spec.title} value={spec.fmt(cur)} {...g} details={shown} partial={partial} source={source} />;
 }
 
 /** Grade de indicadores: uma única superfície com linhas finas entre os cartões (sem células cinzas no fim da linha). */

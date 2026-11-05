@@ -1,3 +1,4 @@
+import { UnitLink } from "@/components/UnitLink";
 import { ArrowDownRight, ArrowUpRight, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { type UnitDelta, TREND_META, type TrendKey } from "@/data/unitMetrics";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,7 @@ function UnitRow({ d, tone }: { d: UnitDelta; tone: "good" | "bad" }) {
   return (
     <li className="py-3 first:pt-0 last:pb-0">
       <div className="flex items-baseline justify-between gap-3 mb-2">
-        <h4 className="text-sm font-semibold text-foreground truncate">{d.unit}</h4>
+        <h4 className="text-sm font-semibold text-foreground truncate"><UnitLink name={d.unit} /></h4>
         <p className="text-xs text-muted-foreground shrink-0">
           <span className={d.improved ? "text-success font-medium" : ""}>{d.improved} melhor{d.improved === 1 ? "ou" : "aram"}</span>
           {" · "}

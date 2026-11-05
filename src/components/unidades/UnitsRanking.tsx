@@ -1,3 +1,4 @@
+import { UnitLink } from "@/components/UnitLink";
 import { useState } from "react";
 import { ArrowDownUp } from "lucide-react";
 import { type UnitData } from "@/data/dashboardData";
@@ -114,7 +115,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
                 return (
                   <li key={r.name} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_12rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1">
                     <span className="text-xs text-muted-foreground tabular-nums">{position.get(r.name)}</span>
-                    <span className="text-sm font-medium text-foreground truncate">{r.name}</span>
+                    <span className="text-sm font-medium text-foreground truncate"><UnitLink name={r.name} /></span>
                     <span className="sm:order-4 text-sm font-semibold tabular-nums text-right">{formatIndicator(ind, r.v)}</span>
                     <div className="col-span-3 sm:col-span-1 sm:order-3 relative h-2 rounded-full bg-secondary" aria-hidden>
                       <div className={cn("absolute inset-y-0 rounded-full", tone ? TONE_BAR[tone] : "bg-foreground/70")} style={{ left: `${left}%`, width: `${Math.max(width, 0.6)}%` }} />

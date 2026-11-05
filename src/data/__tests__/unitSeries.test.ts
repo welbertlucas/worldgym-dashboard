@@ -55,3 +55,11 @@ describe("posição na rede", () => {
     expect(posicaoNaRede(data[2], "Gama", INDICATOR_BY_KEY.diarias)).toBeNull();
   });
 });
+
+describe("zero é 'sem dado' nos indicadores de contagem e taxa", () => {
+  it("não considera zero como resultado em churn, novos contratos e ticket", async () => {
+    const { hasData } = await import("@/data/unitIndicators");
+    for (const k of ["churn", "novosContratos", "ticketMedio", "adimplentes", "inadimplenciaPerc"]) expect(hasData(INDICATOR_BY_KEY[k], 0)).toBe(false);
+    for (const k of ["faturamento", "recebimento", "vendasOnline", "diarias"]) expect(hasData(INDICATOR_BY_KEY[k], 0)).toBe(true);
+  });
+});
