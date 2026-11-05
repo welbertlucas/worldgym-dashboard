@@ -12,14 +12,13 @@ const isVip = (n) => /v\.?\s?i\.?\s?p/i.test(n);
 
 // Alcance do plano pelo que o EVO libera de fato (campo accessBranches do plano), não pelo nome
 // (o nome erra nos dois sentidos: há plano "REDE" liberado só numa unidade e plano de 10+ unidades sem "REDE" no nome):
-//   local = 1 unidade (sem nenhuma unidade listada, como free pass, também conta como local)
-//   parcial = de 2 a 9 unidades (a própria e algumas vizinhas)
 //   rede = 10 ou mais unidades
+//   local = até 9 unidades (a própria e, no máximo, algumas vizinhas); sem nenhuma unidade listada (free pass) também é local
+// Nas unidades Pro todo plano é de rede.
 export const REDE_MIN = 10;
 export const alcance = (plano, unidadePro = false) => {
-  if (unidadePro) return "rede"; // nas unidades Pro todos os planos são de rede, qualquer que seja a lista de unidades do cadastro
-  const n = (plano?.accessBranches ?? []).length;
-  return n >= REDE_MIN ? "rede" : n >= 2 ? "parcial" : "local";
+  if (unidadePro) return "rede";
+  return (plano?.accessBranches ?? []).length >= REDE_MIN ? "rede" : "local";
 };
 
 /** Unidade Pro: o nome da unidade no dashboard tem "Pro" (Águas Claras Pro, Goiânia Pro-GO, Salvador Pro-BA). */
@@ -29,7 +28,7 @@ export async function contratosUnidade(idBranch) {
   const plans = Object.fromEntries((await fetchAll(`/membership?idBranch=${idBranch}`)).map((p) => [p.idMembership, p]));
   const members = await fetchAll(`/members?idBranch=${idBranch}&status=1`);
   const pro = ehUnidadePro(UNIT_NAMES[idBranch]);
-  const r = { alunosAtivos: members.length, contratosAtivos: 0, contratosEspeciais: 0, contratosPersonal: 0, contratosLocal: 0, contratosParcial: 0, contratosRede: 0 };
+  const r = { alunosAtivos: members.length, contratosAtivos: 0, contratosEspeciais: 0, contratosPersonal: 0, contratosLocal: 0, contratosRede: 0 };
   for (const m of members) {
     for (const c of m.memberships || []) {
       if (c.membershipStatus !== "active") continue;
@@ -39,7 +38,6 @@ export async function contratosUnidade(idBranch) {
       const especial = c.idCategoryMembership === 1 || (isVip(nome) && plano && plano.value === 0);
       const a = alcance(plano, pro);
       if (a === "rede") r.contratosRede++;
-      else if (a === "parcial") r.contratosParcial++;
       else r.contratosLocal++;
       const personal = c.idCategoryMembership === 3 || /personal/i.test(nome);
       if (especial) r.contratosEspeciais++;

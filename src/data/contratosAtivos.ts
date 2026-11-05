@@ -3,10 +3,10 @@ import { type UnitData } from "@/data/dashboardData";
 export interface Fatia { n: number; pct: number }
 /**
  * Contratos ativos de uma unidade (ou da rede) em fatias.
- * Local + 2 a 9 + rede somam 100% dos contratos; especiais/VIP e personal são recortes dentro deles.
+ * Local (planos que liberam até 9 unidades) + rede (10 ou mais; nas unidades Pro, todos) somam 100% dos contratos; especiais/VIP e personal são recortes dentro deles.
  * Todo percentual é sobre o total de contratos ativos.
  */
-export interface ContratosView { total: number; especiais: Fatia; personal: Fatia; local: Fatia; parcial: Fatia; rede: Fatia }
+export interface ContratosView { total: number; especiais: Fatia; personal: Fatia; local: Fatia; rede: Fatia }
 
 type Campos = Pick<UnitData, "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">;
 
@@ -19,8 +19,8 @@ export function contratosView(u: Campos): ContratosView | null {
     total,
     especiais: fatia(u.contratosEspeciais, total),
     personal: fatia(u.contratosPersonal, total),
-    local: fatia(u.contratosLocal, total),
-    parcial: fatia(u.contratosParcial, total),
+    // Fotos antigas separavam "2 a 9 unidades"; agora isso também é plano local.
+    local: fatia((u.contratosLocal ?? 0) + (u.contratosParcial ?? 0), total),
     rede: fatia(u.contratosRede, total),
   };
 }

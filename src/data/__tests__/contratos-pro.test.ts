@@ -8,7 +8,8 @@ describe("alcance do plano", () => {
   it("fora das Pro, vale a lista de unidades do cadastro", () => {
     expect(alcance(plano(1))).toBe("local");
     expect(alcance(plano(0))).toBe("local");
-    expect(alcance(plano(5))).toBe("parcial");
+    expect(alcance(plano(5))).toBe("local");
+    expect(alcance(plano(9))).toBe("local");
     expect(alcance(plano(10))).toBe("rede");
   });
 

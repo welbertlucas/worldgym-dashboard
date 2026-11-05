@@ -174,7 +174,7 @@ export function UnidadeTab({ selectedMonth, initialUnit, openKey, compareMonth, 
         <section aria-labelledby="contratos-un-titulo" className="space-y-3">
           <div>
             <h3 id="contratos-un-titulo" className="text-base font-semibold text-foreground">Contratos ativos hoje</h3>
-            <p className="text-sm text-muted-foreground">Foto do EVO, sobre {contratosDaUnidade.total.toLocaleString("pt-BR")} contratos ativos. Local, 2 a 9 unidades e rede somam 100%; especiais/VIP e personal são recortes dentro deles.</p>
+            <p className="text-sm text-muted-foreground">Foto do EVO, sobre {contratosDaUnidade.total.toLocaleString("pt-BR")} contratos ativos. Plano local libera até 9 unidades; plano rede, 10 ou mais (nas unidades Pro, todos são rede). Local e rede somam 100%; especiais/VIP e personal são recortes dentro deles.</p>
           </div>
           <ContratosTiles v={contratosDaUnidade} />
         </section>

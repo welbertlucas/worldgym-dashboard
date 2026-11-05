@@ -1,22 +1,20 @@
 import { type ContratosView, pctTexto } from "@/data/contratosAtivos";
 
 export const COR_LOCAL = "hsl(222 25% 22%)";
-export const COR_PARCIAL = "hsl(222 14% 55%)";
 export const COR_REDE = "hsl(4 90% 50%)";
 
 const n = (v: number) => v.toLocaleString("pt-BR");
 
-/** As cinco categorias lado a lado: quantidade e percentual dos contratos ativos. */
+/** As quatro categorias lado a lado: quantidade e percentual dos contratos ativos. */
 export function ContratosTiles({ v }: { v: ContratosView }) {
   const itens = [
     { label: "Especiais/VIP", f: v.especiais, cor: null as string | null },
     { label: "Personal", f: v.personal, cor: null },
     { label: "Plano local", f: v.local, cor: COR_LOCAL },
-    { label: "Plano de 2 a 9 unidades", f: v.parcial, cor: COR_PARCIAL },
     { label: "Plano rede (10+)", f: v.rede, cor: COR_REDE },
   ];
   return (
-    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-4">
       {itens.map(({ label, f, cor }) => (
         <div key={label} className="rounded-xl border border-border bg-white px-4 py-3">
           <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">

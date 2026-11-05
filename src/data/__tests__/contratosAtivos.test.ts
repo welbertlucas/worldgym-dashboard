@@ -9,7 +9,8 @@ describe("contratos ativos em fatias", () => {
     const v = contratosView(gama)!;
     expect(v.especiais).toEqual({ n: 20, pct: 1 });
     expect(v.personal).toEqual({ n: 40, pct: 2 });
-    expect(v.local.pct + v.parcial.pct + v.rede.pct).toBe(100);
+    expect(v.local).toEqual({ n: 1500, pct: 75 }); // local = local + 2 a 9
+    expect(v.local.pct + v.rede.pct).toBe(100);
   });
 
   it("sem contagem (mês sem foto do EVO) não há visão", () => {
@@ -22,6 +23,7 @@ describe("contratos ativos em fatias", () => {
     expect(r.total).toBe(3000);
     expect(r.especiais.n).toBe(30);
     expect(r.rede).toEqual({ n: 800, pct: (800 / 3000) * 100 });
+    expect(r.local.n).toBe(2200);
   });
 
   it("formata percentual com vírgula", () => {

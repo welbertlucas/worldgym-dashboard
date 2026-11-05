@@ -1,25 +1,23 @@
 import { useState } from "react";
 import { type UnitData } from "@/data/dashboardData";
 import { type ContratosView, contratosView, pctTexto, somaContratos } from "@/data/contratosAtivos";
-import { ContratosTiles, COR_LOCAL, COR_PARCIAL, COR_REDE } from "@/components/unidades/ContratosTiles";
+import { ContratosTiles, COR_LOCAL, COR_REDE } from "@/components/unidades/ContratosTiles";
 import { UnitLink } from "@/components/UnitLink";
 import { cn } from "@/lib/utils";
 
-type Ordem = "especiais" | "personal" | "local" | "parcial" | "rede";
+type Ordem = "especiais" | "personal" | "local" | "rede";
 const ORDENS: { id: Ordem; label: string }[] = [
   { id: "especiais", label: "Especiais/VIP" },
   { id: "personal", label: "Personal" },
   { id: "local", label: "Local" },
-  { id: "parcial", label: "2 a 9" },
   { id: "rede", label: "Rede" },
 ];
 const n = (v: number) => v.toLocaleString("pt-BR");
 
-/** Barra com a divisão dos contratos por alcance do plano (local, 2 a 9 e rede). */
+/** Barra com a divisão dos contratos por alcance do plano (local e rede). */
 function BarraAlcance({ v }: { v: ContratosView }) {
   const partes = [
     { label: "Local", f: v.local, cor: COR_LOCAL },
-    { label: "2 a 9", f: v.parcial, cor: COR_PARCIAL },
     { label: "Rede", f: v.rede, cor: COR_REDE },
   ];
   return (
@@ -53,9 +51,9 @@ export function ContratosAtivos({ units }: { units: UnitData[] }) {
   return (
     <section aria-labelledby="contratos-titulo" className="space-y-4">
       <div>
-        <h3 id="contratos-titulo" className="text-base font-semibold text-foreground">Contratos ativos: especiais, personal e alcance do plano</h3>
+        <h3 id="contratos-titulo" className="text-base font-semibold text-foreground">Contratos ativos: especiais, personal e plano local ou rede</h3>
         <p className="text-sm text-muted-foreground">
-          Foto de hoje, direto do EVO. Percentuais sobre o total de contratos ativos ({n(rede.total)}). Local, 2 a 9 unidades e rede somam 100%; especiais/VIP e personal são recortes dentro deles.
+          Foto de hoje, direto do EVO. Percentuais sobre o total de contratos ativos ({n(rede.total)}). Plano local libera até 9 unidades; plano rede, 10 ou mais (nas unidades Pro, todos são rede). Local e rede somam 100%; especiais/VIP e personal são recortes dentro deles.
         </p>
       </div>
 
