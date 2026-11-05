@@ -58,6 +58,12 @@ const Index = () => {
   });
   const mainRef = useRef<HTMLElement>(null);
   const changeTab = (id: string) => {
+    // O detalhe da unidade compara períodos: no mês em andamento quase tudo está parcial ou sem dado,
+    // então ao entrar nele o mês passa para o último mês fechado (dá para voltar pelo filtro).
+    if (id === "unidade") {
+      const fechado = getLastClosedMonth(dashboardData.map((d) => d.month));
+      setSelectedMonth((cur) => (fechado && isPartialMonth(cur) ? fechado : cur));
+    }
     setActiveTab(id);
     mainRef.current?.scrollIntoView({ block: "start" });
   };
