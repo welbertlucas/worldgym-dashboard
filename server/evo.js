@@ -40,7 +40,16 @@ async function evoGet(path, tries = 7) {
       await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
       continue;
     }
-    if (res.ok) return res.json();
+    if (res.ok) {
+      // A conexão também pode cair no meio da leitura do corpo (ECONNRESET/terminated): tenta de novo.
+      try {
+        return await res.json();
+      } catch (e) {
+        last = `rede ao ler resposta ${e.cause?.code || e.message}`;
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+        continue;
+      }
+    }
     last = `${res.status} ${(await res.text()).slice(0, 120)}`;
     // 4xx (credencial, parâmetro inválido) não melhora repetindo: só 429 e 5xx merecem nova tentativa.
     // O EVO às vezes devolve 401 "Timeout expired" quando o backend dele está sobrecarregado: é transitório.
