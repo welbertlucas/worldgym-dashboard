@@ -5,16 +5,15 @@ import { formatMonthLong } from "@/data/periods";
 import { AXIS_TICK, GRID } from "@/components/chartTheme";
 
 const BRAND = "hsl(4 90% 50%)";
-const REF = "hsl(220 9% 55%)";
 const short = (m: string) => { const [y, mo] = m.split("-").map(Number); return new Date(y, mo - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }); };
 const compact = (ind: Indicator) => (v: number) =>
   ind.format === "currency" ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 }).format(v)
   : ind.format === "percent" ? `${v.toFixed(0)}%` : v.toLocaleString("pt-BR", { notation: "compact" });
 
-interface Props { ind: Indicator; rows: SeriesRow[]; unitLabel: string; refLabel: string }
+interface Props { ind: Indicator; rows: SeriesRow[]; unitLabel: string }
 
-/** Evolução de um indicador da unidade ao longo do período, contra a média da rede ou outra unidade. */
-export function TrendCard({ ind, rows, unitLabel, refLabel }: Props) {
+/** Evolução de um indicador da unidade ao longo do período. */
+export function TrendCard({ ind, rows, unitLabel }: Props) {
   const data = rows.map((r) => ({ ...r, label: short(r.month) }));
   const withData = rows.filter((r) => r.unit !== null);
   const last = withData[withData.length - 1];
@@ -52,12 +51,10 @@ export function TrendCard({ ind, rows, unitLabel, refLabel }: Props) {
                     <div className="rounded-xl border border-border bg-white px-3 py-2 text-xs shadow-md">
                       <p className="font-semibold text-foreground first-letter:uppercase">{formatMonthLong(r.month)}</p>
                       <p className="mt-1 flex items-center gap-1.5"><span className="h-0.5 w-3 rounded" style={{ background: BRAND }} />{unitLabel}<b className="ml-auto pl-3 tabular-nums">{r.unit === null ? "—" : formatIndicator(ind, r.unit)}</b></p>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-muted-foreground"><span className="h-0.5 w-3 rounded" style={{ background: REF }} />{refLabel}{r.refMonth ? ` (${short(r.refMonth)})` : ""}<b className="ml-auto pl-3 tabular-nums">{r.ref === null ? "—" : formatIndicator(ind, r.ref)}</b></p>
                     </div>
                   );
                 }}
               />
-              <Line type="monotone" dataKey="ref" stroke={REF} strokeWidth={1.5} strokeDasharray="4 4" dot={false} isAnimationActive={false} connectNulls />
               <Line type="monotone" dataKey="unit" stroke={BRAND} strokeWidth={2.25} dot={rows.length <= 12 ? { r: 2.5 } : false} activeDot={{ r: 4 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>

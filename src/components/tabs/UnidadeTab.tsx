@@ -6,7 +6,7 @@ import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi
 import { TrendCard } from "@/components/unidades/TrendCard";
 import { dashboardData, getAvailableUnits, type UnitData } from "@/data/dashboardData";
 import { INDICATOR_BY_KEY, formatIndicator } from "@/data/unitIndicators";
-import { PERIODOS, mesesNoIntervalo, posicaoNaRede, seriesPorMeses, type Referencia } from "@/data/unitSeries";
+import { PERIODOS, mesesNoIntervalo, posicaoNaRede, seriesPorMeses } from "@/data/unitSeries";
 import { viewFor } from "@/data/kpiView";
 import { sameMonthLastYear } from "@/data/alerts";
 import { formatMonthLong, getLastClosedMonth, isPartialMonth } from "@/data/periods";
@@ -16,6 +16,8 @@ interface Props {
   selectedMonth: string;
   /** Unidade escolhida no filtro geral; vira a unidade inicial da página. */
   initialUnit: string | null;
+  /** Mês marcado em "Comparar com" no topo: os cartões passam a compará-lo com o mês exibido. */
+  compareMonth: string | null;
 }
 
 const n = (v: number | undefined) => (v ?? 0).toLocaleString("pt-BR");
@@ -27,21 +29,16 @@ const unitSpecs: KpiSpec[] = [
 ];
 
 /** Página de uma unidade: indicadores do mês, posição na rede, contratos ativos e evolução no tempo contra a rede ou outra unidade. */
-export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
+export function UnidadeTab({ selectedMonth, initialUnit, compareMonth }: Props) {
   const units = useMemo(() => getAvailableUnits(), []);
   const [unit, setUnit] = useState(initialUnit ?? units[0] ?? "");
   const fechados = useMemo(() => dashboardData.filter((d) => !isPartialMonth(d.month)).map((d) => d.month), []);
-  // "media" | "ano" | "anterior" | "u:<nome da unidade>"
-  const [refKey, setRefKey] = useState("media");
   const [de, setDe] = useState(fechados[Math.max(0, fechados.length - 12)] ?? "");
   const [ate, setAte] = useState(fechados[fechados.length - 1] ?? "");
   useEffect(() => { if (initialUnit) setUnit(initialUnit); }, [initialUnit]);
-  useEffect(() => { if (refKey === `u:${unit}`) setRefKey("media"); }, [unit, refKey]);
   const escolherAtalho = (n: number) => { setDe(fechados[Math.max(0, fechados.length - n)] ?? ""); setAte(fechados[fechados.length - 1] ?? ""); };
   const atalhoAtivo = PERIODOS.find((p) => ate === fechados[fechados.length - 1] && de === fechados[Math.max(0, fechados.length - p.n)])?.n;
   const mesesGrafico = mesesNoIntervalo(dashboardData, de, ate);
-  const referencia: Referencia = refKey === "ano" ? { tipo: "ano" } : refKey === "anterior" ? { tipo: "anterior" } : refKey.startsWith("u:") ? { tipo: "unidade", nome: refKey.slice(2) } : { tipo: "media" };
-  const refLabel = refKey === "ano" ? `${unit} no ano anterior` : refKey === "anterior" ? `${unit} no período anterior` : refKey.startsWith("u:") ? refKey.slice(2) : "Média das unidades";
 
   const months = dashboardData.map((d) => d.month);
   const partial = isPartialMonth(selectedMonth);
@@ -49,7 +46,8 @@ export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
   const prev = idx > 0 ? months[idx - 1] : undefined;
   const ctx: KpiContext = {
     cur: viewFor(selectedMonth, unit) ?? { month: selectedMonth, total: dashboardData[idx]?.total, units: [] },
-    prev: viewFor(prev, unit),
+    // Com um mês marcado em "Comparar com", os cartões comparam com ele; sem, com o mês anterior.
+    prev: viewFor(compareMonth && compareMonth !== selectedMonth ? compareMonth : prev, unit),
     ly: partial ? undefined : viewFor(sameMonthLastYear(selectedMonth), unit),
     partial,
   };
@@ -70,17 +68,6 @@ export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
             Unidade
             <Select value={unit} onChange={(e) => setUnit(e.target.value)} className="h-9 w-56 text-sm font-normal text-foreground">
               {units.map((u) => <option key={u} value={u}>{u}</option>)}
-            </Select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            Comparar com
-            <Select value={refKey} onChange={(e) => setRefKey(e.target.value)} className="h-9 w-64 text-sm font-normal text-foreground">
-              <option value="media">Média das unidades</option>
-              <option value="ano">Ela mesma, um ano antes</option>
-              <option value="anterior">Ela mesma, período anterior</option>
-              <optgroup label="Outra unidade">
-                {units.filter((u) => u !== unit).map((u) => <option key={u} value={`u:${u}`}>{u}</option>)}
-              </optgroup>
             </Select>
           </label>
           <div role="group" aria-label="Período dos gráficos" className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -148,12 +135,9 @@ export function UnidadeTab({ selectedMonth, initialUnit }: Props) {
 
       <section aria-labelledby="evolucao-un-titulo">
         <h3 id="evolucao-un-titulo" className="text-base font-semibold text-foreground">Evolução de {mesesGrafico.length} {mesesGrafico.length === 1 ? "mês" : "meses"}: {mesesGrafico.length ? `${formatMonthLong(mesesGrafico[0])} a ${formatMonthLong(mesesGrafico[mesesGrafico.length - 1])}` : "sem meses fechados no intervalo"}</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          <span className="font-medium text-[hsl(4_90%_50%)]">{unit}</span> contra <span className="font-medium">{refKey === "media" ? "a média das unidades" : refLabel}</span> (linha tracejada).
-        </p>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {TREND_KEYS.map((k) => (
-            <TrendCard key={k} ind={INDICATOR_BY_KEY[k]} rows={seriesPorMeses(dashboardData, unit, INDICATOR_BY_KEY[k], mesesGrafico, referencia)} unitLabel={unit} refLabel={refLabel} />
+            <TrendCard key={k} ind={INDICATOR_BY_KEY[k]} rows={seriesPorMeses(dashboardData, unit, INDICATOR_BY_KEY[k], mesesGrafico)} unitLabel={unit} />
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Meses sem dado lançado aparecem como lacuna. Inadimplência vem do EVO a partir de 11/2025; antes, da planilha.</p>

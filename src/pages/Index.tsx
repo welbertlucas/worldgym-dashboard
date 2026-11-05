@@ -244,11 +244,10 @@ const Index = () => {
           onCompareMonthChange={setCompareMonth}
           onUnitChange={setSelectedUnit}
           hideUnit={activeTab === "unidade"}
-          hideCompare={activeTab === "unidade"}
         />
 
         {/* Comparativo */}
-        {comparison && (
+        {comparison && activeTab !== "unidade" && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -340,7 +339,7 @@ const Index = () => {
           />
         )}
 
-        {activeTab === "unidade" && <UnidadeTab selectedMonth={fullMonthData.month} initialUnit={selectedUnit} />}
+        {activeTab === "unidade" && <UnidadeTab selectedMonth={fullMonthData.month} initialUnit={selectedUnit} compareMonth={compareMonth} />}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 
