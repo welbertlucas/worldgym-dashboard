@@ -52,7 +52,10 @@ function Tile({ ind, ua, ub, partial }: { ind: Indicator; ua: UnitData; ub: Unit
         <div><p className="mb-1 truncate text-xs text-muted-foreground">{ua.name}</p>{valor(c.a, c.winner === "a")}</div>
         <div><p className="mb-1 truncate text-xs text-muted-foreground">{ub.name}</p>{valor(c.b, c.winner === "b")}</div>
       </div>
-      <div className="mt-3"><DiffChip ind={ind} c={c} /></div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <DiffChip ind={ind} c={c} />
+        {isPercentIndicator(ind) && c.diff !== null && c.state !== "equal" && <span className="text-xs tabular-nums text-muted-foreground">{formatRelative(c.diff)} relativo</span>}
+      </div>
     </li>
   );
 }

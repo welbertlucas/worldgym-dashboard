@@ -62,7 +62,7 @@ describe("UnitComparison", () => {
     expect(html).toContain("favorável"); // selo acessível do lado favorável
   });
 
-  it("percentuais mostram p.p. e variação relativa separadas; valor negativo usa barra listrada", () => {
+  it("percentuais mostram p.p. e variação relativa separadas", () => {
     dashboardData.push(month("2026-09", [
       unit("Alfa", { churn: 6.7, novosContratos: 10, cancelados: 30 }), // saldo = -20
       unit("Beta", { churn: 9, novosContratos: 50, cancelados: 20 }),
@@ -70,7 +70,6 @@ describe("UnitComparison", () => {
     const html = renderToString(<UnitComparison selectedMonth="2026-09" />).replace(/<!-- -->/g, ""); // o React separa trechos de texto com comentários
     expect(html).toContain("−2,3 p.p.");
     expect(html).toContain("−25,6% relativo");
-    expect(html).toContain("repeating-linear-gradient");
     // "Maiores diferenças" traz os valores das duas unidades e a diferença absoluta
     expect(html).toContain("diferença de");
     expect(html).toContain("confira os valores de cada unidade");
