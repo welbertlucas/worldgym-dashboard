@@ -83,7 +83,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
                     onClick={() => { setKey(i.key); setReversed(false); }}
                     className={cn(
                       "rounded-full border px-3 py-1 text-sm transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      key === i.key ? "border-primary bg-primary/10 text-primary-ink font-semibold" : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      key === i.key ? "border-foreground bg-foreground text-background font-medium" : "border-border bg-white text-foreground hover:bg-secondary"
                     )}
                   >
                     {i.label}
@@ -107,7 +107,22 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
           {rows.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">Nenhuma unidade tem dado de {ind.label.toLowerCase()} neste mês.</p>
           ) : (
-            <ol className="mt-3 space-y-1.5" aria-label={`Unidades por ${ind.label}`}>
+            <>
+            {!reversed && rows.length >= 3 && (
+              <ol className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label={`Três primeiras unidades por ${ind.label}`}>
+                {rows.slice(0, 3).map((r, i) => (
+                  <li key={r.name} className="rounded-xl border border-border bg-white px-4 py-3">
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-[11px] font-semibold text-background">{i + 1}</span>
+                      <span className="truncate font-medium text-foreground"><UnitLink name={r.name} /></span>
+                    </p>
+                    <p className="mt-2 font-display text-[1.75rem] leading-none font-semibold tracking-tight tabular-nums text-foreground">{formatIndicator(ind, r.v)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{ind.label}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <ol className="mt-4 space-y-1.5" aria-label={`Unidades por ${ind.label}`}>
               {rows.map((r) => {
                 const tone = ind.tone?.(r.v);
                 const left = r.v >= 0 ? zero : zero - (-r.v / span) * 100;
@@ -125,6 +140,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
                 );
               })}
             </ol>
+            </>
           )}
 
           {noData.length > 0 && (

@@ -12,48 +12,44 @@ function fmt(k: TrendKey, d: number) {
   return `${d > 0 ? "+" : ""}${d.toFixed(1).replace(".", ",")}${TREND_META[k].mode === "pct" ? "%" : " p.p."}`;
 }
 
-/** Uma célula por indicador. A cor depende da direção favorável do indicador, não do sinal da variação. */
-function Cell({ k, d }: { k: TrendKey; d: number }) {
+/** Um chip por indicador, no mesmo estilo dos cartões de velocímetro. A cor depende da direção favorável do indicador, não do sinal. */
+function Chip({ k, d }: { k: TrendKey; d: number }) {
   const flat = isFlat(k, d);
   const good = (d > 0) === TREND_META[k].higherIsBetter;
   const Arrow = flat ? Minus : d > 0 ? ArrowUpRight : ArrowDownRight;
   return (
-    <div className="min-w-0">
-      <dt className="text-[11px] text-muted-foreground truncate">{TREND_META[k].label}</dt>
-      <dd className={cn("flex items-center gap-0.5 text-sm font-semibold tabular-nums", flat ? "text-muted-foreground" : good ? "text-success" : "text-destructive")}>
-        <Arrow className="w-3.5 h-3.5 shrink-0" aria-hidden />
-        {fmt(k, d)}
-        <span className="sr-only">{flat ? " (sem variação relevante)" : good ? " (melhora)" : " (piora)"}</span>
-      </dd>
-    </div>
+    <li className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums", flat ? "bg-secondary text-muted-foreground" : good ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive")}>
+      <Arrow className="h-3 w-3 shrink-0" aria-hidden />
+      <span className="font-normal opacity-80">{TREND_META[k].label}</span>
+      {fmt(k, d)}
+      <span className="sr-only">{flat ? " (sem variação relevante)" : good ? " (melhora)" : " (piora)"}</span>
+    </li>
   );
 }
 
-function UnitRow({ d, tone }: { d: UnitDelta; tone: "good" | "bad" }) {
+function UnitTile({ d }: { d: UnitDelta }) {
   return (
-    <li className="py-3 first:pt-0 last:pb-0">
-      <div className="flex items-baseline justify-between gap-3 mb-2">
-        <h4 className="text-sm font-semibold text-foreground truncate"><UnitLink name={d.unit} /></h4>
-        <p className="text-xs text-muted-foreground shrink-0">
-          <span className={d.improved ? "text-success font-medium" : ""}>{d.improved} melhor{d.improved === 1 ? "ou" : "aram"}</span>
+    <li className="rounded-xl border border-border bg-white p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h4 className="truncate text-sm font-semibold text-foreground"><UnitLink name={d.unit} /></h4>
+        <p className="shrink-0 text-xs text-muted-foreground">
+          <span className={d.improved ? "font-medium text-success" : ""}>{d.improved} melhor{d.improved === 1 ? "ou" : "aram"}</span>
           {" · "}
-          <span className={d.worsened ? "text-destructive font-medium" : ""}>{d.worsened} pior{d.worsened === 1 ? "ou" : "aram"}</span>
+          <span className={d.worsened ? "font-medium text-destructive" : ""}>{d.worsened} pior{d.worsened === 1 ? "ou" : "aram"}</span>
         </p>
       </div>
-      <dl className="grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-2" data-tone={tone}>
-        {KEYS.map((k) => <Cell key={k} k={k} d={d.deltas[k]} />)}
-      </dl>
+      <ul className="mt-3 flex flex-wrap gap-1.5">{KEYS.map((k) => <Chip key={k} k={k} d={d.deltas[k]} />)}</ul>
     </li>
   );
 }
 
 function Panel({ title, icon: Icon, tone, units }: { title: string; icon: typeof TrendingUp; tone: "good" | "bad"; units: UnitDelta[] }) {
   return (
-    <section className="card-surface p-5">
-      <h3 className={cn("flex items-center gap-2 text-sm font-semibold mb-4", tone === "good" ? "text-success" : "text-destructive")}>
-        <Icon className="w-4 h-4" aria-hidden /> {title}
+    <section className="card-surface p-5" data-tone={tone}>
+      <h3 className={cn("mb-4 flex items-center gap-2 text-sm font-semibold", tone === "good" ? "text-success" : "text-destructive")}>
+        <Icon className="h-4 w-4" aria-hidden /> {title}
       </h3>
-      <ul className="divide-y divide-border">{units.map((d) => <UnitRow key={d.unit} d={d} tone={tone} />)}</ul>
+      <ul className="space-y-3">{units.map((d) => <UnitTile key={d.unit} d={d} />)}</ul>
     </section>
   );
 }

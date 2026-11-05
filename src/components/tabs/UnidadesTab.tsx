@@ -1,5 +1,4 @@
 import { SectionTitle } from "@/components/SectionTitle";
-import { Notice } from "@/components/Notice";
 import { UnitHighlights } from "@/components/UnitHighlights";
 import { UnitDeltaChart } from "@/components/UnitDeltaChart";
 import { ContratosAtivos } from "@/components/unidades/ContratosAtivos";
@@ -26,8 +25,7 @@ export function UnidadesTab({ selectedMonth, evalMonth, prevEvalMonth, deltas }:
   return (
     <div className="space-y-10 sm:space-y-12">
       <div>
-        <SectionTitle hint={`Período: ${formatMonthLong(selectedMonth)}${partial ? " (em andamento)" : ""} • ${units.length} unidades`}>Unidades</SectionTitle>
-        {partial && <Notice>Os valores do mês em andamento são parciais. Variações e destaques usam o último mês fechado{evalMonth ? `: ${formatMonthLong(evalMonth)}` : ""}.</Notice>}
+        <SectionTitle hint={`Período: ${formatMonthLong(selectedMonth)}${partial ? " (em andamento: valores parciais; variações e destaques usam " + (evalMonth ? formatMonthLong(evalMonth) : "o último mês fechado") + ")" : ""} • ${units.length} unidades`}>Unidades</SectionTitle>
       </div>
 
       {hasDeltas && (
