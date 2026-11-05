@@ -48,7 +48,8 @@ export function UnidadeTab({ selectedMonth, initialUnit, compareMonth }: Props) 
     cur: viewFor(selectedMonth, unit) ?? { month: selectedMonth, total: dashboardData[idx]?.total, units: [] },
     // Com um mês marcado em "Comparar com", os cartões comparam com ele; sem, com o mês anterior.
     prev: viewFor(compareMonth && compareMonth !== selectedMonth ? compareMonth : prev, unit),
-    ly: partial ? undefined : viewFor(sameMonthLastYear(selectedMonth), unit),
+    // Se o mês comparado já é o mesmo mês do ano anterior, não repete o chip.
+    ly: partial || compareMonth === sameMonthLastYear(selectedMonth) ? undefined : viewFor(sameMonthLastYear(selectedMonth), unit),
     partial,
   };
 
