@@ -1,0 +1,45 @@
+name: Atualizar indicadores do EVO
+
+# Lê o EVO (só leitura) e grava os totais mensais por unidade no Blob da Vercel.
+# Recalcula o mês anterior e o atual (títulos de um mês ainda mudam depois de fechado).
+# Também pode ser rodado à mão, informando os meses (ex.: 2026-09,2026-10).
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      months:
+        description: "Meses AAAA-MM separados por vírgula (vazio = mês anterior e atual)"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evo-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Calcular e gravar
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          MONTHS: ${{ github.event.inputs.months }}
+        run: |
+          if [ -z "$MONTHS" ]; then
+            MONTHS="$(date -u -d 'last month' +%Y-%m) $(date -u +%Y-%m)"
+          else
+            MONTHS="${MONTHS//,/ }"
+          fi
+          node scripts/evo-backfill.mjs $MONTHS

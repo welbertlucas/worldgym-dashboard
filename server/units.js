@@ -1,0 +1,27 @@
+// idBranch do EVO -> nome da unidade no dashboard (o mesmo da planilha).
+// Fora da tabela (não entram no dashboard): 9 WG RABE LTDA, 11 WG PARTICIPAÇÕES, 29 LUZIANA.
+export const UNIT_NAMES = {
+  5: "Asa Norte",
+  6: "Gama",
+  7: "Itapoã",
+  8: "Planaltina-GO",
+  10: "Samambaia Norte",
+  13: "Arniqueira",
+  14: "São Sebastião",
+  15: "Riacho Fundo II",
+  16: "Ceilândia",
+  17: "Sobradinho",
+  18: "Águas Claras Pro",
+  19: "Samambaia Sul",
+  20: "Águas Lindas-GO",
+  21: "Ponte Alta",
+  22: "Goiânia Pro-GO",
+  23: "Águas Claras Metrópole",
+  24: "Planaltina-DF",
+  25: "Novo Gama-GO",
+  26: "Salvador Pro-BA",
+  28: "Santa Maria",
+  30: "Taguatinga",
+  31: "Jardim Ingá-GO",
+  32: "Valparaíso-GO",
+};

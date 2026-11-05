@@ -2,6 +2,8 @@
 // (api/sheet-data.js) que lê com uma conta de serviço do Google, pra não depender de
 // "qualquer pessoa com o link" conseguir ver os dados direto na planilha.
 const CSV_URL = "https://worldgym-dashboard-sigma.vercel.app/api/sheet-data";
+// Faturamento e recebimento vêm do EVO (api/indicadores); o resto ainda vem da planilha.
+const EVO_URL = "https://worldgym-dashboard-sigma.vercel.app/api/indicadores";
 
 export interface UnitData {
   name: string;
@@ -253,13 +255,75 @@ export async function syncDashboardDataFromSheets(): Promise<{
     const res = await fetch(CSV_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const csv = await res.text();
-    const parsed = parseCSV(csv);
+    const parsed = mergeEvo(parseCSV(csv), await fetchEvoMonths());
     if (parsed.length === 0) throw new Error("Nenhum dado encontrado na planilha.");
     dashboardData.length = 0;
     dashboardData.push(...parsed);
     return { ok: true, count: parsed.length };
   } catch (e) {
     return { ok: false, error: String(e) };
+  }
+}
+
+export interface EvoMonth {
+  month: string;
+  units: { name: string; faturamento: number; recebimento: number }[];
+}
+
+function emptyUnit(name: string): UnitData {
+  return {
+    name, faturamento: 0, recebimento: 0, ticketMedio: 0, novosContratos: 0, adimplentes: 0, inadimplentes: 0,
+    inadimplenciaPerc: 0, churn: 0, renovacoes: 0, icv: 0, vendasOnline: 0, cancelados: 0, cac: 0, lifetime: 0,
+    oportunidades: 0, conversoes: 0, diarias: 0, personal: 0, camisetas: 0, coqueteleiras: 0, notaGoogle: 0, nps: 0,
+    reclameAqui: 0,
+  };
+}
+
+// Aplica o EVO sobre os dados da planilha: faturamento e recebimento das unidades vêm do EVO,
+// e o TOTAL desses dois campos é refeito como soma das unidades. Mês ou unidade que o EVO tem e
+// a planilha ainda não (ninguém precisa criar a linha à mão) é criado aqui, com os demais
+// indicadores zerados até serem migrados do EVO.
+export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] {
+  for (const evo of evoMonths) {
+    if (evo.units.length === 0) continue;
+    let md = data.find((m) => m.month === evo.month);
+    if (!md) {
+      md = { month: evo.month, units: [], total: buildTotal(evo.month, []) };
+      data.push(md);
+    }
+    for (const e of evo.units) {
+      let unit = md.units.find((u) => u.name === e.name);
+      if (!unit) {
+        unit = emptyUnit(e.name);
+        md.units.push(unit);
+      }
+      unit.faturamento = e.faturamento;
+      unit.recebimento = e.recebimento;
+    }
+    md.total = {
+      ...md.total,
+      faturamento: md.units.reduce((s, u) => s + u.faturamento, 0),
+      recebimento: md.units.reduce((s, u) => s + u.recebimento, 0),
+    };
+  }
+  data.sort((a, b) => a.month.localeCompare(b.month));
+  return data;
+}
+
+async function fetchEvoMonths(): Promise<EvoMonth[]> {
+  try {
+    const list = await fetch(EVO_URL);
+    if (!list.ok) return [];
+    const { months } = (await list.json()) as { months: string[] };
+    const all = await Promise.all(
+      months.map(async (m) => {
+        const r = await fetch(`${EVO_URL}?month=${m}`);
+        return r.ok ? ((await r.json()) as EvoMonth) : null;
+      })
+    );
+    return all.filter((x): x is EvoMonth => x !== null);
+  } catch {
+    return []; // EVO fora do ar: o dashboard segue com os números da planilha
   }
 }
 
