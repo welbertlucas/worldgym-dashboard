@@ -36,6 +36,10 @@ export interface UnitData {
   contratosAtivos?: number;
   contratosEspeciais?: number;
   contratosPersonal?: number;
+  /** Contratos por alcance do plano (accessBranches do EVO): 1 unidade / 2 a 9 / 10 ou mais. */
+  contratosLocal?: number;
+  contratosParcial?: number;
+  contratosRede?: number;
 }
 
 export interface MonthData {
@@ -273,7 +277,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 
 export interface EvoMonth {
   month: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -316,6 +320,9 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.contratosAtivos = e.contratosAtivos;
         unit.contratosEspeciais = e.contratosEspeciais;
         unit.contratosPersonal = e.contratosPersonal;
+        unit.contratosLocal = e.contratosLocal;
+        unit.contratosParcial = e.contratosParcial;
+        unit.contratosRede = e.contratosRede;
       }
     }
     md.total = {
