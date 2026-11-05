@@ -54,3 +54,13 @@ describe("senha no navegador", () => {
     expect(html).toContain("Entrar");
   });
 });
+
+describe("sair", () => {
+  it("apaga o token e volta para a tela de senha", async () => {
+    const { sair } = await import("@/lib/auth");
+    store["wg-dashboard-token"] = "abc";
+    sair();
+    expect(getToken()).toBe("");
+    expect(window.dispatchEvent).toHaveBeenCalled();
+  });
+});

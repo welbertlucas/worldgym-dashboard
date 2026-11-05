@@ -12,6 +12,12 @@ function setToken(t: string) {
 }
 export const logout = () => setToken("");
 
+/** Botão "Sair": apaga o token deste navegador e volta para a tela de senha. */
+export function sair() {
+  logout();
+  window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+}
+
 /** fetch com o token; se o servidor recusar (senha trocada ou token vencido), pede o login de novo. */
 export async function authFetch(url: string): Promise<Response> {
   const token = getToken();

@@ -30,9 +30,10 @@ import { Notice } from "@/components/Notice";
 import { DonutList } from "@/components/DonutList";
 import {
   TrendingUp, Users, DollarSign, AlertCircle, ShoppingCart,
-  RefreshCw, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
+  RefreshCw, LogOut, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
+import { getToken, sair } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 /** Intervalo da atualização automática dos dados (planilha e metas). */
@@ -221,6 +222,12 @@ const Index = () => {
               <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
               <span className="hidden sm:inline">{syncing ? "Atualizando..." : "Atualizar da planilha"}</span>
             </Button>
+            {getToken() && (
+              <Button variant="ghost" size="sm" onClick={sair} aria-label="Sair" className="shrink-0 text-xs font-medium">
+                <LogOut className="w-4 h-4" aria-hidden />
+                <span className="hidden sm:inline">Sair</span>
+              </Button>
+            )}
             </div>
           </div>
         </header>
