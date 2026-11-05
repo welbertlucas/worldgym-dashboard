@@ -62,7 +62,12 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
     const top = highestTier(goal.meta);
     const nivel = tierReached("faturamento", previsao, goal.meta);
     return [
-      { text: `No ritmo atual: ${nivel === "abaixo" ? "abaixo do bronze" : `nível ${TIER_LABEL[nivel]}`}`, tone: nivel === "abaixo" ? "bad" : "good" },
+      {
+        text: isSingleGoal(goal.meta) && top
+          ? `No ritmo atual: ${nivel === "abaixo" ? `abaixo da meta ${TIER_LABEL[top.tier]}` : `meta ${TIER_LABEL[top.tier]} atingida`}`
+          : `No ritmo atual: ${nivel === "abaixo" ? "abaixo do bronze" : `nível ${TIER_LABEL[nivel]}`}`,
+        tone: nivel === "abaixo" ? "bad" : "good",
+      },
       ...(top ? [{ text: `${Math.floor((previsao / top.value) * 100)}% da meta ${TIER_LABEL[top.tier]} (${formatMetaValue("faturamento", top.value)})`, tone: "neutral" as const }] : []),
     ];
   };
