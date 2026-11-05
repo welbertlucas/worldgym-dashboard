@@ -14,6 +14,30 @@ describe("mergeEvo", () => {
     expect(data[0].total.recebimento).toBe(400);
   });
 
+  it("traz a contagem de contratos ativos/especiais/personal quando o EVO a informa", () => {
+    const data = [month("2026-11", [unit("Gama"), unit("Itapoã")])];
+    mergeEvo(data, [
+      { month: "2026-11", units: [
+        { name: "Gama", faturamento: 1, recebimento: 1, alunosAtivos: 2176, contratosAtivos: 2169, contratosEspeciais: 27, contratosPersonal: 19 },
+        { name: "Itapoã", faturamento: 1, recebimento: 1 },
+      ] },
+    ]);
+    expect(data[0].units[0]).toMatchObject({ alunosAtivos: 2176, contratosEspeciais: 27, contratosPersonal: 19 });
+    expect(data[0].units[1].alunosAtivos).toBeUndefined();
+  });
+
+  it("troca a inadimplência pela do EVO e refaz o total, sem mexer em ticket e adimplentes da planilha", () => {
+    const data = [month("2026-10", [unit("Gama", { ticketMedio: 150, adimplentes: 1000 }), unit("Itapoã", { ticketMedio: 130, adimplentes: 2000 })])];
+    mergeEvo(data, [
+      { month: "2026-10", units: [
+        { name: "Gama", faturamento: 1, recebimento: 1, ticketMedio: 140, adimplentes: 900, inadimplentes: 100, inadimplenciaPerc: 10 },
+        { name: "Itapoã", faturamento: 1, recebimento: 1, ticketMedio: 120, adimplentes: 950, inadimplentes: 50, inadimplenciaPerc: 5 },
+      ] },
+    ]);
+    expect(data[0].units[0]).toMatchObject({ inadimplentes: 100, inadimplenciaPerc: 10, ticketMedio: 150, adimplentes: 1000 });
+    expect(data[0].total).toMatchObject({ inadimplentes: 150, inadimplenciaPerc: 7.5 });
+  });
+
   it("não mexe nos outros indicadores (ticket, churn...) nem em meses sem EVO", () => {
     const data = [month("2026-08", [unit("Gama")]), month("2026-09", [unit("Gama", { churn: 7 })])];
     mergeEvo(data, [{ month: "2026-09", units: [{ name: "Gama", faturamento: 1, recebimento: 1 }] }]);

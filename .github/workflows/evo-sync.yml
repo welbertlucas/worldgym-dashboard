@@ -43,3 +43,9 @@ jobs:
             MONTHS="${MONTHS//,/ }"
           fi
           node scripts/evo-backfill.mjs $MONTHS
+      - name: Contratos ativos, especiais/VIP e personal (mês corrente)
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-contratos.mjs

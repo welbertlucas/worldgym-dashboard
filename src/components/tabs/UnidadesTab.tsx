@@ -2,6 +2,7 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { UnitHighlights } from "@/components/UnitHighlights";
 import { UnitDeltaChart } from "@/components/UnitDeltaChart";
+import { ContratosAtivos } from "@/components/unidades/ContratosAtivos";
 import { UnitsRanking } from "@/components/unidades/UnitsRanking";
 import { TopUnitsTable } from "@/components/TopUnitsTable";
 import { UnitComparison } from "@/components/UnitComparison";
@@ -46,6 +47,8 @@ export function UnidadesTab({ selectedMonth, evalMonth, prevEvalMonth, deltas }:
         />
         <TopUnitsTable selectedMonth={selectedMonth} />
       </div>
+
+      <ContratosAtivos units={units} />
 
       <UnitComparison selectedMonth={selectedMonth} />
     </div>

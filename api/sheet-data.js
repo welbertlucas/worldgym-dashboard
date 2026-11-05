@@ -8,12 +8,9 @@
 // de serviço, como string) configurada no projeto Vercel.
 
 import { GoogleAuth } from "google-auth-library";
+import { cors, exigirLogin } from "./_auth.js";
 
 const SPREADSHEET_ID = "1TGh4MEDDbuRgJMkfYltP6II2s42z7L2Gv6RV7X9K1kg";
-const ALLOWED_ORIGINS = new Set([
-  "https://welbertlucas.github.io",
-  "http://localhost:5173",
-]);
 
 // Abas que o endpoint aceita via ?sheet=... (lista fechada). Sem o parâmetro lê a primeira aba.
 const ALLOWED_SHEETS = new Set(["Metas"]);
@@ -29,15 +26,12 @@ function rowsToCsv(rows) {
 }
 
 export default async function handler(req, res) {
-  const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  cors(req, res);
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;
   }
+  if (!exigirLogin(req, res)) return;
 
   try {
     const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;

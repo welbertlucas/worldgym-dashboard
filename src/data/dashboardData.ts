@@ -1,3 +1,4 @@
+import { authFetch } from "@/lib/auth";
 // A planilha deixou de ser pública — os dados agora passam por uma função na Vercel
 // (api/sheet-data.js) que lê com uma conta de serviço do Google, pra não depender de
 // "qualquer pessoa com o link" conseguir ver os dados direto na planilha.
@@ -30,6 +31,11 @@ export interface UnitData {
   notaGoogle: number;
   nps: number;
   reclameAqui: number;
+  /** Contratos ativos hoje (foto do EVO; só existe no mês corrente). */
+  alunosAtivos?: number;
+  contratosAtivos?: number;
+  contratosEspeciais?: number;
+  contratosPersonal?: number;
 }
 
 export interface MonthData {
@@ -252,7 +258,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch(CSV_URL);
+    const res = await authFetch(CSV_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const csv = await res.text();
     const parsed = mergeEvo(parseCSV(csv), await fetchEvoMonths());
@@ -267,7 +273,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 
 export interface EvoMonth {
   month: string;
-  units: { name: string; faturamento: number; recebimento: number }[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -299,11 +305,29 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       }
       unit.faturamento = e.faturamento;
       unit.recebimento = e.recebimento;
+      // Etapa 2: inadimplência vem do EVO quando o mês já foi calculado com ela (bateu com a planilha em
+      // 0,2 p.p. de diferença mediana). Ticket médio e adimplentes do EVO ainda não batem; seguem da planilha.
+      if (e.inadimplentes !== undefined) {
+        unit.inadimplentes = e.inadimplentes;
+        unit.inadimplenciaPerc = e.inadimplenciaPerc ?? unit.inadimplenciaPerc;
+      }
+      if (e.alunosAtivos !== undefined) {
+        unit.alunosAtivos = e.alunosAtivos;
+        unit.contratosAtivos = e.contratosAtivos;
+        unit.contratosEspeciais = e.contratosEspeciais;
+        unit.contratosPersonal = e.contratosPersonal;
+      }
     }
     md.total = {
       ...md.total,
       faturamento: md.units.reduce((s, u) => s + u.faturamento, 0),
       recebimento: md.units.reduce((s, u) => s + u.recebimento, 0),
+      ...(evo.units.some((e) => e.inadimplentes !== undefined)
+        ? (() => {
+            const t = buildTotal(evo.month, md.units);
+            return { inadimplentes: t.inadimplentes, inadimplenciaPerc: t.inadimplenciaPerc };
+          })()
+        : {}),
     };
   }
   data.sort((a, b) => a.month.localeCompare(b.month));
@@ -312,12 +336,12 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
 
 async function fetchEvoMonths(): Promise<EvoMonth[]> {
   try {
-    const list = await fetch(EVO_URL);
+    const list = await authFetch(EVO_URL);
     if (!list.ok) return [];
     const { months } = (await list.json()) as { months: string[] };
     const all = await Promise.all(
       months.map(async (m) => {
-        const r = await fetch(`${EVO_URL}?month=${m}`);
+        const r = await authFetch(`${EVO_URL}?month=${m}`);
         return r.ok ? ((await r.json()) as EvoMonth) : null;
       })
     );

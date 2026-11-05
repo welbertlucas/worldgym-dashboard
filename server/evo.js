@@ -85,11 +85,22 @@ export async function unitMonth(idBranch, ym) {
   ]);
   const due = dueAll.filter(live);
   const paid = paidAll.filter(live);
+  // Pagantes do mês = pessoas com título vencendo no mês. Inadimplente = quem ainda não tinha pago
+  // algum desses títulos no último dia do mês (dá pra reconstruir o passado, porque o EVO guarda a data do pagamento).
+  const quem = (r) => r.idMemberPayer || `p${r.idProspectPayer}`;
+  const pagantes = new Set(due.map(quem));
+  const devendo = new Set(due.filter((r) => !r.chargeDate || r.chargeDate.slice(0, 10) > b).map(quem));
+  const recebimento = round2(paid.reduce((s, r) => s + (r.ammountPaid || 0), 0));
   return {
     faturamento: round2(due.reduce((s, r) => s + (r.ammount || 0), 0)),
-    recebimento: round2(paid.reduce((s, r) => s + (r.ammountPaid || 0), 0)),
+    recebimento,
     titulosVencidos: due.length,
     titulosPagos: paid.length,
+    pagantes: pagantes.size,
+    adimplentes: pagantes.size - devendo.size,
+    inadimplentes: devendo.size,
+    inadimplenciaPerc: pagantes.size ? round2((devendo.size / pagantes.size) * 100) : 0,
+    ticketMedio: pagantes.size ? round2(recebimento / pagantes.size) : 0,
   };
 }
 

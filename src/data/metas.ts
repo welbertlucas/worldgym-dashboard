@@ -1,3 +1,4 @@
+import { authFetch } from "@/lib/auth";
 import { type UnitData, type MonthData, dashboardData } from "@/data/dashboardData";
 
 // Aba "Metas" da planilha — colunas: Mês | Unidade | Indicador | Bronze | Prata | Ouro
@@ -126,7 +127,7 @@ export function parseMetasCSV(csv: string, defaultYear: number = defaultMetaYear
 
 export async function syncMetasFromSheets(): Promise<{ ok: boolean; count: number }> {
   try {
-    const res = await fetch(METAS_URL);
+    const res = await authFetch(METAS_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const parsed = parseMetasCSV(await res.text());
     metasData = parsed;
