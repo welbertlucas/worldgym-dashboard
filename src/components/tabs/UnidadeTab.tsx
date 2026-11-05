@@ -87,13 +87,6 @@ export function UnidadeTab({ selectedMonth, initialUnit, compareMonth }: Props) 
                   </button>
                 ))}
               </div>
-              <Select aria-label="Mês inicial" value={de} onChange={(e) => setDe(e.target.value)} className="h-9 w-44 text-sm font-normal text-foreground">
-                {fechados.map((m) => <option key={m} value={m}>{formatMonthLong(m)}</option>)}
-              </Select>
-              <span aria-hidden>até</span>
-              <Select aria-label="Mês final" value={ate} onChange={(e) => setAte(e.target.value)} className="h-9 w-44 text-sm font-normal text-foreground">
-                {fechados.map((m) => <option key={m} value={m}>{formatMonthLong(m)}</option>)}
-              </Select>
             </div>
           </div>
         </div>
