@@ -84,7 +84,7 @@ const Index = () => {
       const abre = getLastClosedMonth(dashboardData.map((d) => d.month)) ?? getLatestData().month;
       setSelectedMonth((cur) => (keepSelection && cur ? cur : abre));
       forceTick((n) => n + 1);
-      if (!silent) toast({ title: "Dados atualizados", description: `${res.count} meses carregados da planilha.` });
+      if (!silent) toast({ title: "Dados atualizados", description: `${res.count} meses carregados.` });
     } else if (!silent) {
       toast({ title: "Falha ao atualizar", description: res.error, variant: "destructive" });
     }

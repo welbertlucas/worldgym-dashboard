@@ -78,7 +78,7 @@ export function RecommendationCard({ rec, defaultOpen = false, flat = false, eva
         )}
 
         {(rec.evidence.signals.length > 0 || rec.evidence.context.length > 0 || rec.evidence.quiet.length > 0) && (
-          <Block title={<Badge variant="outline">O que os dados indicam (da planilha)</Badge>} className="md:col-span-2">
+          <Block title={<Badge variant="outline">O que os dados indicam</Badge>} className="md:col-span-2">
             {rec.evidence.signals.length > 0 && <List items={rec.evidence.signals} />}
             {rec.evidence.context.length > 0 && <List items={rec.evidence.context} />}
             {rec.evidence.quiet.length > 0 && (
