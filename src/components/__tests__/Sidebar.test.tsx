@@ -6,8 +6,8 @@ import { NAV_ITEMS } from "@/components/nav";
 const noop = () => {};
 
 describe("navegação", () => {
-  it("mantém as 7 seções originais, na mesma ordem", () => {
-    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "comercial", "financeiro", "retencao", "unidades", "metas", "riscos"]);
+  it("mantém as seções originais, na mesma ordem, mais o detalhe da unidade", () => {
+    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "comercial", "financeiro", "retencao", "unidades", "unidade", "metas", "riscos"]);
   });
 
   it("sidebar lista todas as seções, marca a ativa e mostra o contador de críticos", () => {

@@ -9,6 +9,7 @@ import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
+import { UnidadeTab } from "@/components/tabs/UnidadeTab";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
@@ -336,6 +337,8 @@ const Index = () => {
             deltas={unitDeltas}
           />
         )}
+
+        {activeTab === "unidade" && <UnidadeTab selectedMonth={fullMonthData.month} initialUnit={selectedUnit} />}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 
