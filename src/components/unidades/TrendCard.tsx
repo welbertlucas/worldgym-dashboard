@@ -28,7 +28,7 @@ export function TrendCard({ ind, rows, unitLabel, refLabel }: Props) {
         <div className="min-w-0">
           <h4 className="text-sm font-semibold text-foreground">{ind.label}</h4>
           <p className="text-xs text-muted-foreground">
-            {last ? <>Último mês fechado: <b className="text-foreground tabular-nums">{formatIndicator(ind, last.unit!)}</b></> : "Sem dado no período"}
+            {last ? <>Último mês do período: <b className="text-foreground tabular-nums">{formatIndicator(ind, last.unit!)}</b></> : "Sem dado no período"}
             {change !== null && <> · {change > 0 ? "+" : ""}{change.toFixed(1).replace(".", ",")}% no período</>}
             {changePp !== null && <> · {changePp > 0 ? "+" : ""}{changePp.toFixed(1).replace(".", ",")} p.p. no período</>}
           </p>
