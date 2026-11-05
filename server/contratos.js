@@ -16,14 +16,19 @@ const isVip = (n) => /v\.?\s?i\.?\s?p/i.test(n);
 //   parcial = de 2 a 9 unidades (a própria e algumas vizinhas)
 //   rede = 10 ou mais unidades
 export const REDE_MIN = 10;
-export const alcance = (plano) => {
+export const alcance = (plano, unidadePro = false) => {
+  if (unidadePro) return "rede"; // nas unidades Pro todos os planos são de rede, qualquer que seja a lista de unidades do cadastro
   const n = (plano?.accessBranches ?? []).length;
   return n >= REDE_MIN ? "rede" : n >= 2 ? "parcial" : "local";
 };
 
+/** Unidade Pro: o nome da unidade no dashboard tem "Pro" (Águas Claras Pro, Goiânia Pro-GO, Salvador Pro-BA). */
+export const ehUnidadePro = (nomeDaUnidade) => /\bPro\b/.test(nomeDaUnidade ?? "");
+
 export async function contratosUnidade(idBranch) {
   const plans = Object.fromEntries((await fetchAll(`/membership?idBranch=${idBranch}`)).map((p) => [p.idMembership, p]));
   const members = await fetchAll(`/members?idBranch=${idBranch}&status=1`);
+  const pro = ehUnidadePro(UNIT_NAMES[idBranch]);
   const r = { alunosAtivos: members.length, contratosAtivos: 0, contratosEspeciais: 0, contratosPersonal: 0, contratosLocal: 0, contratosParcial: 0, contratosRede: 0 };
   for (const m of members) {
     for (const c of m.memberships || []) {
@@ -32,7 +37,7 @@ export async function contratosUnidade(idBranch) {
       const nome = String(c.name || "").trim();
       const plano = plans[c.idMembership];
       const especial = c.idCategoryMembership === 1 || (isVip(nome) && plano && plano.value === 0);
-      const a = alcance(plano);
+      const a = alcance(plano, pro);
       if (a === "rede") r.contratosRede++;
       else if (a === "parcial") r.contratosParcial++;
       else r.contratosLocal++;
