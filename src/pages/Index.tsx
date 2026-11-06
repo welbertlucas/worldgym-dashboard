@@ -8,6 +8,8 @@ import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
+import { OrigemOportunidades } from "@/components/OrigemOportunidades";
+import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { BaseAlunos } from "@/components/clientes/BaseAlunos";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { UnidadeTab } from "@/components/tabs/UnidadeTab";
@@ -22,7 +24,7 @@ import { viewFor } from "@/data/kpiView";
 import { computeAlerts, sameMonthLastYear } from "@/data/alerts";
 import { computeUnitDeltas } from "@/data/unitMetrics";
 import { metasData, syncMetasFromSheets } from "@/data/metas";
-import { getLastClosedMonth, isPartialMonth } from "@/data/periods";
+import { formatMonthLong, getLastClosedMonth, isPartialMonth } from "@/data/periods";
 import {
   getLatestData, getDataByMonth, comparePeriods, dashboardData,
   getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets, evoAtualizadoEm, receitaComplementar,
@@ -326,6 +328,7 @@ const Index = () => {
               <NovosContratosChart selectedUnit={selectedUnit} />
               <VendasOnlineChart selectedUnit={selectedUnit} />
             </div>
+            <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
             <DonutList
               title="Receitas complementares"
               subtitle="Participação de cada receita na soma das cinco"
@@ -349,6 +352,7 @@ const Index = () => {
             <div className="grid grid-cols-1 gap-6 mb-6">
               <RevenueChart selectedUnit={selectedUnit} />
             </div>
+            <div className="mb-6"><CobrancasRecusa total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
           </section>
         )}
 

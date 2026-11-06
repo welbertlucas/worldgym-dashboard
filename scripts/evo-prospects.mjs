@@ -16,7 +16,7 @@ for (const ym of process.argv.slice(2)) {
     for (const u of blob.units) {
       const a = por[u.name];
       if (!a || !Object.values(UNIT_NAMES).includes(u.name)) continue;
-      u.oportunidades = a.oportunidades; u.conversoes = a.conversoes; n++;
+      u.oportunidades = a.oportunidades; u.conversoes = a.conversoes; u.origens = a.origens; n++;
     }
     blob.prospectsEm = new Date().toISOString();
     await saveMonth(blob);

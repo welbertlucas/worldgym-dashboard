@@ -7,6 +7,9 @@ const CSV_URL = "https://worldgym-dashboard-sigma.vercel.app/api/sheet-data";
 // Faturamento e recebimento vêm do EVO (api/indicadores); o resto ainda vem da planilha.
 const EVO_URL = "https://worldgym-dashboard-sigma.vercel.app/api/indicadores";
 
+export interface Cobrancas { falhas: number; recuperadas: number; abertas: number; valorAberto: number; valorRecuperado: number }
+export interface MotivoRecusa { n: number; abertas: number; valorAberto: number }
+
 export interface UnitData {
   name: string;
   faturamento: number;
@@ -60,6 +63,16 @@ export interface UnitData {
   permanenciaMeses?: number;
   /** Alunos que cancelaram no mês, por motivo (categorias de texto → quantidade). */
   motivosCancel?: Record<string, number>;
+  /** Origem das oportunidades do mês: [cadastradas, convertidas no mês] por origem (EVO). */
+  origens?: Record<string, [number, number]>;
+  /** Cobranças que falharam no vencimento (mês do vencimento): recuperadas e em aberto, com valores (EVO). */
+  cobrancas?: Cobrancas;
+  /** Motivo da última recusa do cartão nessas cobranças: total e ainda em aberto. */
+  recusaMotivos?: Record<string, MotivoRecusa>;
+  /** Treinos dos alunos ativos hoje (foto do EVO, só no mês corrente): ativo, vencido e com início no futuro. */
+  treinoAtivo?: number;
+  treinoVencido?: number;
+  treinoFuturo?: number;
   /** Brinquedoteca (diária kids, brinquedoteca, mensalidades kids), das vendas do EVO. */
   kids?: number;
   /** Taxa de personal (valor dos contratos de personal vendidos) calculada a partir das vendas do EVO. */
@@ -321,7 +334,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -353,6 +366,32 @@ export const ltv = (u: Pick<UnitData, "ticketMedio" | "permanenciaMeses">) =>
 export function somarMotivos(us: Pick<UnitData, "motivosCancel">[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const u of us) for (const [k, n] of Object.entries(u.motivosCancel ?? {})) out[k] = (out[k] ?? 0) + n;
+  return out;
+}
+
+/** Soma as origens das oportunidades de várias unidades. */
+export function somarOrigens(us: Pick<UnitData, "origens">[]): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {};
+  for (const u of us) for (const [k, [c, v]] of Object.entries(u.origens ?? {})) { const o = (out[k] ??= [0, 0]); o[0] += c; o[1] += v; }
+  return out;
+}
+
+export function somarCobrancas(us: Pick<UnitData, "cobrancas">[]): Cobrancas {
+  const z: Cobrancas = { falhas: 0, recuperadas: 0, abertas: 0, valorAberto: 0, valorRecuperado: 0 };
+  for (const u of us) if (u.cobrancas) {
+    z.falhas += u.cobrancas.falhas; z.recuperadas += u.cobrancas.recuperadas; z.abertas += u.cobrancas.abertas;
+    z.valorAberto += u.cobrancas.valorAberto; z.valorRecuperado += u.cobrancas.valorRecuperado;
+  }
+  z.valorAberto = Math.round(z.valorAberto * 100) / 100; z.valorRecuperado = Math.round(z.valorRecuperado * 100) / 100;
+  return z;
+}
+
+export function somarRecusa(us: Pick<UnitData, "recusaMotivos">[]): Record<string, MotivoRecusa> {
+  const out: Record<string, MotivoRecusa> = {};
+  for (const u of us) for (const [k, m] of Object.entries(u.recusaMotivos ?? {})) {
+    const o = (out[k] ??= { n: 0, abertas: 0, valorAberto: 0 });
+    o.n += m.n; o.abertas += m.abertas; o.valorAberto = Math.round((o.valorAberto + m.valorAberto) * 100) / 100;
+  }
   return out;
 }
 
@@ -422,6 +461,10 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.permanenciaMeses = e.permanenciaMeses ?? 0;
       }
       if (e.motivosCancel !== undefined) unit.motivosCancel = e.motivosCancel;
+      // Origem das oportunidades, cobranças com falha e treinos (EVO).
+      if (e.origens !== undefined) unit.origens = e.origens;
+      if (e.cobrancas !== undefined) { unit.cobrancas = e.cobrancas; unit.recusaMotivos = e.recusaMotivos ?? {}; }
+      if (e.treinoAtivo !== undefined) { unit.treinoAtivo = e.treinoAtivo; unit.treinoVencido = e.treinoVencido ?? 0; unit.treinoFuturo = e.treinoFuturo ?? 0; }
       // Conversão = convertidos no mês ÷ cadastrados no mês (relatório de prospects do EVO).
       if (e.oportunidades !== undefined && e.conversoes !== undefined) {
         unit.oportunidades = e.oportunidades;
@@ -497,6 +540,11 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
           })()
         : {}),
       ...(md.units.some((u) => u.motivosCancel !== undefined) ? { motivosCancel: somarMotivos(md.units) } : {}),
+      ...(md.units.some((u) => u.origens !== undefined) ? { origens: somarOrigens(md.units) } : {}),
+      ...(md.units.some((u) => u.cobrancas !== undefined) ? { cobrancas: somarCobrancas(md.units), recusaMotivos: somarRecusa(md.units) } : {}),
+      ...(md.units.some((u) => u.treinoAtivo !== undefined)
+        ? { treinoAtivo: md.units.reduce((n, u) => n + (u.treinoAtivo ?? 0), 0), treinoVencido: md.units.reduce((n, u) => n + (u.treinoVencido ?? 0), 0), treinoFuturo: md.units.reduce((n, u) => n + (u.treinoFuturo ?? 0), 0) }
+        : {}),
       ...(md.units.some((u) => u.icvEvo)
         ? (() => {
             const us = md.units.filter((u) => u.icvEvo);

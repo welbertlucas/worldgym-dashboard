@@ -29,7 +29,7 @@ async function throttle() {
   if (at > now) await new Promise((r) => setTimeout(r, at - now));
 }
 
-async function evoGet(path, tries = 7) {
+export async function evoGet(path, tries = 7) {
   let last = "";
   for (let i = 0; i < tries; i++) {
     await throttle();

@@ -3,6 +3,7 @@ import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
 import { clientesSpecs } from "@/components/kpi/tabSpecs";
 import { FluxoClientesChart } from "@/components/clientes/FluxoClientesChart";
 import { MotivosCancelamento } from "@/components/clientes/MotivosCancelamento";
+import { TreinosCard } from "@/components/clientes/TreinosCard";
 import { SaldoHeatmap } from "@/components/clientes/SaldoHeatmap";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 
@@ -22,6 +23,7 @@ export function BaseAlunos({ ctx, month, unit }: Props) {
         <FluxoClientesChart total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
         <MotivosCancelamento total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
       </div>
+      <div className="mb-6"><TreinosCard total={total} month={month} monthLabel={monthLabel} unit={unit} /></div>
       <SaldoHeatmap selectedMonth={month} selectedUnit={unit} />
     </div>
   );

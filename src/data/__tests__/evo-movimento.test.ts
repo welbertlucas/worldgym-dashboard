@@ -8,8 +8,11 @@ import { agregarNps } from "../../../server/wehelp.js";
 // @ts-expect-error módulo JS do servidor
 import { categoriaMotivo, resumirMotivos } from "../../../server/cancelamentos.js";
 // @ts-expect-error módulo JS do servidor
-import { resumirProspects } from "../../../server/prospects.js";
+import { resumirProspects, origemDaOportunidade } from "../../../server/prospects.js";
+// @ts-expect-error módulo JS do servidor
+import { categoriaRecusa, resumirDevedores } from "../../../server/cobrancas.js";
 import { mergeEvo } from "@/data/dashboardData";
+import { fracaoDoMes, projetarFechamento } from "@/data/periods";
 import { month, unit } from "./helpers";
 
 // contrato: [início, fim, cancelamento, status, recorrente]
@@ -179,7 +182,7 @@ describe("conversão de cadastros (prospects do EVO)", () => {
       linha("5", "15/09/2026", "04/10/2026"), // cadastro anterior: não entra
       linha("9", "02/10/2026", "05/10/2026"), // unidade fora do dashboard
     ], "2026-10-01", "2026-10-31");
-    expect(por).toEqual({ "Asa Norte": { oportunidades: 3, conversoes: 1 } });
+    expect(por).toEqual({ "Asa Norte": { oportunidades: 3, conversoes: 1, origens: { "Sem origem": [3, 1] } } });
   });
   it("mergeEvo: taxa por unidade e total ponderado; mês sem prospects mantém a planilha", () => {
     const data = [month("2026-10", [unit("Asa Norte", { icv: 10 }), unit("Gama", { icv: 20 }), unit("Itapoã", { icv: 30 })])];
@@ -262,5 +265,69 @@ describe("LTV e saldo de alunos", () => {
     expect([t.fluxoNovos, t.fluxoRetornos, t.fluxoCancelados, t.fluxoVencidos]).toEqual([40, 5, 14, 6]);
     expect(t.permanenciaMeses).toBe(12.5); // (10×300 + 20×100) ÷ 400
     expect(t.motivosCancel).toEqual({ A: 5, B: 2 });
+  });
+});
+
+describe("origem das oportunidades", () => {
+  it("normaliza o texto do cadastro", () => {
+    expect(origemDaOportunidade("TOTEM/SITE/ ")).toBe("Totem/Site");
+    expect(origemDaOportunidade("Convite/ ")).toBe("Convite");
+    expect(origemDaOportunidade("AMIGO/PARENTE/ ")).toBe("Amigo/Parente");
+    expect(origemDaOportunidade("")).toBe("Sem origem");
+    expect(origemDaOportunidade(undefined)).toBe("Sem origem");
+  });
+  it("conta cadastradas e convertidas no mês por origem", () => {
+    const linha = (Marketing: string, DtConversao: string) => ({ IdFilial: "5", DtCadastro: "05/10/2026", DtConversao, Marketing });
+    const por = resumirProspects([linha("TOTEM/SITE/ ", "07/10/2026"), linha("TOTEM/SITE/ ", ""), linha("Convite/ ", "09/10/2026")], "2026-10-01", "2026-10-31");
+    expect(por["Asa Norte"].origens).toEqual({ "Totem/Site": [2, 1], Convite: [1, 1] });
+  });
+  it("mergeEvo soma as origens da rede", () => {
+    const data = [month("2026-10", [unit("Asa Norte"), unit("Gama")])];
+    mergeEvo(data, [{ month: "2026-10", units: [
+      { name: "Asa Norte", faturamento: 1, recebimento: 1, origens: { Convite: [10, 5] } },
+      { name: "Gama", faturamento: 1, recebimento: 1, origens: { Convite: [4, 1], Instagram: [2, 0] } },
+    ] }]);
+    expect(data[0].total.origens).toEqual({ Convite: [14, 6], Instagram: [2, 0] });
+  });
+});
+
+describe("cobranças com falha e motivos de recusa", () => {
+  it("agrupa os textos em português e inglês, com e sem código", () => {
+    expect(categoriaRecusa("Refused(Cod. 51)")).toBe("Não autorizada pelo emissor");
+    expect(categoriaRecusa("Não autorizada")).toBe("Não autorizada pelo emissor");
+    expect(categoriaRecusa("Estabelecimento entrar em contato com adquirente(Cod. 1040)")).toBe("Contatar o adquirente");
+    expect(categoriaRecusa("Fraud or security (Mastercard use only)(Cod. 83)")).toBe("Dados do cartão ou suspeita de fraude");
+    expect(categoriaRecusa("Declined by Rede: Excessive Reattempts;(Cod. N02)")).toBe("Excesso de tentativas");
+    expect(categoriaRecusa("")).toBeNull();
+    expect(categoriaRecusa("Algo novo(Cod. 99)")).toBe("Algo novo");
+  });
+  it("resume recuperadas, em aberto e valores; cancelados ficam fora", () => {
+    const r = resumirDevedores([
+      { debtStatus: "Recovered", debtAmount: 100, lastAcquirerDeclineReason: "Refused" },
+      { debtStatus: "open", debtAmount: 150.5, lastAcquirerDeclineReason: "Refused(Cod. 51)" },
+      { debtStatus: "open", debtAmount: 50, lastAcquirerDeclineReason: null },
+      { debtStatus: "Canceled", debtAmount: 999, lastAcquirerDeclineReason: "Refused" },
+    ]);
+    expect(r).toMatchObject({ falhas: 3, recuperadas: 1, abertas: 2, valorAberto: 200.5, valorRecuperado: 100 });
+    expect(r.motivos["Não autorizada pelo emissor"]).toEqual({ n: 2, abertas: 1, valorAberto: 150.5 });
+  });
+});
+
+describe("treinos e projeção", () => {
+  it("mergeEvo soma os treinos da rede", () => {
+    const data = [month("2026-11", [unit("Asa Norte"), unit("Gama")])];
+    mergeEvo(data, [{ month: "2026-11", units: [
+      { name: "Asa Norte", faturamento: 1, recebimento: 1, treinoAtivo: 100, treinoVencido: 300, treinoFuturo: 5 },
+      { name: "Gama", faturamento: 1, recebimento: 1, treinoAtivo: 50, treinoVencido: 150, treinoFuturo: 0 },
+    ] }]);
+    expect([data[0].total.treinoAtivo, data[0].total.treinoVencido, data[0].total.treinoFuturo]).toEqual([150, 450, 5]);
+  });
+  it("projeção linear: ritmo atual repetido até o fim do mês, só depois de 10% do mês", () => {
+    const meio = new Date(2026, 10, 16); // 15 de 30 dias passados
+    expect(fracaoDoMes("2026-11", meio)).toBeCloseTo(0.5, 2);
+    expect(projetarFechamento(500, 0.5)).toBe(1000);
+    expect(projetarFechamento(500, 0.05)).toBeNull(); // cedo demais
+    expect(projetarFechamento(0, 0.5)).toBeNull();
+    expect(fracaoDoMes("2026-11", new Date(2026, 11, 20))).toBe(1); // mês já passou
   });
 });

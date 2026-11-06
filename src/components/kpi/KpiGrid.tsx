@@ -1,4 +1,5 @@
-import { isPartialMonth } from "@/data/periods";
+import { fracaoDoMes, isPartialMonth, projetarFechamento } from "@/data/periods";
+import { evoAtualizadoEm } from "@/data/dashboardData";
 import type { ReactNode } from "react";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 import { type MetricDetail } from "@/components/MetricCard";
@@ -26,6 +27,8 @@ export interface KpiSpec {
   direction?: "higher" | "lower" | null;
   /** Informações fixas (sem direção) mostradas antes da comparação. */
   extra?: MetricDetail[] | ((v: MonthView) => MetricDetail[]);
+  /** Mês em andamento: mostra a projeção linear de fechamento (ritmo atual repetido até o fim do mês). */
+  projecao?: boolean;
   /** Zero significa "sem dado" (notas, NPS, receitas ainda não lançadas). */
   noDataIfZero?: boolean;
 }
@@ -97,13 +100,16 @@ export function KpiTile({ ctx, spec }: { ctx: KpiContext; spec: KpiSpec }) {
   if (partial && ind) g = { ...g, tone: "neutral" };
 
   const mode = ind ? "pp" : "pct";
+  // Projeção de fechamento: o ritmo até o momento em que o EVO foi consultado, repetido até o fim do mês.
+  const proj = spec.projecao && partial ? projetarFechamento(cur, fracaoDoMes(curV.month, evoAtualizadoEm ? new Date(evoAtualizadoEm) : new Date())) : null;
+  const projDetalhe: MetricDetail | undefined = proj ? { text: `Projeção do mês: ${spec.fmt(proj)}`, tone: "neutral" } : undefined;
   const details = spec.kind === "flow" && partial
-    ? only(...extra, base && base > 0 ? { text: `${Math.floor((cur / base) * 100)}% de ${spec.fmt(base)} de ${prevLabel}`, tone: "neutral" } : undefined)
+    ? only(...extra, projDetalhe, base && base > 0 ? { text: `${Math.floor((cur / base) * 100)}% de ${spec.fmt(base)} de ${prevLabel}`, tone: "neutral" } : undefined)
     : only(...extra, variation(cur, base, mode, higher, prevLabel), variation(cur, lyVal, mode, higher, lyLabel));
 
   // Mês em andamento: as variações das taxas também ficam neutras (a base ainda é pequena).
   const shown = partial && ind ? details.map((d) => ({ ...d, tone: "neutral" as const })) : details;
-  return <KpiGaugeCard title={spec.title} value={spec.fmt(cur)} {...g} details={shown} partial={partial} source={source} help={AJUDA[spec.title]} />;
+  return <KpiGaugeCard title={spec.title} value={spec.fmt(cur)} {...g} details={shown} partial={partial} source={source} help={AJUDA[spec.title] ? AJUDA[spec.title] + (proj ? " Projeção do mês: o ritmo até agora repetido até o último dia (estimativa linear)." : "") : undefined} />;
 }
 
 /** Grade de indicadores: uma única superfície com linhas finas entre os cartões (sem células cinzas no fim da linha). */
