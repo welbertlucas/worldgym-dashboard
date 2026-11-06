@@ -8,7 +8,7 @@ import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
-import { ClientesTab } from "@/components/tabs/ClientesTab";
+import { BaseAlunos } from "@/components/clientes/BaseAlunos";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { UnidadeTab } from "@/components/tabs/UnidadeTab";
 import { UnitNavProvider } from "@/components/UnitLink";
@@ -363,10 +363,9 @@ const Index = () => {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
               <RenovacoesChart selectedUnit={selectedUnit} />
             </div>
+            <BaseAlunos ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} />
           </section>
         )}
-
-        {activeTab === "clientes" && <ClientesTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} />}
 
         {activeTab === "unidades" && (
           <UnidadesTab
