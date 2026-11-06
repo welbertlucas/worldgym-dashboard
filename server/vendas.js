@@ -3,7 +3,8 @@
 // custa uma única varredura. Regras conferidas contra a planilha (set/2026):
 //  - novos contratos: itens de contrato que NÃO renovam um contrato anterior (idMembershipRenewed vazio);
 //  - vendas online: soma das vendas feitas pelo site/totem (saleSource = 2), batem ao centavo onde a planilha é exata;
-//  - diárias, camisetas, coqueteleiras: soma dos itens avulsos pelo nome (cada unidade nomeia do seu jeito);
+//  - diárias: soma dos itens com DIÁRIA no nome, avulsos ou vendidos como contrato; camisetas e coqueteleiras: itens avulsos
+//    pelo nome (cada unidade nomeia do seu jeito);
 //  - taxa de personal: soma do valor dos contratos de personal vendidos (item de contrato com PERSONAL no nome). Em set/2026
 //    bateu com a planilha em 21 das 23 unidades.
 import { fetchAll } from "./evo.js";
@@ -12,11 +13,13 @@ import { UNIT_NAMES } from "./units.js";
 const ONLINE = 2;
 const upper = (i) => String(i.item || i.description || "").toUpperCase();
 export function categoriaAvulsa(item) {
-  if (item.idMembership) return null;
   const t = upper(item);
+  // Diária vale como item avulso ("DIARIA", "DIÁRIA", "WG PRO DIÁRIA"...) e também como contrato: várias
+  // unidades a vendem como o plano "11 - WG DIÁRIA 30,00". "Diária kids" fica de fora.
+  if (/DI[AÁ]RIA/.test(t) && !/KIDS/.test(t)) return "diarias";
+  if (item.idMembership) return null;
   if (/COQUETEL|COQUETEIRA|SHAKER/.test(t)) return "coqueteleiras";
   if (/CAMIS/.test(t)) return "camisetas";
-  if (/DI[AÁ]RIA/.test(t) && !/KIDS/.test(t)) return "diarias";
   return null;
 }
 

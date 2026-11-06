@@ -61,8 +61,16 @@ describe("resumirVendas", () => {
     expect(Object.keys(por)).toEqual(["Asa Norte"]);
     expect(por["Asa Norte"]).toEqual({ novosContratos: 2, vendasOnline: 175, diarias: 50, camisetas: 89, coqueteleiras: 25, personal: 0 });
   });
-  it("contrato nunca vira avulso", () => {
-    expect(categoriaAvulsa({ idMembership: 1, item: "DIARIA" })).toBeNull();
+  it("contrato não vira camiseta nem coqueteleira", () => {
+    expect(categoriaAvulsa({ idMembership: 1, item: "CAMISA PLANO" })).toBeNull();
+    expect(categoriaAvulsa({ idMembership: 1, item: "PLANO COM SHAKER" })).toBeNull();
+  });
+  it("diária conta em qualquer grafia e também quando é vendida como contrato; kids fica de fora", () => {
+    for (const nome of ["DIARIA", "DIÁRIA", "Diárias", "WG Pró Diaria", "11 - WG DIÁRIA 30,00", "WG PRO DIÁRIA | R$70,00"]) {
+      expect(categoriaAvulsa({ item: nome })).toBe("diarias");
+      expect(categoriaAvulsa({ idMembership: 9, item: nome })).toBe("diarias");
+    }
+    expect(categoriaAvulsa({ item: "DIARIA KIDS WG PONTE ALTA" })).toBeNull();
   });
 });
 
