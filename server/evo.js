@@ -10,6 +10,8 @@ import { UNIT_NAMES } from "./units.js";
 
 const BASE = "https://evo-integracao.w12app.com.br/api/v1";
 const PAGE = 100;
+// Caminhos que começam com /api/ (v2, v3...) saem da raiz do host; os demais são relativos a /api/v1.
+const urlDe = (path) => (path.startsWith("/api/") ? BASE.replace(/\/api\/v1$/, "") + path : BASE + path);
 
 function auth() {
   const { EVO_DNS, EVO_TOKEN } = process.env;
@@ -33,7 +35,7 @@ async function evoGet(path, tries = 7) {
     await throttle();
     let res;
     try {
-      res = await fetch(BASE + path, { headers: { Authorization: auth() } });
+      res = await fetch(urlDe(path), { headers: { Authorization: auth() } });
     } catch (e) {
       // Queda de rede (fetch failed): vale tentar de novo, como 429 e 5xx.
       last = `rede ${e.cause?.code || e.message}`;

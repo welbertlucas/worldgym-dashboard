@@ -46,10 +46,40 @@ export function movimentoDoMes(alunos, ym, hoje) {
   return { ativosFim: contarAtivos(alunos, fim), ativosIni: contarAtivos(alunos, diaAnterior(ini)), cancelados: contarCancelados(alunos, ini, fim), aVencer: contarAVencer(alunos, ini, fim) };
 }
 
+const DIAS_POR_MES = 30.4375;
+const diasEntre = (de, ate) => Math.round((new Date(`${ate}T00:00:00Z`) - new Date(`${de}T00:00:00Z`)) / 86400000);
+const primeiroInicio = (a) => a.c.reduce((m, [ini]) => (ini && (!m || ini < m) ? ini : m), null);
+
+/**
+ * Fluxo de alunos no mês, fechando com ativosIni + entradas − saídas = ativosFim:
+ *  - novos: não estavam ativos no início, estão no fim e o 1º contrato de sempre começou no mês;
+ *  - retornos: idem, mas já tinham contrato antes (voltaram);
+ *  - cancelados / vencidos: estavam ativos no início e não estão no fim, com cancelamento no mês ou sem (contrato acabou).
+ * Permanência = média, em meses, do tempo desde o primeiro contrato dos alunos ativos no fim do mês.
+ */
+export function fluxoDoMes(alunos, ym, hoje) {
+  const fim = diaDeCorte(ym, hoje);
+  const ini = `${ym}-01`;
+  const antes = diaAnterior(ini);
+  let novos = 0, retornos = 0, cancelados = 0, vencidos = 0, somaDias = 0, ativos = 0;
+  for (const a of alunos) {
+    const noInicio = ativoNoDia(a.c, antes);
+    const noFim = ativoNoDia(a.c, fim);
+    const primeiro = primeiroInicio(a);
+    if (!noInicio && noFim) (primeiro && primeiro >= ini ? novos++ : retornos++);
+    if (noInicio && !noFim) (a.c.some(([, , cancel]) => cancel && cancel >= ini && cancel <= fim) ? cancelados++ : vencidos++);
+    if (noFim && primeiro) { somaDias += Math.max(0, diasEntre(primeiro, fim)); ativos++; }
+  }
+  return {
+    fluxoNovos: novos, fluxoRetornos: retornos, fluxoCancelados: cancelados, fluxoVencidos: vencidos,
+    permanenciaMeses: ativos ? Math.round((somaDias / ativos / DIAS_POR_MES) * 10) / 10 : 0,
+  };
+}
+
 /** Baixa os alunos de uma unidade e calcula o movimento de cada mês pedido. */
 export async function ativosDaUnidade(idBranch, meses, hoje) {
   const alunos = (await fetchAll(`/members?idBranch=${idBranch}`)).map(resumoAluno);
-  return Object.fromEntries(meses.map((ym) => [ym, movimentoDoMes(alunos, ym, hoje)]));
+  return Object.fromEntries(meses.map((ym) => [ym, { ...movimentoDoMes(alunos, ym, hoje), ...fluxoDoMes(alunos, ym, hoje) }]));
 }
 
 export const UNIDADES = UNIT_NAMES;

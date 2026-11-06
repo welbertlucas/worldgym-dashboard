@@ -58,6 +58,12 @@ jobs:
           WEHELP_CLIENT_SECRET: ${{ secrets.WEHELP_CLIENT_SECRET }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/wehelp-nps.mjs $MONTHS_DONE
+      - name: Motivos de cancelamento
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-cancelamentos.mjs $MONTHS_DONE
       - name: Conversão de cadastros (prospects do EVO)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}

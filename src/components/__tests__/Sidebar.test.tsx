@@ -7,7 +7,7 @@ const noop = () => {};
 
 describe("navegação", () => {
   it("mantém as seções originais, na mesma ordem, mais o detalhe da unidade", () => {
-    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "comercial", "financeiro", "retencao", "unidades", "unidade", "metas", "riscos"]);
+    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "comercial", "financeiro", "retencao", "clientes", "unidades", "unidade", "metas", "riscos"]);
   });
 
   it("sidebar lista todas as seções, marca a ativa e mostra o contador de críticos", () => {

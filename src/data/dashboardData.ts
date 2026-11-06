@@ -51,6 +51,15 @@ export interface UnitData {
   naoRenovados?: number;
   /** Taxa de renovação calculada a partir dos contratos do EVO. */
   renovacoesEvo?: boolean;
+  /** Fluxo de alunos no mês (EVO): entradas (novos e retornos) e saídas (cancelados e vencidos) que levam de ativosIni a ativosFim. */
+  fluxoNovos?: number;
+  fluxoRetornos?: number;
+  fluxoCancelados?: number;
+  fluxoVencidos?: number;
+  /** Tempo médio, em meses, desde o primeiro contrato dos alunos ativos no fim do mês. */
+  permanenciaMeses?: number;
+  /** Alunos que cancelaram no mês, por motivo (categorias de texto → quantidade). */
+  motivosCancel?: Record<string, number>;
   /** Brinquedoteca (diária kids, brinquedoteca, mensalidades kids), das vendas do EVO. */
   kids?: number;
   /** Taxa de personal (valor dos contratos de personal vendidos) calculada a partir das vendas do EVO. */
@@ -312,7 +321,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -331,6 +340,21 @@ function emptyUnit(name: string): UnitData {
 /** Soma das receitas complementares de uma unidade (ou da rede): diárias, taxa de personal, kids, camisetas e coqueteleiras. */
 export const receitaComplementar = (u: Pick<UnitData, "diarias" | "personal" | "camisetas" | "coqueteleiras" | "kids">) =>
   (u.diarias || 0) + (u.personal || 0) + (u.camisetas || 0) + (u.coqueteleiras || 0) + (u.kids || 0);
+
+/** Saldo de alunos ativos no mês (fim − início); undefined quando o EVO ainda não calculou o mês. */
+export const saldoAlunos = (u: Pick<UnitData, "ativosIni" | "ativosFim">) =>
+  u.ativosIni !== undefined && u.ativosFim !== undefined ? u.ativosFim - u.ativosIni : undefined;
+
+/** LTV = ticket médio × permanência média (meses); 0 quando falta um dos dois. */
+export const ltv = (u: Pick<UnitData, "ticketMedio" | "permanenciaMeses">) =>
+  u.ticketMedio > 0 && (u.permanenciaMeses ?? 0) > 0 ? Math.round(u.ticketMedio * (u.permanenciaMeses ?? 0)) : 0;
+
+/** Soma dos motivos de cancelamento de várias unidades. */
+export function somarMotivos(us: Pick<UnitData, "motivosCancel">[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const u of us) for (const [k, n] of Object.entries(u.motivosCancel ?? {})) out[k] = (out[k] ?? 0) + n;
+  return out;
+}
 
 /** NPS em pontos (−100 a 100) com duas casas; 0 quando não há respostas. */
 export const calcularNps = (promotores: number, detratores: number, respostas: number) =>
@@ -389,6 +413,15 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.renovacoesEvo = true;
         unit.renovacoes = taxaRenovacao(e.aVencer, e.naoRenovados);
       }
+      // Fluxo de alunos, permanência e motivos de cancelamento (EVO).
+      if (e.fluxoNovos !== undefined) {
+        unit.fluxoNovos = e.fluxoNovos;
+        unit.fluxoRetornos = e.fluxoRetornos ?? 0;
+        unit.fluxoCancelados = e.fluxoCancelados ?? 0;
+        unit.fluxoVencidos = e.fluxoVencidos ?? 0;
+        unit.permanenciaMeses = e.permanenciaMeses ?? 0;
+      }
+      if (e.motivosCancel !== undefined) unit.motivosCancel = e.motivosCancel;
       // Conversão = convertidos no mês ÷ cadastrados no mês (relatório de prospects do EVO).
       if (e.oportunidades !== undefined && e.conversoes !== undefined) {
         unit.oportunidades = e.oportunidades;
@@ -450,6 +483,20 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
             };
           })()
         : {}),
+      ...(md.units.some((u) => u.fluxoNovos !== undefined)
+        ? (() => {
+            const us = md.units.filter((u) => u.fluxoNovos !== undefined);
+            const soma = (f: (u: UnitData) => number) => us.reduce((n, u) => n + f(u), 0);
+            const ativos = soma((u) => u.ativosFim ?? 0);
+            return {
+              fluxoNovos: soma((u) => u.fluxoNovos ?? 0), fluxoRetornos: soma((u) => u.fluxoRetornos ?? 0),
+              fluxoCancelados: soma((u) => u.fluxoCancelados ?? 0), fluxoVencidos: soma((u) => u.fluxoVencidos ?? 0),
+              // média ponderada pelos alunos ativos de cada unidade
+              permanenciaMeses: ativos ? Math.round((soma((u) => (u.permanenciaMeses ?? 0) * (u.ativosFim ?? 0)) / ativos) * 10) / 10 : 0,
+            };
+          })()
+        : {}),
+      ...(md.units.some((u) => u.motivosCancel !== undefined) ? { motivosCancel: somarMotivos(md.units) } : {}),
       ...(md.units.some((u) => u.icvEvo)
         ? (() => {
             const us = md.units.filter((u) => u.icvEvo);

@@ -8,6 +8,7 @@ import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
+import { ClientesTab } from "@/components/tabs/ClientesTab";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { UnidadeTab } from "@/components/tabs/UnidadeTab";
 import { UnitNavProvider } from "@/components/UnitLink";
@@ -364,6 +365,8 @@ const Index = () => {
             </div>
           </section>
         )}
+
+        {activeTab === "clientes" && <ClientesTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} />}
 
         {activeTab === "unidades" && (
           <UnidadesTab

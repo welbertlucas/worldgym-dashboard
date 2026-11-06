@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
-import { movimentoDoMes, ativoNoDia } from "../../../server/ativos.js";
+import { movimentoDoMes, ativoNoDia, fluxoDoMes } from "../../../server/ativos.js";
 // @ts-expect-error módulo JS do servidor
 import { resumirVendas, categoriaAvulsa } from "../../../server/vendas.js";
 // @ts-expect-error módulo JS do servidor
 import { agregarNps } from "../../../server/wehelp.js";
+// @ts-expect-error módulo JS do servidor
+import { categoriaMotivo, resumirMotivos } from "../../../server/cancelamentos.js";
 // @ts-expect-error módulo JS do servidor
 import { resumirProspects } from "../../../server/prospects.js";
 import { mergeEvo } from "@/data/dashboardData";
@@ -199,5 +201,66 @@ describe("receita complementar total", () => {
     const { receitaComplementar } = await import("@/data/dashboardData");
     expect(receitaComplementar({ diarias: 100, personal: 200, camisetas: 30, coqueteleiras: 20, kids: 50 })).toBe(400);
     expect(receitaComplementar({ diarias: 100, personal: 200, camisetas: 30, coqueteleiras: 20 })).toBe(350);
+  });
+});
+
+describe("fluxo de alunos e permanência", () => {
+  const alunos = [
+    aluno(["2026-08-01", "2026-12-31", null, "active", false]), // fica ativo o mês todo
+    aluno(["2026-09-05", "2026-12-31", null, "active", false]), // primeiro contrato em setembro: novo
+    aluno(["2026-01-01", "2026-07-31", null, "expired", false], ["2026-09-10", "2026-12-31", null, "active", false]), // voltou
+    aluno(["2026-07-01", "2026-12-31", "2026-09-10", "canceled", false]), // cancelou
+    aluno(["2026-06-01", "2026-09-15", null, "expired", false]), // venceu
+  ];
+  it("entradas e saídas fecham com ativosIni e ativosFim", () => {
+    const f = fluxoDoMes(alunos, "2026-09", "2026-11-05");
+    const m = movimentoDoMes(alunos, "2026-09", "2026-11-05");
+    expect(f).toMatchObject({ fluxoNovos: 1, fluxoRetornos: 1, fluxoCancelados: 1, fluxoVencidos: 1 });
+    expect(m.ativosIni + f.fluxoNovos + f.fluxoRetornos - f.fluxoCancelados - f.fluxoVencidos).toBe(m.ativosFim);
+  });
+  it("permanência = média de meses desde o primeiro contrato dos ativos no fim", () => {
+    expect(fluxoDoMes(alunos, "2026-09", "2026-11-05").permanenciaMeses).toBe(3.9);
+  });
+});
+
+describe("motivos de cancelamento", () => {
+  it("agrupa o texto livre em categorias", () => {
+    expect(categoriaMotivo("Contrato cancelado automaticamente por inadimpl?ncia")).toBe("Inadimplência (cancelamento automático)");
+    expect(categoriaMotivo("Cancelamento autom?tico por inadimpl?ncia")).toBe("Inadimplência (cancelamento automático)");
+    expect(categoriaMotivo("Outros (especificar) - VAI USAR GYM PASS")).toBe("Outros");
+    expect(categoriaMotivo("Outros - Viagem")).toBe("Outros");
+    expect(categoriaMotivo("Mudou-se ")).toBe("Mudou-se");
+    expect(categoriaMotivo(null)).toBe("Sem motivo informado");
+  });
+  it("conta cada aluno uma vez por unidade e ignora unidades fora do dashboard", () => {
+    const por = resumirMotivos([
+      { idBranch: 5, idMember: 1, reasonCancellation: "Mudou-se" },
+      { idBranch: 5, idMember: 1, reasonCancellation: "Outros" }, // mesmo aluno: só o primeiro motivo
+      { idBranch: 5, idMember: 2, reasonCancellation: "Contrato cancelado automaticamente por inadimpl?ncia" },
+      { idBranch: 9, idMember: 3, reasonCancellation: "Mudou-se" }, // unidade fora
+    ]);
+    expect(por).toEqual({ "Asa Norte": { "Mudou-se": 1, "Inadimplência (cancelamento automático)": 1 } });
+  });
+});
+
+describe("LTV e saldo de alunos", () => {
+  it("LTV = ticket médio × permanência; saldo = fim − início", async () => {
+    const { ltv, saldoAlunos, somarMotivos } = await import("@/data/dashboardData");
+    expect(ltv({ ticketMedio: 143.36, permanenciaMeses: 14 })).toBe(2007);
+    expect(ltv({ ticketMedio: 143.36, permanenciaMeses: 0 })).toBe(0);
+    expect(saldoAlunos({ ativosIni: 100, ativosFim: 90 })).toBe(-10);
+    expect(saldoAlunos({ ativosFim: 90 })).toBeUndefined();
+    expect(somarMotivos([{ motivosCancel: { A: 2, B: 1 } }, { motivosCancel: { A: 3 } }, {}])).toEqual({ A: 5, B: 1 });
+  });
+  it("mergeEvo soma o fluxo da rede e pondera a permanência pelos alunos ativos", () => {
+    const data = [month("2026-10", [unit("Asa Norte"), unit("Gama")])];
+    mergeEvo(data, [{ month: "2026-10", units: [
+      { name: "Asa Norte", faturamento: 1, recebimento: 1, ativosFim: 300, fluxoNovos: 30, fluxoRetornos: 5, fluxoCancelados: 10, fluxoVencidos: 5, permanenciaMeses: 10, motivosCancel: { A: 4 } },
+      { name: "Gama", faturamento: 1, recebimento: 1, ativosFim: 100, fluxoNovos: 10, fluxoRetornos: 0, fluxoCancelados: 4, fluxoVencidos: 1, permanenciaMeses: 20, motivosCancel: { A: 1, B: 2 } },
+    ] }]);
+    const t = data[0].total;
+    expect([t.fluxoNovos, t.fluxoRetornos, t.fluxoCancelados, t.fluxoVencidos]).toEqual([40, 5, 14, 6]);
+    expect(t.permanenciaMeses).toBe(12.5); // (10×300 + 20×100) ÷ 400
+    expect(t.motivosCancel).toEqual({ A: 5, B: 2 });
   });
 });

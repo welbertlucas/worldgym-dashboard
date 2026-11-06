@@ -1,6 +1,6 @@
 import { type KpiSpec } from "@/components/kpi/KpiGrid";
 import { sumUnits } from "@/data/kpiView";
-import { receitaComplementar } from "@/data/dashboardData";
+import { ltv, receitaComplementar, saldoAlunos } from "@/data/dashboardData";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -49,4 +49,15 @@ export const retencaoSpecs = (withReclameAqui: boolean): KpiSpec[] => [
   { title: "Nota do Google", kind: "level", noDataIfZero: true, pick: (v) => v.total.notaGoogle, fmt: score },
   { title: "NPS", kind: "level", noDataIfZero: true, pick: (v) => v.total.nps, fmt: score },
   ...(withReclameAqui ? [{ title: "Nota Reclame Aqui", kind: "level", noDataIfZero: true, pick: (v) => v.total.reclameAqui, fmt: score } as KpiSpec] : []),
+];
+
+const meses = (v: number) => `${v.toFixed(1).replace(".", ",")} meses`;
+const sinal = (v: number) => `${v > 0 ? "+" : ""}${Math.round(v).toLocaleString("pt-BR")}`;
+
+/** Clientes: base de alunos ativos, saldo do mês, permanência média e LTV (tudo do EVO). */
+export const clientesSpecs: KpiSpec[] = [
+  { title: "Alunos Ativos", kind: "level", noDataIfZero: true, pick: (v) => v.total.ativosFim ?? 0, fmt: int },
+  { title: "Saldo de Alunos", kind: "flow", noDataIfZero: true, pick: (v) => saldoAlunos(v.total) ?? 0, fmt: sinal },
+  { title: "Permanência Média", kind: "level", noDataIfZero: true, pick: (v) => v.total.permanenciaMeses ?? 0, fmt: meses },
+  { title: "LTV", kind: "level", noDataIfZero: true, pick: (v) => ltv(v.total), fmt: brl },
 ];
