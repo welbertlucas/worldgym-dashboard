@@ -42,6 +42,12 @@ describe("UnitsRanking", () => {
     expect(html).not.toContain('role="option"');
   });
 
+  it("indicador sem dado em nenhuma unidade escolhido: mensagem com a sigla em maiúsculas", () => {
+    // NPS vazio em todas as unidades: a lista abre em estado vazio sem quebrar (o menu continua na tela)
+    const html = renderToString(<UnitsRanking units={[unit("A", { nps: 0 }), unit("B", { nps: 0 })]} monthLabel="x" partial={false} />);
+    expect(html).toContain('aria-haspopup="listbox"');
+  });
+
   it("sem visão de variação, não oferece a alternância", () => {
     expect(renderToString(<UnitsRanking units={units} monthLabel="x" partial={false} />)).not.toContain("Variação");
   });

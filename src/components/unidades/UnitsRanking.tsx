@@ -1,5 +1,5 @@
 import { UnitLink } from "@/components/UnitLink";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
 import { type UnitData } from "@/data/dashboardData";
 import { CATEGORY_LABEL, INDICATORS, formatIndicator, hasData, type Category, type Indicator } from "@/data/unitIndicators";
@@ -18,9 +18,17 @@ interface Props {
 }
 
 /** Botão que abre a lista de indicadores, agrupada por categoria (no lugar de uma fileira de botões por indicador). */
-function IndicadorMenu({ value, onChange }: { value: string; onChange: (key: string) => void }) {
+function IndicadorMenu({ value, onChange, semDado }: { value: string; onChange: (key: string) => void; semDado: Set<string> }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const topoAntes = useRef<number | null>(null);
+  // Trocar de indicador pode encolher ou crescer a lista; mantém o botão no mesmo lugar da tela em vez de a página pular.
+  useLayoutEffect(() => {
+    if (topoAntes.current === null || !ref.current) return;
+    const dif = ref.current.getBoundingClientRect().top - topoAntes.current;
+    topoAntes.current = null;
+    if (Math.abs(dif) > 1) window.scrollBy(0, dif);
+  }, [value]);
   const atual = INDICATORS.find((i) => i.key === value) ?? INDICATORS[0];
   useEffect(() => {
     if (!open) return;
@@ -54,10 +62,10 @@ function IndicadorMenu({ value, onChange }: { value: string; onChange: (key: str
                   type="button"
                   role="option"
                   aria-selected={value === i.key}
-                  onClick={() => { onChange(i.key); setOpen(false); }}
+                  onClick={() => { topoAntes.current = ref.current?.getBoundingClientRect().top ?? null; onChange(i.key); setOpen(false); }}
                   className={cn("flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", value === i.key && "bg-secondary font-medium")}
                 >
-                  {i.label}
+                  <span>{i.label}{semDado.has(i.key) && <span className="ml-2 text-xs font-normal text-muted-foreground">sem dado neste mês</span>}</span>
                   {value === i.key && <Check className="h-4 w-4" aria-hidden />}
                 </button>
               ))}
@@ -87,6 +95,9 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
   const max = Math.max(0, ...rows.map((r) => r.v));
   const span = max - min || 1;
   const zero = (-min / span) * 100; // posição do zero na escala (0 quando não há negativos)
+
+  const semDado = new Set(INDICATORS.filter((i) => !units.some((u) => hasData(i, i.value(u)))).map((i) => i.key));
+  const nomeIndicador = ind.label === ind.label.toUpperCase() ? ind.label : ind.label.toLowerCase(); // siglas (NPS) ficam em maiúsculas
 
   const orderText = !ind.direction
     ? "Sem regra de interpretação para este indicador: ordenado do maior para o menor valor, sem classificação."
@@ -123,7 +134,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
         <div className="mt-4">{variationView}</div>
       ) : (
         <>
-          <IndicadorMenu value={key} onChange={(k) => { setKey(k); setReversed(false); }} />
+          <IndicadorMenu semDado={semDado} value={key} onChange={(k) => { setKey(k); setReversed(false); }} />
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">{orderText}</p>
@@ -137,7 +148,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
           </div>
 
           {rows.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">Nenhuma unidade tem dado de {ind.label.toLowerCase()} neste mês.</p>
+            <p className="mt-4 text-sm text-muted-foreground">Nenhuma unidade tem dado de {nomeIndicador} neste mês. Escolha outro indicador ou outro mês.</p>
           ) : (
             <>
             {!reversed && rows.length >= 3 && (
