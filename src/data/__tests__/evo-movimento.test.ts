@@ -72,7 +72,7 @@ describe("resumirVendas", () => {
     }
     expect(categoriaAvulsa({ item: "DIARIA KIDS WG PONTE ALTA" })).toBe("kids");
   });
-  it("kids e brinquedoteca viram uma categoria própria, avulsos ou contrato", () => {
+  it("brinquedoteca e kids viram uma categoria própria, avulsos ou contrato", () => {
     for (const nome of ["BRINQUEDOTECA", "DIARIA KIDS WG JARDIM INGÁ| R$ 10,00", "WG PONTE ALTA LOCAL KIDS MENSAL I R$80,00"]) {
       expect(categoriaAvulsa({ item: nome })).toBe("kids");
       expect(categoriaAvulsa({ idMembership: 4, item: nome })).toBe("kids");

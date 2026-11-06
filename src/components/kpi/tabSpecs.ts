@@ -29,7 +29,7 @@ export const complementaresSpecs: KpiSpec[] = [
   },
   complementar("Diárias", (v) => v.total.diarias),
   complementar("Taxa de Personal", (v) => v.total.personal),
-  complementar("Kids e Brinquedoteca", (v) => v.total.kids ?? 0),
+  complementar("Brinquedoteca", (v) => v.total.kids ?? 0),
   complementar("Camisetas", (v) => v.total.camisetas),
   complementar("Coqueteleiras", (v) => v.total.coqueteleiras),
 ];

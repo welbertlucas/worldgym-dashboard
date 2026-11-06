@@ -51,7 +51,7 @@ export interface UnitData {
   naoRenovados?: number;
   /** Taxa de renovação calculada a partir dos contratos do EVO. */
   renovacoesEvo?: boolean;
-  /** Kids e brinquedoteca (diária kids, brinquedoteca, mensalidades kids), das vendas do EVO. */
+  /** Brinquedoteca (diária kids, brinquedoteca, mensalidades kids), das vendas do EVO. */
   kids?: number;
   /** Taxa de personal (valor dos contratos de personal vendidos) calculada a partir das vendas do EVO. */
   personalEvo?: boolean;

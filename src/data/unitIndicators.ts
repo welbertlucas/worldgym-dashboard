@@ -66,7 +66,7 @@ export const INDICATORS: Indicator[] = [
   { key: "receitaComplementar", label: "Receita complementar (total)", category: "complementares", format: "currency", direction: null, value: receitaComplementar },
   { key: "diarias", label: "Diárias", category: "complementares", format: "currency", direction: null, value: field("diarias") },
   { key: "personal", label: "Taxa de personal", category: "complementares", format: "currency", direction: null, value: field("personal") },
-  { key: "kids", label: "Kids e brinquedoteca", category: "complementares", format: "currency", direction: null, value: field("kids") },
+  { key: "kids", label: "Brinquedoteca", category: "complementares", format: "currency", direction: null, value: field("kids") },
   { key: "camisetas", label: "Camisetas", category: "complementares", format: "currency", direction: null, value: field("camisetas") },
   { key: "coqueteleiras", label: "Coqueteleiras", category: "complementares", format: "currency", direction: null, value: field("coqueteleiras") },
 ];

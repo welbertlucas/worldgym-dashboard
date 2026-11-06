@@ -333,7 +333,7 @@ const Index = () => {
               items={[
                 { label: "Diárias", value: currentData.total.diarias, color: "hsl(222 25% 22%)", valueText: formatCurrency(currentData.total.diarias) },
                 { label: "Taxa de personal", value: currentData.total.personal, color: "hsl(4 90% 50%)", valueText: formatCurrency(currentData.total.personal) },
-                { label: "Kids e brinquedoteca", value: (currentData.total as { kids?: number }).kids ?? 0, color: "hsl(142 50% 38%)", valueText: formatCurrency((currentData.total as { kids?: number }).kids ?? 0) },
+                { label: "Brinquedoteca", value: (currentData.total as { kids?: number }).kids ?? 0, color: "hsl(142 50% 38%)", valueText: formatCurrency((currentData.total as { kids?: number }).kids ?? 0) },
                 { label: "Camisetas", value: currentData.total.camisetas, color: "hsl(222 14% 52%)", valueText: formatCurrency(currentData.total.camisetas) },
                 { label: "Coqueteleiras", value: currentData.total.coqueteleiras, color: "hsl(220 14% 78%)", valueText: formatCurrency(currentData.total.coqueteleiras) },
               ]}
