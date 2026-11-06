@@ -303,7 +303,8 @@ const Index = () => {
         {activeTab === "executiva" && (
           <ExecutivaTab
             month={fullMonthData}
-            prev={prevMonthData}
+            prev={compareMonth ? getDataByMonth(compareMonth) ?? prevMonthData : prevMonthData}
+            comparaMesEscolhido={!!compareMonth}
             alerts={alerts}
             evalMonth={evalMonth}
             deltas={unitDeltas}

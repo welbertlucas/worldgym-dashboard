@@ -18,6 +18,8 @@ import { formatAbbreviatedNumber } from "@/lib/utils";
 interface Props {
   month: MonthData;
   prev?: MonthData;
+  /** Há um mês marcado em "Comparar com": os velocímetros mostram só ele, sem o chip do ano anterior. */
+  comparaMesEscolhido?: boolean;
   alerts: Alert[];
   evalMonth: string | null;
   deltas: UnitDelta[];
@@ -29,7 +31,7 @@ interface Props {
 
 const pctText = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
 
-export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, onOpenRiscos, onOpenUnidades, onOpenMetas }: Props) {
+export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMonth, deltas, metas, onOpenRiscos, onOpenUnidades, onOpenMetas }: Props) {
   const partial = isPartialMonth(month.month);
   const t = month.total;
   const critical = alerts.filter((a) => a.severity === "critical").length;
@@ -52,7 +54,7 @@ export function ExecutivaTab({ month, prev, alerts, evalMonth, deltas, metas, on
   const partialMonthData = dashboardData.filter((d) => isPartialMonth(d.month)).slice(-1)[0];
 
   // Mesmo mês do ano anterior (só para mês fechado e se existir na planilha).
-  const ly = partial ? undefined : dashboardData.find((d) => d.month === sameMonthLastYear(month.month));
+  const ly = partial || comparaMesEscolhido ? undefined : dashboardData.find((d) => d.month === sameMonthLastYear(month.month));
   const ctx: KpiContext = { cur: month, prev, ly, partial };
   const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
   // Ritmo do mês: em que nível da meta de faturamento a previsão fecha o mês.
