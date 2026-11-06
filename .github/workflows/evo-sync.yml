@@ -50,6 +50,14 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-ativos.mjs $MONTHS_DONE
+      - name: NPS por unidade (WeHelp)
+        # Não derruba a sincronização do EVO se o WeHelp estiver fora do ar ou sem as credenciais cadastradas.
+        continue-on-error: true
+        env:
+          WEHELP_CLIENT_ID: ${{ secrets.WEHELP_CLIENT_ID }}
+          WEHELP_CLIENT_SECRET: ${{ secrets.WEHELP_CLIENT_SECRET }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/wehelp-nps.mjs $MONTHS_DONE
       - name: Vendas do mês (novos contratos, vendas online, avulsas)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}

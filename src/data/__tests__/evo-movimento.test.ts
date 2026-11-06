@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { movimentoDoMes, ativoNoDia } from "../../../server/ativos.js";
 // @ts-expect-error módulo JS do servidor
 import { resumirVendas, categoriaAvulsa } from "../../../server/vendas.js";
+// @ts-expect-error módulo JS do servidor
+import { agregarNps } from "../../../server/wehelp.js";
 import { mergeEvo } from "@/data/dashboardData";
 import { month, unit } from "./helpers";
 
@@ -91,5 +93,31 @@ describe("mergeEvo: renovação", () => {
     const data = [month("2026-10", [unit("Asa Norte", { renovacoes: 50 })])];
     mergeEvo(data, [{ month: "2026-10", units: [{ name: "Asa Norte", faturamento: 1, recebimento: 1, aVencer: 0, naoRenovados: 0 }] }]);
     expect(data[0].units[0].renovacoes).toBe(0);
+  });
+});
+
+describe("NPS do WeHelp", () => {
+  const linha = (nome: string, p: number, d: number, r: number) => ({ key: [nome], nps: { total_promoters: p, total_detractors: d, total_responses: r } });
+  it("soma as pesquisas Qrcode e Relacionamento de cada unidade e ignora as que não estão no dashboard", () => {
+    const por = agregarNps([
+      linha("World Gym Ceilândia - Qrcode", 10, 2, 20),
+      linha("World Gym Ceilândia - Relacionamento", 5, 3, 10),
+      linha("World Gym Goiânia", 1, 0, 1),
+      linha("World Gym Outra Cidade - Qrcode", 9, 0, 9),
+    ]);
+    expect(por).toEqual({ Ceilândia: { promotores: 15, detratores: 5, respostas: 30 }, "Goiânia Pro-GO": { promotores: 1, detratores: 0, respostas: 1 } });
+  });
+  it("NPS = (promotores − detratores) ÷ respostas; total ponderado; mês sem respostas mantém a planilha", () => {
+    const data = [month("2026-10", [unit("Asa Norte", { nps: 10 }), unit("Gama", { nps: 33 }), unit("Itapoã", { nps: 44 })])];
+    mergeEvo(data, [{ month: "2026-10", units: [
+      { name: "Asa Norte", faturamento: 1, recebimento: 1, npsPromotores: 30, npsDetratores: 10, npsRespostas: 50 },
+      { name: "Gama", faturamento: 1, recebimento: 1, npsPromotores: 20, npsDetratores: 10, npsRespostas: 50 },
+      { name: "Itapoã", faturamento: 1, recebimento: 1 },
+    ] }]);
+    expect(data[0].units[0].nps).toBe(40);
+    expect(data[0].units[1].nps).toBe(20);
+    expect(data[0].units[2].nps).toBe(44); // sem WeHelp: segue a planilha
+    expect(data[0].total.nps).toBe(30); // (50 − 20) ÷ 100
+    expect(data[0].total.npsEvo).toBe(true);
   });
 });

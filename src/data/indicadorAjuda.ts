@@ -18,6 +18,6 @@ export const AJUDA: Record<string, string> = {
   Camisetas: "Receita de camisetas, como lançado na planilha.",
   Coqueteleiras: "Receita de coqueteleiras, como lançado na planilha.",
   "Nota do Google": "Nota média da unidade no Google, como lançado na planilha.",
-  NPS: "Net Promoter Score da unidade, como lançado na planilha.",
+  NPS: "Net Promoter Score: percentual de promotores (notas 9 e 10) menos o de detratores (notas 0 a 6), nas respostas do mês. Vem do WeHelp, somando as pesquisas Qrcode e Relacionamento de cada unidade. Meses sem resposta no WeHelp vêm da planilha.",
   "Nota Reclame Aqui": "Nota da rede no Reclame Aqui, como lançado na planilha.",
 };

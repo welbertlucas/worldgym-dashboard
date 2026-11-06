@@ -38,6 +38,12 @@ export interface UnitData {
   ativosFim?: number;
   /** Alunos ativos no início do mês (base do churn). */
   ativosIni?: number;
+  /** NPS do WeHelp: promotores, detratores e respostas do mês (somando as pesquisas Qrcode e Relacionamento). */
+  npsPromotores?: number;
+  npsDetratores?: number;
+  npsRespostas?: number;
+  /** NPS calculado a partir das respostas do WeHelp. */
+  npsEvo?: boolean;
   /** Renovação: contratos de prazo fixo que vencem no mês e os que não foram renovados (EVO). */
   aVencer?: number;
   naoRenovados?: number;
@@ -300,7 +306,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -316,6 +322,10 @@ function emptyUnit(name: string): UnitData {
 // e o TOTAL desses dois campos é refeito como soma das unidades. Mês ou unidade que o EVO tem e
 // a planilha ainda não (ninguém precisa criar a linha à mão) é criado aqui, com os demais
 // indicadores zerados até serem migrados do EVO.
+/** NPS em pontos (−100 a 100) com duas casas; 0 quando não há respostas. */
+export const calcularNps = (promotores: number, detratores: number, respostas: number) =>
+  respostas > 0 ? Math.round(((promotores - detratores) / respostas) * 10000) / 100 : 0;
+
 /** Taxa de renovação em % com uma casa; 0 quando não há contratos a vencer. */
 export const taxaRenovacao = (aVencer: number, naoRenovados: number) =>
   aVencer > 0 ? Math.round(((Math.max(0, aVencer - naoRenovados)) / aVencer) * 1000) / 10 : 0;
@@ -365,6 +375,14 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.renovacoesEvo = true;
         unit.renovacoes = taxaRenovacao(e.aVencer, e.naoRenovados);
       }
+      // NPS vem do WeHelp quando o mês tem respostas: (promotores − detratores) ÷ respostas.
+      if (e.npsRespostas !== undefined && e.npsRespostas > 0) {
+        unit.npsPromotores = e.npsPromotores ?? 0;
+        unit.npsDetratores = e.npsDetratores ?? 0;
+        unit.npsRespostas = e.npsRespostas;
+        unit.npsEvo = true;
+        unit.nps = calcularNps(unit.npsPromotores, unit.npsDetratores, e.npsRespostas);
+      }
       if (e.novosContratos !== undefined) {
         unit.vendasEvo = true;
         unit.novosContratos = e.novosContratos;
@@ -407,6 +425,15 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
               renovacoes: taxaRenovacao(us.reduce((n, u) => n + (u.aVencer ?? 0), 0), us.reduce((n, u) => n + (u.naoRenovados ?? 0), 0)),
               renovacoesEvo: true,
             };
+          })()
+        : {}),
+      ...(md.units.some((u) => u.npsEvo)
+        ? (() => {
+            const us = md.units.filter((u) => u.npsEvo);
+            const p = us.reduce((n, u) => n + (u.npsPromotores ?? 0), 0);
+            const d = us.reduce((n, u) => n + (u.npsDetratores ?? 0), 0);
+            const r = us.reduce((n, u) => n + (u.npsRespostas ?? 0), 0);
+            return { nps: calcularNps(p, d, r), npsRespostas: r, npsEvo: true };
           })()
         : {}),
       ...(evo.units.some((e) => e.novosContratos !== undefined)
