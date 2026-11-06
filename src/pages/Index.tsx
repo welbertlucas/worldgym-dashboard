@@ -148,8 +148,9 @@ const Index = () => {
   const kpiUnit = selectedUnit && unitData ? selectedUnit : null;
   const kpiCtx: KpiContext = {
     cur: viewFor(fullMonthData.month, kpiUnit) ?? fullMonthData,
-    prev: viewFor(prevMonthData?.month, kpiUnit),
-    ly: partialSelected ? undefined : viewFor(sameMonthLastYear(fullMonthData.month), kpiUnit),
+    // Com um mês de comparação marcado, os velocímetros mostram só ele (qualquer mês/ano); sem marcação, mês anterior e mesmo mês do ano anterior.
+    prev: viewFor(compareMonth ?? prevMonthData?.month, kpiUnit),
+    ly: partialSelected || compareMonth ? undefined : viewFor(sameMonthLastYear(fullMonthData.month), kpiUnit),
     partial: partialSelected,
   };
   const criticalCount = alerts.filter((a) => a.severity === "critical").length;
