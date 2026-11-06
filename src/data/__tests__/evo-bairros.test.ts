@@ -27,3 +27,13 @@ describe("bairros dos alunos", () => {
     expect(consultas).toEqual(["Região dos Lagos (Sobradinho), Brasília, DF", "Região dos Lagos, Brasília, DF"]);
   });
 });
+
+// @ts-expect-error módulo JS do servidor
+import { contarUltimoAcesso } from "../../../server/bairros.js";
+describe("último acesso", () => {
+  it("separa os ativos em faixas pela data do último acesso", () => {
+    const m = (la: string | null) => ({ ...membro("X"), lastAccessDate: la });
+    const f = contarUltimoAcesso([m("2026-11-05T10:00:00"), m("2026-10-25T10:00:00"), m("2026-10-20T10:00:00"), m("2026-09-20T10:00:00"), m("2026-01-01T10:00:00"), m(null), { ...m("2026-11-05T10:00:00"), memberships: [] }], "2026-11-06");
+    expect(f).toEqual([1, 1, 1, 1, 1, 1]);
+  });
+});

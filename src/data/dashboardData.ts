@@ -76,6 +76,8 @@ export interface UnitData {
   /** Onde moram os alunos ativos hoje (foto do EVO, só no mês corrente): [bairro, cidade, alunos, lat, lng]. `semBairro` = ativos sem endereço localizável. */
   bairros?: [string, string, number, number, number][];
   semBairro?: number;
+  /** Alunos ativos hoje por faixa do último acesso: até 7 dias, 8–14, 15–30, 31–60, mais de 60, nunca (foto do EVO, só no mês corrente). */
+  acessos?: number[];
   /** Brinquedoteca (diária kids, brinquedoteca, mensalidades kids), das vendas do EVO. */
   kids?: number;
   /** Taxa de personal (valor dos contratos de personal vendidos) calculada a partir das vendas do EVO. */
@@ -337,7 +339,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "acessos" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -467,6 +469,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       // Origem das oportunidades, cobranças com falha e treinos (EVO).
       if (e.origens !== undefined) unit.origens = e.origens;
       if (e.cobrancas !== undefined) { unit.cobrancas = e.cobrancas; unit.recusaMotivos = e.recusaMotivos ?? {}; }
+      if (e.acessos !== undefined) unit.acessos = e.acessos;
       if (e.bairros !== undefined) { unit.bairros = e.bairros; unit.semBairro = e.semBairro ?? 0; }
       if (e.treinoAtivo !== undefined) { unit.treinoAtivo = e.treinoAtivo; unit.treinoVencido = e.treinoVencido ?? 0; unit.treinoFuturo = e.treinoFuturo ?? 0; }
       // Conversão = convertidos no mês ÷ cadastrados no mês (relatório de prospects do EVO).
@@ -546,6 +549,9 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(md.units.some((u) => u.motivosCancel !== undefined) ? { motivosCancel: somarMotivos(md.units) } : {}),
       ...(md.units.some((u) => u.origens !== undefined) ? { origens: somarOrigens(md.units) } : {}),
       ...(md.units.some((u) => u.cobrancas !== undefined) ? { cobrancas: somarCobrancas(md.units), recusaMotivos: somarRecusa(md.units) } : {}),
+      ...(md.units.some((u) => u.acessos !== undefined)
+        ? { acessos: [0, 1, 2, 3, 4, 5].map((i) => md.units.reduce((n, u) => n + (u.acessos?.[i] ?? 0), 0)) }
+        : {}),
       ...(md.units.some((u) => u.treinoAtivo !== undefined)
         ? { treinoAtivo: md.units.reduce((n, u) => n + (u.treinoAtivo ?? 0), 0), treinoVencido: md.units.reduce((n, u) => n + (u.treinoVencido ?? 0), 0), treinoFuturo: md.units.reduce((n, u) => n + (u.treinoFuturo ?? 0), 0) }
         : {}),

@@ -105,3 +105,17 @@ describe("OndeMoramAlunos", () => {
     expect(renderToString(<OndeMoramAlunos unit="Itapoã" />)).toContain("Ainda não há bairros");
   });
 });
+
+describe("AcessosCard", () => {
+  it("mostra a parcela que veio na última semana e a sem vir há mais de 30 dias", async () => {
+    const { AcessosCard } = await import("@/components/clientes/AcessosCard");
+    const total = { name: "Rede", faturamento: 0, recebimento: 0, acessos: [60, 10, 10, 10, 5, 5] } as never;
+    const html = renderToString(<AcessosCard total={total} month="2026-11" monthLabel="novembro de 2026" unit="Itapoã" />);
+    expect(html).toMatch(/60,0%/);
+    expect(html).toMatch(/20,0%/);
+  });
+  it("sem foto, orienta", async () => {
+    const { AcessosCard } = await import("@/components/clientes/AcessosCard");
+    expect(renderToString(<AcessosCard total={{ name: "Rede", faturamento: 0, recebimento: 0 } as never} month="2026-10" monthLabel="outubro" unit={null} />)).toContain("foto de hoje");
+  });
+});
