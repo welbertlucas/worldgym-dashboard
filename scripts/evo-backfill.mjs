@@ -4,7 +4,7 @@ import { computeMonth } from "../server/evo.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 
 // Campos que não vêm desta rotina (foto de contratos de evo-contratos.mjs): preserva ao regravar o mês.
-const CONTRATOS = ["alunosAtivos", "contratosAtivos", "contratosEspeciais", "contratosPersonal", "contratosLocal", "contratosParcial", "contratosRede"];
+const CONTRATOS = ["alunosAtivos", "contratosAtivos", "contratosEspeciais", "contratosPersonal", "contratosLocal", "contratosParcial", "contratosRede", "ativosFim"];
 
 const falhas = [];
 for (const ym of process.argv.slice(2)) {
@@ -18,12 +18,11 @@ for (const ym of process.argv.slice(2)) {
     continue;
   }
   const antes = await loadMonth(ym).catch(() => null);
-  if (antes?.contratosEm) {
-    data.contratosEm = antes.contratosEm;
-    for (const u of data.units) {
-      const old = antes.units.find((x) => x.name === u.name);
-      if (old) for (const k of CONTRATOS) if (old[k] !== undefined) u[k] = old[k];
-    }
+  if (antes?.ativosEm) data.ativosEm = antes.ativosEm;
+  if (antes?.contratosEm) data.contratosEm = antes.contratosEm;
+  for (const u of data.units) {
+    const old = antes?.units.find((x) => x.name === u.name);
+    if (old) for (const k of CONTRATOS) if (old[k] !== undefined) u[k] = old[k];
   }
   await saveMonth(data);
   const fat = data.units.reduce((s, u) => s + u.faturamento, 0);

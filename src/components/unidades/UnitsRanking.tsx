@@ -1,6 +1,6 @@
 import { UnitLink } from "@/components/UnitLink";
-import { useState } from "react";
-import { ArrowDownUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
 import { type UnitData } from "@/data/dashboardData";
 import { CATEGORY_LABEL, INDICATORS, formatIndicator, hasData, type Category, type Indicator } from "@/data/unitIndicators";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,58 @@ interface Props {
   partial: boolean;
   /** Visão alternativa (variação vs. mês anterior); renderizada quando o usuário escolhe "Variação". */
   variationView?: React.ReactNode;
+}
+
+/** Botão que abre a lista de indicadores, agrupada por categoria (no lugar de uma fileira de botões por indicador). */
+function IndicadorMenu({ value, onChange }: { value: string; onChange: (key: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const atual = INDICATORS.find((i) => i.key === value) ?? INDICATORS[0];
+  useEffect(() => {
+    if (!open) return;
+    const fora = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative mt-4 inline-block">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-2 text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="text-muted-foreground">Indicador</span>
+        <span className="font-semibold text-foreground">{atual.label}</span>
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform motion-reduce:transition-none", open && "rotate-180")} aria-hidden />
+      </button>
+      {open && (
+        <div role="listbox" aria-label="Indicador exibido" className="absolute left-0 z-20 mt-2 max-h-[70vh] w-[min(92vw,22rem)] overflow-auto rounded-xl border border-border bg-white p-2 shadow-lg">
+          {CATEGORIES.map((c) => (
+            <div key={c} className="py-1">
+              <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{CATEGORY_LABEL[c]}</p>
+              {INDICATORS.filter((i) => i.category === c).map((i) => (
+                <button
+                  key={i.key}
+                  type="button"
+                  role="option"
+                  aria-selected={value === i.key}
+                  onClick={() => { onChange(i.key); setOpen(false); }}
+                  className={cn("flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", value === i.key && "bg-secondary font-medium")}
+                >
+                  {i.label}
+                  {value === i.key && <Check className="h-4 w-4" aria-hidden />}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function UnitsRanking({ units, monthLabel, partial, variationView }: Props) {
@@ -71,27 +123,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
         <div className="mt-4">{variationView}</div>
       ) : (
         <>
-          <div role="group" aria-label="Indicador exibido" className="mt-4 space-y-2">
-            {CATEGORIES.map((c) => (
-              <div key={c} className="flex flex-wrap items-center gap-1.5">
-                <span className="w-full sm:w-44 shrink-0 text-xs font-medium text-muted-foreground">{CATEGORY_LABEL[c]}</span>
-                {INDICATORS.filter((i) => i.category === c).map((i) => (
-                  <button
-                    key={i.key}
-                    type="button"
-                    aria-pressed={key === i.key}
-                    onClick={() => { setKey(i.key); setReversed(false); }}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-sm transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      key === i.key ? "border-foreground bg-foreground text-background font-medium" : "border-border bg-white text-foreground hover:bg-secondary"
-                    )}
-                  >
-                    {i.label}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
+          <IndicadorMenu value={key} onChange={(k) => { setKey(k); setReversed(false); }} />
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">{orderText}</p>

@@ -1,3 +1,4 @@
+import { isPartialMonth } from "@/data/periods";
 import type { ReactNode } from "react";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 import { type MetricDetail } from "@/components/MetricCard";
@@ -34,6 +35,7 @@ const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Recebime
 function sourceOf(title: string, v: MonthView): string {
   if (EVO_TITLES.has(title)) return "EVO";
   if (title === "Inadimplência" && v.total.inadimplenciaEvo) return "EVO";
+  if ((title === "Adimplentes" || title === "Ticket Médio") && v.total.ativosEvo && (title === "Adimplentes" || !isPartialMonth(v.month))) return "EVO";
   return "planilha";
 }
 

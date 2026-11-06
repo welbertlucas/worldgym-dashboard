@@ -33,11 +33,13 @@ describe("UnitsRanking", () => {
     expect(html).toContain("Maior é melhor");
   });
 
-  it("indica mês em andamento e oferece todos os indicadores como botões", () => {
+  it("indica mês em andamento e escolhe o indicador por um único botão (lista fechada)", () => {
     const html = renderToString(<UnitsRanking units={units} monthLabel="outubro de 2026" partial />);
     expect(html).toContain("valores parciais");
-    for (const label of ["Faturamento", "Churn", "Inadimplência", "Camisetas", "Taxa de conversão"]) expect(html).toContain(label);
-    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('aria-haspopup="listbox"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain("Indicador");
+    expect(html).not.toContain('role="option"');
   });
 
   it("sem visão de variação, não oferece a alternância", () => {

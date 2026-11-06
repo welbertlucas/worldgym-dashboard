@@ -43,6 +43,13 @@ jobs:
             MONTHS="${MONTHS//,/ }"
           fi
           node scripts/evo-backfill.mjs $MONTHS
+          echo "MONTHS_DONE=$MONTHS" >> "$GITHUB_ENV"
+      - name: Alunos ativos no fim do mês (ticket médio e adimplentes)
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-ativos.mjs $MONTHS_DONE
       - name: Contratos ativos, especiais/VIP e personal (mês corrente)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}

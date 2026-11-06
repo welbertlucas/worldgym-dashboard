@@ -1,3 +1,4 @@
+import { isPartialMonth } from "@/data/periods";
 import { authFetch } from "@/lib/auth";
 // A planilha deixou de ser pública — os dados agora passam por uma função na Vercel
 // (api/sheet-data.js) que lê com uma conta de serviço do Google, pra não depender de
@@ -33,6 +34,10 @@ export interface UnitData {
   reclameAqui: number;
   /** Inadimplência calculada pelo EVO (e não vinda da planilha). */
   inadimplenciaEvo?: boolean;
+  /** Alunos ativos no fim do mês (reconstruídos do histórico de contratos do EVO). Base de ticket médio e adimplentes. */
+  ativosFim?: number;
+  /** Ticket médio e adimplentes calculados a partir dos ativos do EVO. */
+  ativosEvo?: boolean;
   /** Mês em andamento: o que ainda vai vencer até o fim do mês + o já vencido (vem do EVO). */
   previsaoFaturamento?: number;
   /** Contratos ativos hoje (foto do EVO; só existe no mês corrente). */
@@ -286,7 +291,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -320,11 +325,19 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       unit.recebimento = e.recebimento;
       unit.previsaoFaturamento = e.previsaoFaturamento;
       // Etapa 2: inadimplência vem do EVO quando o mês já foi calculado com ela (bateu com a planilha em
-      // 0,2 p.p. de diferença mediana). Ticket médio e adimplentes do EVO ainda não batem; seguem da planilha.
+      // 0,2 p.p. de diferença mediana).
       if (e.inadimplentes !== undefined) {
         unit.inadimplentes = e.inadimplentes;
         unit.inadimplenciaEvo = true;
         unit.inadimplenciaPerc = e.inadimplenciaPerc ?? unit.inadimplenciaPerc;
+      }
+      // Ticket médio = recebimento ÷ alunos ativos no fim do mês; adimplentes = ativos - inadimplentes.
+      // No mês em andamento o recebimento é parcial, então o ticket fica com a planilha até o mês fechar.
+      if (e.ativosFim !== undefined && e.ativosFim > 0) {
+        unit.ativosFim = e.ativosFim;
+        unit.ativosEvo = true;
+        unit.adimplentes = Math.max(0, e.ativosFim - unit.inadimplentes);
+        if (!isPartialMonth(evo.month)) unit.ticketMedio = Math.round((unit.recebimento / e.ativosFim) * 100) / 100;
       }
       if (e.alunosAtivos !== undefined) {
         unit.alunosAtivos = e.alunosAtivos;
@@ -342,6 +355,19 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       recebimento: md.units.reduce((s, u) => s + u.recebimento, 0),
       ...(evo.units.some((e) => e.previsaoFaturamento !== undefined)
         ? { previsaoFaturamento: md.units.reduce((s, u) => s + (u.previsaoFaturamento ?? u.faturamento), 0) }
+        : {}),
+      ...(evo.units.some((e) => e.ativosFim)
+        ? (() => {
+            const comAtivos = md.units.filter((u) => u.ativosEvo);
+            const ativos = comAtivos.reduce((s, u) => s + (u.ativosFim ?? 0), 0);
+            const rec = comAtivos.reduce((s, u) => s + u.recebimento, 0);
+            return {
+              adimplentes: md.units.reduce((s, u) => s + u.adimplentes, 0),
+              ativosFim: ativos,
+              ativosEvo: true,
+              ...(!isPartialMonth(evo.month) && ativos ? { ticketMedio: Math.round((rec / ativos) * 100) / 100 } : {}),
+            };
+          })()
         : {}),
       ...(evo.units.some((e) => e.inadimplentes !== undefined)
         ? (() => {
