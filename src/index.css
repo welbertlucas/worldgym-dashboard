@@ -92,3 +92,23 @@
     break-inside: avoid;
   }
 }
+
+/* Exportar só "Contratos ativos": esconde tudo menos a seção, que ocupa a página. */
+@media print {
+  body.imprimir-contratos * {
+    visibility: hidden;
+  }
+  body.imprimir-contratos #contratos-ativos,
+  body.imprimir-contratos #contratos-ativos * {
+    visibility: visible;
+  }
+  body.imprimir-contratos #contratos-ativos {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  body.imprimir-contratos #contratos-ativos .card-surface {
+    break-inside: avoid;
+  }
+}

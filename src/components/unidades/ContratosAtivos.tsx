@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Printer } from "lucide-react";
 import { type UnitData } from "@/data/dashboardData";
 import { type ContratosView, contratosView, pctTexto, somaContratos } from "@/data/contratosAtivos";
 import { ContratosTiles, COR_LOCAL, COR_REDE } from "@/components/unidades/ContratosTiles";
@@ -40,6 +41,13 @@ function BarraAlcance({ v }: { v: ContratosView }) {
 /** Contratos ativos hoje: totais da rede e um cartão por unidade. Só aparece quando o EVO trouxe a foto do dia. */
 export function ContratosAtivos({ units }: { units: UnitData[] }) {
   const [ordem, setOrdem] = useState<Ordem>("especiais");
+  // Exporta só esta seção: a classe no body esconde o resto da página durante a impressão (CSS em index.css).
+  useEffect(() => {
+    const limpar = () => document.body.classList.remove("imprimir-contratos");
+    window.addEventListener("afterprint", limpar);
+    return () => { window.removeEventListener("afterprint", limpar); limpar(); };
+  }, []);
+  const exportar = () => { document.body.classList.add("imprimir-contratos"); window.print(); };
   const rede = somaContratos(units);
   if (!rede) return null;
 
@@ -49,9 +57,17 @@ export function ContratosAtivos({ units }: { units: UnitData[] }) {
     .sort((a, b) => b.v[ordem].n - a.v[ordem].n);
 
   return (
-    <section aria-labelledby="contratos-titulo" className="space-y-4">
-      <div>
-        <h3 id="contratos-titulo" className="text-base font-semibold text-foreground">Contratos ativos: especiais, personal e plano local ou rede</h3>
+    <section id="contratos-ativos" aria-labelledby="contratos-titulo" className="space-y-4">
+      <div className="relative">
+        <button
+          type="button"
+          onClick={exportar}
+          className="no-print absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Printer className="h-3.5 w-3.5" aria-hidden /> Exportar PDF
+        </button>
+        <h3 id="contratos-titulo" className="pr-32 text-base font-semibold text-foreground">Contratos ativos: especiais, personal e plano local ou rede</h3>
+        <p className="hidden text-xs text-muted-foreground print:block">World Gym · emitido em {new Date().toLocaleDateString("pt-BR")}</p>
         <p className="text-sm text-muted-foreground">
           Foto de hoje, direto do EVO. Percentuais sobre o total de contratos ativos ({n(rede.total)}). Plano local libera até 9 unidades; plano rede, 10 ou mais (nas unidades Pro, todos são rede). Local e rede somam 100%; especiais/VIP e personal são recortes dentro deles.
         </p>
