@@ -93,23 +93,15 @@
   }
 }
 
-/* Exportar só "Contratos ativos": esconde tudo menos a seção, que ocupa a página. */
+/* Exportar só "Contratos ativos": o resto da página é removido do fluxo (classe aplicada por ContratosAtivos). */
 @media print {
-  body.imprimir-contratos * {
-    visibility: hidden;
+  .print-oculto {
+    display: none !important;
   }
-  body.imprimir-contratos #contratos-ativos,
-  body.imprimir-contratos #contratos-ativos * {
-    visibility: visible;
+  #contratos-ativos {
+    break-inside: auto !important;
   }
-  body.imprimir-contratos #contratos-ativos {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    break-inside: auto;
-  }
-  body.imprimir-contratos #contratos-ativos .card-surface {
+  #contratos-ativos .card-surface {
     break-inside: avoid;
   }
 }

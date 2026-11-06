@@ -41,13 +41,29 @@ function BarraAlcance({ v }: { v: ContratosView }) {
 /** Contratos ativos hoje: totais da rede e um cartão por unidade. Só aparece quando o EVO trouxe a foto do dia. */
 export function ContratosAtivos({ units }: { units: UnitData[] }) {
   const [ordem, setOrdem] = useState<Ordem>("especiais");
-  // Exporta só esta seção: a classe no body esconde o resto da página durante a impressão (CSS em index.css).
+  // Exporta só esta seção: durante a impressão, tudo fora dela vira display:none (visibility deixaria páginas em branco) e a página fica em retrato.
   useEffect(() => {
-    const limpar = () => document.body.classList.remove("imprimir-contratos");
+    const limpar = () => {
+      document.querySelectorAll(".print-oculto").forEach((el) => el.classList.remove("print-oculto"));
+      document.getElementById("contratos-page-style")?.remove();
+    };
     window.addEventListener("afterprint", limpar);
     return () => { window.removeEventListener("afterprint", limpar); limpar(); };
   }, []);
-  const exportar = () => { document.body.classList.add("imprimir-contratos"); window.print(); };
+  const exportar = () => {
+    const alvo = document.getElementById("contratos-ativos");
+    if (!alvo) return;
+    for (let el: HTMLElement | null = alvo; el && el !== document.body; el = el.parentElement) {
+      el.parentElement?.childNodes.forEach((irmao) => {
+        if (irmao !== el && irmao instanceof HTMLElement) irmao.classList.add("print-oculto");
+      });
+    }
+    const st = document.createElement("style");
+    st.id = "contratos-page-style";
+    st.textContent = "@page { size: A4 portrait; margin: 12mm; }";
+    document.head.appendChild(st);
+    window.print();
+  };
   const rede = somaContratos(units);
   if (!rede) return null;
 
