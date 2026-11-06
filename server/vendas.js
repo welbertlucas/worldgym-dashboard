@@ -15,13 +15,16 @@ const upper = (i) => String(i.item || i.description || "").toUpperCase();
 
 /**
  * Categoria de receita complementar de um item da venda (ou null).
- *  - kids: tudo com KIDS ou BRINQUEDOTECA no nome (diária kids, brinquedoteca, mensalidades kids), avulso ou contrato;
+ *  - kids (Brinquedoteca): diária kids e brinquedoteca avulsa. Mensalidade kids e luta infantil são contratos
+ *    normais (planos locais da unidade) e não entram aqui;
  *  - diárias: DIÁRIA no nome (DIARIA, DIÁRIA, WG PRO DIÁRIA...), avulsa ou vendida como contrato ("11 - WG DIÁRIA 30,00");
  *  - camisetas e coqueteleiras: só itens avulsos (um contrato nunca vira camiseta).
  */
 export function categoriaItem(item) {
   const t = upper(item);
-  if (/KIDS|BRINQUEDOTECA/.test(t)) return "kids";
+  const kids = /KIDS|BRINQUEDOTECA/.test(t);
+  if (kids && (!item.idMembership || /DI[AÁ]RIA|BRINQUEDOTECA/.test(t))) return "kids";
+  if (kids) return null; // mensalidade kids: contrato normal
   if (/DI[AÁ]RIA/.test(t)) return "diarias";
   if (item.idMembership) return null;
   if (/COQUETEL|COQUETEIRA|SHAKER/.test(t)) return "coqueteleiras";

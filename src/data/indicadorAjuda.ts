@@ -15,7 +15,7 @@ export const AJUDA: Record<string, string> = {
   "Vendas Online": "Valor vendido pelos canais online (site e totem) no mês. Vem do EVO desde jan/2025; antes, da planilha.",
   Diárias: "Receita de diárias (DIÁRIA, WG PRO DIÁRIA etc.), vendidas avulsas ou como contrato. Diária kids fica em Brinquedoteca. Vem do EVO desde jan/2025; antes, da planilha.",
   "Receita Complementar": "Soma de diárias, taxa de personal, brinquedoteca, camisetas e coqueteleiras, com a participação no faturamento. Vem do EVO desde jan/2025; antes, soma do que a planilha traz.",
-  "Brinquedoteca": "Receita de brinquedoteca: tudo com KIDS ou BRINQUEDOTECA no nome (diária kids, brinquedoteca avulsa e mensalidades kids). Fica fora de Diárias e entra no total de Receita Complementar. Vem do EVO desde jan/2025; não existe na planilha.",
+  "Brinquedoteca": "Receita de brinquedoteca: diária kids e brinquedoteca avulsa (itens com KIDS ou BRINQUEDOTECA no nome, vendidos fora de plano). Mensalidade kids e luta infantil são contratos normais e não entram aqui. Fica fora de Diárias e entra no total de Receita Complementar. Vem do EVO desde jan/2025; não existe na planilha.",
   "Taxa de Personal": "Valor das vendas de contratos de personal (plano com PERSONAL no nome) no mês. Vem do EVO desde jan/2025; antes, da planilha.",
   Camisetas: "Receita de camisetas vendidas avulsas no mês. Vem do EVO desde jan/2025; antes, da planilha.",
   Coqueteleiras: "Receita de coqueteleiras vendidas avulsas no mês. Vem do EVO desde jan/2025; antes, da planilha.",

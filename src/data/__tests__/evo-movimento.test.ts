@@ -77,11 +77,22 @@ describe("resumirVendas", () => {
     }
     expect(categoriaAvulsa({ item: "DIARIA KIDS WG PONTE ALTA" })).toBe("kids");
   });
-  it("brinquedoteca e kids viram uma categoria própria, avulsos ou contrato", () => {
-    for (const nome of ["BRINQUEDOTECA", "DIARIA KIDS WG JARDIM INGÁ| R$ 10,00", "WG PONTE ALTA LOCAL KIDS MENSAL I R$80,00"]) {
+  it("brinquedoteca: diária kids e brinquedoteca avulsa; mensalidade kids e luta infantil são contratos normais", () => {
+    for (const nome of ["BRINQUEDOTECA", "DIARIA KIDS WG JARDIM INGÁ| R$ 10,00"]) {
       expect(categoriaAvulsa({ item: nome })).toBe("kids");
       expect(categoriaAvulsa({ idMembership: 4, item: nome })).toBe("kids");
     }
+    for (const nome of ["WG PONTE ALTA LOCAL KIDS MENSAL I R$80,00", "WG JARDIM INGÁ KIDS MENSAL", "WG LUTA INFANTIL 99,90"]) {
+      expect(categoriaAvulsa({ idMembership: 4, item: nome })).toBeNull();
+    }
+  });
+  it("mensalidade kids conta como contrato novo e não como brinquedoteca", () => {
+    const por = resumirVendas([{ idBranch: 5, removed: null, saleSource: null, saleItens: [
+      { idMembership: 1, idMembershipRenewed: null, item: "WG JARDIM INGÁ KIDS MENSAL", saleValue: 80 },
+      { item: "DIARIA KIDS WG JARDIM INGÁ| R$ 10,00", saleValue: 10 },
+    ] }]);
+    expect(por["Asa Norte"].novosContratos).toBe(1);
+    expect(por["Asa Norte"].kids).toBe(10);
   });
   it("diária vendida como contrato não conta como contrato novo", () => {
     const por = resumirVendas([{ idBranch: 5, removed: null, saleSource: null, saleItens: [
