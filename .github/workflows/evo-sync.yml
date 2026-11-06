@@ -76,6 +76,12 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-treinos.mjs
+      - name: Onde moram os alunos (bairros, foto de hoje)
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-bairros.mjs
       - name: Conversão de cadastros (prospects do EVO)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}

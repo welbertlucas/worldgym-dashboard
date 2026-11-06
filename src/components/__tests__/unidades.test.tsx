@@ -90,3 +90,18 @@ describe("UnitComparison", () => {
     expect(html).toContain("sem dado nas duas unidades"); // NPS
   });
 });
+
+describe("OndeMoramAlunos", () => {
+  it("lista os bairros com a participação de cada um e avisa o que ficou de fora", async () => {
+    const { OndeMoramAlunos } = await import("@/components/unidades/OndeMoramAlunos");
+    const html = renderToString(<OndeMoramAlunos unit="Itapoã" semBairro={5} bairros={[["Paranoá", "Brasília", 30, -15.77, -47.78], ["Itapoã", "Brasília", 10, -15.74, -47.76]]} />);
+    expect(html).toContain("Paranoá");
+    expect(html).toMatch(/75,0(<!-- -->)?%/);
+    expect(html).toMatch(/5(<!-- -->)? sem endereço/);
+  });
+
+  it("sem dados, orienta em vez de mostrar mapa vazio", async () => {
+    const { OndeMoramAlunos } = await import("@/components/unidades/OndeMoramAlunos");
+    expect(renderToString(<OndeMoramAlunos unit="Itapoã" />)).toContain("Ainda não há bairros");
+  });
+});
