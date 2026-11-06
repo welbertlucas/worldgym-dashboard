@@ -35,7 +35,7 @@ const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Recebime
 function sourceOf(title: string, v: MonthView): string {
   if (EVO_TITLES.has(title)) return "EVO";
   if (title === "Inadimplência" && v.total.inadimplenciaEvo) return "EVO";
-  if (["Novos Contratos", "Saldo de Clientes", "Vendas Online"].includes(title) && v.total.vendasEvo) return "EVO";
+  if (["Novos Contratos", "Saldo de Clientes", "Vendas Online", "Diárias", "Camisetas", "Coqueteleiras"].includes(title) && v.total.vendasEvo) return "EVO";
   if (title === "Renovação" && v.total.renovacoesEvo) return "EVO";
   if (title === "NPS" && v.total.npsEvo) return "WeHelp";
   if (title === "Churn" && v.total.cancelados > 0 && v.units.some((u) => u.ativosIni !== undefined)) return "EVO";
