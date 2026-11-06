@@ -107,6 +107,7 @@
     left: 0;
     top: 0;
     width: 100%;
+    break-inside: auto;
   }
   body.imprimir-contratos #contratos-ativos .card-surface {
     break-inside: avoid;
