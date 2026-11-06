@@ -5,6 +5,8 @@ import { movimentoDoMes, ativoNoDia } from "../../../server/ativos.js";
 import { resumirVendas, categoriaAvulsa } from "../../../server/vendas.js";
 // @ts-expect-error módulo JS do servidor
 import { agregarNps } from "../../../server/wehelp.js";
+// @ts-expect-error módulo JS do servidor
+import { resumirProspects } from "../../../server/prospects.js";
 import { mergeEvo } from "@/data/dashboardData";
 import { month, unit } from "./helpers";
 
@@ -140,5 +142,32 @@ describe("taxa de personal (vendas do EVO)", () => {
     expect(data[0].units[0].personal).toBe(7550);
     expect(data[0].units[1].personal).toBe(4950);
     expect(data[0].total.personalEvo).toBe(true);
+  });
+});
+
+describe("conversão de cadastros (prospects do EVO)", () => {
+  const linha = (IdFilial: string, DtCadastro: string, DtConversao: string) => ({ IdFilial, DtCadastro, DtConversao });
+  it("cadastrados no mês e, desses, convertidos dentro do mês; conversões de cadastros antigos ou futuras ficam de fora", () => {
+    const por = resumirProspects([
+      linha("5", "02/10/2026", "05/10/2026"), // conta: cadastro e conversão no mês
+      linha("5", "10/10/2026", ""), // cadastro sem conversão
+      linha("5", "20/10/2026", "03/11/2026"), // converteu depois do mês: só cadastro
+      linha("5", "15/09/2026", "04/10/2026"), // cadastro anterior: não entra
+      linha("9", "02/10/2026", "05/10/2026"), // unidade fora do dashboard
+    ], "2026-10-01", "2026-10-31");
+    expect(por).toEqual({ "Asa Norte": { oportunidades: 3, conversoes: 1 } });
+  });
+  it("mergeEvo: taxa por unidade e total ponderado; mês sem prospects mantém a planilha", () => {
+    const data = [month("2026-10", [unit("Asa Norte", { icv: 10 }), unit("Gama", { icv: 20 }), unit("Itapoã", { icv: 30 })])];
+    mergeEvo(data, [{ month: "2026-10", units: [
+      { name: "Asa Norte", faturamento: 1, recebimento: 1, oportunidades: 295, conversoes: 257 },
+      { name: "Gama", faturamento: 1, recebimento: 1, oportunidades: 100, conversoes: 50 },
+      { name: "Itapoã", faturamento: 1, recebimento: 1 },
+    ] }]);
+    expect(data[0].units[0].icv).toBe(87.1);
+    expect(data[0].units[1].icv).toBe(50);
+    expect(data[0].units[2].icv).toBe(30);
+    expect(data[0].total.icv).toBe(77.7); // 307 ÷ 395
+    expect(data[0].total.icvEvo).toBe(true);
   });
 });

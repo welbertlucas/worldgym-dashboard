@@ -38,6 +38,7 @@ function sourceOf(title: string, v: MonthView): string {
   if (["Novos Contratos", "Saldo de Clientes", "Vendas Online", "Diárias", "Camisetas", "Coqueteleiras"].includes(title) && v.total.vendasEvo) return "EVO";
   if (title === "Renovação" && v.total.renovacoesEvo) return "EVO";
   if (title === "Taxa de Personal" && v.total.personalEvo) return "EVO";
+  if ((title === "Conversão de Cadastros" || title === "Conversão") && v.total.icvEvo) return "EVO";
   if (title === "NPS" && v.total.npsEvo) return "WeHelp";
   if (title === "Churn" && v.total.cancelados > 0 && v.units.some((u) => u.ativosIni !== undefined)) return "EVO";
   if ((title === "Adimplentes" || title === "Ticket Médio") && v.total.ativosEvo && (title === "Adimplentes" || !isPartialMonth(v.month))) return "EVO";

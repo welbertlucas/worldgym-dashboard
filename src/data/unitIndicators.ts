@@ -43,7 +43,7 @@ export const INDICATORS: Indicator[] = [
   { key: "novosContratos", label: "Novos contratos", category: "comercial", format: "number", direction: "higher", value: field("novosContratos") },
   { key: "vendasOnline", label: "Vendas online", category: "comercial", format: "currency", direction: "higher", value: field("vendasOnline") },
   {
-    key: "icv", label: "Taxa de conversão", category: "comercial", format: "percent", direction: "higher", value: field("icv"),
+    key: "icv", label: "Conversão de cadastros", category: "comercial", format: "percent", direction: "higher", value: field("icv"),
     tone: (v) => (v > 60 ? "good" : v > 40 ? "warn" : "bad"), toneHint: "verde acima de 60%, vermelho abaixo de 40%", toneStops: [40, 60],
   },
   { key: "adimplentes", label: "Adimplentes", category: "retencao", format: "number", direction: "higher", value: field("adimplentes") },

@@ -38,6 +38,8 @@ export interface UnitData {
   ativosFim?: number;
   /** Alunos ativos no início do mês (base do churn). */
   ativosIni?: number;
+  /** Conversão de cadastros calculada pelo EVO (cadastrados no mês que viraram cliente no mesmo mês). */
+  icvEvo?: boolean;
   /** NPS do WeHelp: promotores, detratores e respostas do mês (somando as pesquisas Qrcode e Relacionamento). */
   npsPromotores?: number;
   npsDetratores?: number;
@@ -308,7 +310,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -327,6 +329,10 @@ function emptyUnit(name: string): UnitData {
 /** NPS em pontos (−100 a 100) com duas casas; 0 quando não há respostas. */
 export const calcularNps = (promotores: number, detratores: number, respostas: number) =>
   respostas > 0 ? Math.round(((promotores - detratores) / respostas) * 10000) / 100 : 0;
+
+/** Conversão de cadastros em % com uma casa; 0 quando não houve cadastros. */
+export const taxaConversao = (oportunidades: number, conversoes: number) =>
+  oportunidades > 0 ? Math.round((conversoes / oportunidades) * 1000) / 10 : 0;
 
 /** Taxa de renovação em % com uma casa; 0 quando não há contratos a vencer. */
 export const taxaRenovacao = (aVencer: number, naoRenovados: number) =>
@@ -376,6 +382,13 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.naoRenovados = e.naoRenovados;
         unit.renovacoesEvo = true;
         unit.renovacoes = taxaRenovacao(e.aVencer, e.naoRenovados);
+      }
+      // Conversão = convertidos no mês ÷ cadastrados no mês (relatório de prospects do EVO).
+      if (e.oportunidades !== undefined && e.conversoes !== undefined) {
+        unit.oportunidades = e.oportunidades;
+        unit.conversoes = e.conversoes;
+        unit.icvEvo = true;
+        unit.icv = taxaConversao(e.oportunidades, e.conversoes);
       }
       // NPS vem do WeHelp quando o mês tem respostas: (promotores − detratores) ÷ respostas.
       if (e.npsRespostas !== undefined && e.npsRespostas > 0) {
@@ -428,6 +441,14 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
               renovacoes: taxaRenovacao(us.reduce((n, u) => n + (u.aVencer ?? 0), 0), us.reduce((n, u) => n + (u.naoRenovados ?? 0), 0)),
               renovacoesEvo: true,
             };
+          })()
+        : {}),
+      ...(md.units.some((u) => u.icvEvo)
+        ? (() => {
+            const us = md.units.filter((u) => u.icvEvo);
+            const o = us.reduce((n, u) => n + u.oportunidades, 0);
+            const c = us.reduce((n, u) => n + u.conversoes, 0);
+            return { oportunidades: o, conversoes: c, icv: taxaConversao(o, c), icvEvo: true };
           })()
         : {}),
       ...(md.units.some((u) => u.npsEvo)
