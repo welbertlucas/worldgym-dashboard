@@ -16,7 +16,7 @@ import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
 import { MetasTab } from "@/components/tabs/MetasTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
-import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
+import { comercialSpecs, complementaresSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { viewFor } from "@/data/kpiView";
 import { computeAlerts, sameMonthLastYear } from "@/data/alerts";
 import { computeUnitDeltas } from "@/data/unitMetrics";
@@ -24,7 +24,7 @@ import { metasData, syncMetasFromSheets } from "@/data/metas";
 import { getLastClosedMonth, isPartialMonth } from "@/data/periods";
 import {
   getLatestData, getDataByMonth, comparePeriods, dashboardData,
-  getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets, evoAtualizadoEm,
+  getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets, evoAtualizadoEm, receitaComplementar,
 } from "@/data/dashboardData";
 import { Button } from "@/components/ui/button";
 import { Sidebar, MobileDrawer } from "@/components/Sidebar";
@@ -318,19 +318,22 @@ const Index = () => {
         {activeTab === "comercial" && (
           <section>
             <SectionTitle>Comercial</SectionTitle>
-          <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={comercialSpecs} /></div>
+          <div className="mb-8"><KpiGrid ctx={kpiCtx} specs={comercialSpecs} /></div>
+            <SectionTitle hint={selectedUnit ? `Soma das receitas complementares de ${selectedUnit}` : "Soma das receitas complementares da rede; escolha uma unidade no filtro para ver só ela"}>Receitas complementares</SectionTitle>
+            <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={complementaresSpecs} columns="xl:grid-cols-3" /></div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
               <NovosContratosChart selectedUnit={selectedUnit} />
               <VendasOnlineChart selectedUnit={selectedUnit} />
             </div>
             <DonutList
               title="Receitas complementares"
-              subtitle="Participação de cada receita na soma das quatro"
-              center={{ value: formatAbbreviatedNumber(currentData.total.diarias + currentData.total.personal + currentData.total.camisetas + currentData.total.coqueteleiras), caption: "soma das quatro" }}
+              subtitle="Participação de cada receita na soma das cinco"
+              center={{ value: formatAbbreviatedNumber(receitaComplementar(currentData.total)), caption: "soma das cinco" }}
               empty="Sem receitas complementares lançadas neste mês."
               items={[
                 { label: "Diárias", value: currentData.total.diarias, color: "hsl(222 25% 22%)", valueText: formatCurrency(currentData.total.diarias) },
                 { label: "Taxa de personal", value: currentData.total.personal, color: "hsl(4 90% 50%)", valueText: formatCurrency(currentData.total.personal) },
+                { label: "Kids e brinquedoteca", value: (currentData.total as { kids?: number }).kids ?? 0, color: "hsl(142 50% 38%)", valueText: formatCurrency((currentData.total as { kids?: number }).kids ?? 0) },
                 { label: "Camisetas", value: currentData.total.camisetas, color: "hsl(222 14% 52%)", valueText: formatCurrency(currentData.total.camisetas) },
                 { label: "Coqueteleiras", value: currentData.total.coqueteleiras, color: "hsl(220 14% 78%)", valueText: formatCurrency(currentData.total.coqueteleiras) },
               ]}

@@ -1,4 +1,4 @@
-import { type UnitData } from "@/data/dashboardData";
+import { type UnitData, receitaComplementar } from "@/data/dashboardData";
 
 // Configuração de APRESENTAÇÃO dos indicadores por unidade. Não calcula nada novo: reaproveita as regras
 // que já existiam (direção favorável do comparativo antigo e faixas de cor da tabela de desempenho).
@@ -63,8 +63,10 @@ export const INDICATORS: Indicator[] = [
   },
   { key: "notaGoogle", label: "Nota do Google", category: "retencao", format: "decimal", direction: "higher", value: field("notaGoogle"), zeroMeansNoData: true },
   { key: "nps", label: "NPS", category: "retencao", format: "decimal", direction: "higher", value: field("nps"), zeroMeansNoData: true },
+  { key: "receitaComplementar", label: "Receita complementar (total)", category: "complementares", format: "currency", direction: null, value: receitaComplementar },
   { key: "diarias", label: "Diárias", category: "complementares", format: "currency", direction: null, value: field("diarias") },
   { key: "personal", label: "Taxa de personal", category: "complementares", format: "currency", direction: null, value: field("personal") },
+  { key: "kids", label: "Kids e brinquedoteca", category: "complementares", format: "currency", direction: null, value: field("kids") },
   { key: "camisetas", label: "Camisetas", category: "complementares", format: "currency", direction: null, value: field("camisetas") },
   { key: "coqueteleiras", label: "Coqueteleiras", category: "complementares", format: "currency", direction: null, value: field("coqueteleiras") },
 ];

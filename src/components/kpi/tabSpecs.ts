@@ -1,5 +1,6 @@
 import { type KpiSpec } from "@/components/kpi/KpiGrid";
 import { sumUnits } from "@/data/kpiView";
+import { receitaComplementar } from "@/data/dashboardData";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -18,8 +19,17 @@ export const comercialSpecs: KpiSpec[] = [
     title: "Vendas Online", kind: "flow", pick: (v) => v.total.vendasOnline, fmt: brl,
     extra: (v) => (v.total.faturamento ? [{ text: `${((v.total.vendasOnline / v.total.faturamento) * 100).toFixed(2).replace(".", ",")}% do faturamento`, tone: "neutral" }] : []),
   },
+];
+
+/** Receitas complementares: o total (com a participação no faturamento) e cada uma das cinco. */
+export const complementaresSpecs: KpiSpec[] = [
+  {
+    ...complementar("Receita Complementar", (v) => receitaComplementar(v.total)),
+    extra: (v) => (v.total.faturamento ? [{ text: `${((receitaComplementar(v.total) / v.total.faturamento) * 100).toFixed(2).replace(".", ",")}% do faturamento`, tone: "neutral" }] : []),
+  },
   complementar("Diárias", (v) => v.total.diarias),
   complementar("Taxa de Personal", (v) => v.total.personal),
+  complementar("Kids e Brinquedoteca", (v) => v.total.kids ?? 0),
   complementar("Camisetas", (v) => v.total.camisetas),
   complementar("Coqueteleiras", (v) => v.total.coqueteleiras),
 ];

@@ -51,6 +51,8 @@ export interface UnitData {
   naoRenovados?: number;
   /** Taxa de renovação calculada a partir dos contratos do EVO. */
   renovacoesEvo?: boolean;
+  /** Kids e brinquedoteca (diária kids, brinquedoteca, mensalidades kids), das vendas do EVO. */
+  kids?: number;
   /** Taxa de personal (valor dos contratos de personal vendidos) calculada a partir das vendas do EVO. */
   personalEvo?: boolean;
   /** Novos contratos, vendas online e receitas avulsas vindos das vendas do EVO. */
@@ -310,7 +312,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -326,6 +328,10 @@ function emptyUnit(name: string): UnitData {
 // e o TOTAL desses dois campos é refeito como soma das unidades. Mês ou unidade que o EVO tem e
 // a planilha ainda não (ninguém precisa criar a linha à mão) é criado aqui, com os demais
 // indicadores zerados até serem migrados do EVO.
+/** Soma das receitas complementares de uma unidade (ou da rede): diárias, taxa de personal, kids, camisetas e coqueteleiras. */
+export const receitaComplementar = (u: Pick<UnitData, "diarias" | "personal" | "camisetas" | "coqueteleiras" | "kids">) =>
+  (u.diarias || 0) + (u.personal || 0) + (u.camisetas || 0) + (u.coqueteleiras || 0) + (u.kids || 0);
+
 /** NPS em pontos (−100 a 100) com duas casas; 0 quando não há respostas. */
 export const calcularNps = (promotores: number, detratores: number, respostas: number) =>
   respostas > 0 ? Math.round(((promotores - detratores) / respostas) * 10000) / 100 : 0;
@@ -405,6 +411,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.diarias = e.diarias ?? 0;
         unit.camisetas = e.camisetas ?? 0;
         unit.coqueteleiras = e.coqueteleiras ?? 0;
+        if (e.kids !== undefined) unit.kids = e.kids;
         if (e.personal !== undefined) { unit.personal = e.personal; unit.personalEvo = true; }
       }
       if (e.alunosAtivos !== undefined) {
@@ -463,7 +470,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(evo.units.some((e) => e.novosContratos !== undefined)
         ? (() => {
             const t = buildTotal(evo.month, md.units);
-            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, vendasEvo: true, ...(md.units.some((u) => u.personalEvo) ? { personal: t.personal, personalEvo: true } : {}) };
+            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, kids: md.units.reduce((n, u) => n + (u.kids ?? 0), 0), vendasEvo: true, ...(md.units.some((u) => u.personalEvo) ? { personal: t.personal, personalEvo: true } : {}) };
           })()
         : {}),
       ...(evo.units.some((e) => e.ativosFim)

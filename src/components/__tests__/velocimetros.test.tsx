@@ -143,7 +143,7 @@ describe("DonutList", () => {
 });
 
 import { KpiTile, variation, type KpiContext } from "@/components/kpi/KpiGrid";
-import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
+import { comercialSpecs, complementaresSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard } from "@/components/executiva/MetasKpiCard";
 import { viewFor } from "@/data/kpiView";
 
@@ -177,10 +177,10 @@ describe("indicadores em meia-lua nas demais abas", () => {
   });
 
   it("receita complementar: sem dado vira '—'; com dado é neutra (sem verde/vermelho)", () => {
-    const sem = html(find(comercialSpecs, "Diárias"), { cur: A, prev: undefined, partial: false });
+    const sem = html(find(complementaresSpecs, "Diárias"), { cur: A, prev: undefined, partial: false });
     expect(sem).toContain("—");
     expect(sem).toContain("Sem dado neste mês");
-    const com = html(find(comercialSpecs, "Diárias"), { cur: B, prev: B, partial: false });
+    const com = html(find(complementaresSpecs, "Diárias"), { cur: B, prev: B, partial: false });
     expect(com).not.toContain("bg-success/10");
     expect(com).not.toContain("bg-destructive/10");
   });

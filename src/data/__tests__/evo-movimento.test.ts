@@ -59,7 +59,7 @@ describe("resumirVendas", () => {
       venda({ idBranch: 9 }, [{ idMembership: 3, saleValue: 999 }]),
     ]);
     expect(Object.keys(por)).toEqual(["Asa Norte"]);
-    expect(por["Asa Norte"]).toEqual({ novosContratos: 2, vendasOnline: 175, diarias: 50, camisetas: 89, coqueteleiras: 25, personal: 0 });
+    expect(por["Asa Norte"]).toEqual({ novosContratos: 2, vendasOnline: 175, diarias: 50, camisetas: 89, coqueteleiras: 25, personal: 0, kids: 10 });
   });
   it("contrato não vira camiseta nem coqueteleira", () => {
     expect(categoriaAvulsa({ idMembership: 1, item: "CAMISA PLANO" })).toBeNull();
@@ -70,7 +70,21 @@ describe("resumirVendas", () => {
       expect(categoriaAvulsa({ item: nome })).toBe("diarias");
       expect(categoriaAvulsa({ idMembership: 9, item: nome })).toBe("diarias");
     }
-    expect(categoriaAvulsa({ item: "DIARIA KIDS WG PONTE ALTA" })).toBeNull();
+    expect(categoriaAvulsa({ item: "DIARIA KIDS WG PONTE ALTA" })).toBe("kids");
+  });
+  it("kids e brinquedoteca viram uma categoria própria, avulsos ou contrato", () => {
+    for (const nome of ["BRINQUEDOTECA", "DIARIA KIDS WG JARDIM INGÁ| R$ 10,00", "WG PONTE ALTA LOCAL KIDS MENSAL I R$80,00"]) {
+      expect(categoriaAvulsa({ item: nome })).toBe("kids");
+      expect(categoriaAvulsa({ idMembership: 4, item: nome })).toBe("kids");
+    }
+  });
+  it("diária vendida como contrato não conta como contrato novo", () => {
+    const por = resumirVendas([{ idBranch: 5, removed: null, saleSource: null, saleItens: [
+      { idMembership: 1, idMembershipRenewed: null, item: "11 - WG DIÁRIA 30,00", saleValue: 30 },
+      { idMembership: 2, idMembershipRenewed: null, item: "WG LOCAL | R$ 129,90", saleValue: 129.9 },
+    ] }]);
+    expect(por["Asa Norte"].novosContratos).toBe(1);
+    expect(por["Asa Norte"].diarias).toBe(30);
   });
 });
 
@@ -177,5 +191,13 @@ describe("conversão de cadastros (prospects do EVO)", () => {
     expect(data[0].units[2].icv).toBe(30);
     expect(data[0].total.icv).toBe(77.7); // 307 ÷ 395
     expect(data[0].total.icvEvo).toBe(true);
+  });
+});
+
+describe("receita complementar total", () => {
+  it("soma as cinco receitas; kids ausente (meses antigos) vale 0", async () => {
+    const { receitaComplementar } = await import("@/data/dashboardData");
+    expect(receitaComplementar({ diarias: 100, personal: 200, camisetas: 30, coqueteleiras: 20, kids: 50 })).toBe(400);
+    expect(receitaComplementar({ diarias: 100, personal: 200, camisetas: 30, coqueteleiras: 20 })).toBe(350);
   });
 });

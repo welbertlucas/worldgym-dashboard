@@ -1,10 +1,10 @@
 // Vendas do mês (EVO /sales) resumidas por unidade: novos contratos, vendas online e receitas complementares.
 // A rota devolve as vendas de TODAS as unidades de uma vez (o filtro idBranch é ignorado), então um mês inteiro
 // custa uma única varredura. Regras conferidas contra a planilha (set/2026):
-//  - novos contratos: itens de contrato que NÃO renovam um contrato anterior (idMembershipRenewed vazio);
+//  - novos contratos: itens de contrato que NÃO renovam um contrato anterior (idMembershipRenewed vazio), sem as diárias
+//    vendidas como contrato;
 //  - vendas online: soma das vendas feitas pelo site/totem (saleSource = 2), batem ao centavo onde a planilha é exata;
-//  - diárias: soma dos itens com DIÁRIA no nome, avulsos ou vendidos como contrato; camisetas e coqueteleiras: itens avulsos
-//    pelo nome (cada unidade nomeia do seu jeito);
+//  - diárias, kids/brinquedoteca, camisetas e coqueteleiras: soma dos itens pelo nome (cada unidade nomeia do seu jeito);
 //  - taxa de personal: soma do valor dos contratos de personal vendidos (item de contrato com PERSONAL no nome). Em set/2026
 //    bateu com a planilha em 21 das 23 unidades.
 import { fetchAll } from "./evo.js";
@@ -12,16 +12,23 @@ import { UNIT_NAMES } from "./units.js";
 
 const ONLINE = 2;
 const upper = (i) => String(i.item || i.description || "").toUpperCase();
-export function categoriaAvulsa(item) {
+
+/**
+ * Categoria de receita complementar de um item da venda (ou null).
+ *  - kids: tudo com KIDS ou BRINQUEDOTECA no nome (diária kids, brinquedoteca, mensalidades kids), avulso ou contrato;
+ *  - diárias: DIÁRIA no nome (DIARIA, DIÁRIA, WG PRO DIÁRIA...), avulsa ou vendida como contrato ("11 - WG DIÁRIA 30,00");
+ *  - camisetas e coqueteleiras: só itens avulsos (um contrato nunca vira camiseta).
+ */
+export function categoriaItem(item) {
   const t = upper(item);
-  // Diária vale como item avulso ("DIARIA", "DIÁRIA", "WG PRO DIÁRIA"...) e também como contrato: várias
-  // unidades a vendem como o plano "11 - WG DIÁRIA 30,00". "Diária kids" fica de fora.
-  if (/DI[AÁ]RIA/.test(t) && !/KIDS/.test(t)) return "diarias";
+  if (/KIDS|BRINQUEDOTECA/.test(t)) return "kids";
+  if (/DI[AÁ]RIA/.test(t)) return "diarias";
   if (item.idMembership) return null;
   if (/COQUETEL|COQUETEIRA|SHAKER/.test(t)) return "coqueteleiras";
   if (/CAMIS/.test(t)) return "camisetas";
   return null;
 }
+export const categoriaAvulsa = categoriaItem;
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -30,16 +37,17 @@ export function resumirVendas(vendas) {
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0 });
+    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0 });
     for (const i of s.saleItens || []) {
-      if (i.idMembership && !i.idMembershipRenewed) u.novosContratos += 1;
+      const cat = categoriaItem(i);
+      // Diária vendida como contrato conta como diária, não como contrato novo.
+      if (i.idMembership && !i.idMembershipRenewed && cat !== "diarias") u.novosContratos += 1;
       if (s.saleSource === ONLINE) u.vendasOnline += i.saleValue || 0;
       if (i.idMembership && /PERSONAL/.test(upper(i))) u.personal += i.saleValue || 0;
-      const cat = categoriaAvulsa(i);
       if (cat) u[cat] += i.saleValue || 0;
     }
   }
-  for (const u of Object.values(por)) for (const k of ["vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal"]) u[k] = round2(u[k]);
+  for (const u of Object.values(por)) for (const k of ["vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "kids"]) u[k] = round2(u[k]);
   return por;
 }
 

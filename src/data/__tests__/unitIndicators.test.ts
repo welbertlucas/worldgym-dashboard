@@ -5,9 +5,9 @@ import { unit } from "./helpers";
 const ind = (k: string) => INDICATOR_BY_KEY[k];
 
 describe("comparação entre duas unidades", () => {
-  it("mantém os 17 indicadores do comparativo anterior (+ NPS)", () => {
-    expect(INDICATORS).toHaveLength(18);
-    for (const k of ["faturamento", "recebimento", "ticketMedio", "adimplentes", "novosContratos", "cancelados", "saldo", "churn", "renovacoes", "inadimplenciaPerc", "icv", "vendasOnline", "diarias", "personal", "camisetas", "coqueteleiras", "notaGoogle"]) expect(ind(k)).toBeDefined();
+  it("mantém os 17 indicadores do comparativo anterior (+ NPS, receita complementar total e kids)", () => {
+    expect(INDICATORS).toHaveLength(20);
+    for (const k of ["faturamento", "recebimento", "ticketMedio", "adimplentes", "novosContratos", "cancelados", "saldo", "churn", "renovacoes", "inadimplenciaPerc", "icv", "vendasOnline", "diarias", "personal", "camisetas", "coqueteleiras", "notaGoogle", "kids", "receitaComplementar"]) expect(ind(k)).toBeDefined();
   });
 
   it("fórmula da diferença idêntica à anterior (relativa a B; 0 se B é zero)", () => {
