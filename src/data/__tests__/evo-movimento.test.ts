@@ -57,7 +57,7 @@ describe("resumirVendas", () => {
       venda({ idBranch: 9 }, [{ idMembership: 3, saleValue: 999 }]),
     ]);
     expect(Object.keys(por)).toEqual(["Asa Norte"]);
-    expect(por["Asa Norte"]).toEqual({ novosContratos: 2, vendasOnline: 175, diarias: 50, camisetas: 89, coqueteleiras: 25 });
+    expect(por["Asa Norte"]).toEqual({ novosContratos: 2, vendasOnline: 175, diarias: 50, camisetas: 89, coqueteleiras: 25, personal: 0 });
   });
   it("contrato nunca vira avulso", () => {
     expect(categoriaAvulsa({ idMembership: 1, item: "DIARIA" })).toBeNull();
@@ -119,5 +119,26 @@ describe("NPS do WeHelp", () => {
     expect(data[0].units[2].nps).toBe(44); // sem WeHelp: segue a planilha
     expect(data[0].total.nps).toBe(30); // (50 − 20) ÷ 100
     expect(data[0].total.npsEvo).toBe(true);
+  });
+});
+
+describe("taxa de personal (vendas do EVO)", () => {
+  it("soma o valor dos itens de contrato com PERSONAL no nome; avulsos e outros contratos ficam de fora", () => {
+    const venda = (itens: object[]) => ({ idBranch: 5, saleSource: 1, itens, saleItens: itens });
+    const por = resumirVendas([
+      venda([{ idMembership: 7, item: "PERSONAL WG LOCAL | R$ 200,00", saleValue: 200 }, { idMembership: 8, item: "WG REDE | 169,90", saleValue: 169.9 }]),
+      venda([{ item: "AULA PERSONAL AVULSA", saleValue: 78 }]),
+    ]);
+    expect(por["Asa Norte"].personal).toBe(200);
+  });
+  it("mergeEvo usa o valor do EVO quando o mês o tem; senão mantém a planilha", () => {
+    const data = [month("2026-09", [unit("Asa Norte", { personal: 1 }), unit("Gama", { personal: 4950 })])];
+    mergeEvo(data, [{ month: "2026-09", units: [
+      { name: "Asa Norte", faturamento: 1, recebimento: 1, novosContratos: 1, personal: 7550 },
+      { name: "Gama", faturamento: 1, recebimento: 1, novosContratos: 1 },
+    ] }]);
+    expect(data[0].units[0].personal).toBe(7550);
+    expect(data[0].units[1].personal).toBe(4950);
+    expect(data[0].total.personalEvo).toBe(true);
   });
 });

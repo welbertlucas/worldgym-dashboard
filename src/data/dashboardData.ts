@@ -49,6 +49,8 @@ export interface UnitData {
   naoRenovados?: number;
   /** Taxa de renovação calculada a partir dos contratos do EVO. */
   renovacoesEvo?: boolean;
+  /** Taxa de personal (valor dos contratos de personal vendidos) calculada a partir das vendas do EVO. */
+  personalEvo?: boolean;
   /** Novos contratos, vendas online e receitas avulsas vindos das vendas do EVO. */
   vendasEvo?: boolean;
   /** Ticket médio e adimplentes calculados a partir dos ativos do EVO. */
@@ -306,7 +308,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -390,6 +392,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.diarias = e.diarias ?? 0;
         unit.camisetas = e.camisetas ?? 0;
         unit.coqueteleiras = e.coqueteleiras ?? 0;
+        if (e.personal !== undefined) { unit.personal = e.personal; unit.personalEvo = true; }
       }
       if (e.alunosAtivos !== undefined) {
         unit.alunosAtivos = e.alunosAtivos;
@@ -439,7 +442,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(evo.units.some((e) => e.novosContratos !== undefined)
         ? (() => {
             const t = buildTotal(evo.month, md.units);
-            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, vendasEvo: true };
+            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, vendasEvo: true, ...(md.units.some((u) => u.personalEvo) ? { personal: t.personal, personalEvo: true } : {}) };
           })()
         : {}),
       ...(evo.units.some((e) => e.ativosFim)

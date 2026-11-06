@@ -1,4 +1,4 @@
-// Grava nos meses já calculados: novosContratos, vendasOnline, diarias, camisetas e coqueteleiras (vindos das vendas do EVO).
+// Grava nos meses já calculados: novosContratos, vendasOnline, diarias, camisetas, coqueteleiras e personal (vindos das vendas do EVO).
 // Uso: node --env-file=.env.local scripts/evo-vendas.mjs 2026-10 2026-11
 import { vendasDoMes } from "../server/vendas.js";
 import { loadMonth, saveMonth } from "../server/store.js";
