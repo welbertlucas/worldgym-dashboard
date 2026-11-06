@@ -1,4 +1,4 @@
-// Grava `ativosFim` (alunos ativos no fim do mês) por unidade nos meses já calculados.
+// Grava por unidade, nos meses já calculados: `ativosFim` (alunos ativos no fim do mês), `ativosIni` (no início) e `cancelados`.
 // Uso: node --env-file=.env.local scripts/evo-ativos.mjs 2026-10 2026-11
 import { ativosDaUnidade, UNIDADES } from "../server/ativos.js";
 import { hojeBR } from "../server/evo.js";
@@ -14,7 +14,7 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
   const por = await ativosDaUnidade(Number(id), meses, hoje);
   for (const ym of meses) {
     const u = blobs[ym].units.find((x) => x.name === nome);
-    if (u) u.ativosFim = por[ym];
+    if (u) Object.assign(u, por[ym]);
   }
   console.log(nome, JSON.stringify(por));
 }

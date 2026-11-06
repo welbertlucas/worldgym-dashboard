@@ -21,10 +21,28 @@ export function diaDeCorte(ym, hoje) {
   return hoje < ultimo ? hoje : ultimo;
 }
 
-/** Baixa os alunos de uma unidade e conta os ativos no fim de cada mês pedido. */
+/** Dia anterior a uma data AAAA-MM-DD. */
+export function diaAnterior(dia) {
+  const t = new Date(`${dia}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() - 1);
+  return t.toISOString().slice(0, 10);
+}
+
+/** Alunos distintos com algum contrato cancelado entre `de` e `ate` (inclusive). */
+export const contarCancelados = (alunos, de, ate) =>
+  alunos.reduce((n, a) => n + (a.c.some(([, , cancel]) => cancel && cancel >= de && cancel <= ate) ? 1 : 0), 0);
+
+/** Números de um mês a partir do histórico de contratos: ativos no início e no fim, e cancelados no mês. */
+export function movimentoDoMes(alunos, ym, hoje) {
+  const fim = diaDeCorte(ym, hoje);
+  const ini = `${ym}-01`;
+  return { ativosFim: contarAtivos(alunos, fim), ativosIni: contarAtivos(alunos, diaAnterior(ini)), cancelados: contarCancelados(alunos, ini, fim) };
+}
+
+/** Baixa os alunos de uma unidade e calcula o movimento de cada mês pedido. */
 export async function ativosDaUnidade(idBranch, meses, hoje) {
   const alunos = (await fetchAll(`/members?idBranch=${idBranch}`)).map(resumoAluno);
-  return Object.fromEntries(meses.map((ym) => [ym, contarAtivos(alunos, diaDeCorte(ym, hoje))]));
+  return Object.fromEntries(meses.map((ym) => [ym, movimentoDoMes(alunos, ym, hoje)]));
 }
 
 export const UNIDADES = UNIT_NAMES;

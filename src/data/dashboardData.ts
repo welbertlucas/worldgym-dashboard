@@ -36,6 +36,10 @@ export interface UnitData {
   inadimplenciaEvo?: boolean;
   /** Alunos ativos no fim do mês (reconstruídos do histórico de contratos do EVO). Base de ticket médio e adimplentes. */
   ativosFim?: number;
+  /** Alunos ativos no início do mês (base do churn). */
+  ativosIni?: number;
+  /** Novos contratos, vendas online e receitas avulsas vindos das vendas do EVO. */
+  vendasEvo?: boolean;
   /** Ticket médio e adimplentes calculados a partir dos ativos do EVO. */
   ativosEvo?: boolean;
   /** Mês em andamento: o que ainda vai vencer até o fim do mês + o já vencido (vem do EVO). */
@@ -291,7 +295,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -339,6 +343,20 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.adimplentes = Math.max(0, e.ativosFim - unit.inadimplentes);
         if (!isPartialMonth(evo.month)) unit.ticketMedio = Math.round((unit.recebimento / e.ativosFim) * 100) / 100;
       }
+      // Etapas 3 e 4: cancelados e churn (histórico de contratos) e vendas (novos contratos, online, avulsas).
+      if (e.cancelados !== undefined && e.ativosIni !== undefined) {
+        unit.cancelados = e.cancelados;
+        unit.ativosIni = e.ativosIni;
+        unit.churn = e.ativosIni > 0 ? Math.round((e.cancelados / e.ativosIni) * 1000) / 10 : 0;
+      }
+      if (e.novosContratos !== undefined) {
+        unit.vendasEvo = true;
+        unit.novosContratos = e.novosContratos;
+        unit.vendasOnline = e.vendasOnline ?? 0;
+        unit.diarias = e.diarias ?? 0;
+        unit.camisetas = e.camisetas ?? 0;
+        unit.coqueteleiras = e.coqueteleiras ?? 0;
+      }
       if (e.alunosAtivos !== undefined) {
         unit.alunosAtivos = e.alunosAtivos;
         unit.contratosAtivos = e.contratosAtivos;
@@ -355,6 +373,20 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       recebimento: md.units.reduce((s, u) => s + u.recebimento, 0),
       ...(evo.units.some((e) => e.previsaoFaturamento !== undefined)
         ? { previsaoFaturamento: md.units.reduce((s, u) => s + (u.previsaoFaturamento ?? u.faturamento), 0) }
+        : {}),
+      ...(evo.units.some((e) => e.cancelados !== undefined && e.ativosIni !== undefined)
+        ? (() => {
+            const us = md.units.filter((u) => u.ativosIni !== undefined);
+            const ini = us.reduce((s, u) => s + (u.ativosIni ?? 0), 0);
+            const canc = us.reduce((s, u) => s + u.cancelados, 0);
+            return { cancelados: md.units.reduce((s, u) => s + u.cancelados, 0), churn: ini > 0 ? Math.round((canc / ini) * 1000) / 10 : 0 };
+          })()
+        : {}),
+      ...(evo.units.some((e) => e.novosContratos !== undefined)
+        ? (() => {
+            const t = buildTotal(evo.month, md.units);
+            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, vendasEvo: true };
+          })()
         : {}),
       ...(evo.units.some((e) => e.ativosFim)
         ? (() => {
