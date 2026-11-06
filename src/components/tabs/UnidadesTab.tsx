@@ -29,11 +29,7 @@ export function UnidadesTab({ selectedMonth, evalMonth, prevEvalMonth, deltas }:
       </div>
 
       {hasDeltas && (
-        <section aria-labelledby="evolucao-titulo">
-          <h3 id="evolucao-titulo" className="text-base font-semibold text-foreground">Evolução entre unidades</h3>
-          <p className="text-sm text-muted-foreground mb-4">{formatMonthLong(evalMonth!)} em relação a {formatMonthLong(prevEvalMonth!)}</p>
-          <UnitHighlights deltas={deltas} />
-        </section>
+        <UnitHighlights deltas={deltas} title="Evolução entre unidades" subtitle={<>{formatMonthLong(evalMonth!)} em relação a {formatMonthLong(prevEvalMonth!)}</>} />
       )}
 
       <div className="space-y-6">

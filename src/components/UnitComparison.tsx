@@ -62,7 +62,7 @@ function Tile({ ind, ua, ub, partial }: { ind: Indicator; ua: UnitData; ub: Unit
 
 function UnitPanel({ label, value, onChange, units, wins, id }: { label: string; value: string; onChange: (v: string) => void; units: string[]; wins: number | null; id: string }) {
   return (
-    <div className="card-surface p-4 sm:p-5">
+    <div className="rounded-2xl bg-secondary/50 p-4 sm:p-5">
       <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
       <Select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="mt-1">
         {units.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -98,7 +98,7 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
   const summary = dataA && dataB ? summarizeComparison(dataA, dataB, 3, partialMes) : null;
 
   return (
-    <section aria-labelledby="comparativo-titulo" className="space-y-4">
+    <section aria-labelledby="comparativo-titulo" className="card-surface space-y-5 p-5 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 id="comparativo-titulo" className="text-base font-semibold text-foreground">Comparativo de unidades</h3>
@@ -129,7 +129,7 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
           </div>
 
           <div>
-            <h4 className="mb-2 text-sm font-semibold text-foreground">Maiores diferenças</h4>
+            <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground"><span className="h-4 w-1 rounded-full bg-foreground/70" aria-hidden />Maiores diferenças</h4>
             {summary.biggest.length ? (
               <ul className="grid gap-3 md:grid-cols-3">
                 {summary.biggest.map(({ indicator, comparison }) => (
@@ -166,10 +166,10 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
             </details>
           )}
 
-          <div className="space-y-6">
+          <div className="space-y-6 border-t border-border pt-5">
             {CATEGORIES.map((cat) => (
               <div key={cat}>
-                <h4 className="mb-2 text-sm font-semibold text-foreground">{CATEGORY_LABEL[cat]}</h4>
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground"><span className="h-4 w-1 rounded-full bg-foreground/70" aria-hidden />{CATEGORY_LABEL[cat]}</h4>
                 <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {INDICATORS.filter((i) => i.category === cat).map((i) => <Tile key={i.key} ind={i} ua={dataA} ub={dataB} partial={partialMes} />)}
                 </ul>
@@ -177,7 +177,7 @@ export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
             ))}
           </div>
 
-          <p className="text-xs text-muted-foreground">
+          <p className="border-t border-border pt-4 text-xs text-muted-foreground">
             <Check className="inline h-3 w-3 align-[-1px] text-success" aria-hidden /> indica o resultado favorável. Maior é melhor, exceto em churn, cancelados e inadimplência, onde menor é melhor.
             O chip mostra a diferença da primeira sobre a segunda unidade: verde quando favorece a primeira, vermelho quando favorece a segunda. Receitas complementares não têm regra de interpretação.
             Nos indicadores percentuais a diferença vem em pontos percentuais (p.p.).
