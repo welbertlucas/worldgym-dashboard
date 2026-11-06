@@ -38,6 +38,11 @@ export interface UnitData {
   ativosFim?: number;
   /** Alunos ativos no início do mês (base do churn). */
   ativosIni?: number;
+  /** Renovação: contratos de prazo fixo que vencem no mês e os que não foram renovados (EVO). */
+  aVencer?: number;
+  naoRenovados?: number;
+  /** Taxa de renovação calculada a partir dos contratos do EVO. */
+  renovacoesEvo?: boolean;
   /** Novos contratos, vendas online e receitas avulsas vindos das vendas do EVO. */
   vendasEvo?: boolean;
   /** Ticket médio e adimplentes calculados a partir dos ativos do EVO. */
@@ -295,7 +300,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -311,6 +316,10 @@ function emptyUnit(name: string): UnitData {
 // e o TOTAL desses dois campos é refeito como soma das unidades. Mês ou unidade que o EVO tem e
 // a planilha ainda não (ninguém precisa criar a linha à mão) é criado aqui, com os demais
 // indicadores zerados até serem migrados do EVO.
+/** Taxa de renovação em % com uma casa; 0 quando não há contratos a vencer. */
+export const taxaRenovacao = (aVencer: number, naoRenovados: number) =>
+  aVencer > 0 ? Math.round(((Math.max(0, aVencer - naoRenovados)) / aVencer) * 1000) / 10 : 0;
+
 export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] {
   for (const evo of evoMonths) {
     if (evo.units.length === 0) continue;
@@ -349,6 +358,13 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.ativosIni = e.ativosIni;
         unit.churn = e.ativosIni > 0 ? Math.round((e.cancelados / e.ativosIni) * 1000) / 10 : 0;
       }
+      // Renovação = (a vencer − não renovados) ÷ a vencer; só contratos de prazo fixo (os recorrentes se renovam sozinhos).
+      if (e.aVencer !== undefined && e.naoRenovados !== undefined) {
+        unit.aVencer = e.aVencer;
+        unit.naoRenovados = e.naoRenovados;
+        unit.renovacoesEvo = true;
+        unit.renovacoes = taxaRenovacao(e.aVencer, e.naoRenovados);
+      }
       if (e.novosContratos !== undefined) {
         unit.vendasEvo = true;
         unit.novosContratos = e.novosContratos;
@@ -380,6 +396,17 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
             const ini = us.reduce((s, u) => s + (u.ativosIni ?? 0), 0);
             const canc = us.reduce((s, u) => s + u.cancelados, 0);
             return { cancelados: md.units.reduce((s, u) => s + u.cancelados, 0), churn: ini > 0 ? Math.round((canc / ini) * 1000) / 10 : 0 };
+          })()
+        : {}),
+      ...(evo.units.some((e) => e.aVencer !== undefined && e.naoRenovados !== undefined)
+        ? (() => {
+            const us = md.units.filter((u) => u.renovacoesEvo);
+            return {
+              aVencer: us.reduce((n, u) => n + (u.aVencer ?? 0), 0),
+              naoRenovados: us.reduce((n, u) => n + (u.naoRenovados ?? 0), 0),
+              renovacoes: taxaRenovacao(us.reduce((n, u) => n + (u.aVencer ?? 0), 0), us.reduce((n, u) => n + (u.naoRenovados ?? 0), 0)),
+              renovacoesEvo: true,
+            };
           })()
         : {}),
       ...(evo.units.some((e) => e.novosContratos !== undefined)

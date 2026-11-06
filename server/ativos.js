@@ -1,6 +1,6 @@
 // Alunos ativos no fim de um mês, reconstruídos do histórico de contratos do EVO.
 // Ativo no dia D = tem contrato que já começou até D, não foi cancelado até D e ainda não terminou em D.
-// Contratos aqui são tuplas [início, fim, cancelamento, status, ...] (datas AAAA-MM-DD ou null).
+// Contratos aqui são tuplas [início, fim, cancelamento, status, recorrente, ...] (datas AAAA-MM-DD ou null).
 import { fetchAll } from "./evo.js";
 import { UNIT_NAMES } from "./units.js";
 
@@ -11,7 +11,7 @@ export const contarAtivos = (alunos, dia) => alunos.reduce((n, a) => n + (ativoN
 
 export const resumoAluno = (m) => ({
   id: m.idMember,
-  c: (m.memberships || []).map((c) => [c.startDate?.slice(0, 10) ?? null, c.endDate?.slice(0, 10) ?? null, c.cancelDate?.slice(0, 10) ?? null, c.membershipStatus]),
+  c: (m.memberships || []).map((c) => [c.startDate?.slice(0, 10) ?? null, c.endDate?.slice(0, 10) ?? null, c.cancelDate?.slice(0, 10) ?? null, c.membershipStatus, Boolean(c.valueNextMonth)]),
 });
 
 /** Último dia a considerar no mês: o último dia dele, ou hoje se o mês ainda está em andamento. */
@@ -32,11 +32,18 @@ export function diaAnterior(dia) {
 export const contarCancelados = (alunos, de, ate) =>
   alunos.reduce((n, a) => n + (a.c.some(([, , cancel]) => cancel && cancel >= de && cancel <= ate) ? 1 : 0), 0);
 
-/** Números de um mês a partir do histórico de contratos: ativos no início e no fim, e cancelados no mês. */
+/**
+ * Contratos de prazo fixo (sem cobrança recorrente) que terminam entre `de` e `ate` e não foram cancelados:
+ * é o "a vencer" do painel de Renovações do EVO. Os recorrentes se renovam sozinhos todo mês e ficam de fora.
+ */
+export const contarAVencer = (alunos, de, ate) =>
+  alunos.reduce((n, a) => n + a.c.filter(([, fim, cancel, , rec]) => fim && fim >= de && fim <= ate && !cancel && !rec).length, 0);
+
+/** Números de um mês a partir do histórico de contratos: ativos no início e no fim, cancelados e contratos a vencer no mês. */
 export function movimentoDoMes(alunos, ym, hoje) {
   const fim = diaDeCorte(ym, hoje);
   const ini = `${ym}-01`;
-  return { ativosFim: contarAtivos(alunos, fim), ativosIni: contarAtivos(alunos, diaAnterior(ini)), cancelados: contarCancelados(alunos, ini, fim) };
+  return { ativosFim: contarAtivos(alunos, fim), ativosIni: contarAtivos(alunos, diaAnterior(ini)), cancelados: contarCancelados(alunos, ini, fim), aVencer: contarAVencer(alunos, ini, fim) };
 }
 
 /** Baixa os alunos de uma unidade e calcula o movimento de cada mês pedido. */

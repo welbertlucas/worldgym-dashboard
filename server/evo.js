@@ -60,6 +60,24 @@ async function evoGet(path, tries = 7) {
   throw new Error(`EVO ${last} em ${path}`);
 }
 
+/** GET que devolve o corpo em bytes (relatórios em Excel). `path` começa em /api/... (qualquer versão). */
+export async function evoBuffer(path, tries = 5) {
+  let last = "";
+  for (let i = 0; i < tries; i++) {
+    await throttle();
+    try {
+      const res = await fetch(BASE.replace(/\/api\/v1$/, "") + path, { headers: { Authorization: auth() } });
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
+      last = `${res.status}`;
+      if (res.status < 500 && res.status !== 429 && res.status !== 401) break;
+    } catch (e) {
+      last = `rede ${e.cause?.code || e.message}`;
+    }
+    await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+  }
+  throw new Error(`EVO ${last} em ${path}`);
+}
+
 export async function fetchAll(path) {
   const out = [];
   for (let skip = 0; skip < 100000; skip += PAGE) {

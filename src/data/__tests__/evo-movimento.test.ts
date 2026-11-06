@@ -6,8 +6,8 @@ import { resumirVendas, categoriaAvulsa } from "../../../server/vendas.js";
 import { mergeEvo } from "@/data/dashboardData";
 import { month, unit } from "./helpers";
 
-// contrato: [início, fim, cancelamento, status]
-const aluno = (...c: (string | null)[][]) => ({ id: 1, c });
+// contrato: [início, fim, cancelamento, status, recorrente]
+const aluno = (...c: (string | boolean | null)[][]) => ({ id: 1, c });
 
 describe("movimentoDoMes", () => {
   const alunos = [
@@ -17,13 +17,29 @@ describe("movimentoDoMes", () => {
     aluno(["2026-01-01", "2026-08-31", null, "expired"]), // venceu antes
   ];
   it("conta ativos no início e no fim e cancelados do mês", () => {
-    expect(movimentoDoMes(alunos, "2026-09", "2026-11-05")).toEqual({ ativosFim: 2, ativosIni: 3, cancelados: 1 });
+    expect(movimentoDoMes(alunos, "2026-09", "2026-11-05")).toEqual({ ativosFim: 2, ativosIni: 3, cancelados: 1, aVencer: 0 });
   });
   it("mês em andamento corta em hoje", () => {
-    expect(movimentoDoMes(alunos, "2026-09", "2026-09-07")).toEqual({ ativosFim: 3, ativosIni: 3, cancelados: 0 });
+    expect(movimentoDoMes(alunos, "2026-09", "2026-09-07")).toEqual({ ativosFim: 3, ativosIni: 3, cancelados: 0, aVencer: 0 });
   });
   it("contrato cancelado no dia já não conta como ativo", () => {
     expect(ativoNoDia([["2026-01-01", "2026-12-31", "2026-09-10", "canceled"]], "2026-09-10")).toBe(false);
+  });
+});
+
+describe("a vencer (renovação)", () => {
+  const alunos = [
+    aluno(["2026-09-01", "2026-09-30", null, "expired", false]), // prazo fixo, vence em setembro: conta
+    aluno(["2026-09-01", "2026-09-30", null, "expired", true]), // recorrente: fora
+    aluno(["2026-08-01", "2026-09-12", "2026-09-05", "canceled", false]), // cancelado: fora
+    aluno(["2026-06-01", "2026-09-10", null, "expired", false]), // conta
+    aluno(["2026-08-01", "2026-10-02", null, "active", false]), // vence em outubro: fora
+  ];
+  it("só prazo fixo, não cancelado, com fim no mês", () => {
+    expect(movimentoDoMes(alunos, "2026-09", "2026-11-05").aVencer).toBe(2);
+  });
+  it("mês em andamento conta só até hoje", () => {
+    expect(movimentoDoMes(alunos, "2026-09", "2026-09-20").aVencer).toBe(1);
   });
 });
 
@@ -56,5 +72,24 @@ describe("mergeEvo: movimento e vendas", () => {
     expect(u.novosContratos).toBe(69);
     expect(data[0].total.churn).toBe(5);
     expect(data[0].total.vendasEvo).toBe(true);
+  });
+});
+
+describe("mergeEvo: renovação", () => {
+  it("taxa = (a vencer − não renovados) ÷ a vencer, por unidade e no total", () => {
+    const data = [month("2026-10", [unit("Asa Norte", { renovacoes: 50 }), unit("Gama", { renovacoes: 50 })])];
+    mergeEvo(data, [{ month: "2026-10", units: [
+      { name: "Asa Norte", faturamento: 1, recebimento: 1, aVencer: 140, naoRenovados: 50 },
+      { name: "Gama", faturamento: 1, recebimento: 1, aVencer: 60, naoRenovados: 10 },
+    ] }]);
+    expect(data[0].units[0].renovacoes).toBe(64.3);
+    expect(data[0].units[1].renovacoes).toBe(83.3);
+    expect(data[0].total.renovacoes).toBe(70); // (200 − 60) ÷ 200
+    expect(data[0].total.renovacoesEvo).toBe(true);
+  });
+  it("sem contratos a vencer, a taxa fica em 0 (sem dado)", () => {
+    const data = [month("2026-10", [unit("Asa Norte", { renovacoes: 50 })])];
+    mergeEvo(data, [{ month: "2026-10", units: [{ name: "Asa Norte", faturamento: 1, recebimento: 1, aVencer: 0, naoRenovados: 0 }] }]);
+    expect(data[0].units[0].renovacoes).toBe(0);
   });
 });

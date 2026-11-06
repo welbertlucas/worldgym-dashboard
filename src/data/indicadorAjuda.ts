@@ -11,7 +11,7 @@ export const AJUDA: Record<string, string> = {
   "Taxa de Conversão": "Percentual de oportunidades que viraram contrato, como lançado na planilha.",
   Conversão: "Percentual de oportunidades que viraram contrato, como lançado na planilha.",
   Churn: "Percentual de alunos que cancelaram no mês, como lançado na planilha. Menor é melhor.",
-  Renovação: "Percentual de contratos que renovaram no mês, como lançado na planilha.",
+  Renovação: "Dos contratos de prazo fixo (mensal avulso, trimestral, anual faturado, aqua etc.) que venceram no mês, o percentual que foi renovado. Vem do EVO, como no painel Renovações dele. Os planos recorrentes não entram. Meses sem dado do EVO vêm da planilha.",
   "Vendas Online": "Valor vendido pelos canais online no mês, como lançado na planilha.",
   Diárias: "Receita de diárias, como lançado na planilha.",
   "Taxa de Personal": "Receita da taxa de personal, como lançado na planilha.",
