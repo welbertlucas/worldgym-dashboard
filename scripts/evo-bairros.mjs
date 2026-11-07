@@ -17,8 +17,8 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
   const bairros = [];
   for (const b of lista) {
     const k = chaveBairro(b.bairro, b.cidade);
-    if (!(k in geo)) { geo[k] = await coordenadasDoBairro(b); await saveGeo(geo); }
-    if (geo[k]) bairros.push([b.bairro, b.cidade, b.n, geo[k][0], geo[k][1]]);
+    if (!geo[k]) { geo[k] = await coordenadasDoBairro(b); await saveGeo(geo); }
+    if (geo[k]) bairros.push([b.bairro, b.cidade, b.n, geo[k][0], geo[k][1], ...(geo[k][2] ? [1] : [])]);
   }
   u.bairros = bairros;
   u.acessos = acessos;

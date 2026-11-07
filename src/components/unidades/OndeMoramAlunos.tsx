@@ -24,9 +24,9 @@ function Mapa({ bairros }: { bairros: Bairro[] }) {
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(mapa);
       const max = Math.max(...bairros.map((b) => b[2]));
       const grupo = L.featureGroup(
-        [...bairros].sort((a, b) => b[2] - a[2]).map(([nome, cidade, n, lat, lng]) =>
-          L.circleMarker([lat, lng], { radius: raioDaBolha(n, max), color: "#c91d12", weight: 1.5, fillColor: "#e8281b", fillOpacity: 0.45 })
-            .bindTooltip(`<strong>${nome}</strong>${cidade ? ` · ${cidade}` : ""}<br/>${fmt(n)} ${n === 1 ? "aluno" : "alunos"}`)),
+        [...bairros].sort((a, b) => b[2] - a[2]).map(([nome, cidade, n, lat, lng, aprox]) =>
+          L.circleMarker([lat, lng], { radius: raioDaBolha(n, max), color: aprox ? "#6b7280" : "#c91d12", weight: 1.5, dashArray: aprox ? "4 3" : undefined, fillColor: aprox ? "#9ca3af" : "#e8281b", fillOpacity: aprox ? 0.3 : 0.45 })
+            .bindTooltip(`<strong>${nome}</strong>${cidade ? ` · ${cidade}` : ""}<br/>${fmt(n)} ${n === 1 ? "aluno" : "alunos"}${aprox ? "<br/><em>posição aproximada (centro da cidade)</em>" : ""}`)),
       ).addTo(mapa);
       mapa.fitBounds(grupo.getBounds().pad(0.15), { maxZoom: 14 });
       limpar = () => mapa.remove();
@@ -41,6 +41,7 @@ export function OndeMoramAlunos({ unit, bairros, semBairro }: { unit: string; ba
   const subtitle = <>{unit} • alunos ativos hoje</>;
   if (!bairros?.length) return <ChartCard title="Onde moram os alunos" subtitle={subtitle}><ChartEmpty>Ainda não há bairros carregados para esta unidade. A foto é atualizada todo dia junto com a sincronização do EVO.</ChartEmpty></ChartCard>;
   const total = bairros.reduce((s, b) => s + b[2], 0);
+  const aprox = bairros.filter((b) => b[5]).reduce((s, b) => s + b[2], 0);
   const top = [...bairros].sort((a, b) => b[2] - a[2]).slice(0, 10);
   const max = top[0][2];
   return (
@@ -60,7 +61,7 @@ export function OndeMoramAlunos({ unit, bairros, semBairro }: { unit: string; ba
         </ol>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        {fmt(total)} alunos em {fmt(bairros.length)} bairros localizados{semBairro ? `; ${fmt(semBairro)} sem endereço ou bairro não localizado ficam de fora` : ""}. A bolha fica no centro do bairro (OpenStreetMap), não na casa do aluno.
+        {fmt(total)} alunos em {fmt(bairros.length)} bairros localizados{semBairro ? `; ${fmt(semBairro)} sem endereço ou bairro não localizado ficam de fora` : ""}. A bolha fica no centro do bairro (OpenStreetMap), não na casa do aluno.{aprox > 0 && <> Bolhas cinza tracejadas ({fmt(aprox)} alunos) são bairros não encontrados no mapa, postos no centro da cidade.</>}
       </p>
     </ChartCard>
   );

@@ -69,13 +69,32 @@ async function nominatim(q) {
   return r ? [Math.round(Number(r.lat) * 1e5) / 1e5, Math.round(Number(r.lon) * 1e5) / 1e5] : null;
 }
 
-/** Coordenadas [lat, lng] do bairro ou null. Tenta "bairro, cidade, UF" e, sem sucesso, o bairro sem o que vem entre parênteses. */
+const semPrefixo = (b) => b.replace(/^(setor habitacional|setor de habitacoes|setor de habitações|setor de|setor|residencial|condominio|condomínio|parque|vila|jardim)\s+/i, "").replace(/\s+-\s+.*$/, "").replace(/\s+(i{1,3}|iv|v|vi{0,3}|ix|x|\d+)$/i, "").trim();
+
+/**
+ * Coordenadas do bairro: [lat, lng] ou, quando só o centro da cidade foi achado, [lat, lng, 1] (aproximado). null se nada serviu.
+ * Tenta, em ordem: "bairro, cidade, UF"; bairro sem parênteses; o nome dentro dos parênteses; bairro sem prefixo/trecho;
+ * bairro só com a UF (a cidade do cadastro costuma vir errada); e por último a cidade.
+ */
 export async function coordenadasDoBairro({ bairro, cidade, uf }, busca = nominatim) {
   const limpo = bairro.replace(/\(.*?\)/g, "").trim();
-  const tentativas = [[bairro, cidade, uf], ...(limpo && limpo !== bairro ? [[limpo, cidade, uf]] : [])];
-  for (const partes of tentativas) {
-    const c = await busca(partes.filter(Boolean).join(", "));
+  const dentro = bairro.match(/\((.*?)\)/)?.[1]?.trim();
+  const base = semPrefixo(limpo);
+  const consultas = [
+    [bairro, cidade, uf], [limpo, cidade, uf], dentro && [dentro, cidade, uf], base.length > 3 && [base, cidade, uf],
+    [limpo, uf], base.length > 3 && [base, uf],
+  ].filter(Boolean);
+  const vistas = new Set();
+  for (const partes of consultas) {
+    const q = partes.filter(Boolean).join(", ");
+    if (vistas.has(q)) continue;
+    vistas.add(q);
+    const c = await busca(q);
     if (c) return c;
+  }
+  if (cidade) {
+    const c = await busca([cidade, uf].filter(Boolean).join(", "));
+    if (c) return [...c, 1];
   }
   return null;
 }

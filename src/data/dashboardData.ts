@@ -73,8 +73,8 @@ export interface UnitData {
   treinoAtivo?: number;
   treinoVencido?: number;
   treinoFuturo?: number;
-  /** Onde moram os alunos ativos hoje (foto do EVO, só no mês corrente): [bairro, cidade, alunos, lat, lng]. `semBairro` = ativos sem endereço localizável. */
-  bairros?: [string, string, number, number, number][];
+  /** Onde moram os alunos ativos hoje (foto do EVO, só no mês corrente): [bairro, cidade, alunos, lat, lng, 1 se a posição é só o centro da cidade]. `semBairro` = ativos sem endereço localizável. */
+  bairros?: [string, string, number, number, number, number?][];
   semBairro?: number;
   /** Alunos ativos hoje por faixa do último acesso: até 7 dias, 8–14, 15–30, 31–60, mais de 60, nunca (foto do EVO, só no mês corrente). */
   acessos?: number[];
