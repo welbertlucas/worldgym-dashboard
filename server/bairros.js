@@ -2,6 +2,7 @@
 // As coordenadas vêm do Nominatim (OpenStreetMap, 1 consulta/s) e ficam num cache no Blob para não repetir.
 import { fetchAll } from "./evo.js";
 import { ativoNoDia, resumoAluno } from "./ativos.js";
+import { perfilDosAlunos } from "./perfil.js";
 
 const semAcento = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 const MINUSCULAS = new Set(["de", "da", "do", "das", "dos", "e"]);
@@ -51,10 +52,11 @@ export function contarUltimoAcesso(membros, hoje) {
   return faixas;
 }
 
-/** Uma única leitura dos alunos da unidade serve aos bairros e ao último acesso. */
+/** Uma única leitura dos alunos da unidade serve aos bairros, ao último acesso e ao perfil (gênero, idade, estado civil). */
 export async function fotoDosAlunos(idBranch, hoje) {
   const membros = await fetchAll(`/members?idBranch=${idBranch}`);
-  return { ...contarPorBairro(membros, hoje), acessos: contarUltimoAcesso(membros, hoje) };
+  const ativos = membros.filter((m) => ativoNoDia(resumoAluno(m).c, hoje));
+  return { ...contarPorBairro(membros, hoje), acessos: contarUltimoAcesso(membros, hoje), perfil: perfilDosAlunos(ativos, hoje) };
 }
 
 const UA = "worldgym-dashboard/1.0 (geocodificacao de bairros, uso interno)";

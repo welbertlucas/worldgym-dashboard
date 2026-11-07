@@ -4,6 +4,7 @@ import { clientesSpecs } from "@/components/kpi/tabSpecs";
 import { FluxoClientesChart } from "@/components/clientes/FluxoClientesChart";
 import { MotivosCancelamento } from "@/components/clientes/MotivosCancelamento";
 import { TreinosCard } from "@/components/clientes/TreinosCard";
+import { PerfilAlunosCard } from "@/components/clientes/PerfilAlunosCard";
 import { AcessosCard } from "@/components/clientes/AcessosCard";
 import { SaldoHeatmap } from "@/components/clientes/SaldoHeatmap";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
@@ -26,6 +27,7 @@ export function BaseAlunos({ ctx, month, unit }: Props) {
       </div>
       <div className="mb-6"><TreinosCard total={total} month={month} monthLabel={monthLabel} unit={unit} /></div>
       <div className="mb-6"><AcessosCard total={total} month={month} monthLabel={monthLabel} unit={unit} /></div>
+      <div className="mb-6"><PerfilAlunosCard total={total} monthLabel={monthLabel} unit={unit} /></div>
       <SaldoHeatmap selectedMonth={month} selectedUnit={unit} />
     </div>
   );

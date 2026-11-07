@@ -80,6 +80,10 @@ export interface UnitData {
   local?: [number, number];
   /** Alunos ativos hoje por faixa do último acesso: até 7 dias, 8–14, 15–30, 31–60, mais de 60, nunca (foto do EVO, só no mês corrente). */
   acessos?: number[];
+  /** Perfil dos alunos ativos hoje (foto do EVO, só no mês corrente): gênero [fem, masc, outros], 8 faixas de idade (até 17, 18–24, 25–34, 35–44, 45–54, 55–64, 65+, sem data) e estado civil. */
+  perfil?: Perfil;
+  /** Perfil das oportunidades cadastradas no mês: [cadastradas, convertidas no mês] por gênero e por faixa de idade. */
+  perfilOport?: PerfilOport;
   /** Brinquedoteca (diária kids, brinquedoteca, mensalidades kids), das vendas do EVO. */
   kids?: number;
   /** Taxa de personal (valor dos contratos de personal vendidos) calculada a partir das vendas do EVO. */
@@ -341,7 +345,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "local" | "acessos" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -373,6 +377,32 @@ export const ltv = (u: Pick<UnitData, "ticketMedio" | "permanenciaMeses">) =>
 export function somarMotivos(us: Pick<UnitData, "motivosCancel">[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const u of us) for (const [k, n] of Object.entries(u.motivosCancel ?? {})) out[k] = (out[k] ?? 0) + n;
+  return out;
+}
+
+export type Perfil = { g: number[]; i: number[]; c: Record<string, number> };
+export type PerfilOport = { g: [number, number][]; i: [number, number][] };
+
+/** Soma o perfil dos alunos de várias unidades. */
+export function somarPerfil(us: Pick<UnitData, "perfil">[]): Perfil {
+  const out: Perfil = { g: [0, 0, 0], i: Array(8).fill(0), c: {} };
+  for (const u of us) {
+    if (!u.perfil) continue;
+    u.perfil.g.forEach((v, k) => { out.g[k] += v; });
+    u.perfil.i.forEach((v, k) => { out.i[k] += v; });
+    for (const [k, v] of Object.entries(u.perfil.c ?? {})) out.c[k] = (out.c[k] ?? 0) + v;
+  }
+  return out;
+}
+
+/** Soma o perfil das oportunidades de várias unidades. */
+export function somarPerfilOport(us: Pick<UnitData, "perfilOport">[]): PerfilOport {
+  const out: PerfilOport = { g: [[0, 0], [0, 0], [0, 0]], i: Array.from({ length: 8 }, () => [0, 0] as [number, number]) };
+  for (const u of us) {
+    if (!u.perfilOport) continue;
+    u.perfilOport.g.forEach(([c, v], k) => { out.g[k][0] += c; out.g[k][1] += v; });
+    u.perfilOport.i.forEach(([c, v], k) => { out.i[k][0] += c; out.i[k][1] += v; });
+  }
   return out;
 }
 
@@ -472,6 +502,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.origens !== undefined) unit.origens = e.origens;
       if (e.cobrancas !== undefined) { unit.cobrancas = e.cobrancas; unit.recusaMotivos = e.recusaMotivos ?? {}; }
       if (e.acessos !== undefined) unit.acessos = e.acessos;
+      if (e.perfil !== undefined) unit.perfil = e.perfil;
+      if (e.perfilOport !== undefined) unit.perfilOport = e.perfilOport;
       if (e.bairros !== undefined) { unit.bairros = e.bairros; unit.semBairro = e.semBairro ?? 0; if (e.local) unit.local = e.local; }
       if (e.treinoAtivo !== undefined) { unit.treinoAtivo = e.treinoAtivo; unit.treinoVencido = e.treinoVencido ?? 0; unit.treinoFuturo = e.treinoFuturo ?? 0; }
       // Conversão = convertidos no mês ÷ cadastrados no mês (relatório de prospects do EVO).
@@ -554,6 +586,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(md.units.some((u) => u.acessos !== undefined)
         ? { acessos: [0, 1, 2, 3, 4, 5].map((i) => md.units.reduce((n, u) => n + (u.acessos?.[i] ?? 0), 0)) }
         : {}),
+      ...(md.units.some((u) => u.perfil !== undefined) ? { perfil: somarPerfil(md.units) } : {}),
+      ...(md.units.some((u) => u.perfilOport !== undefined) ? { perfilOport: somarPerfilOport(md.units) } : {}),
       ...(md.units.some((u) => u.treinoAtivo !== undefined)
         ? { treinoAtivo: md.units.reduce((n, u) => n + (u.treinoAtivo ?? 0), 0), treinoVencido: md.units.reduce((n, u) => n + (u.treinoVencido ?? 0), 0), treinoFuturo: md.units.reduce((n, u) => n + (u.treinoFuturo ?? 0), 0) }
         : {}),

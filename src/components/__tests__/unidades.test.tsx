@@ -119,3 +119,26 @@ describe("AcessosCard", () => {
     expect(renderToString(<AcessosCard total={{ name: "Rede", faturamento: 0, recebimento: 0 } as never} month="2026-10" monthLabel="outubro" unit={null} />)).toContain("foto de hoje");
   });
 });
+
+describe("Perfil dos alunos e das oportunidades", () => {
+  it("mostra gênero, faixas e estado civil dos alunos", async () => {
+    const { PerfilAlunosCard } = await import("@/components/clientes/PerfilAlunosCard");
+    const total = { perfil: { g: [60, 38, 2], i: [1, 10, 30, 25, 15, 10, 4, 5], c: { Solteiro: 30, Casado: 10 } } } as never;
+    const html = renderToString(<PerfilAlunosCard total={total} monthLabel="novembro de 2026" unit="Itapoã" />);
+    expect(html).toMatch(/60,0(<!-- -->)?%/);
+    expect(html).toContain("Feminino");
+    expect(html).toContain("25–34");
+    expect(html).toContain("Solteiro");
+  });
+  it("orienta quando não há perfil", async () => {
+    const { PerfilAlunosCard } = await import("@/components/clientes/PerfilAlunosCard");
+    expect(renderToString(<PerfilAlunosCard total={{} as never} monthLabel="x" unit={null} />)).toContain("foto de hoje");
+  });
+  it("mostra quantos de cada grupo convertem nas oportunidades", async () => {
+    const { PerfilOportunidades } = await import("@/components/PerfilOportunidades");
+    const total = { perfilOport: { g: [[100, 50], [80, 20], [10, 0]], i: Array.from({ length: 8 }, () => [10, 5]) } } as never;
+    const html = renderToString(<PerfilOportunidades total={total} monthLabel="novembro de 2026" partial={false} unitLabel="Rede" />);
+    expect(html).toContain("convertem");
+    expect(html).toMatch(/50,0(<!-- -->)?%/);
+  });
+});

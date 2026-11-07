@@ -1,4 +1,4 @@
-// Foto de hoje dos alunos ativos (só contagens): por bairro e por faixa do último acesso, gravada no mês corrente.
+// Foto de hoje dos alunos ativos (só contagens): por bairro, por faixa do último acesso e perfil (gênero, idade, estado civil), gravada no mês corrente.
 // Uso: node --env-file=.env.local scripts/evo-bairros.mjs
 import { hojeBR, listBranches } from "../server/evo.js";
 import { fotoDosAlunos, chaveBairro, coordenadasDoBairro } from "../server/bairros.js";
@@ -14,7 +14,7 @@ const locais = new Map((await listBranches()).map((b) => [b.idBranch, [b.latitud
 for (const [id, nome] of Object.entries(UNIDADES)) {
   const u = blob.units.find((x) => x.name === nome);
   if (!u) continue;
-  const { lista, semBairro, acessos } = await fotoDosAlunos(Number(id), hoje);
+  const { lista, semBairro, acessos, perfil } = await fotoDosAlunos(Number(id), hoje);
   const bairros = [];
   let novos = 0;
   for (const b of lista) {
@@ -27,6 +27,7 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
   if (local && Number.isFinite(local[0]) && Number.isFinite(local[1]) && (local[0] || local[1])) u.local = local;
   u.bairros = bairros;
   u.acessos = acessos;
+  u.perfil = perfil;
   u.semBairro = semBairro + lista.filter((b) => !geo[chaveBairro(b.bairro, b.cidade)]).reduce((s, b) => s + b.n, 0);
   console.log(nome, bairros.length, "bairros", u.semBairro, "sem localização");
 }
