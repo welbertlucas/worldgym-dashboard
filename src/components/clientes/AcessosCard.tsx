@@ -1,6 +1,8 @@
 import { UnitLink } from "@/components/UnitLink";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
-import { getDataByMonth, type UnitData } from "@/data/dashboardData";
+import { getAvailableUnits, getDataByMonth, type UnitData } from "@/data/dashboardData";
+import { acessosMaisRecente } from "@/data/mapaAlunos";
+import { formatMonthLong } from "@/data/periods";
 
 export const FAIXAS = [
   { rotulo: "Até 7 dias", cor: "bg-success" },
@@ -28,11 +30,14 @@ function Barra({ a }: { a: number[] }) {
 
 /** Quando os alunos ativos vieram pela última vez (catraca). Foto de hoje: só existe para o mês em andamento. */
 export function AcessosCard({ total, month, monthLabel, unit }: { total: UnitData; month: string; monthLabel: string; unit: string | null }) {
-  const subtitle = <>{unit ?? "Rede"} • {monthLabel}</>;
-  const a = total.acessos;
+  // O último acesso é uma foto de hoje: em meses fechados mostra a foto mais recente, dizendo de qual mês é.
+  const reserva = total.acessos ? null : acessosMaisRecente(unit, getAvailableUnits());
+  const subtitle = <>{unit ?? "Rede"} • {reserva ? `foto mais recente (${formatMonthLong(reserva.mes)})` : monthLabel}</>;
+  const a = total.acessos ?? reserva?.acessos;
   if (!a || soma(a) === 0) return <ChartCard title="Último check-in dos alunos" subtitle={subtitle}><ChartEmpty>O último acesso é uma foto de hoje e só existe para o mês em andamento; ela passa a aparecer conforme os dias são registrados.</ChartEmpty></ChartCard>;
   const t = soma(a);
-  const unidades = unit ? [] : (getDataByMonth(month)?.units ?? []).filter((u) => u.acessos && soma(u.acessos) > 0).sort((x, y) => semAcessoHa30(y.acessos!) / soma(y.acessos!) - semAcessoHa30(x.acessos!) / soma(x.acessos!));
+  const doMes = reserva ? reserva.unidades : (getDataByMonth(month)?.units ?? []);
+  const unidades = unit ? [] : doMes.filter((u) => u.acessos && soma(u.acessos) > 0).sort((x, y) => semAcessoHa30(y.acessos!) / soma(y.acessos!) - semAcessoHa30(x.acessos!) / soma(x.acessos!));
   return (
     <ChartCard
       title="Último check-in dos alunos"

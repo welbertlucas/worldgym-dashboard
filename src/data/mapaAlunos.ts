@@ -45,3 +45,17 @@ export function perfilMaisRecente(unit: string | null, nomes: string[]): { perfi
   }
   return us.length ? { perfil: somarPerfil(us), mes } : null;
 }
+
+/** Último check-in da foto mais recente de cada unidade (reserva em meses fechados): total, mês mais novo e acessos por unidade. */
+export function acessosMaisRecente(unit: string | null, nomes: string[]): { acessos: number[]; mes: string; unidades: { name: string; acessos: number[] }[] } | null {
+  const unidades: { name: string; acessos: number[] }[] = [];
+  let mes = "";
+  for (const nome of unit ? [unit] : nomes) {
+    for (const d of [...dashboardData].reverse()) {
+      const u = d.units.find((x) => x.name === nome);
+      if (u?.acessos) { unidades.push({ name: nome, acessos: u.acessos }); if (d.month > mes) mes = d.month; break; }
+    }
+  }
+  if (!unidades.length) return null;
+  return { acessos: [0, 1, 2, 3, 4, 5].map((i) => unidades.reduce((n, u) => n + (u.acessos[i] ?? 0), 0)), mes, unidades };
+}
