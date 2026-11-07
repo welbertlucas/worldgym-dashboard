@@ -20,12 +20,12 @@ function Mapa({ bairros }: { bairros: Bairro[] }) {
     import("leaflet").then((mod) => {
       if (!vivo) return;
       const L = mod.default ?? mod;
-      const mapa = L.map(el, { scrollWheelZoom: false });
+      const mapa = L.map(el, { scrollWheelZoom: true });
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(mapa);
       const max = Math.max(...bairros.map((b) => b[2]));
       const grupo = L.featureGroup(
         [...bairros].sort((a, b) => b[2] - a[2]).map(([nome, cidade, n, lat, lng, aprox]) =>
-          L.circleMarker([lat, lng], { radius: raioDaBolha(n, max), color: aprox ? "#6b7280" : "#c91d12", weight: 1.5, dashArray: aprox ? "4 3" : undefined, fillColor: aprox ? "#9ca3af" : "#e8281b", fillOpacity: aprox ? 0.3 : 0.45 })
+          L.circleMarker([lat, lng], { radius: raioDaBolha(n, max), color: aprox ? "#6b7280" : "#1d4ed8", weight: 1.5, dashArray: aprox ? "4 3" : undefined, fillColor: aprox ? "#9ca3af" : "#3b82f6", fillOpacity: aprox ? 0.3 : 0.45 })
             .bindTooltip(`<strong>${nome}</strong>${cidade ? ` · ${cidade}` : ""}<br/>${fmt(n)} ${n === 1 ? "aluno" : "alunos"}${aprox ? "<br/><em>posição aproximada (centro da cidade)</em>" : ""}`)),
       ).addTo(mapa);
       mapa.fitBounds(grupo.getBounds().pad(0.15), { maxZoom: 14 });
@@ -55,7 +55,7 @@ export function OndeMoramAlunos({ unit, bairros, semBairro }: { unit: string; ba
                 <span className="min-w-0 truncate font-medium text-foreground">{nome}{cidade && <span className="font-normal text-muted-foreground"> · {cidade}</span>}</span>
                 <span className="shrink-0 tabular-nums text-foreground">{fmt(n)} <span className="text-xs text-muted-foreground">({((n / total) * 100).toFixed(1).replace(".", ",")}%)</span></span>
               </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden><div className="h-full rounded-full bg-primary/70" style={{ width: `${(n / max) * 100}%` }} /></div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden><div className="h-full rounded-full bg-[#3b82f6]/70" style={{ width: `${(n / max) * 100}%` }} /></div>
             </li>
           ))}
         </ol>
