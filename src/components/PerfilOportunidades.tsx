@@ -20,7 +20,7 @@ export function PerfilOportunidades({ total, monthLabel, partial, unitLabel }: {
           <IdadeColunas itens={ROTULOS_IDADE.map((rotulo, k) => ({ rotulo, n: p.i[k][0], conv: p.i[k][1] }))} />
         </div>
       </div>
-      <p className="mt-4 text-xs text-muted-foreground">{cadastradas.toLocaleString("pt-BR")} oportunidades cadastradas no mês; "convertem" são as que viraram cliente no próprio mês (mesma regra da conversão). Só contagens: nenhum dado pessoal é guardado.</p>
+      <p className="mt-4 text-xs text-muted-foreground">{cadastradas.toLocaleString("pt-BR")} oportunidades cadastradas no mês; "convertem" são as que viraram cliente no próprio mês (mesma regra da conversão). O total pode ficar alguns por cento abaixo do da conversão, porque o EVO não devolve todas as oportunidades por esta rota. Só contagens: nenhum dado pessoal é guardado.</p>
     </ChartCard>
   );
 }

@@ -17,7 +17,7 @@ export function PerfilAlunosCard({ total, monthLabel, unit }: { total: UnitData;
         <div>
           <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Gênero</h4>
           <GeneroBarra itens={GENEROS.map((g, k) => ({ rotulo: g.rotulo, n: p.g[k] }))} />
-          {informados > 0 && (
+          {informados / alunos >= 0.1 && (
             <div className="mt-6">
               <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Estado civil <span className="normal-case tracking-normal">({pct(informados, alunos)} dos alunos informaram)</span></h4>
               <ul className="space-y-2">
