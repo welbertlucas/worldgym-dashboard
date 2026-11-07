@@ -17,12 +17,16 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
   const { lista, semBairro, acessos, perfil } = await fotoDosAlunos(Number(id), hoje);
   const bairros = [];
   let novos = 0;
+  let falhou = false;
   for (const b of lista) {
     const k = chaveBairro(b.bairro, b.cidade);
-    if (!geo[k]) { geo[k] = await coordenadasDoBairro(b); novos++; }
+    if (!geo[k]) {
+      try { geo[k] = await coordenadasDoBairro(b); novos++; } catch (e) { falhou = e.message; break; } // não guarda a falha: a próxima carga tenta de novo
+    }
     if (geo[k]) bairros.push([b.bairro, b.cidade, b.n, geo[k][0], geo[k][1], ...(geo[k][2] ? [1] : [])]);
   }
   if (novos) await saveGeo(geo); // uma gravação por unidade (não por bairro): o Blob cobra por operação
+  if (falhou) { console.log(nome, "PULADA —", falhou, "(rode de novo depois)"); continue; }
   const local = locais.get(Number(id));
   if (local && Number.isFinite(local[0]) && Number.isFinite(local[1]) && (local[0] || local[1])) u.local = local;
   u.bairros = bairros;

@@ -65,7 +65,13 @@ async function nominatim(q) {
   const espera = ultimo + 1100 - Date.now();
   if (espera > 0) await new Promise((r) => setTimeout(r, espera));
   ultimo = Date.now();
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`, { headers: { "User-Agent": UA } });
+  let res;
+  for (let t = 1; t <= 5; t++) { // 429/503 do Nominatim são passageiros: espera e tenta de novo
+    res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`, { headers: { "User-Agent": UA } });
+    if (res.ok || ![429, 502, 503, 504].includes(res.status)) break;
+    await new Promise((r) => setTimeout(r, 8000 * t));
+    ultimo = Date.now();
+  }
   if (!res.ok) throw new Error(`Nominatim ${res.status}`);
   const [r] = await res.json();
   return r ? [Math.round(Number(r.lat) * 1e5) / 1e5, Math.round(Number(r.lon) * 1e5) / 1e5] : null;
