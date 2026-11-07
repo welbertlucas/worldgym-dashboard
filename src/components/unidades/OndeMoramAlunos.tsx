@@ -1,5 +1,5 @@
 import "leaflet/dist/leaflet.css";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import type { UnitData } from "@/data/dashboardData";
 import type { Pino } from "@/data/mapaAlunos";
@@ -40,11 +40,12 @@ function Mapa({ bairros, pinos }: { bairros: Bairro[]; pinos: Pino[] }) {
     });
     return () => { vivo = false; limpar(); };
   }, [bairros, pinos]);
-  return <div ref={ref} role="img" aria-label="Mapa com os bairros dos alunos ativos; o tamanho da bolha mostra quantos alunos" className="h-[360px] w-full overflow-hidden rounded-xl border border-border" />;
+  return <div ref={ref} role="img" aria-label="Mapa com os bairros dos alunos ativos; o tamanho da bolha mostra quantos alunos" className="h-[70vh] min-h-[480px] w-full overflow-hidden rounded-xl border border-border" />;
 }
 
 /** Onde moram os alunos ativos hoje: bolhas no mapa e ranking dos bairros. Só contagens por bairro; nenhum endereço de aluno é guardado. */
 export function OndeMoramAlunos({ unit, bairros, semBairro, pinos = [] }: { unit: string; bairros?: UnitData["bairros"]; semBairro?: number; pinos?: Pino[] }) {
+  const [ranking, setRanking] = useState(true);
   const subtitle = <>{unit} • alunos ativos hoje</>;
   if (!bairros?.length) return <ChartCard title="Onde moram os alunos" subtitle={subtitle}><ChartEmpty>Ainda não há bairros carregados para esta unidade. A foto é atualizada todo dia junto com a sincronização do EVO.</ChartEmpty></ChartCard>;
   const total = bairros.reduce((s, b) => s + b[2], 0);
@@ -53,19 +54,26 @@ export function OndeMoramAlunos({ unit, bairros, semBairro, pinos = [] }: { unit
   const max = top[0][2];
   return (
     <ChartCard title="Onde moram os alunos" subtitle={subtitle}>
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="relative">
         <Mapa bairros={bairros} pinos={pinos} />
-        <ol className="space-y-2" aria-label="Bairros com mais alunos">
-          {top.map(([nome, cidade, n]) => (
-            <li key={`${nome}|${cidade}`} className="text-sm">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 truncate font-medium text-foreground">{nome}{cidade && <span className="font-normal text-muted-foreground"> · {cidade}</span>}</span>
-                <span className="shrink-0 tabular-nums text-foreground">{fmt(n)} <span className="text-xs text-muted-foreground">({((n / total) * 100).toFixed(1).replace(".", ",")}%)</span></span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden><div className="h-full rounded-full bg-[#3b82f6]/70" style={{ width: `${(n / max) * 100}%` }} /></div>
-            </li>
-          ))}
-        </ol>
+        <div className="mt-3 lg:absolute lg:right-3 lg:top-3 lg:z-[1100] lg:mt-0 lg:w-72">
+          <button type="button" onClick={() => setRanking((v) => !v)} aria-expanded={ranking} className="mb-2 hidden rounded-lg border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-foreground shadow backdrop-blur hover:bg-card lg:ml-auto lg:block">
+            {ranking ? "Ocultar ranking" : "Mostrar ranking"}
+          </button>
+          {ranking && (
+            <ol className="space-y-2 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur lg:max-h-[calc(70vh-4rem)] lg:overflow-y-auto" aria-label="Bairros com mais alunos">
+              {top.map(([nome, cidade, n]) => (
+                <li key={`${nome}|${cidade}`} className="text-sm">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate font-medium text-foreground">{nome}{cidade && <span className="font-normal text-muted-foreground"> · {cidade}</span>}</span>
+                    <span className="shrink-0 tabular-nums text-foreground">{fmt(n)} <span className="text-xs text-muted-foreground">({((n / total) * 100).toFixed(1).replace(".", ",")}%)</span></span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden><div className="h-full rounded-full bg-[#3b82f6]/70" style={{ width: `${(n / max) * 100}%` }} /></div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
         {fmt(total)} alunos em {fmt(bairros.length)} bairros localizados{semBairro ? `; ${fmt(semBairro)} sem endereço ou bairro não localizado ficam de fora` : ""}. A bolha fica no centro do bairro (OpenStreetMap), não na casa do aluno. {pinos.length > 1 ? "Os pinos vermelhos são as unidades." : pinos.length === 1 ? "O pino vermelho é a unidade." : ""}{aprox > 0 && <> Bolhas cinza tracejadas ({fmt(aprox)} alunos) são bairros não encontrados no mapa, postos no centro da cidade.</>}
