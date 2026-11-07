@@ -92,7 +92,7 @@ export async function fetchAll(path) {
 
 export async function listBranches() {
   const all = await evoGet("/configuration");
-  return all.filter((b) => b.idBranch > 0).map((b) => ({ idBranch: b.idBranch, name: String(b.name).trim() }));
+  return all.filter((b) => b.idBranch > 0).map((b) => ({ idBranch: b.idBranch, name: String(b.name).trim(), latitude: b.latitude, longitude: b.longitude }));
 }
 
 function monthRange(ym) {

@@ -182,7 +182,7 @@ export function UnidadeTab({ selectedMonth, initialUnit, openKey, compareMonth, 
         </section>
       )}
 
-      <OndeMoramAlunos unit={unit} bairros={ultimoComBairros?.bairros} semBairro={ultimoComBairros?.semBairro} />
+      <OndeMoramAlunos unit={unit} bairros={ultimoComBairros?.bairros} semBairro={ultimoComBairros?.semBairro} local={ultimoComBairros?.local} />
 
       <section aria-labelledby="evolucao-un-titulo">
         <h3 id="evolucao-un-titulo" className="text-base font-semibold text-foreground">Evolução de {mesesGrafico.length} {mesesGrafico.length === 1 ? "mês" : "meses"}: {mesesGrafico.length ? `${formatMonthLong(mesesGrafico[0])} a ${formatMonthLong(mesesGrafico[mesesGrafico.length - 1])}` : "sem meses fechados no intervalo"}</h3>
