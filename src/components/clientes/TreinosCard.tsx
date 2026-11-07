@@ -1,6 +1,8 @@
 import { UnitLink } from "@/components/UnitLink";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
-import { getDataByMonth, type UnitData } from "@/data/dashboardData";
+import { getAvailableUnits, getDataByMonth, type UnitData } from "@/data/dashboardData";
+import { treinosMaisRecente } from "@/data/mapaAlunos";
+import { formatMonthLong } from "@/data/periods";
 
 const COR = { ativo: "bg-success", vencido: "bg-warning", futuro: "bg-foreground/40", sem: "bg-destructive/70" } as const;
 const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1).replace(".", ",")}%` : "—");
@@ -29,10 +31,12 @@ function Barra({ s }: { s: SituacaoTreino }) {
 
 /** Quantos alunos ativos têm treino ativo, vencido ou nenhum. A rotina do EVO só mostra o estado de hoje, então o histórico se forma dia a dia. */
 export function TreinosCard({ total, month, monthLabel, unit }: { total: UnitData; month: string; monthLabel: string; unit: string | null }) {
-  const s = situacaoDosTreinos(total);
-  const subtitle = <>{unit ?? "Rede"} • {monthLabel}</>;
+  // A situação dos treinos é uma foto de hoje: em meses fechados mostra a foto mais recente, dizendo de qual mês é.
+  const reserva = situacaoDosTreinos(total) ? null : treinosMaisRecente(unit, getAvailableUnits());
+  const s = situacaoDosTreinos(reserva?.total ?? total);
+  const subtitle = <>{unit ?? "Rede"} • {reserva ? `foto mais recente (${formatMonthLong(reserva.mes)})` : monthLabel}</>;
   if (!s) return <ChartCard title="Treinos dos alunos" subtitle={subtitle}><ChartEmpty>A situação dos treinos é uma foto de hoje e só existe para o mês em andamento; ela passa a aparecer nos meses seguintes conforme os dias são registrados.</ChartEmpty></ChartCard>;
-  const unidades = unit ? [] : (getDataByMonth(month)?.units ?? []).map((u) => ({ u, s: situacaoDosTreinos(u) })).filter((x): x is { u: UnitData; s: SituacaoTreino } => !!x.s && x.s.alunos > 0).sort((a, b) => b.s.ativo / b.s.alunos - a.s.ativo / a.s.alunos);
+  const unidades = unit ? [] : (reserva ? reserva.unidades : (getDataByMonth(month)?.units ?? [])).map((u) => ({ u, s: situacaoDosTreinos(u) })).filter((x): x is { u: UnitData; s: SituacaoTreino } => !!x.s && x.s.alunos > 0).sort((a, b) => b.s.ativo / b.s.alunos - a.s.ativo / a.s.alunos);
   return (
     <ChartCard
       title="Treinos dos alunos"

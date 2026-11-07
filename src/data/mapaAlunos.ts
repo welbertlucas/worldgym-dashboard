@@ -59,3 +59,19 @@ export function acessosMaisRecente(unit: string | null, nomes: string[]): { aces
   if (!unidades.length) return null;
   return { acessos: [0, 1, 2, 3, 4, 5].map((i) => unidades.reduce((n, u) => n + (u.acessos[i] ?? 0), 0)), mes, unidades };
 }
+
+/** Treinos da foto mais recente de cada unidade (reserva em meses fechados): soma da rede ou da unidade, mês mais novo e unidades. */
+export function treinosMaisRecente(unit: string | null, nomes: string[]): { total: UnitData; mes: string; unidades: UnitData[] } | null {
+  const unidades: UnitData[] = [];
+  let mes = "";
+  for (const nome of unit ? [unit] : nomes) {
+    for (const d of [...dashboardData].reverse()) {
+      const u = d.units.find((x) => x.name === nome);
+      if (u?.treinoAtivo !== undefined) { unidades.push(u); if (d.month > mes) mes = d.month; break; }
+    }
+  }
+  if (!unidades.length) return null;
+  const soma = (f: (u: UnitData) => number) => unidades.reduce((n, u) => n + f(u), 0);
+  const total = { treinoAtivo: soma((u) => u.treinoAtivo ?? 0), treinoVencido: soma((u) => u.treinoVencido ?? 0), treinoFuturo: soma((u) => u.treinoFuturo ?? 0), ativosFim: soma((u) => u.ativosFim ?? 0) } as UnitData;
+  return { total, mes, unidades };
+}
