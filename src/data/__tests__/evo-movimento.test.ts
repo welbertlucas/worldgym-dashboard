@@ -115,6 +115,14 @@ describe("mergeEvo: movimento e vendas", () => {
     expect(data[0].total.churn).toBe(5);
     expect(data[0].total.vendasEvo).toBe(true);
   });
+  it("o total da rede leva os alunos do início do mês (o cartão de fluxo precisa dele)", () => {
+    const data = [month("2026-09", [unit("Asa Norte", {}), unit("Gama", {})])];
+    mergeEvo(data, [{ month: "2026-09", units: [
+      { name: "Asa Norte", faturamento: 1, recebimento: 1, cancelados: 90, ativosIni: 1800 },
+      { name: "Gama", faturamento: 1, recebimento: 1, cancelados: 40, ativosIni: 2200 },
+    ] }]);
+    expect(data[0].total.ativosIni).toBe(4000);
+  });
 });
 
 describe("mergeEvo: renovação", () => {

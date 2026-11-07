@@ -553,7 +553,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
             const us = md.units.filter((u) => u.ativosIni !== undefined);
             const ini = us.reduce((s, u) => s + (u.ativosIni ?? 0), 0);
             const canc = us.reduce((s, u) => s + u.cancelados, 0);
-            return { cancelados: md.units.reduce((s, u) => s + u.cancelados, 0), churn: ini > 0 ? Math.round((canc / ini) * 1000) / 10 : 0 };
+            return { cancelados: md.units.reduce((s, u) => s + u.cancelados, 0), ativosIni: ini, churn: ini > 0 ? Math.round((canc / ini) * 1000) / 10 : 0 };
           })()
         : {}),
       ...(evo.units.some((e) => e.aVencer !== undefined && e.naoRenovados !== undefined)
