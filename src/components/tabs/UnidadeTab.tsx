@@ -7,7 +7,6 @@ import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid
 import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { TrendCard } from "@/components/unidades/TrendCard";
 import { ContratosTiles } from "@/components/unidades/ContratosTiles";
-import { OndeMoramAlunos } from "@/components/unidades/OndeMoramAlunos";
 import { contratosView } from "@/data/contratosAtivos";
 import { dashboardData, getAvailableUnits, type UnitData } from "@/data/dashboardData";
 import { INDICATOR_BY_KEY, formatIndicator } from "@/data/unitIndicators";
@@ -77,7 +76,6 @@ export function UnidadeTab({ selectedMonth, initialUnit, openKey, compareMonth, 
     return [{ key, meta, actual, nivel: tierReached(key, actual, meta), proximo: nextTier(key, actual, meta), topo }];
   });
   const ultimoComContratos = [...dashboardData].reverse().map((d) => d.units.find((u) => u.name === unit)).find((u) => u?.contratosAtivos !== undefined);
-  const ultimoComBairros = [...dashboardData].reverse().map((d) => d.units.find((u) => u.name === unit)).find((u) => u?.bairros !== undefined);
   const contratosDaUnidade = ultimoComContratos ? contratosView(ultimoComContratos) : null;
 
   return (
@@ -181,8 +179,6 @@ export function UnidadeTab({ selectedMonth, initialUnit, openKey, compareMonth, 
           <ContratosTiles v={contratosDaUnidade} />
         </section>
       )}
-
-      <OndeMoramAlunos unit={unit} bairros={ultimoComBairros?.bairros} semBairro={ultimoComBairros?.semBairro} local={ultimoComBairros?.local} />
 
       <section aria-labelledby="evolucao-un-titulo">
         <h3 id="evolucao-un-titulo" className="text-base font-semibold text-foreground">Evolução de {mesesGrafico.length} {mesesGrafico.length === 1 ? "mês" : "meses"}: {mesesGrafico.length ? `${formatMonthLong(mesesGrafico[0])} a ${formatMonthLong(mesesGrafico[mesesGrafico.length - 1])}` : "sem meses fechados no intervalo"}</h3>

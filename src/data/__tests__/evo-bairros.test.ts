@@ -37,3 +37,24 @@ describe("último acesso", () => {
     expect(f).toEqual([1, 1, 1, 1, 1, 1]);
   });
 });
+
+import { afterEach } from "vitest";
+import { dashboardData } from "@/data/dashboardData";
+import { dadosDoMapa } from "@/data/mapaAlunos";
+import { month, unit as umaUnidade } from "@/data/__tests__/helpers";
+afterEach(() => { dashboardData.length = 0; });
+
+describe("mapa dos alunos", () => {
+  it("soma o mesmo bairro entre unidades na rede e cria um pino por unidade", () => {
+    dashboardData.push(month("2026-11", [
+      umaUnidade("A", { bairros: [["Paranoá", "Brasília", 10, -15.7, -47.7]], semBairro: 2, local: [-15.75, -47.72] } as never),
+      umaUnidade("B", { bairros: [["Paranoá", "Brasília", 5, -15.7, -47.7], ["Itapoã", "Brasília", 3, -15.74, -47.76]], semBairro: 1, local: [-15.8, -47.9] } as never),
+    ]));
+    const rede = dadosDoMapa(null, ["A", "B"]);
+    expect(rede.bairros.map((b) => [b[0], b[2]])).toEqual([["Paranoá", 15], ["Itapoã", 3]]);
+    expect(rede.pinos.map((p) => p.nome)).toEqual(["A", "B"]);
+    expect(rede.semBairro).toBe(3);
+    expect(rede.alunos).toBe(18);
+    expect(dadosDoMapa("B", ["A", "B"]).alunos).toBe(8);
+  });
+});

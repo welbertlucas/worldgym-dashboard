@@ -94,7 +94,7 @@ describe("UnitComparison", () => {
 describe("OndeMoramAlunos", () => {
   it("lista os bairros com a participação de cada um e avisa o que ficou de fora", async () => {
     const { OndeMoramAlunos } = await import("@/components/unidades/OndeMoramAlunos");
-    const html = renderToString(<OndeMoramAlunos unit="Itapoã" semBairro={5} bairros={[["Paranoá", "Brasília", 30, -15.77, -47.78], ["Itapoã", "Brasília", 10, -15.74, -47.76]]} />);
+    const html = renderToString(<OndeMoramAlunos unit="Itapoã" semBairro={5} pinos={[{ nome: "Itapoã", pos: [-15.75, -47.72] }]} bairros={[["Paranoá", "Brasília", 30, -15.77, -47.78], ["Itapoã", "Brasília", 10, -15.74, -47.76]]} />);
     expect(html).toContain("Paranoá");
     expect(html).toMatch(/75,0(<!-- -->)?%/);
     expect(html).toMatch(/5(<!-- -->)? sem endereço/);

@@ -2,6 +2,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import type { UnitData } from "@/data/dashboardData";
+import type { Pino } from "@/data/mapaAlunos";
 
 type Bairro = NonNullable<UnitData["bairros"]>[number];
 
@@ -10,7 +11,7 @@ const fmt = (n: number) => n.toLocaleString("pt-BR");
 export const raioDaBolha = (n: number, max: number) => 6 + 26 * Math.sqrt(n / Math.max(1, max));
 
 /** Mapa real (OpenStreetMap) com uma bolha por bairro. Carrega o Leaflet só quando o cartão aparece. */
-function Mapa({ bairros, unit, local }: { bairros: Bairro[]; unit: string; local?: [number, number] }) {
+function Mapa({ bairros, pinos }: { bairros: Bairro[]; pinos: Pino[] }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -28,22 +29,22 @@ function Mapa({ bairros, unit, local }: { bairros: Bairro[]; unit: string; local
           L.circleMarker([lat, lng], { radius: raioDaBolha(n, max), color: aprox ? "#6b7280" : "#1d4ed8", weight: 1.5, dashArray: aprox ? "4 3" : undefined, fillColor: aprox ? "#9ca3af" : "#3b82f6", fillOpacity: aprox ? 0.3 : 0.45 })
             .bindTooltip(`<strong>${nome}</strong>${cidade ? ` · ${cidade}` : ""}<br/>${fmt(n)} ${n === 1 ? "aluno" : "alunos"}${aprox ? "<br/><em>posição aproximada (centro da cidade)</em>" : ""}`)),
       ).addTo(mapa);
-      if (local) {
-        // Pino da unidade: destacado e sempre por cima das bolhas.
-        const pino = L.divIcon({ className: "", iconSize: [26, 34], iconAnchor: [13, 32], html: `<svg width="26" height="34" viewBox="0 0 26 34" aria-hidden="true"><path d="M13 1C6.4 1 1 6.2 1 12.7 1 21.5 13 33 13 33s12-11.5 12-20.3C25 6.2 19.6 1 13 1z" fill="#e8281b" stroke="#fff" stroke-width="2"/><circle cx="13" cy="12.5" r="4.5" fill="#fff"/></svg>` });
-        L.marker(local, { icon: pino, zIndexOffset: 1000, title: `World Gym ${unit}` }).bindTooltip(`<strong>World Gym ${unit}</strong><br/>localização da unidade`, { direction: "top", offset: [0, -30] }).addTo(mapa);
-        grupo.addLayer(L.circleMarker(local, { radius: 1, opacity: 0, fillOpacity: 0, interactive: false }));
+      // Pinos das unidades: destacados e sempre por cima das bolhas.
+      const pino = L.divIcon({ className: "", iconSize: [26, 34], iconAnchor: [13, 32], html: `<svg width="26" height="34" viewBox="0 0 26 34" aria-hidden="true"><path d="M13 1C6.4 1 1 6.2 1 12.7 1 21.5 13 33 13 33s12-11.5 12-20.3C25 6.2 19.6 1 13 1z" fill="#e8281b" stroke="#fff" stroke-width="2"/><circle cx="13" cy="12.5" r="4.5" fill="#fff"/></svg>` });
+      for (const p of pinos) {
+        L.marker(p.pos, { icon: pino, zIndexOffset: 1000, title: `World Gym ${p.nome}` }).bindTooltip(`<strong>World Gym ${p.nome}</strong><br/>localização da unidade`, { direction: "top", offset: [0, -30] }).addTo(mapa);
+        grupo.addLayer(L.circleMarker(p.pos, { radius: 1, opacity: 0, fillOpacity: 0, interactive: false }));
       }
       mapa.fitBounds(grupo.getBounds().pad(0.15), { maxZoom: 14 });
       limpar = () => mapa.remove();
     });
     return () => { vivo = false; limpar(); };
-  }, [bairros, unit, local]);
+  }, [bairros, pinos]);
   return <div ref={ref} role="img" aria-label="Mapa com os bairros dos alunos ativos; o tamanho da bolha mostra quantos alunos" className="h-[360px] w-full overflow-hidden rounded-xl border border-border" />;
 }
 
 /** Onde moram os alunos ativos hoje: bolhas no mapa e ranking dos bairros. Só contagens por bairro; nenhum endereço de aluno é guardado. */
-export function OndeMoramAlunos({ unit, bairros, semBairro, local }: { unit: string; bairros?: UnitData["bairros"]; semBairro?: number; local?: [number, number] }) {
+export function OndeMoramAlunos({ unit, bairros, semBairro, pinos = [] }: { unit: string; bairros?: UnitData["bairros"]; semBairro?: number; pinos?: Pino[] }) {
   const subtitle = <>{unit} • alunos ativos hoje</>;
   if (!bairros?.length) return <ChartCard title="Onde moram os alunos" subtitle={subtitle}><ChartEmpty>Ainda não há bairros carregados para esta unidade. A foto é atualizada todo dia junto com a sincronização do EVO.</ChartEmpty></ChartCard>;
   const total = bairros.reduce((s, b) => s + b[2], 0);
@@ -53,7 +54,7 @@ export function OndeMoramAlunos({ unit, bairros, semBairro, local }: { unit: str
   return (
     <ChartCard title="Onde moram os alunos" subtitle={subtitle}>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Mapa bairros={bairros} unit={unit} local={local} />
+        <Mapa bairros={bairros} pinos={pinos} />
         <ol className="space-y-2" aria-label="Bairros com mais alunos">
           {top.map(([nome, cidade, n]) => (
             <li key={`${nome}|${cidade}`} className="text-sm">
@@ -67,7 +68,7 @@ export function OndeMoramAlunos({ unit, bairros, semBairro, local }: { unit: str
         </ol>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        {fmt(total)} alunos em {fmt(bairros.length)} bairros localizados{semBairro ? `; ${fmt(semBairro)} sem endereço ou bairro não localizado ficam de fora` : ""}. A bolha fica no centro do bairro (OpenStreetMap), não na casa do aluno. O pino vermelho é a unidade.{aprox > 0 && <> Bolhas cinza tracejadas ({fmt(aprox)} alunos) são bairros não encontrados no mapa, postos no centro da cidade.</>}
+        {fmt(total)} alunos em {fmt(bairros.length)} bairros localizados{semBairro ? `; ${fmt(semBairro)} sem endereço ou bairro não localizado ficam de fora` : ""}. A bolha fica no centro do bairro (OpenStreetMap), não na casa do aluno. {pinos.length > 1 ? "Os pinos vermelhos são as unidades." : pinos.length === 1 ? "O pino vermelho é a unidade." : ""}{aprox > 0 && <> Bolhas cinza tracejadas ({fmt(aprox)} alunos) são bairros não encontrados no mapa, postos no centro da cidade.</>}
       </p>
     </ChartCard>
   );

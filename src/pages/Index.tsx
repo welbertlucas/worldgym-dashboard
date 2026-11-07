@@ -13,6 +13,7 @@ import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { BaseAlunos } from "@/components/clientes/BaseAlunos";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { UnidadeTab } from "@/components/tabs/UnidadeTab";
+import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
 import { UnitNavProvider } from "@/components/UnitLink";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
@@ -270,7 +271,7 @@ const Index = () => {
 
         <main ref={mainRef} className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 sm:space-y-8 max-w-[1600px] scroll-mt-20">
         {/* Filtros */}
-        <DateFilter
+        {activeTab !== "mapa" && <DateFilter
           selectedMonth={fullMonthData.month}
           compareMonth={compareMonth}
           selectedUnit={selectedUnit}
@@ -278,10 +279,10 @@ const Index = () => {
           onCompareMonthChange={setCompareMonth}
           onUnitChange={setSelectedUnit}
           hideUnit={activeTab === "unidade"}
-        />
+        />}
 
         {/* Comparativo */}
-        {comparison && activeTab !== "unidade" && (
+        {comparison && activeTab !== "unidade" && activeTab !== "mapa" && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -299,7 +300,7 @@ const Index = () => {
           </section>
         )}
 
-        {partialSelected && activeTab !== "executiva" && (
+        {partialSelected && activeTab !== "executiva" && activeTab !== "mapa" && (
           <Notice><b>{formatDate(fullMonthData.month)}</b> está em andamento — os valores são parciais.</Notice>
         )}
 
@@ -381,6 +382,8 @@ const Index = () => {
         )}
 
         {activeTab === "unidade" && <UnidadeTab selectedMonth={fullMonthData.month} initialUnit={detailUnit?.name ?? selectedUnit} openKey={detailUnit?.n} compareMonth={compareMonth} metas={metasData} />}
+
+        {activeTab === "mapa" && <MapaAlunosTab initialUnit={selectedUnit} />}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 
