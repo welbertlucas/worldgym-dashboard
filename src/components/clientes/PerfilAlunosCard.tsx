@@ -1,11 +1,15 @@
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { GENEROS, GeneroBarra, IdadeColunas, pct, ROTULOS_IDADE } from "@/components/perfil/blocos";
-import type { UnitData } from "@/data/dashboardData";
+import { getAvailableUnits, type UnitData } from "@/data/dashboardData";
+import { perfilMaisRecente } from "@/data/mapaAlunos";
+import { formatMonthLong } from "@/data/periods";
 
 /** Quem são os alunos ativos: gênero, faixa etária e estado civil (quando o cadastro tem). Foto de hoje, só no mês em andamento. */
 export function PerfilAlunosCard({ total, monthLabel, unit }: { total: UnitData; monthLabel: string; unit: string | null }) {
-  const subtitle = <>{unit ?? "Rede"} • {monthLabel}</>;
-  const p = total.perfil;
+  // O perfil é uma foto de hoje: em meses fechados mostra a foto mais recente, dizendo de qual mês é.
+  const reserva = total.perfil ? null : perfilMaisRecente(unit, getAvailableUnits());
+  const p = total.perfil ?? reserva?.perfil;
+  const subtitle = <>{unit ?? "Rede"} • {reserva ? `foto mais recente (${formatMonthLong(reserva.mes)})` : monthLabel}</>;
   const alunos = p ? p.g.reduce((s, v) => s + v, 0) : 0;
   if (!p || alunos === 0) return <ChartCard title="Perfil dos alunos" subtitle={subtitle}><ChartEmpty>O perfil é uma foto de hoje do EVO e só existe para o mês em andamento; ele aparece depois da próxima sincronização.</ChartEmpty></ChartCard>;
   const civil = Object.entries(p.c).sort((a, b) => b[1] - a[1]);

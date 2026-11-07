@@ -1,4 +1,4 @@
-import { dashboardData, type UnitData } from "@/data/dashboardData";
+import { dashboardData, somarPerfil, type Perfil, type UnitData } from "@/data/dashboardData";
 
 export interface Pino { nome: string; pos: [number, number] }
 export interface MapaDados { bairros: NonNullable<UnitData["bairros"]>; semBairro: number; pinos: Pino[]; alunos: number }
@@ -31,4 +31,17 @@ export function dadosDoMapa(unit: string | null, nomes: string[]): MapaDados {
   }
   const bairros = [...por.values()];
   return { bairros, semBairro, pinos, alunos: bairros.reduce((s, b) => s + b[2], 0) };
+}
+
+/** Perfil dos alunos da foto mais recente de cada unidade (a foto só existe no mês em que foi tirada): serve de reserva em meses fechados. */
+export function perfilMaisRecente(unit: string | null, nomes: string[]): { perfil: Perfil; mes: string } | null {
+  const us: UnitData[] = [];
+  let mes = "";
+  for (const nome of unit ? [unit] : nomes) {
+    for (const d of [...dashboardData].reverse()) {
+      const u = d.units.find((x) => x.name === nome);
+      if (u?.perfil) { us.push(u); if (d.month > mes) mes = d.month; break; }
+    }
+  }
+  return us.length ? { perfil: somarPerfil(us), mes } : null;
 }
