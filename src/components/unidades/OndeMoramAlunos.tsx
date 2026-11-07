@@ -34,10 +34,13 @@ function Mapa({ bairros, pinos }: { bairros: Bairro[]; pinos: Pino[] }) {
       for (const p of pinos) {
         L.marker(p.pos, { icon: pino, zIndexOffset: 1000, title: `World Gym ${p.nome}` }).bindTooltip(`<strong>World Gym ${p.nome}</strong><br/>localização da unidade`, { direction: "top", offset: [0, -30] }).addTo(mapa);
       }
-      // Enquadra o núcleo (pinos das unidades e bairros a até 60 km de alguma unidade): alunos de cidades distantes não afastam o mapa; seguem lá, é só dar zoom out.
-      const perto = (lat: number, lng: number) => pinos.some((p) => Math.hypot(lat - p.pos[0], (lng - p.pos[1]) * Math.cos((p.pos[0] * Math.PI) / 180)) * 111 <= 60);
-      const nucleo = pinos.length ? bairros.filter((b) => perto(b[3], b[4])) : bairros;
-      const pontos: [number, number][] = [...nucleo.map((b) => [b[3], b[4]] as [number, number]), ...pinos.map((p) => p.pos)];
+      // Enquadra o núcleo: o maior agrupamento de unidades (até 200 km entre si) e os bairros a até 60 km delas. Unidades e alunos
+      // distantes (ex.: Salvador) seguem no mapa; é só dar zoom out.
+      const km = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], (a[1] - b[1]) * Math.cos((a[0] * Math.PI) / 180)) * 111;
+      const grupos = pinos.map((c) => pinos.filter((p) => km(c.pos, p.pos) <= 200));
+      const nucleoPinos = grupos.reduce<Pino[]>((m, g) => (g.length > m.length ? g : m), []);
+      const nucleo = nucleoPinos.length ? bairros.filter((b) => nucleoPinos.some((p) => km([b[3], b[4]], p.pos) <= 60)) : bairros;
+      const pontos: [number, number][] = [...nucleo.map((b) => [b[3], b[4]] as [number, number]), ...nucleoPinos.map((p) => p.pos)];
       mapa.fitBounds((pontos.length ? L.latLngBounds(pontos) : grupo.getBounds()).pad(0.15), { maxZoom: 14 });
       const obs = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => mapa.invalidateSize()) : null; // mapa muda de largura ao ocultar o ranking
       obs?.observe(el);
