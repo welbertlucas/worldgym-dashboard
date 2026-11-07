@@ -35,3 +35,16 @@ export async function loadGeo() {
 export async function saveGeo(cache) {
   await put(geoPath, JSON.stringify(cache), { access: "private", contentType: "application/json", addRandomSuffix: false, allowOverwrite: true });
 }
+
+// Todos os meses num único arquivo: o painel lê 1 arquivo em vez de 1 listagem + ~36 leituras (o Blob cobra por operação).
+const allPath = "consolidado/todos.json";
+
+export async function saveAll(meses) {
+  await put(allPath, JSON.stringify(meses), { access: "private", contentType: "application/json", addRandomSuffix: false, allowOverwrite: true });
+}
+
+export async function loadAll() {
+  const r = await get(allPath, { access: "private", useCache: false });
+  if (!r || r.statusCode !== 200) return null;
+  return JSON.parse(await new Response(r.stream).text());
+}

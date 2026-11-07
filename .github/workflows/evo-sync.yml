@@ -100,3 +100,7 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-contratos.mjs
+      - name: Consolidar os meses num arquivo só (o painel lê só este)
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-consolidar.mjs

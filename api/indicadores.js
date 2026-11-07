@@ -1,7 +1,23 @@
 // Totais mensais por unidade calculados a partir do EVO (gravados por /api/evo-sync).
 // GET /api/indicadores            -> lista de meses disponíveis
 // GET /api/indicadores?month=AAAA-MM -> unidades daquele mês
-import { loadMonth, listMonths } from "../server/store.js";
+import { loadMonth, listMonths, loadAll } from "../server/store.js";
+
+// Memória da instância: enquanto ela estiver quente, abrir o painel não gasta nenhuma operação no Blob.
+const TTL_MS = 10 * 60 * 1000;
+let memo = null;
+
+async function todosOsMeses() {
+  if (memo && Date.now() - memo.em < TTL_MS) return memo.dados;
+  // 1 leitura do arquivo consolidado; se ainda não existir, cai no caminho antigo (listagem + 1 leitura por mês).
+  let dados = await loadAll();
+  if (!dados) {
+    const meses = await listMonths();
+    dados = (await Promise.all(meses.map((m) => loadMonth(m)))).filter(Boolean);
+  }
+  memo = { em: Date.now(), dados };
+  return dados;
+}
 import { cors, exigirLogin } from "./_auth.js";
 
 export default async function handler(req, res) {
@@ -13,8 +29,7 @@ export default async function handler(req, res) {
     const { month, all } = req.query;
     // ?all=1: todos os meses numa só resposta (o painel abre com uma consulta em vez de 36).
     if (all) {
-      const meses = await listMonths();
-      const dados = (await Promise.all(meses.map((m) => loadMonth(m)))).filter(Boolean);
+      const dados = await todosOsMeses();
       res.setHeader("Cache-Control", "private, max-age=300");
       return res.status(200).json({ months: dados });
     }
