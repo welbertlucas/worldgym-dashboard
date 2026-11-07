@@ -36,7 +36,9 @@ function Mapa({ bairros, pinos }: { bairros: Bairro[]; pinos: Pino[] }) {
         grupo.addLayer(L.circleMarker(p.pos, { radius: 1, opacity: 0, fillOpacity: 0, interactive: false }));
       }
       mapa.fitBounds(grupo.getBounds().pad(0.15), { maxZoom: 14 });
-      limpar = () => mapa.remove();
+      const obs = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => mapa.invalidateSize()) : null; // mapa muda de largura ao ocultar o ranking
+      obs?.observe(el);
+      limpar = () => { obs?.disconnect(); mapa.remove(); };
     });
     return () => { vivo = false; limpar(); };
   }, [bairros, pinos]);
@@ -54,26 +56,26 @@ export function OndeMoramAlunos({ unit, bairros, semBairro, pinos = [] }: { unit
   const max = top[0][2];
   return (
     <ChartCard title="Onde moram os alunos" subtitle={subtitle}>
-      <div className="relative">
+      <div className="mb-3 flex justify-end">
+        <button type="button" onClick={() => setRanking((v) => !v)} aria-expanded={ranking} className="hidden rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary lg:block">
+          {ranking ? "Ocultar ranking" : "Mostrar ranking"}
+        </button>
+      </div>
+      <div className={ranking ? "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]" : ""}>
         <Mapa bairros={bairros} pinos={pinos} />
-        <div className="mt-3 lg:absolute lg:right-3 lg:top-3 lg:z-[1100] lg:mt-0 lg:w-72">
-          <button type="button" onClick={() => setRanking((v) => !v)} aria-expanded={ranking} className="mb-2 hidden rounded-lg border border-border bg-card/95 px-3 py-1.5 text-xs font-medium text-foreground shadow backdrop-blur hover:bg-card lg:ml-auto lg:block">
-            {ranking ? "Ocultar ranking" : "Mostrar ranking"}
-          </button>
-          {ranking && (
-            <ol className="space-y-2 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur lg:max-h-[calc(70vh-4rem)] lg:overflow-y-auto" aria-label="Bairros com mais alunos">
-              {top.map(([nome, cidade, n]) => (
-                <li key={`${nome}|${cidade}`} className="text-sm">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate font-medium text-foreground">{nome}{cidade && <span className="font-normal text-muted-foreground"> · {cidade}</span>}</span>
-                    <span className="shrink-0 tabular-nums text-foreground">{fmt(n)} <span className="text-xs text-muted-foreground">({((n / total) * 100).toFixed(1).replace(".", ",")}%)</span></span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden><div className="h-full rounded-full bg-[#3b82f6]/70" style={{ width: `${(n / max) * 100}%` }} /></div>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
+        {ranking && (
+          <ol className="space-y-3 rounded-xl border border-border bg-card p-4 lg:h-[70vh] lg:min-h-[480px] lg:overflow-y-auto" aria-label="Bairros com mais alunos">
+            {top.map(([nome, cidade, n]) => (
+              <li key={`${nome}|${cidade}`} className="text-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate font-medium text-foreground">{nome}{cidade && <span className="font-normal text-muted-foreground"> · {cidade}</span>}</span>
+                  <span className="shrink-0 tabular-nums text-foreground">{fmt(n)} <span className="text-xs text-muted-foreground">({((n / total) * 100).toFixed(1).replace(".", ",")}%)</span></span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden><div className="h-full rounded-full bg-[#3b82f6]/70" style={{ width: `${(n / max) * 100}%` }} /></div>
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
         {fmt(total)} alunos em {fmt(bairros.length)} bairros localizados{semBairro ? `; ${fmt(semBairro)} sem endereço ou bairro não localizado ficam de fora` : ""}. A bolha fica no centro do bairro (OpenStreetMap), não na casa do aluno. {pinos.length > 1 ? "Os pinos vermelhos são as unidades." : pinos.length === 1 ? "O pino vermelho é a unidade." : ""}{aprox > 0 && <> Bolhas cinza tracejadas ({fmt(aprox)} alunos) são bairros não encontrados no mapa, postos no centro da cidade.</>}
