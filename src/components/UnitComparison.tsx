@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 
 interface UnitComparisonProps {
   selectedMonth: string;
+  /** Unidades já escolhidas (vindas do detalhe da unidade); sem elas, as duas primeiras da lista. */
+  inicialA?: string;
+  inicialB?: string;
 }
 
 const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[];
@@ -77,13 +80,13 @@ function UnitPanel({ label, value, onChange, units, wins, id }: { label: string;
   );
 }
 
-export function UnitComparison({ selectedMonth }: UnitComparisonProps) {
+export function UnitComparison({ selectedMonth, inicialA, inicialB }: UnitComparisonProps) {
   const months = getAvailableMonths();
   const [refMonth, setRefMonth] = useState(selectedMonth);
   const monthData = getDataByMonth(refMonth) || getLatestData();
   const units = monthData.units.map((u) => u.name);
-  const [unitA, setUnitA] = useState(units[0] ?? "");
-  const [unitB, setUnitB] = useState(units[1] ?? units[0] ?? "");
+  const [unitA, setUnitA] = useState(inicialA && units.includes(inicialA) ? inicialA : units[0] ?? "");
+  const [unitB, setUnitB] = useState(inicialB && units.includes(inicialB) ? inicialB : units[1] ?? units[0] ?? "");
 
   // As unidades mudam de mês a mês (abertura/fechamento): reescolhe padrões válidos quando o mês muda.
   useEffect(() => {

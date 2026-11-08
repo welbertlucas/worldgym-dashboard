@@ -14,7 +14,6 @@ import { CampanhasTab } from "@/components/tabs/CampanhasTab";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { BaseAlunos } from "@/components/clientes/BaseAlunos";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
-import { UnidadeTab } from "@/components/tabs/UnidadeTab";
 import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
 import { UnitNavProvider } from "@/components/UnitLink";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -69,14 +68,19 @@ const Index = () => {
   const changeTab = (id: string) => {
     // O detalhe da unidade compara períodos: no mês em andamento quase tudo está parcial ou sem dado,
     // então ao entrar nele o mês passa para o último mês fechado (dá para voltar pelo filtro).
-    if (id === "unidade") {
-      const fechado = getLastClosedMonth(dashboardData.map((d) => d.month));
-      setSelectedMonth((cur) => (fechado && isPartialMonth(cur) ? fechado : cur));
-    }
     setActiveTab(id);
     mainRef.current?.scrollIntoView({ block: "start" });
   };
-  const openUnit = (name: string) => { setDetailUnit({ name, n: Date.now() }); changeTab("unidade"); };
+  // Abrir uma unidade compara períodos: no mês em andamento quase tudo está parcial ou sem dado,
+  // então o mês passa para o último mês fechado (dá para voltar pelo filtro).
+  // Pelo menu, "Unidades" abre na visão da rede (a unidade aberta antes por um clique não fica presa).
+  const menuChange = (id: string) => { if (id === "unidades") setDetailUnit(null); changeTab(id); };
+  const openUnit = (name: string) => {
+    const fechado = getLastClosedMonth(dashboardData.map((d) => d.month));
+    setSelectedMonth((cur) => (fechado && isPartialMonth(cur) ? fechado : cur));
+    setDetailUnit({ name, n: Date.now() });
+    changeTab("unidades");
+  };
   const [, forceTick] = useState(0);
 
   /** `keepSelection`: atualização automática, que não troca o mês que o usuário está olhando. */
@@ -209,12 +213,12 @@ const Index = () => {
     <div className="min-h-screen bg-background lg:flex">
       <Sidebar
         active={activeTab}
-        onChange={changeTab}
+        onChange={menuChange}
         criticalCount={criticalCount}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
       />
-      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} criticalCount={criticalCount} />
+      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={menuChange} criticalCount={criticalCount} />
 
       <div className="flex-1 min-w-0">
         <header className="border-b border-border sticky top-0 z-40 bg-white/85 backdrop-blur-md">
@@ -280,11 +284,11 @@ const Index = () => {
           onMonthChange={setSelectedMonth}
           onCompareMonthChange={setCompareMonth}
           onUnitChange={setSelectedUnit}
-          hideUnit={activeTab === "unidade"}
+          hideUnit={activeTab === "unidades"}
         />}
 
         {/* Comparativo */}
-        {comparison && activeTab !== "unidade" && activeTab !== "mapa" && activeTab !== "campanhas" && (
+        {comparison && activeTab !== "unidades" && activeTab !== "mapa" && activeTab !== "campanhas" && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -381,10 +385,14 @@ const Index = () => {
             evalMonth={evalMonth}
             prevEvalMonth={evalIdx > 0 ? dashboardData[evalIdx - 1].month : null}
             deltas={unitDeltas}
+            initialUnit={detailUnit?.name ?? selectedUnit}
+            openKey={detailUnit?.n}
+            compareMonth={compareMonth}
+            metas={metasData}
+            onOpenMetas={() => changeTab("metas")}
           />
         )}
 
-        {activeTab === "unidade" && <UnidadeTab selectedMonth={fullMonthData.month} initialUnit={detailUnit?.name ?? selectedUnit} openKey={detailUnit?.n} compareMonth={compareMonth} metas={metasData} />}
 
         {activeTab === "mapa" && <MapaAlunosTab initialUnit={selectedUnit} />}
         {activeTab === "campanhas" && <CampanhasTab initialUnit={selectedUnit} />}

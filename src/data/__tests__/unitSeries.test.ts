@@ -75,3 +75,13 @@ describe("comparativo entre unidades no mês em andamento", () => {
     expect(compareIndicator(INDICATOR_BY_KEY.faturamento, a, b, true).state).toBe("ok");
   });
 });
+
+describe("série da rede para comparar com a unidade", () => {
+  it("valores e contagens: média das unidades com dado; percentuais: o resultado da rede", async () => {
+    const { serieDaRede } = await import("@/data/unitSeries");
+    const m = month("2026-09", [unit("A", { faturamento: 300, churn: 4 }), unit("B", { faturamento: 100, churn: 6 })]);
+    m.total = { ...m.total, churn: 5.5 };
+    expect(serieDaRede([m], INDICATOR_BY_KEY.faturamento, ["2026-09", "2026-10"])).toEqual([{ month: "2026-09", unit: 200 }, { month: "2026-10", unit: null }]);
+    expect(serieDaRede([m], INDICATOR_BY_KEY.churn, ["2026-09"])[0].unit).toBe(5.5);
+  });
+});

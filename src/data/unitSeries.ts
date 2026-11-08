@@ -52,3 +52,17 @@ export function posicaoNaRede(md: MonthData | undefined, unitName: string, ind: 
   const melhores = vals.filter((x) => (ind.direction === "higher" ? x.v > eu.v : x.v < eu.v)).length;
   return { posicao: melhores + 1, de: vals.length };
 }
+
+/**
+ * Referência da rede para comparar com uma unidade: em percentuais, o valor da rede no mês; nos demais (R$ e contagens),
+ * a média das unidades com dado no mês, para ficar na mesma escala de uma unidade.
+ */
+export function serieDaRede(data: MonthData[], ind: Indicator, meses: string[]): SeriesRow[] {
+  return meses.map((month) => {
+    const md = data.find((m) => m.month === month);
+    if (!md) return { month, unit: null };
+    if (ind.format === "percent") return { month, unit: valorOuNulo(ind, ind.value(md.total)) };
+    const vals = md.units.map((u) => valorOuNulo(ind, ind.value(u))).filter((v): v is number => v !== null);
+    return { month, unit: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null };
+  });
+}

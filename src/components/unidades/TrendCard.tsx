@@ -10,11 +10,16 @@ const compact = (ind: Indicator) => (v: number) =>
   ind.format === "currency" ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 }).format(v)
   : ind.format === "percent" ? `${v.toFixed(0)}%` : v.toLocaleString("pt-BR", { notation: "compact" });
 
-interface Props { ind: Indicator; rows: SeriesRow[]; unitLabel: string }
+interface Props {
+  ind: Indicator; rows: SeriesRow[]; unitLabel: string;
+  /** Segunda linha para comparar (média da rede ou outra unidade), alinhada aos mesmos meses. */
+  comp?: { label: string; rows: SeriesRow[] };
+}
+const COMP = "hsl(220 9% 46%)";
 
 /** Evolução de um indicador da unidade ao longo do período. */
-export function TrendCard({ ind, rows, unitLabel }: Props) {
-  const data = rows.map((r) => ({ ...r, label: short(r.month) }));
+export function TrendCard({ ind, rows, unitLabel, comp }: Props) {
+  const data = rows.map((r, i) => ({ ...r, comp: comp?.rows[i]?.unit ?? null, label: short(r.month) }));
   const withData = rows.filter((r) => r.unit !== null);
   const last = withData[withData.length - 1];
   const first = withData[0];
@@ -33,6 +38,7 @@ export function TrendCard({ ind, rows, unitLabel }: Props) {
           </p>
         </div>
       </div>
+      {comp && withData.length > 0 && <p className="mt-2 flex flex-wrap gap-x-4 text-xs text-muted-foreground"><span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded" style={{ background: BRAND }} />{unitLabel}</span><span className="flex items-center gap-1.5"><span className="w-3 border-t-2 border-dashed" style={{ borderColor: COMP }} />{comp.label}</span></p>}
       {withData.length === 0 ? (
         <p className="mt-6 mb-6 text-sm text-muted-foreground">Sem dado lançado neste período.</p>
       ) : (
@@ -46,15 +52,17 @@ export function TrendCard({ ind, rows, unitLabel }: Props) {
                 cursor={{ stroke: GRID }}
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
-                  const r = payload[0].payload as SeriesRow;
+                  const r = payload[0].payload as SeriesRow & { comp: number | null };
                   return (
                     <div className="rounded-xl border border-border bg-white px-3 py-2 text-xs shadow-md">
                       <p className="font-semibold text-foreground first-letter:uppercase">{formatMonthLong(r.month)}</p>
                       <p className="mt-1 flex items-center gap-1.5"><span className="h-0.5 w-3 rounded" style={{ background: BRAND }} />{unitLabel}<b className="ml-auto pl-3 tabular-nums">{r.unit === null ? "—" : formatIndicator(ind, r.unit)}</b></p>
+                      {comp && <p className="mt-0.5 flex items-center gap-1.5"><span className="h-0.5 w-3 rounded border-t-2 border-dashed" style={{ borderColor: COMP }} />{comp.label}<b className="ml-auto pl-3 tabular-nums">{r.comp === null ? "—" : formatIndicator(ind, r.comp)}</b></p>}
                     </div>
                   );
                 }}
               />
+              {comp && <Line type="monotone" dataKey="comp" stroke={COMP} strokeWidth={1.75} strokeDasharray="5 4" dot={false} activeDot={{ r: 3 }} isAnimationActive={false} connectNulls />}
               <Line type="monotone" dataKey="unit" stroke={BRAND} strokeWidth={2.25} dot={rows.length <= 12 ? { r: 2.5 } : false} activeDot={{ r: 4 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>

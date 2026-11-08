@@ -15,6 +15,20 @@ interface Props {
   partial: boolean;
   /** Visão alternativa (variação vs. mês anterior); renderizada quando o usuário escolhe "Variação". */
   variationView?: React.ReactNode;
+  /** Unidade em foco: a linha dela fica destacada e aparece a posição dela em cada indicador (clicar troca o indicador). */
+  destaque?: string;
+}
+
+/** Indicadores do resumo de posição da unidade em foco. */
+export const RESUMO_POSICAO = ["faturamento", "recebimento", "ticketMedio", "novosContratos", "renovacoes", "churn", "inadimplenciaPerc"] as const;
+
+/** Posição de `nome` entre as unidades com dado (1 = melhor, conforme a direção do indicador). null sem regra ou sem dado. */
+export function posicaoEntre(units: UnitData[], nome: string, ind: Indicator): { posicao: number; de: number } | null {
+  if (!ind.direction) return null;
+  const vals = units.map((u) => ({ name: u.name, v: ind.value(u) })).filter((r) => hasData(ind, r.v));
+  const eu = vals.find((r) => r.name === nome);
+  if (!eu) return null;
+  return { posicao: vals.filter((r) => (ind.direction === "higher" ? r.v > eu.v : r.v < eu.v)).length + 1, de: vals.length };
 }
 
 /** Botão que abre a lista de indicadores, agrupada por categoria (no lugar de uma fileira de botões por indicador). */
@@ -77,7 +91,7 @@ function IndicadorMenu({ value, onChange, semDado }: { value: string; onChange: 
   );
 }
 
-export function UnitsRanking({ units, monthLabel, partial, variationView }: Props) {
+export function UnitsRanking({ units, monthLabel, partial, variationView, destaque }: Props) {
   const [key, setKey] = useState("faturamento");
   const [mode, setMode] = useState<"values" | "variation">("values");
   const [reversed, setReversed] = useState(false);
@@ -134,6 +148,22 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
         <div className="mt-4">{variationView}</div>
       ) : (
         <>
+          {destaque && (
+            <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7" aria-label={`Posição de ${destaque} na rede`}>
+              {RESUMO_POSICAO.map((k) => {
+                const i = INDICATORS.find((x) => x.key === k)!;
+                const p = posicaoEntre(units, destaque, i);
+                return (
+                  <li key={k}>
+                    <button type="button" aria-pressed={key === k} onClick={() => { setKey(k); setReversed(false); }} className={cn("w-full rounded-xl border px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", key === k ? "border-foreground bg-secondary" : "border-border bg-white hover:bg-secondary")}>
+                      <span className="block truncate text-xs text-muted-foreground">{i.label}</span>
+                      <span className="font-display text-lg font-semibold tabular-nums text-foreground">{p ? `${p.posicao}º` : "—"}</span> <span className="text-xs text-muted-foreground">{p ? `de ${p.de}` : "sem dado"}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           <IndicadorMenu semDado={semDado} value={key} onChange={(k) => { setKey(k); setReversed(false); }} />
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
@@ -171,7 +201,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView }: Prop
                 const left = r.v >= 0 ? zero : zero - (-r.v / span) * 100;
                 const width = (Math.abs(r.v) / span) * 100;
                 return (
-                  <li key={r.name} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_12rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1">
+                  <li key={r.name} aria-current={r.name === destaque ? "true" : undefined} className={cn("grid grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_12rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1", r.name === destaque && "-mx-2 rounded-lg bg-primary/10 px-2 py-1 ring-1 ring-primary/40")}>
                     <span className="text-xs text-muted-foreground tabular-nums">{position.get(r.name)}</span>
                     <span className="text-sm font-medium text-foreground truncate"><UnitLink name={r.name} /></span>
                     <span className="sm:order-4 text-sm font-semibold tabular-nums text-right">{formatIndicator(ind, r.v)}</span>

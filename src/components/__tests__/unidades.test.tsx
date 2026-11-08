@@ -152,3 +152,31 @@ describe("Perfil dos alunos e das oportunidades", () => {
     expect(html).toMatch(/50,0(<!-- -->)?%/);
   });
 });
+
+describe("Unidades: um menu só", () => {
+  it("o ranking destaca a unidade em foco e resume a posição dela", async () => {
+    const { posicaoEntre } = await import("@/components/unidades/UnitsRanking");
+    const { INDICATOR_BY_KEY } = await import("@/data/unitIndicators");
+    const us = [unit("A", { faturamento: 300, churn: 5 }), unit("B", { faturamento: 200, churn: 3 }), unit("C", { faturamento: 500, churn: 8 })];
+    expect(posicaoEntre(us, "A", INDICATOR_BY_KEY.faturamento)).toEqual({ posicao: 2, de: 3 });
+    expect(posicaoEntre(us, "A", INDICATOR_BY_KEY.churn)).toEqual({ posicao: 2, de: 3 });
+    const html = renderToString(<UnitsRanking units={us} monthLabel="setembro de 2026" partial={false} destaque="A" />);
+    expect(html).toContain('aria-current="true"');
+    expect(html).toContain("Posição de A na rede");
+  });
+
+  it("com Rede mostra ranking, contratos e a tabela recolhida; com uma unidade abre o detalhe dela", async () => {
+    const { UnidadesTab } = await import("@/components/tabs/UnidadesTab");
+    dashboardData.push(month("2026-08", [unit("A", { faturamento: 300 }), unit("B", { faturamento: 200 })]), month("2026-09", [unit("A", { faturamento: 320 }), unit("B", { faturamento: 210 })]));
+    const props = { selectedMonth: "2026-09", evalMonth: null, prevEvalMonth: null, deltas: [], compareMonth: null, metas: [] };
+    const rede = renderToString(<UnidadesTab {...props} initialUnit={null} />);
+    expect(rede).toContain("Desempenho por unidade");
+    expect(rede).toContain("Ver tabela completa");
+    expect(rede).not.toContain("Comparar com");
+    const detalhe = renderToString(<UnidadesTab {...props} initialUnit="A" onOpenMetas={() => {}} />);
+    expect(detalhe).toContain("Posição de A na rede");
+    expect(detalhe).toContain("Comparar com");
+    expect(detalhe).toContain("Ver em Metas");
+    expect(detalhe).toContain("Exportar PDF");
+  });
+});
