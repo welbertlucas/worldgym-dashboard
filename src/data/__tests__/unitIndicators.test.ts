@@ -5,8 +5,8 @@ import { unit } from "./helpers";
 const ind = (k: string) => INDICATOR_BY_KEY[k];
 
 describe("comparação entre duas unidades", () => {
-  it("mantém os 17 indicadores do comparativo anterior (+ NPS, receita complementar total e kids)", () => {
-    expect(INDICATORS).toHaveLength(23);
+  it("mantém os 17 indicadores do comparativo anterior (+ NPS, receita complementar total, kids, WG Plus e Pro+)", () => {
+    expect(INDICATORS).toHaveLength(25);
     for (const k of ["faturamento", "recebimento", "ticketMedio", "adimplentes", "novosContratos", "cancelados", "saldo", "churn", "renovacoes", "inadimplenciaPerc", "icv", "vendasOnline", "diarias", "personal", "camisetas", "coqueteleiras", "notaGoogle", "kids", "receitaComplementar", "permanencia", "ltv", "saldoAlunos"]) expect(ind(k)).toBeDefined();
   });
 

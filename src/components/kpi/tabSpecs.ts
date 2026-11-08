@@ -21,7 +21,7 @@ export const comercialSpecs: KpiSpec[] = [
   },
 ];
 
-/** Receitas complementares: o total (com a participação no faturamento) e cada uma das cinco. */
+/** Receitas complementares: o total (com a participação no faturamento) e cada uma das sete. */
 export const complementaresSpecs: KpiSpec[] = [
   {
     ...complementar("Receita Complementar", (v) => receitaComplementar(v.total)),
@@ -30,6 +30,8 @@ export const complementaresSpecs: KpiSpec[] = [
   complementar("Diárias", (v) => v.total.diarias),
   complementar("Taxa de Personal", (v) => v.total.personal),
   complementar("Brinquedoteca", (v) => v.total.kids ?? 0),
+  complementar("WG Plus", (v) => v.total.plus ?? 0),
+  complementar("Pro+", (v) => v.total.proMais ?? 0),
   complementar("Camisetas", (v) => v.total.camisetas),
   complementar("Coqueteleiras", (v) => v.total.coqueteleiras),
 ];

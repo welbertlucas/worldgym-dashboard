@@ -28,31 +28,35 @@ function BarraPartes({ partes, rotulo }: { partes: { nome: string; n: number; co
   );
 }
 
-/** Os planos mais vendidos do mês (a alunos novos e a quem voltou), o tipo da venda e a duração dos planos vendidos. */
-export function ContratosVendidos({ total, monthLabel, partial, unitLabel }: { total: UnitData; monthLabel: string; partial: boolean; unitLabel: string }) {
+/**
+ * Os planos mais vendidos do mês (a alunos novos e a quem voltou), o tipo da venda e a duração dos planos vendidos.
+ * Na rede (porFamilia), agrupa pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos.
+ */
+export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFamilia = false }: { total: UnitData; monthLabel: string; partial: boolean; unitLabel: string; porFamilia?: boolean }) {
   const subtitle = <>{unitLabel} • {monthLabel}{partial && " (mês em andamento: valores parciais)"}</>;
-  const lista = total.contratosVendidos;
+  const familias = porFamilia && total.familiasVendidas?.length ? total.familiasVendidas : null;
+  const lista = familias ?? total.contratosVendidos;
   const tv = total.tipoVenda;
   const vendas = tv ? tv.novo[0] + tv.remat[0] : 0;
   if (!lista || !tv || vendas === 0) return <ChartCard title="Contratos mais vendidos" subtitle={subtitle}><ChartEmpty>Sem vendas de planos do EVO neste mês.</ChartEmpty></ChartCard>;
   const valor = tv.novo[1] + tv.remat[1];
-  const top = lista.slice(0, TOP);
+  const top = familias ? familias.slice(0, 8) : lista.slice(0, TOP);
   const maior = top[0]?.[1] ?? 1;
   const dur = total.duracaoVenda ?? [0, 0, 0, 0, 0];
   return (
     <ChartCard
-      title="Contratos mais vendidos"
+      title={familias ? "Planos mais vendidos por tipo" : "Contratos mais vendidos"}
       subtitle={subtitle}
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
           <HeadlineStat label="Planos vendidos (novos + rematrículas)" value={vendas.toLocaleString("pt-BR")} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
           <HeadlineStat label="Valor médio por venda" value={moeda(valor / vendas)} swatch={<span className="h-2 w-2 rounded-full bg-foreground/50" />} />
-          <HeadlineStat label={`Os ${top.length} primeiros somam`} value={pct(top.reduce((s, r) => s + r[1], 0), vendas)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
+          <HeadlineStat label={familias ? `${top[0][0]} responde por` : `Os ${top.length} primeiros somam`} value={pct(familias ? top[0][1] : top.reduce((s, r) => s + r[1], 0), vendas)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
         </div>
       }
     >
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <ol className="space-y-3" aria-label={`Os ${top.length} planos mais vendidos`}>
+        <ol className="space-y-3" aria-label={familias ? "Planos vendidos por tipo" : `Os ${top.length} planos mais vendidos`}>
           {top.map(([nome, q, v], k) => (
             <li key={nome} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
               <span className="text-sm font-semibold tabular-nums text-muted-foreground">{k + 1}º</span>
@@ -79,7 +83,9 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel }: { t
         </div>
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
-        Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.
+        {familias
+          ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO; escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
+          : <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.</>}
         Renovações não entram no ranking porque são, na maior parte, a recorrência automática do mês ({tv.renov[0].toLocaleString("pt-BR")} no mês).
         Valor médio = valor da venda (num plano anual pago à vista, é o ano inteiro).
       </p>
@@ -87,27 +93,59 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel }: { t
   );
 }
 
-/** Produtos e serviços avulsos que mais faturaram no mês (camisetas, coqueteleiras, diárias, avaliações...). */
+type Linha = [string, number, number];
+
+/** Lista numerada por valor, com barra proporcional ao primeiro. */
+function RankingPorValor({ lista, rotulo }: { lista: Linha[]; rotulo: string }) {
+  const maior = lista[0][2] || 1;
+  return (
+    <ol className="space-y-3" aria-label={rotulo}>
+      {lista.map(([nome, q, v], k) => (
+        <li key={nome} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
+          <span className="text-sm font-semibold tabular-nums text-muted-foreground">{k + 1}º</span>
+          <span className="truncate text-sm text-foreground" title={nome}>{nome}</span>
+          <span className="text-sm font-semibold tabular-nums text-foreground">{moeda(v)} <span className="font-normal text-muted-foreground">· {q.toLocaleString("pt-BR")} un.</span></span>
+          <div className="col-span-2 col-start-2 h-2 rounded-full bg-secondary" aria-hidden>
+            <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max((v / maior) * 100, 1.5)}%` }} />
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Produtos e serviços avulsos que mais faturaram no mês (diárias, coqueteleiras, bebidas, avaliações...). */
 export function ProdutosVendidos({ total, monthLabel, partial, unitLabel }: { total: UnitData; monthLabel: string; partial: boolean; unitLabel: string }) {
   const subtitle = <>{unitLabel} • {monthLabel}{partial && " (mês em andamento: valores parciais)"}</>;
   const lista = (total.produtosVendidos ?? []).slice(0, 8);
   if (!lista.length) return <ChartCard title="Produtos e serviços mais vendidos" subtitle={subtitle}><ChartEmpty>Sem vendas avulsas do EVO neste mês.</ChartEmpty></ChartCard>;
-  const maior = lista[0][2] || 1;
   return (
     <ChartCard title="Produtos e serviços mais vendidos" subtitle={subtitle}>
-      <ol className="space-y-3" aria-label="Produtos e serviços que mais faturaram">
-        {lista.map(([nome, q, v], k) => (
-          <li key={nome} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
-            <span className="text-sm font-semibold tabular-nums text-muted-foreground">{k + 1}º</span>
-            <span className="truncate text-sm text-foreground" title={nome}>{nome}</span>
-            <span className="text-sm font-semibold tabular-nums text-foreground">{moeda(v)} <span className="font-normal text-muted-foreground">· {q.toLocaleString("pt-BR")} un.</span></span>
-            <div className="col-span-2 col-start-2 h-2 rounded-full bg-secondary" aria-hidden>
-              <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max((v / maior) * 100, 1.5)}%` }} />
-            </div>
-          </li>
-        ))}
-      </ol>
-      <p className="mt-4 text-xs text-muted-foreground">Itens vendidos fora de contrato, pelo nome no EVO (cada unidade nomeia do seu jeito), ordenados pelo valor vendido no mês.</p>
+      <RankingPorValor lista={lista} rotulo="Produtos e serviços que mais faturaram" />
+      <p className="mt-4 text-xs text-muted-foreground">Itens vendidos fora de contrato, pelo nome no EVO (cada unidade nomeia do seu jeito), ordenados pelo valor vendido no mês. Multas, taxas e ajustes de cobrança ficam no Financeiro.</p>
+    </ChartCard>
+  );
+}
+
+/** Multas, taxas, pró-rata e ajustes cobrados fora de contrato no mês (não são produtos vendidos). */
+export function TaxasCobradas({ total, monthLabel, partial, unitLabel }: { total: UnitData; monthLabel: string; partial: boolean; unitLabel: string }) {
+  const subtitle = <>{unitLabel} • {monthLabel}{partial && " (mês em andamento: valores parciais)"}</>;
+  const lista = (total.taxasCobradas ?? []).slice(0, 8);
+  if (!lista.length) return <ChartCard title="Multas, taxas e ajustes" subtitle={subtitle}><ChartEmpty>Sem multas, taxas ou ajustes lançados no EVO neste mês.</ChartEmpty></ChartCard>;
+  const [soma, multasQ, multasV] = total.taxasResumo ?? [0, 0, 0];
+  return (
+    <ChartCard
+      title="Multas, taxas e ajustes"
+      subtitle={subtitle}
+      headline={
+        <div className="flex flex-wrap gap-x-10 gap-y-3">
+          <HeadlineStat label="Total cobrado" value={moeda(soma)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
+          <HeadlineStat label="Multas de cancelamento" value={`${moeda(multasV)} (${multasQ.toLocaleString("pt-BR")})`} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
+        </div>
+      }
+    >
+      <RankingPorValor lista={lista} rotulo="Multas, taxas e ajustes cobrados" />
+      <p className="mt-4 text-xs text-muted-foreground">Cobranças avulsas que não são produto: multa de cancelamento, pró-rata por mudança do dia de cobrança, taxa de adesão, inadimplência renegociada, contestação de cartão e ajustes. Pelo nome no EVO, ordenadas pelo valor do mês.</p>
     </ChartCard>
   );
 }

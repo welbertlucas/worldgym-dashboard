@@ -103,3 +103,59 @@ describe("produtos e serviços mais vendidos", () => {
     expect(h).not.toContain("P8");
   });
 });
+
+import { TaxasCobradas } from "@/components/ContratosVendidos";
+import { somarFamiliasVendidas } from "@/data/dashboardData";
+// @ts-expect-error módulo JS do servidor
+import { ehTaxa, familiaPlano, resumirVendas } from "../../../server/vendas.js";
+
+describe("planos por família e taxas fora dos produtos", () => {
+  it("agrupa os nomes de plano de cada unidade pelo tipo do plano", () => {
+    expect(familiaPlano("WG JARDIM INGÁ LOCAL | R$ 139,90 (Sessões Ilimitadas)")).toBe("WG Local");
+    expect(familiaPlano("WORLD GYM CEILÂNDIA WG- 30 R$ 189,90")).toBe("WG 30");
+    expect(familiaPlano("03 - WG LOCAL FLEX (R$157,00)")).toBe("WG Local");
+    expect(familiaPlano("WG LOCAL 3X R$ 79,90")).toBe("WG Local");
+    expect(familiaPlano("02 - WG REDE SOBRADINHO - R$169,90")).toBe("WG Rede");
+    expect(familiaPlano("06 - WG LOCAL EX- ALUNOS 1º MÊS R$ 49,90 (ONLINE)")).toBe("Promoção 1º mês");
+    expect(familiaPlano("07 - WG LOCAL MILITAR TAGUATINGA (119,90)")).toBe("Parcerias e militares");
+    expect(familiaPlano("WG PRO SALVADOR ANUAL | R$ 319,90")).toBe("WG PRO");
+    expect(familiaPlano("X - FREE PASS (3 DIAS)")).toBe("Free pass");
+    expect(familiaPlano("ALGO NOVO")).toBe("Outros planos");
+  });
+  it("separa multas, taxas e ajustes dos produtos", () => {
+    expect(ehTaxa("MULTA DE CANCELAMENTO DE CONTRATO")).toBe(true);
+    expect(ehTaxa("Pró-rata - Alteração de dia de cobrança")).toBe(true);
+    expect(ehTaxa("INADIMPLÊNCIA - 149,90")).toBe(true);
+    expect(ehTaxa("PRO+")).toBe(false);
+    expect(ehTaxa("COQUETELEIRA")).toBe(false);
+    const item = (item: string, saleValue: number, o: Record<string, unknown> = {}) => ({ item, saleValue, quantity: 1, ...o });
+    const u = resumirVendas([{ idBranch: 5, registrationKind: "enrollment", saleItens: [
+      item("WG LOCAL | R$ 129,90", 129.9, { idMembership: 1 }), item("WG90 | R$357,00 (À VISTA)", 357, { idMembership: 4 }),
+      item("WORLD GYM PLUS 3X R$ 329,90", 329.9, { idMembership: 5 }), item("PRO+ SEMESTRAL 2X | R$447,00", 447, { idMembership: 6 }), item("PRO+", 277), item("WG 30 | R$ 189,90", 189.9, { idMembership: 2 }), item("01 - WG LOCAL RIACHO", 139.9, { idMembership: 3 }),
+      item("MULTA DE CANCELAMENTO DE CONTRATO", 300), item("MULTA DE CANCELAMENTO 319,80", 319.8), item("TAXA DE ADESÃO", 50), item("COQUETELEIRA", 30),
+    ] }])["Asa Norte"];
+    expect(u.familiasVendidas).toEqual([["WG Local", 2, 269.8], ["WG 30", 1, 189.9]]);
+    expect(u.produtosVendidos).toEqual([["PRO+", 1, 277], ["COQUETELEIRA", 1, 30]]);
+    expect(u.taxasCobradas.map((r: unknown[]) => r[0])).toEqual(["MULTA DE CANCELAMENTO 319,80", "MULTA DE CANCELAMENTO DE CONTRATO", "TAXA DE ADESÃO"]);
+    expect(u.taxasResumo).toEqual([669.8, 2, 619.8]);
+    expect(u.plus).toBe(329.9);
+    expect(u.proMais).toBe(724);
+    expect(u.contratosVendidos.map((r: unknown[]) => r[0])).not.toContain("PRO+ SEMESTRAL 2X | R$447,00");
+  });
+  it("a rede mostra as famílias; a unidade, os nomes", () => {
+    const fam = somarFamiliasVendidas([{ familiasVendidas: [["WG Local", 10, 1000], ["WG 30", 2, 380]] }, { familiasVendidas: [["WG 30", 5, 950]] }]);
+    expect(fam).toEqual([["WG Local", 10, 1000], ["WG 30", 7, 1330]]);
+    const total = { contratosVendidos: [["01 - WG LOCAL RIACHO", 10, 1000]], familiasVendidas: fam, tipoVenda: { novo: [17, 2330], remat: [0, 0], renov: [0, 0] }, duracaoVenda: [17, 0, 0, 0, 0] } as unknown as UnitData;
+    const rede = limpo(renderToString(<ContratosVendidos total={total} monthLabel="Out" partial={false} unitLabel="Rede" porFamilia />));
+    expect(rede).toContain("Planos mais vendidos por tipo");
+    expect(rede).toContain("WG Local responde por");
+    expect(rede).not.toContain("RIACHO");
+    const un = limpo(renderToString(<ContratosVendidos total={total} monthLabel="Out" partial={false} unitLabel="Riacho" />));
+    expect(un).toContain("RIACHO");
+  });
+  it("cartão de multas, taxas e ajustes", () => {
+    const h = limpo(renderToString(<TaxasCobradas total={{ taxasCobradas: [["MULTA X", 2, 619.8]], taxasResumo: [669.8, 2, 619.8] } as unknown as UnitData} monthLabel="Out" partial={false} unitLabel="Rede" />));
+    expect(h).toContain("Multas, taxas e ajustes");
+    expect(h).toContain("670");
+  });
+});

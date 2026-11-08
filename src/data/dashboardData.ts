@@ -89,6 +89,10 @@ export interface UnitData {
   perfilOport?: PerfilOport;
   /** Brinquedoteca (diária kids, brinquedoteca, mensalidades kids), das vendas do EVO. */
   kids?: number;
+  /** WG Plus (contratos e itens com PLUS no nome), das vendas do EVO. */
+  plus?: number;
+  /** Pro+ (contratos e itens com PRO+ no nome), das vendas do EVO. */
+  proMais?: number;
   /** Taxa de personal (valor dos contratos de personal vendidos) calculada a partir das vendas do EVO. */
   personalEvo?: boolean;
   /** Novos contratos, vendas online e receitas avulsas vindos das vendas do EVO. */
@@ -108,12 +112,18 @@ export interface UnitData {
   contratosRede?: number;
   /** Planos mais vendidos no mês a alunos novos e rematrículas (sem diárias, brinquedoteca e personal): [plano, vendas, valor]. */
   contratosVendidos?: [string, number, number][];
+  /** Os mesmos planos agrupados por família (WG Local, WG 30, WG Rede...), para comparar a rede: [família, vendas, valor]. */
+  familiasVendidas?: [string, number, number][];
   /** Vendas de planos por tipo: [quantidade, valor] de matrículas novas, rematrículas e renovações. */
   tipoVenda?: TipoVenda;
   /** Duração dos planos vendidos a novos e rematrículas: mensal, trimestral, semestral, anual, outra. */
   duracaoVenda?: number[];
   /** Produtos e serviços avulsos mais vendidos no mês (pelo valor): [nome, quantidade, valor]. */
   produtosVendidos?: [string, number, number][];
+  /** Multas, taxas, pró-rata e ajustes cobrados no mês fora de contrato (pelo valor): [nome, quantidade, valor]. */
+  taxasCobradas?: [string, number, number][];
+  /** Todas as cobranças avulsas do mês: [valor total, multas de cancelamento (quantidade), multas (valor)]. */
+  taxasResumo?: number[];
   /** Entradas na catraca no mês por dia da semana × hora (7 × 24, domingo primeiro), entradas por dia do mês, total e pessoas diferentes. */
   calor?: number[];
   entradasDia?: number[];
@@ -365,7 +375,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -381,9 +391,9 @@ function emptyUnit(name: string): UnitData {
 // e o TOTAL desses dois campos é refeito como soma das unidades. Mês ou unidade que o EVO tem e
 // a planilha ainda não (ninguém precisa criar a linha à mão) é criado aqui, com os demais
 // indicadores zerados até serem migrados do EVO.
-/** Soma das receitas complementares de uma unidade (ou da rede): diárias, taxa de personal, kids, camisetas e coqueteleiras. */
-export const receitaComplementar = (u: Pick<UnitData, "diarias" | "personal" | "camisetas" | "coqueteleiras" | "kids">) =>
-  (u.diarias || 0) + (u.personal || 0) + (u.camisetas || 0) + (u.coqueteleiras || 0) + (u.kids || 0);
+/** Soma das receitas complementares de uma unidade (ou da rede): diárias, taxa de personal, kids, WG Plus, Pro+, camisetas e coqueteleiras. */
+export const receitaComplementar = (u: Pick<UnitData, "diarias" | "personal" | "camisetas" | "coqueteleiras" | "kids" | "plus" | "proMais">) =>
+  (u.diarias || 0) + (u.personal || 0) + (u.camisetas || 0) + (u.coqueteleiras || 0) + (u.kids || 0) + (u.plus || 0) + (u.proMais || 0);
 
 /** Saldo de alunos ativos no mês (fim − início); undefined quando o EVO ainda não calculou o mês. */
 export const saldoAlunos = (u: Pick<UnitData, "ativosIni" | "ativosFim">) =>
@@ -427,17 +437,21 @@ export function somarPerfilOport(us: Pick<UnitData, "perfilOport">[]): PerfilOpo
 }
 
 /** Junta rankings [nome, quantidade, valor] de várias unidades pelo nome (os 10 primeiros, por quantidade ou por valor). */
-function juntarRanking(listas: ([string, number, number][] | undefined)[], porValor = false): [string, number, number][] {
+function juntarRanking(listas: ([string, number, number][] | undefined)[], porValor = false, limite = 10): [string, number, number][] {
   const por = new Map<string, [number, number]>();
   for (const l of listas) for (const [n, q, v] of l ?? []) { const a = por.get(n) ?? [0, 0]; por.set(n, [a[0] + q, a[1] + v]); }
   const k = porValor ? 2 : 1, k2 = porValor ? 1 : 2;
-  return [...por].map(([n, [q, v]]) => [n, q, Math.round(v * 100) / 100] as [string, number, number]).sort((a, b) => b[k] - a[k] || b[k2] - a[k2]).slice(0, 10);
+  return [...por].map(([n, [q, v]]) => [n, q, Math.round(v * 100) / 100] as [string, number, number]).sort((a, b) => b[k] - a[k] || b[k2] - a[k2]).slice(0, limite);
 }
 
 /** Junta os planos mais vendidos de várias unidades pelo nome do plano. */
 export const somarContratosVendidos = (us: Pick<UnitData, "contratosVendidos">[]) => juntarRanking(us.map((u) => u.contratosVendidos));
 /** Junta os produtos e serviços mais vendidos de várias unidades (pelo valor). */
 export const somarProdutosVendidos = (us: Pick<UnitData, "produtosVendidos">[]) => juntarRanking(us.map((u) => u.produtosVendidos), true);
+/** Junta as famílias de plano vendidas de várias unidades (todas, sem corte). */
+export const somarFamiliasVendidas = (us: Pick<UnitData, "familiasVendidas">[]) => juntarRanking(us.map((u) => u.familiasVendidas), false, Infinity);
+/** Junta as multas, taxas e ajustes cobrados de várias unidades (pelo valor). */
+export const somarTaxasCobradas = (us: Pick<UnitData, "taxasCobradas">[]) => juntarRanking(us.map((u) => u.taxasCobradas), true);
 
 /** Soma o tipo de venda e a duração dos planos vendidos de várias unidades. */
 export function somarTipoVenda(us: Pick<UnitData, "tipoVenda">[]): TipoVenda {
@@ -563,8 +577,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.acessos !== undefined) unit.acessos = e.acessos;
       if (e.perfil !== undefined) unit.perfil = e.perfil;
       if (e.perfilOport !== undefined) unit.perfilOport = e.perfilOport;
-      if (e.contratosVendidos !== undefined) { unit.contratosVendidos = e.contratosVendidos; unit.tipoVenda = e.tipoVenda; unit.duracaoVenda = e.duracaoVenda; }
-      if (e.produtosVendidos !== undefined) unit.produtosVendidos = e.produtosVendidos;
+      if (e.contratosVendidos !== undefined) { unit.contratosVendidos = e.contratosVendidos; unit.familiasVendidas = e.familiasVendidas; unit.tipoVenda = e.tipoVenda; unit.duracaoVenda = e.duracaoVenda; }
+      if (e.produtosVendidos !== undefined) { unit.produtosVendidos = e.produtosVendidos; unit.taxasCobradas = e.taxasCobradas; unit.taxasResumo = e.taxasResumo; }
       if (e.formasPagamento !== undefined) unit.formasPagamento = e.formasPagamento;
       if (e.calor !== undefined) { unit.calor = e.calor; unit.entradasDia = e.entradasDia ?? []; unit.entradas = e.entradas ?? 0; unit.frequentadores = e.frequentadores ?? 0; }
       if (e.bairros !== undefined) { unit.bairros = e.bairros; unit.semBairro = e.semBairro ?? 0; if (e.local) unit.local = e.local; }
@@ -593,6 +607,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.camisetas = e.camisetas ?? 0;
         unit.coqueteleiras = e.coqueteleiras ?? 0;
         if (e.kids !== undefined) unit.kids = e.kids;
+        if (e.plus !== undefined) unit.plus = e.plus;
+        if (e.proMais !== undefined) unit.proMais = e.proMais;
         if (e.personal !== undefined) { unit.personal = e.personal; unit.personalEvo = true; }
       }
       if (e.alunosAtivos !== undefined) {
@@ -653,9 +669,9 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(md.units.some((u) => u.perfil !== undefined) ? { perfil: somarPerfil(md.units) } : {}),
       ...(md.units.some((u) => u.perfilOport !== undefined) ? { perfilOport: somarPerfilOport(md.units) } : {}),
       ...(md.units.some((u) => u.contratosVendidos !== undefined)
-        ? { contratosVendidos: somarContratosVendidos(md.units), tipoVenda: somarTipoVenda(md.units), duracaoVenda: [0, 1, 2, 3, 4].map((i) => md.units.reduce((n, u) => n + (u.duracaoVenda?.[i] ?? 0), 0)) }
+        ? { contratosVendidos: somarContratosVendidos(md.units), ...(md.units.some((u) => u.familiasVendidas) ? { familiasVendidas: somarFamiliasVendidas(md.units) } : {}), tipoVenda: somarTipoVenda(md.units), duracaoVenda: [0, 1, 2, 3, 4].map((i) => md.units.reduce((n, u) => n + (u.duracaoVenda?.[i] ?? 0), 0)) }
         : {}),
-      ...(md.units.some((u) => u.produtosVendidos !== undefined) ? { produtosVendidos: somarProdutosVendidos(md.units) } : {}),
+      ...(md.units.some((u) => u.produtosVendidos !== undefined) ? { produtosVendidos: somarProdutosVendidos(md.units), ...(md.units.some((u) => u.taxasCobradas) ? { taxasCobradas: somarTaxasCobradas(md.units), taxasResumo: [0, 1, 2].map((i) => Math.round(md.units.reduce((n, u) => n + (u.taxasResumo?.[i] ?? 0), 0) * 100) / 100) } : {}) } : {}),
       ...(md.units.some((u) => u.calor !== undefined) ? somarEntradas(md.units) : {}),
       ...(md.units.some((u) => u.formasPagamento !== undefined) ? { formasPagamento: somarFormas(md.units) } : {}),
       ...(md.units.some((u) => u.treinoAtivo !== undefined)
@@ -681,7 +697,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(evo.units.some((e) => e.novosContratos !== undefined)
         ? (() => {
             const t = buildTotal(evo.month, md.units);
-            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, kids: md.units.reduce((n, u) => n + (u.kids ?? 0), 0), vendasEvo: true, ...(md.units.some((u) => u.personalEvo) ? { personal: t.personal, personalEvo: true } : {}) };
+            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, kids: md.units.reduce((n, u) => n + (u.kids ?? 0), 0), plus: md.units.reduce((n, u) => n + (u.plus ?? 0), 0), proMais: md.units.reduce((n, u) => n + (u.proMais ?? 0), 0), vendasEvo: true, ...(md.units.some((u) => u.personalEvo) ? { personal: t.personal, personalEvo: true } : {}) };
           })()
         : {}),
       ...(evo.units.some((e) => e.ativosFim)

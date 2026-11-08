@@ -25,6 +25,9 @@ export function categoriaItem(item) {
   const kids = /KIDS|BRINQUEDOTECA/.test(t);
   if (kids && (!item.idMembership || /DI[AÁ]RIA|BRINQUEDOTECA/.test(t))) return "kids";
   if (kids) return null; // mensalidade kids: contrato normal
+  // WG Plus e Pro+: contratos (2x, 3x, com piscina, dependente) e itens avulsos, somados pelo valor como o personal.
+  if (/\bPRO ?\+/.test(t)) return "proMais";
+  if (/\bPLUS\b/.test(t)) return "plus";
   if (/DI[AÁ]RIA/.test(t)) return "diarias";
   if (item.idMembership) return null;
   if (/COQUETEL|COQUETEIRA|SHAKER/.test(t)) return "coqueteleiras";
@@ -58,6 +61,31 @@ export function faixaDuracao(plano) {
   return 4;
 }
 
+/**
+ * Família do plano, para comparar a rede: cada unidade dá nome próprio aos seus planos ("WG JARDIM INGÁ LOCAL | R$ 139,90",
+ * "01 - WG LOCAL RIACHO 2"...), então o ranking da rede agrupa pelo tipo do plano. A ordem das regras importa.
+ */
+const FAMILIAS = [
+  ["Free pass", /FREE ?PASS/],
+  ["Experimental", /EXPERIMENTAL/],
+  ["Promoção 1º mês", /EX-? ?ALUNO|1[º°O]? M[ÊE]S/],
+  ["Aquática", /AQUA|NATA[ÇC]/],
+  ["Parcerias e militares", /PARCE|PACEIRO|MILITAR|GIFT|CONV[ÊE]NIO|TOP LIFE/],
+  ["WG PRO", /\bPRO\b/],
+  ["WG 30", /WG ?-? ?30/],
+  ["WG Rede", /REDE/],
+  ["WG Local", /LOCAL|MENSAL|FLEX|\b[1-5] ?X\b/],
+];
+const WG90 = /WG ?-? ?90\b/;
+export function familiaPlano(nome) {
+  const t = String(nome || "").toUpperCase();
+  for (const [f, re] of FAMILIAS) if (re.test(t)) return f;
+  return "Outros planos";
+}
+
+/** Item avulso que não é produto nem serviço: multa, taxa, pró-rata, inadimplência, estorno, ajuste. */
+export const ehTaxa = (nome) => /MULTA|PR[OÓ][ -]?RATA|TAXA|ADES[AÃ]O|INADIMPL|CONTESTA|ESTORNO|AJUSTE|ACORDO|RECEBIMENTO|^TESTE/.test(String(nome || "").toUpperCase());
+
 /** Plano de academia (entra no ranking de contratos vendidos): contrato que não é diária, brinquedoteca nem personal. */
 const ehPlano = (i) => i.idMembership && !categoriaItem(i) && !/PERSONAL/.test(upper(i));
 
@@ -66,13 +94,14 @@ export function resumirVendas(vendas, planos = new Map()) {
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, _planos: new Map(), _avulsos: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0] });
+    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0] });
     for (const i of s.saleItens || []) {
       // Produtos e serviços avulsos (camiseta, coqueteleira, diária, avaliação...): ranking pelo valor vendido.
       if (!i.idMembership) {
         const n = nomePlano(i) || "Sem descrição";
-        const at = u._avulsos.get(n) ?? [0, 0];
-        u._avulsos.set(n, [at[0] + (i.quantity || 1), at[1] + (i.saleValue || 0)]);
+        const lista = ehTaxa(n) ? u._taxas : u._avulsos;
+        const at = lista.get(n) ?? [0, 0];
+        lista.set(n, [at[0] + (i.quantity || 1), at[1] + (i.saleValue || 0)]);
       }
       if (ehPlano(i)) {
         const tipo = tipoDaVenda(s, i);
@@ -84,6 +113,12 @@ export function resumirVendas(vendas, planos = new Map()) {
           const n = nomePlano(i);
           const at = u._planos.get(n) ?? [0, 0];
           u._planos.set(n, [at[0] + 1, at[1] + v]);
+          // WG 90 (pacote trimestral) fica fora da comparação por tipo.
+          if (!WG90.test(n.toUpperCase())) {
+            const f = familiaPlano(n);
+            const af = u._familias.get(f) ?? [0, 0];
+            u._familias.set(f, [af[0] + 1, af[1] + v]);
+          }
           u.duracaoVenda[faixaDuracao(planos.get(i.idMembership))] += 1;
         }
       }
@@ -96,13 +131,22 @@ export function resumirVendas(vendas, planos = new Map()) {
     }
   }
   for (const u of Object.values(por)) {
-    for (const k of ["vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "kids"]) u[k] = round2(u[k]);
+    for (const k of ["vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "kids", "plus", "proMais"]) u[k] = round2(u[k]);
     for (const t of Object.values(u.tipoVenda)) t[1] = round2(t[1]);
     // Guarda os 10 planos mais vendidos (o painel mostra 5; a rede soma os das unidades).
     u.contratosVendidos = [...u._planos].map(([n, [q, v]]) => [n, q, round2(v)]).sort((a, b) => b[1] - a[1] || b[2] - a[2]).slice(0, 10);
-    u.produtosVendidos = [...u._avulsos].map(([n, [q, v]]) => [n, q, round2(v)]).filter(([, , v]) => v > 0).sort((a, b) => b[2] - a[2] || b[1] - a[1]).slice(0, 10);
+    u.familiasVendidas = [...u._familias].map(([n, [q, v]]) => [n, q, round2(v)]).sort((a, b) => b[1] - a[1] || b[2] - a[2]);
+    const porValor = (m) => [...m].map(([n, [q, v]]) => [n, q, round2(v)]).filter(([, , v]) => v > 0).sort((a, b) => b[2] - a[2] || b[1] - a[1]).slice(0, 10);
+    u.produtosVendidos = porValor(u._avulsos);
+    u.taxasCobradas = porValor(u._taxas);
+    // Resumo de todas as cobranças avulsas (a lista acima guarda só as 10 maiores): [valor total, multas (qtd), multas (valor)].
+    const todas = [...u._taxas];
+    const multas = todas.filter(([n]) => /MULTA/i.test(n));
+    u.taxasResumo = [round2(todas.reduce((n, [, [, v]]) => n + v, 0)), multas.reduce((n, [, [q]]) => n + q, 0), round2(multas.reduce((n, [, [, v]]) => n + v, 0))];
     delete u._planos;
+    delete u._familias;
     delete u._avulsos;
+    delete u._taxas;
   }
   return por;
 }

@@ -70,6 +70,8 @@ export const INDICATORS: Indicator[] = [
   { key: "diarias", label: "Diárias", category: "complementares", format: "currency", direction: null, value: field("diarias") },
   { key: "personal", label: "Taxa de personal", category: "complementares", format: "currency", direction: null, value: field("personal") },
   { key: "kids", label: "Brinquedoteca", category: "complementares", format: "currency", direction: null, value: field("kids") },
+  { key: "plus", label: "WG Plus", category: "complementares", format: "currency", direction: null, value: field("plus") },
+  { key: "proMais", label: "Pro+", category: "complementares", format: "currency", direction: null, value: field("proMais") },
   { key: "camisetas", label: "Camisetas", category: "complementares", format: "currency", direction: null, value: field("camisetas") },
   { key: "coqueteleiras", label: "Coqueteleiras", category: "complementares", format: "currency", direction: null, value: field("coqueteleiras") },
 ];

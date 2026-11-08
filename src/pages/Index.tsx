@@ -8,7 +8,7 @@ import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
-import { ContratosVendidos, ProdutosVendidos } from "@/components/ContratosVendidos";
+import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components/ContratosVendidos";
 import { FormasPagamento } from "@/components/FormasPagamento";
 import { CampanhasTab } from "@/components/tabs/CampanhasTab";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
@@ -345,24 +345,26 @@ const Index = () => {
             <SectionTitle>Comercial</SectionTitle>
           <div className="mb-8"><KpiGrid ctx={kpiCtx} specs={comercialSpecs} /></div>
             <SectionTitle hint={selectedUnit ? `Soma das receitas complementares de ${selectedUnit}` : "Soma das receitas complementares da rede; escolha uma unidade no filtro para ver só ela"}>Receitas complementares</SectionTitle>
-            <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={complementaresSpecs} columns="xl:grid-cols-3" /></div>
+            <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={complementaresSpecs} columns="xl:grid-cols-4" /></div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
               <NovosContratosChart selectedUnit={selectedUnit} />
               <VendasOnlineChart selectedUnit={selectedUnit} />
             </div>
-            <div className="mb-6"><ContratosVendidos total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
+            <div className="mb-6"><ContratosVendidos total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} porFamilia={!selectedUnit} /></div>
             <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
             <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <DonutList
               title="Receitas complementares"
-              subtitle="Participação de cada receita na soma das cinco"
-              center={{ value: formatAbbreviatedNumber(receitaComplementar(currentData.total)), caption: "soma das cinco" }}
+              subtitle="Participação de cada receita na soma das sete"
+              center={{ value: formatAbbreviatedNumber(receitaComplementar(currentData.total)), caption: "soma das sete" }}
               empty="Sem receitas complementares lançadas neste mês."
               items={[
                 { label: "Diárias", value: currentData.total.diarias, color: "hsl(222 25% 22%)", valueText: formatCurrency(currentData.total.diarias) },
                 { label: "Taxa de personal", value: currentData.total.personal, color: "hsl(4 90% 50%)", valueText: formatCurrency(currentData.total.personal) },
                 { label: "Brinquedoteca", value: (currentData.total as { kids?: number }).kids ?? 0, color: "hsl(142 50% 38%)", valueText: formatCurrency((currentData.total as { kids?: number }).kids ?? 0) },
+                { label: "WG Plus", value: (currentData.total as { plus?: number }).plus ?? 0, color: "hsl(32 85% 50%)", valueText: formatCurrency((currentData.total as { plus?: number }).plus ?? 0) },
+                { label: "Pro+", value: (currentData.total as { proMais?: number }).proMais ?? 0, color: "hsl(262 45% 52%)", valueText: formatCurrency((currentData.total as { proMais?: number }).proMais ?? 0) },
                 { label: "Camisetas", value: currentData.total.camisetas, color: "hsl(222 14% 52%)", valueText: formatCurrency(currentData.total.camisetas) },
                 { label: "Coqueteleiras", value: currentData.total.coqueteleiras, color: "hsl(220 14% 78%)", valueText: formatCurrency(currentData.total.coqueteleiras) },
               ]}
@@ -378,7 +380,10 @@ const Index = () => {
           <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={financeiroSpecs} columns="xl:grid-cols-3" /></div>
             <div className="grid grid-cols-1 gap-6 mb-10">
               <RevenueChart selectedUnit={selectedUnit} />
-              <FormasPagamento total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <FormasPagamento total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
+                <TaxasCobradas total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} />
+              </div>
             </div>
             <SectionTitle hint="Quem está pagando em dia, quem está em atraso e por que as cobranças no cartão falham">Cobrança e inadimplência</SectionTitle>
             <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")} columns="xl:grid-cols-2" /></div>
