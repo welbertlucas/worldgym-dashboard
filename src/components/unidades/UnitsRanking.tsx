@@ -1,4 +1,5 @@
 import { UnitLink } from "@/components/UnitLink";
+import { HeadlineStat } from "@/components/ChartCard";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
 import { type UnitData } from "@/data/dashboardData";
@@ -123,6 +124,17 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
   const span = max - min || 1;
   const zero = (-min / span) * 100; // posição do zero na escala (0 quando não há negativos)
 
+  // Média da rede no indicador (média simples das unidades com dado) e quem está do lado bom dela.
+  const media = bestFirst.length ? bestFirst.reduce((t, r) => t + r.v, 0) / bestFirst.length : 0;
+  const mediaPos = ((media - min) / span) * 100;
+  const ladoBom = (v: number) => (lowerFirst ? v <= media : v >= media);
+  const melhor = bestFirst[0];
+  const pior = bestFirst[bestFirst.length - 1];
+  const distancia = melhor && pior && bestFirst.length > 1
+    ? ind.format === "percent" ? `${Math.abs(melhor.v - pior.v).toFixed(1).replace(".", ",")} p.p.`
+      : Math.min(melhor.v, pior.v) > 0 ? `${(Math.max(melhor.v, pior.v) / Math.min(melhor.v, pior.v)).toFixed(1).replace(".", ",")}×` : null
+    : null;
+
   const semDado = new Set(INDICATORS.filter((i) => !units.some((u) => hasData(i, i.value(u)))).map((i) => i.key));
   const nomeIndicador = ind.label === ind.label.toUpperCase() ? ind.label : ind.label.toLowerCase(); // siglas (NPS) ficam em maiúsculas
 
@@ -194,36 +206,38 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
             <p className="mt-4 text-sm text-muted-foreground">Nenhuma unidade tem dado de {nomeIndicador} neste mês. Escolha outro indicador ou outro mês.</p>
           ) : (
             <>
-            {!compacto && !reversed && rows.length >= 3 && (
-              <ol className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label={`Três primeiras unidades por ${ind.label}`}>
-                {rows.slice(0, 3).map((r, i) => (
-                  <li key={r.name} className="rounded-xl border border-border bg-white px-4 py-3">
-                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-[11px] font-semibold text-background">{i + 1}</span>
-                      <span className="truncate font-medium text-foreground"><UnitLink name={r.name} /></span>
-                    </p>
-                    <p className="mt-2 font-display text-[1.75rem] leading-none font-semibold tracking-tight tabular-nums text-foreground">{formatIndicator(ind, r.v)}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ind.label}</p>
-                  </li>
-                ))}
-              </ol>
+            {!compacto && melhor && (
+              <div className="mt-5 flex flex-wrap gap-x-10 gap-y-3">
+                <HeadlineStat label="Média da rede" value={formatIndicator(ind, media)} swatch={<span className="h-3 w-0 border-l-2 border-dashed border-foreground/60" />} />
+                <HeadlineStat label={`${ind.direction ? "Melhor" : "Maior"}: ${melhor.name}`} value={formatIndicator(ind, melhor.v)} swatch={<span className="h-2 w-2 rounded-full bg-foreground/75" />} />
+                {distancia && <HeadlineStat label={`Distância entre o 1º e o ${bestFirst.length}º`} value={distancia} swatch={<span className="h-2 w-2 rounded-full bg-foreground/15" />} />}
+              </div>
             )}
-            <ol className="mt-4 space-y-1.5" aria-label={`Unidades por ${ind.label}`}>
+            <ol className="mt-5 space-y-1" aria-label={`Unidades por ${ind.label}`}>
               {rows.map((r, idx) => {
                 const salto = recorte && idx > 0 && recorte[idx] - recorte[idx - 1] > 1;
+                // Linha "média da rede" entre quem está do lado bom e quem está do outro lado (só na lista completa, sem regra invertida).
+                const cruzaMedia = !recorte && idx > 0 && ladoBom(rows[idx - 1].v) !== ladoBom(r.v);
                 const tone = ind.tone?.(r.v);
                 const left = r.v >= 0 ? zero : zero - (-r.v / span) * 100;
                 const width = (Math.abs(r.v) / span) * 100;
+                const cor = r.name === destaque ? "bg-primary" : tone ? TONE_BAR[tone] : !ind.direction ? "bg-foreground/60" : ladoBom(r.v) ? "bg-foreground/75" : "bg-foreground/15";
                 return (
                   <Fragment key={r.name}>
                   {salto && <li aria-hidden className="pl-[2.25rem] text-xs leading-none text-muted-foreground">⋮</li>}
-                  <li aria-current={r.name === destaque ? "true" : undefined} className={cn("grid grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_12rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1", r.name === destaque && "-mx-2 rounded-lg bg-primary/10 px-2 py-1 ring-1 ring-primary/40")}>
-                    <span className="text-xs text-muted-foreground tabular-nums">{position.get(r.name)}</span>
+                  {cruzaMedia && (
+                    <li aria-hidden className="flex items-center gap-3 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span className="h-px flex-1 border-t border-dashed border-foreground/30" />média da rede: {formatIndicator(ind, media)}<span className="h-px flex-1 border-t border-dashed border-foreground/30" />
+                    </li>
+                  )}
+                  <li aria-current={r.name === destaque ? "true" : undefined} className={cn("grid grid-cols-[1.75rem_minmax(0,1fr)_auto] sm:grid-cols-[1.75rem_12rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1 rounded-lg px-1 py-1", r.name === destaque && "bg-primary/10 ring-1 ring-primary/40")}>
+                    <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", (position.get(r.name) ?? 99) <= 3 && ind.direction ? "bg-foreground text-background" : "bg-secondary text-muted-foreground")}>{position.get(r.name)}</span>
                     <span className="text-sm font-medium text-foreground truncate"><UnitLink name={r.name} /></span>
-                    <span className="sm:order-4 text-sm font-semibold tabular-nums text-right">{formatIndicator(ind, r.v)}</span>
-                    <div className="col-span-3 sm:col-span-1 sm:order-3 relative h-2 rounded-full bg-secondary" aria-hidden>
-                      <div className={cn("absolute inset-y-0 rounded-full", tone ? TONE_BAR[tone] : "bg-foreground/70")} style={{ left: `${left}%`, width: `${Math.max(width, 0.6)}%` }} />
+                    <span className="sm:order-4 text-sm font-semibold tabular-nums text-right text-foreground">{formatIndicator(ind, r.v)}</span>
+                    <div className="col-span-3 sm:col-span-1 sm:order-3 relative h-5 rounded-md bg-secondary/70" aria-hidden>
+                      <div className={cn("absolute inset-y-0 rounded-md", cor)} style={{ left: `${left}%`, width: `${Math.max(width, 0.8)}%` }} />
                       {zero > 0 && <div className="absolute inset-y-[-3px] w-px bg-foreground/40" style={{ left: `${zero}%` }} />}
+                      <div className="absolute inset-y-[-4px] border-l-2 border-dashed border-foreground/50" style={{ left: `${mediaPos}%` }} />
                     </div>
                   </li>
                   </Fragment>
@@ -240,7 +254,11 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
           {!compacto && noData.length > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">Sem dado neste mês: {noData.join(", ")}.</p>
           )}
-          {ind.tone && <p className="mt-2 text-xs text-muted-foreground">Cores seguem as faixas já usadas na tabela: {ind.toneHint}.</p>}
+          <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="h-3 border-l-2 border-dashed border-foreground/50" aria-hidden />média da rede ({formatIndicator(ind, media)})</span>
+            {ind.tone ? <span>Cores seguem as faixas já usadas na tabela: {ind.toneHint}.</span>
+              : ind.direction ? <><span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-foreground/75" aria-hidden />melhor que a média</span><span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-foreground/15" aria-hidden />pior que a média</span></> : <span>Sem regra de melhor ou pior para este indicador.</span>}
+          </p>
         </>
       )}
     </section>
