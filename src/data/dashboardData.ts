@@ -106,7 +106,24 @@ export interface UnitData {
   contratosLocal?: number;
   contratosParcial?: number;
   contratosRede?: number;
+  /** Planos mais vendidos no mês a alunos novos e rematrículas (sem diárias, brinquedoteca e personal): [plano, vendas, valor]. */
+  contratosVendidos?: [string, number, number][];
+  /** Vendas de planos por tipo: [quantidade, valor] de matrículas novas, rematrículas e renovações. */
+  tipoVenda?: TipoVenda;
+  /** Duração dos planos vendidos a novos e rematrículas: mensal, trimestral, semestral, anual, outra. */
+  duracaoVenda?: number[];
+  /** Produtos e serviços avulsos mais vendidos no mês (pelo valor): [nome, quantidade, valor]. */
+  produtosVendidos?: [string, number, number][];
+  /** Entradas na catraca no mês por dia da semana × hora (7 × 24, domingo primeiro), entradas por dia do mês, total e pessoas diferentes. */
+  calor?: number[];
+  entradasDia?: number[];
+  entradas?: number;
+  frequentadores?: number;
+  /** Recebido no mês por forma de pagamento (nome → valor), pela data do pagamento. */
+  formasPagamento?: Record<string, number>;
 }
+
+export type TipoVenda = { novo: [number, number]; remat: [number, number]; renov: [number, number] };
 
 export interface MonthData {
   month: string;
@@ -348,7 +365,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -406,6 +423,45 @@ export function somarPerfilOport(us: Pick<UnitData, "perfilOport">[]): PerfilOpo
     u.perfilOport.g.forEach(([c, v], k) => { out.g[k][0] += c; out.g[k][1] += v; });
     u.perfilOport.i.forEach(([c, v], k) => { out.i[k][0] += c; out.i[k][1] += v; });
   }
+  return out;
+}
+
+/** Junta rankings [nome, quantidade, valor] de várias unidades pelo nome (os 10 primeiros, por quantidade ou por valor). */
+function juntarRanking(listas: ([string, number, number][] | undefined)[], porValor = false): [string, number, number][] {
+  const por = new Map<string, [number, number]>();
+  for (const l of listas) for (const [n, q, v] of l ?? []) { const a = por.get(n) ?? [0, 0]; por.set(n, [a[0] + q, a[1] + v]); }
+  const k = porValor ? 2 : 1, k2 = porValor ? 1 : 2;
+  return [...por].map(([n, [q, v]]) => [n, q, Math.round(v * 100) / 100] as [string, number, number]).sort((a, b) => b[k] - a[k] || b[k2] - a[k2]).slice(0, 10);
+}
+
+/** Junta os planos mais vendidos de várias unidades pelo nome do plano. */
+export const somarContratosVendidos = (us: Pick<UnitData, "contratosVendidos">[]) => juntarRanking(us.map((u) => u.contratosVendidos));
+/** Junta os produtos e serviços mais vendidos de várias unidades (pelo valor). */
+export const somarProdutosVendidos = (us: Pick<UnitData, "produtosVendidos">[]) => juntarRanking(us.map((u) => u.produtosVendidos), true);
+
+/** Soma o tipo de venda e a duração dos planos vendidos de várias unidades. */
+export function somarTipoVenda(us: Pick<UnitData, "tipoVenda">[]): TipoVenda {
+  const out: TipoVenda = { novo: [0, 0], remat: [0, 0], renov: [0, 0] };
+  for (const u of us) if (u.tipoVenda) for (const k of ["novo", "remat", "renov"] as const) { out[k][0] += u.tipoVenda[k][0]; out[k][1] += u.tipoVenda[k][1]; }
+  return out;
+}
+
+/** Soma as entradas na catraca de várias unidades (mapa de calor, por dia, total e pessoas). */
+export function somarEntradas(us: Pick<UnitData, "calor" | "entradasDia" | "entradas" | "frequentadores">[]) {
+  const comDados = us.filter((u) => u.calor);
+  const dias = Math.max(0, ...comDados.map((u) => u.entradasDia?.length ?? 0));
+  return {
+    calor: Array.from({ length: 168 }, (_, k) => comDados.reduce((n, u) => n + (u.calor?.[k] ?? 0), 0)),
+    entradasDia: Array.from({ length: dias }, (_, k) => comDados.reduce((n, u) => n + (u.entradasDia?.[k] ?? 0), 0)),
+    entradas: comDados.reduce((n, u) => n + (u.entradas ?? 0), 0),
+    frequentadores: comDados.reduce((n, u) => n + (u.frequentadores ?? 0), 0),
+  };
+}
+
+/** Soma o recebido por forma de pagamento de várias unidades. */
+export function somarFormas(us: Pick<UnitData, "formasPagamento">[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const u of us) for (const [k, v] of Object.entries(u.formasPagamento ?? {})) out[k] = Math.round(((out[k] ?? 0) + v) * 100) / 100;
   return out;
 }
 
@@ -507,6 +563,10 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.acessos !== undefined) unit.acessos = e.acessos;
       if (e.perfil !== undefined) unit.perfil = e.perfil;
       if (e.perfilOport !== undefined) unit.perfilOport = e.perfilOport;
+      if (e.contratosVendidos !== undefined) { unit.contratosVendidos = e.contratosVendidos; unit.tipoVenda = e.tipoVenda; unit.duracaoVenda = e.duracaoVenda; }
+      if (e.produtosVendidos !== undefined) unit.produtosVendidos = e.produtosVendidos;
+      if (e.formasPagamento !== undefined) unit.formasPagamento = e.formasPagamento;
+      if (e.calor !== undefined) { unit.calor = e.calor; unit.entradasDia = e.entradasDia ?? []; unit.entradas = e.entradas ?? 0; unit.frequentadores = e.frequentadores ?? 0; }
       if (e.bairros !== undefined) { unit.bairros = e.bairros; unit.semBairro = e.semBairro ?? 0; if (e.local) unit.local = e.local; }
       if (e.bairrosInativos !== undefined) { unit.bairrosInativos = e.bairrosInativos; unit.semBairroInativos = e.semBairroInativos ?? 0; }
       if (e.treinoAtivo !== undefined) { unit.treinoAtivo = e.treinoAtivo; unit.treinoVencido = e.treinoVencido ?? 0; unit.treinoFuturo = e.treinoFuturo ?? 0; }
@@ -592,6 +652,12 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         : {}),
       ...(md.units.some((u) => u.perfil !== undefined) ? { perfil: somarPerfil(md.units) } : {}),
       ...(md.units.some((u) => u.perfilOport !== undefined) ? { perfilOport: somarPerfilOport(md.units) } : {}),
+      ...(md.units.some((u) => u.contratosVendidos !== undefined)
+        ? { contratosVendidos: somarContratosVendidos(md.units), tipoVenda: somarTipoVenda(md.units), duracaoVenda: [0, 1, 2, 3, 4].map((i) => md.units.reduce((n, u) => n + (u.duracaoVenda?.[i] ?? 0), 0)) }
+        : {}),
+      ...(md.units.some((u) => u.produtosVendidos !== undefined) ? { produtosVendidos: somarProdutosVendidos(md.units) } : {}),
+      ...(md.units.some((u) => u.calor !== undefined) ? somarEntradas(md.units) : {}),
+      ...(md.units.some((u) => u.formasPagamento !== undefined) ? { formasPagamento: somarFormas(md.units) } : {}),
       ...(md.units.some((u) => u.treinoAtivo !== undefined)
         ? { treinoAtivo: md.units.reduce((n, u) => n + (u.treinoAtivo ?? 0), 0), treinoVencido: md.units.reduce((n, u) => n + (u.treinoVencido ?? 0), 0), treinoFuturo: md.units.reduce((n, u) => n + (u.treinoFuturo ?? 0), 0) }
         : {}),

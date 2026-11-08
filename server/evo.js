@@ -104,7 +104,7 @@ function monthRange(ym) {
 const round2 = (n) => Math.round(n * 100) / 100;
 // Fora: cancelados e títulos sem aluno/prospect como pagador (transferências entre contas da própria unidade,
 // conciliação bancária). Em Salvador/08-2026 eram R$ 666 mil de "Transferência | Pix" que inflavam o mês.
-const live = (r) => !r.cancellationDate && (r.idMemberPayer || r.idProspectPayer);
+export const live = (r) => !r.cancellationDate && (r.idMemberPayer || r.idProspectPayer);
 
 // Hoje no horário de Brasília (AAAA-MM-DD). O Brasil não tem horário de verão desde 2019.
 export const hojeBR = (agora = Date.now()) => new Date(agora - 3 * 3600 * 1000).toISOString().slice(0, 10);

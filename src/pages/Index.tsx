@@ -8,6 +8,8 @@ import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
+import { ContratosVendidos, ProdutosVendidos } from "@/components/ContratosVendidos";
+import { FormasPagamento } from "@/components/FormasPagamento";
 import { CampanhasTab } from "@/components/tabs/CampanhasTab";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { AlunosTab } from "@/components/tabs/AlunosTab";
@@ -348,8 +350,10 @@ const Index = () => {
               <NovosContratosChart selectedUnit={selectedUnit} />
               <VendasOnlineChart selectedUnit={selectedUnit} />
             </div>
+            <div className="mb-6"><ContratosVendidos total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
             <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
             <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <DonutList
               title="Receitas complementares"
               subtitle="Participação de cada receita na soma das cinco"
@@ -363,6 +367,8 @@ const Index = () => {
                 { label: "Coqueteleiras", value: currentData.total.coqueteleiras, color: "hsl(220 14% 78%)", valueText: formatCurrency(currentData.total.coqueteleiras) },
               ]}
             />
+              <ProdutosVendidos total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} />
+            </div>
           </section>
         )}
 
@@ -372,6 +378,7 @@ const Index = () => {
           <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={financeiroSpecs} columns="xl:grid-cols-3" /></div>
             <div className="grid grid-cols-1 gap-6 mb-10">
               <RevenueChart selectedUnit={selectedUnit} />
+              <FormasPagamento total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
             </div>
             <SectionTitle hint="Quem está pagando em dia, quem está em atraso e por que as cobranças no cartão falham">Cobrança e inadimplência</SectionTitle>
             <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")} columns="xl:grid-cols-2" /></div>

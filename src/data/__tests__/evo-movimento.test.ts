@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
 import { movimentoDoMes, ativoNoDia, fluxoDoMes } from "../../../server/ativos.js";
 // @ts-expect-error módulo JS do servidor
-import { resumirVendas, categoriaAvulsa } from "../../../server/vendas.js";
+import { resumirVendas, categoriaAvulsa, faixaDuracao } from "../../../server/vendas.js";
 // @ts-expect-error módulo JS do servidor
 import { agregarNps } from "../../../server/wehelp.js";
 // @ts-expect-error módulo JS do servidor
@@ -64,7 +64,40 @@ describe("resumirVendas", () => {
       venda({ idBranch: 9 }, [{ idMembership: 3, saleValue: 999 }]),
     ]);
     expect(Object.keys(por)).toEqual(["Asa Norte"]);
-    expect(por["Asa Norte"]).toEqual({ novosContratos: 2, vendasOnline: 175, diarias: 50, camisetas: 89, coqueteleiras: 25, personal: 0, kids: 10 });
+    expect(por["Asa Norte"]).toMatchObject({ novosContratos: 2, vendasOnline: 175, diarias: 50, camisetas: 89, coqueteleiras: 25, personal: 0, kids: 10 });
+  });
+  it("ranking de planos, tipo de venda e duração (só venda nova entra no ranking)", () => {
+    const planos = new Map([[1, { duration: 30, durationType: "Days" }], [2, { duration: 12, durationType: "Months" }]]);
+    const por = resumirVendas([
+      venda({ registrationKind: "enrollment" }, [{ idMembership: 1, item: " WG 30  ", saleValue: 189.9 }]),
+      venda({ registrationKind: "enrollment" }, [{ idMembership: 1, item: "WG 30", saleValue: 189.9 }]),
+      venda({ registrationKind: "re-enrollment" }, [{ idMembership: 2, item: "ANUAL", saleValue: 1198.8 }]),
+      venda({ registrationKind: "renewal" }, [{ idMembership: 1, idMembershipRenewed: 5, item: "WG 30", saleValue: 189.9 }]),
+      venda({ registrationKind: null }, [{ idMembership: 1, idMembershipRenewed: 5, item: "WG 30", saleValue: 189.9 }]),
+      venda({ registrationKind: "enrollment" }, [{ idMembership: 8, item: "PERSONAL WG LOCAL", saleValue: 200 }, { idMembership: 9, item: "WG DIÁRIA", saleValue: 30 }]),
+    ], planos);
+    const u = por["Asa Norte"];
+    expect(u.contratosVendidos).toEqual([["WG 30", 2, 379.8], ["ANUAL", 1, 1198.8]]);
+    expect(u.tipoVenda).toEqual({ novo: [2, 379.8], remat: [1, 1198.8], renov: [2, 379.8] });
+    expect(u.duracaoVenda).toEqual([2, 0, 0, 1, 0]);
+    expect(u._planos).toBeUndefined();
+    expect(u._avulsos).toBeUndefined();
+  });
+  it("ranking de produtos e serviços avulsos pelo valor, sem os de valor zero", () => {
+    const por = resumirVendas([
+      venda({}, [{ item: "CAMISETA DRY", quantity: 2, saleValue: 120 }, { item: "COQUETELEIRA", quantity: 1, saleValue: 30 }]),
+      venda({}, [{ item: "CAMISETA DRY ", quantity: 1, saleValue: 60 }, { item: "AVALIAÇÃO", quantity: 1, saleValue: 0 }, { idMembership: 1, item: "PLANO", saleValue: 99 }]),
+    ]);
+    expect(por["Asa Norte"].produtosVendidos).toEqual([["CAMISETA DRY", 3, 180], ["COQUETELEIRA", 1, 30]]);
+  });
+  it("faixa de duração do plano", () => {
+    expect(faixaDuracao({ duration: 30, durationType: "Days" })).toBe(0);
+    expect(faixaDuracao({ duration: 1, durationType: "Months" })).toBe(0);
+    expect(faixaDuracao({ duration: 3, durationType: "Months" })).toBe(1);
+    expect(faixaDuracao({ duration: 6, durationType: "Months" })).toBe(2);
+    expect(faixaDuracao({ duration: 12, durationType: "Months" })).toBe(3);
+    expect(faixaDuracao({ duration: 1, durationType: "Days" })).toBe(4);
+    expect(faixaDuracao(undefined)).toBe(4);
   });
   it("contrato não vira camiseta nem coqueteleira", () => {
     expect(categoriaAvulsa({ idMembership: 1, item: "CAMISA PLANO" })).toBeNull();

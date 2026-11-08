@@ -6,6 +6,7 @@ import { TreinosCard } from "@/components/clientes/TreinosCard";
 import { PerfilAlunosCard } from "@/components/clientes/PerfilAlunosCard";
 import { AcessosCard } from "@/components/clientes/AcessosCard";
 import { SaldoHeatmap } from "@/components/clientes/SaldoHeatmap";
+import { MapaCalorEntradas } from "@/components/clientes/MapaCalorEntradas";
 import { AtalhosSecoes, Secao } from "@/components/unidades/Secao";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 
@@ -34,7 +35,8 @@ export function AlunosTab({ ctx, month, unit }: Props) {
         <PerfilAlunosCard total={total} monthLabel={monthLabel} unit={unit} />
       </Secao>
 
-      <Secao id="al-frequencia" titulo="Frequência" descricao="Quando os alunos vieram pela última vez e como está o treino deles. Quem some costuma cancelar depois.">
+      <Secao id="al-frequencia" titulo="Frequência" descricao="Em que dias e horários os alunos treinam, quando vieram pela última vez e como está o treino deles. Quem some costuma cancelar depois.">
+        <MapaCalorEntradas total={total} month={month} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
         <AcessosCard total={total} month={month} monthLabel={monthLabel} unit={unit} />
         <TreinosCard total={total} month={month} monthLabel={monthLabel} unit={unit} />
       </Secao>

@@ -1,15 +1,18 @@
-// Grava nos meses já calculados: novosContratos, vendasOnline, diarias, camisetas, coqueteleiras e personal (vindos das vendas do EVO).
+// Grava nos meses já calculados: novosContratos, vendasOnline, diarias, camisetas, coqueteleiras, personal,
+// contratos mais vendidos, tipo de venda (novo/rematrícula/renovação) e duração dos planos vendidos (vindos das vendas do EVO).
 // Uso: node --env-file=.env.local scripts/evo-vendas.mjs 2026-10 2026-11
-import { vendasDoMes } from "../server/vendas.js";
+import { catalogoDePlanos, vendasDoMes } from "../server/vendas.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 
 const falhas = [];
+const planos = await catalogoDePlanos();
+console.log(`catálogo: ${planos.size} planos`);
 for (const ym of process.argv.slice(2)) {
   const t0 = Date.now();
   try {
     const month = await loadMonth(ym);
     if (!month) throw new Error("mês ainda não foi calculado; rode evo-backfill antes");
-    const por = await vendasDoMes(ym);
+    const por = await vendasDoMes(ym, planos);
     for (const u of month.units) if (por[u.name]) Object.assign(u, por[u.name]);
     month.vendasEm = new Date().toISOString();
     await saveMonth(month);

@@ -35,13 +35,58 @@ export const categoriaAvulsa = categoriaItem;
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
-export function resumirVendas(vendas) {
+/** Nome do plano como aparece na venda, sem espaços sobrando (" WG 30  " → "WG 30"). */
+export const nomePlano = (i) => String(i.item || i.description || "").replace(/\s+/g, " ").trim();
+
+/** Tipo da venda de contrato: novo (matrícula), rematrícula (ex-aluno voltando) ou renovação. */
+export function tipoDaVenda(venda, item) {
+  if (venda.registrationKind === "enrollment") return "novo";
+  if (venda.registrationKind === "re-enrollment") return "remat";
+  if (venda.registrationKind === "renewal" || item.idMembershipRenewed) return "renov";
+  return "novo";
+}
+
+/** Faixa de duração do plano: 0 mensal, 1 trimestral, 2 semestral, 3 anual, 4 outra (diária, semanal, 2 anos...). */
+export function faixaDuracao(plano) {
+  if (!plano || !plano.duration) return 4;
+  const meses = plano.durationType === "Days" ? plano.duration / 30 : plano.durationType === "Months" ? plano.duration : plano.durationType === "Years" ? plano.duration * 12 : NaN;
+  if (!(meses > 0)) return 4;
+  if (meses >= 0.9 && meses <= 1.1) return 0;
+  if (meses >= 2 && meses <= 3) return 1;
+  if (meses >= 4 && meses <= 6) return 2;
+  if (meses >= 7 && meses <= 12) return 3;
+  return 4;
+}
+
+/** Plano de academia (entra no ranking de contratos vendidos): contrato que não é diária, brinquedoteca nem personal. */
+const ehPlano = (i) => i.idMembership && !categoriaItem(i) && !/PERSONAL/.test(upper(i));
+
+export function resumirVendas(vendas, planos = new Map()) {
   const por = {};
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0 });
+    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, _planos: new Map(), _avulsos: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0] });
     for (const i of s.saleItens || []) {
+      // Produtos e serviços avulsos (camiseta, coqueteleira, diária, avaliação...): ranking pelo valor vendido.
+      if (!i.idMembership) {
+        const n = nomePlano(i) || "Sem descrição";
+        const at = u._avulsos.get(n) ?? [0, 0];
+        u._avulsos.set(n, [at[0] + (i.quantity || 1), at[1] + (i.saleValue || 0)]);
+      }
+      if (ehPlano(i)) {
+        const tipo = tipoDaVenda(s, i);
+        const v = i.saleValue || 0;
+        u.tipoVenda[tipo][0] += 1;
+        u.tipoVenda[tipo][1] += v;
+        // Ranking e duração olham só a venda nova (matrícula e rematrícula): renovação é, na maior parte, a recorrência mensal automática.
+        if (tipo !== "renov") {
+          const n = nomePlano(i);
+          const at = u._planos.get(n) ?? [0, 0];
+          u._planos.set(n, [at[0] + 1, at[1] + v]);
+          u.duracaoVenda[faixaDuracao(planos.get(i.idMembership))] += 1;
+        }
+      }
       const cat = categoriaItem(i);
       // Diária vendida como contrato conta como diária, não como contrato novo.
       if (i.idMembership && !i.idMembershipRenewed && cat !== "diarias") u.novosContratos += 1;
@@ -50,13 +95,30 @@ export function resumirVendas(vendas) {
       if (cat) u[cat] += i.saleValue || 0;
     }
   }
-  for (const u of Object.values(por)) for (const k of ["vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "kids"]) u[k] = round2(u[k]);
+  for (const u of Object.values(por)) {
+    for (const k of ["vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "kids"]) u[k] = round2(u[k]);
+    for (const t of Object.values(u.tipoVenda)) t[1] = round2(t[1]);
+    // Guarda os 10 planos mais vendidos (o painel mostra 5; a rede soma os das unidades).
+    u.contratosVendidos = [...u._planos].map(([n, [q, v]]) => [n, q, round2(v)]).sort((a, b) => b[1] - a[1] || b[2] - a[2]).slice(0, 10);
+    u.produtosVendidos = [...u._avulsos].map(([n, [q, v]]) => [n, q, round2(v)]).filter(([, , v]) => v > 0).sort((a, b) => b[2] - a[2] || b[1] - a[1]).slice(0, 10);
+    delete u._planos;
+    delete u._avulsos;
+  }
   return por;
 }
 
-export async function vendasDoMes(ym) {
+/** Catálogo de planos de todas as unidades (id → duração), para classificar a duração dos contratos vendidos. */
+export async function catalogoDePlanos() {
+  const planos = new Map();
+  for (const id of Object.keys(UNIT_NAMES)) {
+    for (const p of await fetchAll(`/membership?idBranch=${id}`)) planos.set(p.idMembership, { duration: p.duration, durationType: p.durationType });
+  }
+  return planos;
+}
+
+export async function vendasDoMes(ym, planos) {
   const [y, m] = ym.split("-").map(Number);
   const ultimo = new Date(Date.UTC(y, m, 0)).getUTCDate();
   // idBranch é obrigatório na rota, mas ignorado: traz todas as unidades.
-  return resumirVendas(await fetchAll(`/sales?idBranch=5&dateSaleStart=${ym}-01&dateSaleEnd=${ym}-${String(ultimo).padStart(2, "0")}`));
+  return resumirVendas(await fetchAll(`/sales?idBranch=5&dateSaleStart=${ym}-01&dateSaleEnd=${ym}-${String(ultimo).padStart(2, "0")}`), planos);
 }

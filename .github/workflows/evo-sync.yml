@@ -94,12 +94,24 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-perfil-oportunidades.mjs $MONTHS_DONE
-      - name: Vendas do mês (novos contratos, vendas online, avulsas)
+      - name: Vendas do mês (novos contratos, vendas online, avulsas, planos e produtos mais vendidos)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-vendas.mjs $MONTHS_DONE
+      - name: Entradas na catraca (mapa de calor dia × hora)
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-entradas.mjs $MONTHS_DONE
+      - name: Recebimento por forma de pagamento
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-formas-pagamento.mjs $MONTHS_DONE
       - name: Contratos ativos, especiais/VIP e personal (mês corrente)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
