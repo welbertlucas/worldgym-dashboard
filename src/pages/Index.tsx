@@ -10,6 +10,7 @@ import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
+import { CampanhasNoAr } from "@/components/CampanhasNoAr";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { BaseAlunos } from "@/components/clientes/BaseAlunos";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
@@ -332,6 +333,7 @@ const Index = () => {
             </div>
             <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
             <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
+            <div className="mb-6"><CampanhasNoAr unit={selectedUnit} /></div>
             <DonutList
               title="Receitas complementares"
               subtitle="Participação de cada receita na soma das cinco"

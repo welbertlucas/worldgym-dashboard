@@ -1,0 +1,31 @@
+name: Atualizar campanhas do Meta
+
+# Lê as campanhas ativas de cada unidade no Meta (só leitura) e grava a foto do dia no Blob da Vercel.
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meta-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Campanhas ativas
+        env:
+          META_TOKEN_DFGO: ${{ secrets.META_TOKEN_DFGO }}
+          META_TOKEN_BR01: ${{ secrets.META_TOKEN_BR01 }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/meta-campanhas.mjs

@@ -48,3 +48,16 @@ export async function loadAll() {
   if (!r || r.statusCode !== 200) return null;
   return JSON.parse(await new Response(r.stream).text());
 }
+
+// Campanhas de anúncio ativas (Meta), uma foto por dia: o painel lê só este arquivo.
+const campanhasPath = "campanhas/atual.json";
+
+export async function saveCampanhas(dados) {
+  await put(campanhasPath, JSON.stringify(dados), { access: "private", contentType: "application/json", addRandomSuffix: false, allowOverwrite: true });
+}
+
+export async function loadCampanhas() {
+  const r = await get(campanhasPath, { access: "private", useCache: false });
+  if (!r || r.statusCode !== 200) return null;
+  return JSON.parse(await new Response(r.stream).text());
+}
