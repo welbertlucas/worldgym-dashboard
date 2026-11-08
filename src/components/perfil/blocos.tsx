@@ -1,35 +1,27 @@
 import { cn } from "@/lib/utils";
+import { MiniRosca } from "@/components/MiniRosca";
 
 export const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1).replace(".", ",")}%` : "—");
 const fmt = (n: number) => n.toLocaleString("pt-BR");
 
 export const ROTULOS_IDADE = ["Até 17", "18–24", "25–34", "35–44", "45–54", "55–64", "65+", "Sem data"] as const;
 export const GENEROS = [
-  { rotulo: "Feminino", cor: "bg-[#8b5cf6]" },
-  { rotulo: "Masculino", cor: "bg-[#0ea5e9]" },
-  { rotulo: "Não informado", cor: "bg-foreground/25" },
+  { rotulo: "Feminino", cor: "#8b5cf6" },
+  { rotulo: "Masculino", cor: "#0ea5e9" },
+  { rotulo: "Não informado", cor: "hsl(var(--foreground) / 0.22)" },
 ] as const;
 
 export type Item = { rotulo: string; n: number; conv?: number };
 
-/** Gênero: barra única dividida em fatias, com o percentual grande de cada uma (e, nas oportunidades, quantas convertem). */
+/** Gênero: rosca com o percentual de cada fatia ao lado (e, nas oportunidades, quantas convertem). */
 export function GeneroBarra({ itens }: { itens: Item[] }) {
   const total = itens.reduce((s, i) => s + i.n, 0);
   return (
-    <div>
-      <div className="flex h-3 w-full overflow-hidden rounded-full bg-secondary" role="img" aria-label={itens.map((i) => `${i.rotulo} ${pct(i.n, total)}`).join(", ")}>
-        {itens.map((i, k) => <div key={i.rotulo} className={cn(GENEROS[k].cor, "transition-[width]")} style={{ width: `${total ? (i.n / total) * 100 : 0}%` }} />)}
-      </div>
-      <ul className="mt-4 grid grid-cols-3 gap-4">
-        {itens.map((i, k) => (
-          <li key={i.rotulo} className="min-w-0">
-            <p className="flex items-center gap-2 text-xs text-muted-foreground"><span className={cn("h-2 w-2 shrink-0 rounded-full", GENEROS[k].cor)} /><span className="truncate">{i.rotulo}</span></p>
-            <p className="mt-1 font-display text-2xl font-semibold leading-none tabular-nums text-foreground">{pct(i.n, total)}</p>
-            <p className="mt-1 text-xs tabular-nums text-muted-foreground">{fmt(i.n)}{i.conv !== undefined && <> · {pct(i.conv, i.n)} convertem</>}</p>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <MiniRosca
+      rotulo="Gênero"
+      centro={{ valor: fmt(total), legenda: "pessoas" }}
+      fatias={itens.map((i, k) => ({ rotulo: i.rotulo, n: i.n, cor: GENEROS[k].cor, detalhe: i.conv !== undefined ? <>{pct(i.conv, i.n)} convertem</> : undefined }))}
+    />
   );
 }
 

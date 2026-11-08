@@ -1,5 +1,6 @@
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import { CORTESIAS, type UnitData } from "@/data/dashboardData";
+import { MiniRosca } from "@/components/MiniRosca";
 
 const TOP = 5;
 const moeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -73,9 +74,9 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
         <div className="space-y-6">
           <div>
             <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Quem comprou</h4>
-            <BarraPartes rotulo="Tipo de venda" partes={[
-              { nome: "Aluno novo", n: tv.novo[0], cor: "bg-foreground/80" },
-              { nome: "Rematrícula", n: tv.remat[0], cor: "bg-primary" },
+            <MiniRosca rotulo="Tipo de venda" tamanho="h-24 w-24" fatias={[
+              { rotulo: "Aluno novo", n: tv.novo[0], cor: "hsl(var(--foreground) / 0.8)" },
+              { rotulo: "Rematrícula", n: tv.remat[0], cor: "hsl(var(--primary))" },
             ]} />
           </div>
           <div>
@@ -88,7 +89,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
         {familias
           ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO; planos com Rede, PRO, Fit ou Anual no nome contam como WG Rede (Anual VIP e Anual Local não); free pass, experimental, promoção de 1º mês, parcerias e militares contam no total de planos vendidos, mas não aparecem na lista. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
           : <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.</>}
-        Renovações não entram no ranking porque são, na maior parte, a recorrência automática do mês ({tv.renov[0].toLocaleString("pt-BR")} no mês).
+        {" "}Renovações não entram no ranking porque são, na maior parte, a recorrência automática do mês ({tv.renov[0].toLocaleString("pt-BR")} no mês).
         Valor médio = valor da venda (num plano anual pago à vista, é o ano inteiro).
       </p>
     </ChartCard>

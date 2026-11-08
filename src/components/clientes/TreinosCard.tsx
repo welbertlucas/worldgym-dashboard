@@ -3,6 +3,7 @@ import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import { getAvailableUnits, getDataByMonth, type UnitData } from "@/data/dashboardData";
 import { treinosMaisRecente } from "@/data/mapaAlunos";
 import { formatMonthLong } from "@/data/periods";
+import { MiniRosca } from "@/components/MiniRosca";
 
 const COR = { ativo: "bg-success", vencido: "bg-warning", futuro: "bg-foreground/40", sem: "bg-destructive/70" } as const;
 const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1).replace(".", ",")}%` : "—");
@@ -49,10 +50,18 @@ export function TreinosCard({ total, month, monthLabel, unit }: { total: UnitDat
         </div>
       }
     >
-      <Barra s={s} />
-      <p className="mt-2 text-xs text-muted-foreground">{s.ativo.toLocaleString("pt-BR")} ativos · {s.vencido.toLocaleString("pt-BR")} vencidos · {s.futuro.toLocaleString("pt-BR")} começam no futuro · {s.sem.toLocaleString("pt-BR")} sem treino, de {s.alunos.toLocaleString("pt-BR")} alunos ativos.</p>
+      <MiniRosca
+        rotulo="Situação dos treinos"
+        centro={{ valor: s.alunos.toLocaleString("pt-BR"), legenda: "alunos ativos" }}
+        fatias={[
+          { rotulo: "Treino ativo", n: s.ativo, cor: "hsl(var(--success))" },
+          { rotulo: "Treino vencido", n: s.vencido, cor: "hsl(var(--warning))" },
+          ...(s.futuro > 0 ? [{ rotulo: "Começa no futuro", n: s.futuro, cor: "hsl(var(--foreground) / 0.4)" }] : []),
+          { rotulo: "Sem treino", n: s.sem, cor: "hsl(var(--destructive) / 0.7)" },
+        ]}
+      />
       {unidades.length > 0 && (
-        <ul className="mt-4 space-y-2" aria-label="Treinos por unidade, da maior para a menor parcela com treino ativo">
+        <ul className="mt-6 space-y-2" aria-label="Treinos por unidade, da maior para a menor parcela com treino ativo">
           {unidades.map(({ u, s: x }) => (
             <li key={u.name} className="grid grid-cols-[8rem_minmax(0,1fr)_3.5rem] items-center gap-3 text-sm sm:grid-cols-[11rem_minmax(0,1fr)_4rem]">
               <span className="truncate font-medium text-foreground"><UnitLink name={u.name} /></span>

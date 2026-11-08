@@ -2,7 +2,10 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { GENEROS, GeneroBarra, IdadeColunas, pct, ROTULOS_IDADE } from "@/components/perfil/blocos";
 import { getAvailableUnits, type UnitData } from "@/data/dashboardData";
 import { perfilMaisRecente } from "@/data/mapaAlunos";
+import { MiniRosca } from "@/components/MiniRosca";
 import { formatMonthLong } from "@/data/periods";
+
+const CORES_CIVIL = ["hsl(var(--primary))", "hsl(222 25% 30%)", "hsl(222 14% 55%)", "hsl(35 90% 50%)", "hsl(220 14% 80%)"];
 
 /** Quem são os alunos ativos: gênero, faixa etária e estado civil (quando o cadastro tem). Foto de hoje, só no mês em andamento. */
 export function PerfilAlunosCard({ total, monthLabel, unit }: { total: UnitData; monthLabel: string; unit: string | null }) {
@@ -24,15 +27,10 @@ export function PerfilAlunosCard({ total, monthLabel, unit }: { total: UnitData;
           {informados / alunos >= 0.1 && (
             <div className="mt-6">
               <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Estado civil <span className="normal-case tracking-normal">({pct(informados, alunos)} dos alunos informaram)</span></h4>
-              <ul className="space-y-2">
-                {civil.slice(0, 6).map(([nome, n]) => (
-                  <li key={nome} className="grid grid-cols-[7rem_minmax(0,1fr)_3.5rem] items-center gap-3 text-sm">
-                    <span className="truncate text-foreground">{nome}</span>
-                    <div className="h-2 overflow-hidden rounded-full bg-secondary" aria-hidden><div className="h-full rounded-full bg-primary/60" style={{ width: `${(n / civil[0][1]) * 100}%` }} /></div>
-                    <span className="text-right font-semibold tabular-nums text-foreground">{pct(n, informados)}</span>
-                  </li>
-                ))}
-              </ul>
+              <MiniRosca
+                rotulo="Estado civil"
+                fatias={(civil.length > 5 ? [...civil.slice(0, 4), ["Outros", civil.slice(4).reduce((t, [, n]) => t + n, 0)] as [string, number]] : civil).map(([nome, n], k) => ({ rotulo: nome, n, cor: CORES_CIVIL[k % CORES_CIVIL.length] }))}
+              />
             </div>
           )}
         </div>
