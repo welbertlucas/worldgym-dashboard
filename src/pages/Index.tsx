@@ -9,7 +9,7 @@ import { ComparisonCard } from "@/components/ComparisonCard";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
 import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components/ContratosVendidos";
-import { FormasPagamento } from "@/components/FormasPagamento";
+import { BandeirasCartao, FormasPagamento, GatewaysCartao } from "@/components/FormasPagamento";
 import { CampanhasTab } from "@/components/tabs/CampanhasTab";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { AlunosTab } from "@/components/tabs/AlunosTab";
@@ -382,6 +382,8 @@ const Index = () => {
               <RevenueChart selectedUnit={selectedUnit} />
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <FormasPagamento total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
+                <BandeirasCartao total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
+                <GatewaysCartao total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
                 <TaxasCobradas total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} />
               </div>
             </div>

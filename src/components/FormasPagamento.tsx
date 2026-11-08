@@ -25,3 +25,37 @@ export function FormasPagamento({ total, monthLabel, unitLabel }: { total: UnitD
     />
   );
 }
+
+const CORES_BANDEIRA: Record<string, string> = { Visa: "hsl(222 60% 35%)", Mastercard: "hsl(4 90% 50%)", Elo: "hsl(35 90% 50%)", Amex: "hsl(200 70% 45%)", Hipercard: "hsl(142 50% 38%)" };
+
+/** Quanto do recebido em cartão (crédito e débito) entrou por bandeira. */
+export function BandeirasCartao({ total, monthLabel, unitLabel }: { total: UnitData; monthLabel: string; unitLabel: string }) {
+  const l = formasOrdenadas(total.bandeirasCartao ?? {});
+  const soma = l.reduce((s, [, v]) => s + v, 0);
+  return (
+    <DonutList
+      title="Recebimento em cartão por bandeira"
+      subtitle={`${unitLabel} • ${monthLabel} • crédito e débito, pela data do pagamento`}
+      center={{ value: formatAbbreviatedNumber(soma), caption: "em cartão" }}
+      empty="Sem bandeiras do EVO neste mês."
+      items={l.map(([label, value], k) => ({ label, value, color: CORES_BANDEIRA[label] ?? CORES[(k + 2) % CORES.length], valueText: moeda(value) }))}
+    />
+  );
+}
+
+const CORES_GATEWAY: Record<string, string> = { Stone: "hsl(142 50% 38%)", Rede: "hsl(4 90% 50%)", Cielo: "hsl(205 80% 45%)", Getnet: "hsl(0 70% 40%)", PagSeguro: "hsl(35 90% 50%)" };
+
+/** Por qual gateway / adquirente (Stone, Rede, Cielo...) passou o recebido em cartão. */
+export function GatewaysCartao({ total, monthLabel, unitLabel }: { total: UnitData; monthLabel: string; unitLabel: string }) {
+  const l = formasOrdenadas(total.gatewaysCartao ?? {});
+  const soma = l.reduce((s, [, v]) => s + v, 0);
+  return (
+    <DonutList
+      title="Recebimento em cartão por gateway"
+      subtitle={`${unitLabel} • ${monthLabel} • adquirente da transação, crédito e débito`}
+      center={{ value: formatAbbreviatedNumber(soma), caption: "em cartão" }}
+      empty="Sem gateways do EVO neste mês."
+      items={l.map(([label, value], k) => ({ label, value, color: CORES_GATEWAY[label] ?? CORES[(k + 2) % CORES.length], valueText: moeda(value) }))}
+    />
+  );
+}

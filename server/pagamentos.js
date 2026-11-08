@@ -30,7 +30,33 @@ export function somarFormas(titulos) {
   return out;
 }
 
+/** Soma o valor pago em cartão (crédito e débito) por bandeira (Visa, Mastercard, Elo...). */
+export const somarBandeiras = (titulos) => somarCartaoPor(titulos, "cardFlag");
+/** Soma o valor pago em cartão (crédito e débito) por adquirente / gateway (Stone, Rede, Cielo...). */
+export const somarGateways = (titulos) => somarCartaoPor(titulos, "cardAcquirer");
+
+function somarCartaoPor(titulos, campo) {
+  const out = {};
+  for (const r of titulos) {
+    if (!live(r) || !(r.ammountPaid > 0) || !/card/i.test(r.paymentType?.name ?? "")) continue;
+    const nome = r[campo]?.trim() || "Não informada";
+    out[nome] = (out[nome] ?? 0) + r.ammountPaid;
+  }
+  for (const k of Object.keys(out)) out[k] = round2(out[k]);
+  return out;
+}
+
+/** Formas de pagamento, bandeiras e gateways do cartão do mês, com uma só leitura dos recebimentos. */
+export async function pagamentosDoMes(idBranch, ym) {
+  const todos = await titulosDoMes(idBranch, ym);
+  return { formas: somarFormas(todos), bandeiras: somarBandeiras(todos), gateways: somarGateways(todos) };
+}
+
 export async function formasDoMes(idBranch, ym) {
+  return somarFormas(await titulosDoMes(idBranch, ym));
+}
+
+async function titulosDoMes(idBranch, ym) {
   const [y, m] = ym.split("-").map(Number);
   const fim = `${ym}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
   const todos = [];
@@ -39,5 +65,5 @@ export async function formasDoMes(idBranch, ym) {
     todos.push(...rows);
     if (rows.length < PAGE) break;
   }
-  return somarFormas(todos);
+  return todos;
 }

@@ -1,7 +1,7 @@
-// Grava por unidade, nos meses pedidos, quanto foi recebido por forma de pagamento (cartão de crédito, débito, Pix...).
+// Grava por unidade, nos meses pedidos, quanto foi recebido por forma de pagamento (cartão de crédito, débito, Pix...) e, no cartão, por bandeira e por gateway (adquirente).
 // Uso: node --env-file=.env.local scripts/evo-formas-pagamento.mjs 2026-10 2026-11
 import { UNIT_NAMES } from "../server/units.js";
-import { formasDoMes } from "../server/pagamentos.js";
+import { pagamentosDoMes } from "../server/pagamentos.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 
 const falhas = [];
@@ -14,7 +14,10 @@ for (const ym of process.argv.slice(2)) {
     for (const [id, nome] of Object.entries(UNIT_NAMES)) {
       const u = month.units.find((x) => x.name === nome);
       if (!u) continue;
-      u.formasPagamento = await formasDoMes(id, ym);
+      const { formas, bandeiras, gateways } = await pagamentosDoMes(id, ym);
+      u.formasPagamento = formas;
+      u.bandeirasCartao = bandeiras;
+      u.gatewaysCartao = gateways;
       // Confere com o recebimento já gravado: a soma das formas deve dar o recebimento do mês.
       const soma = Object.values(u.formasPagamento).reduce((s, v) => s + v, 0);
       if (u.recebimento && Math.abs(soma - u.recebimento) > 1) console.log(`  ${nome}: formas ${soma.toFixed(2)} × recebimento ${u.recebimento}`);

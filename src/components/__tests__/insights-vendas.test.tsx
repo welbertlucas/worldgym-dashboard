@@ -73,9 +73,9 @@ describe("entradas na catraca", () => {
 });
 
 // @ts-expect-error módulo JS do servidor
-import { somarFormas as somarFormasServidor } from "../../../server/pagamentos.js";
-import { FormasPagamento, formasOrdenadas } from "@/components/FormasPagamento";
-import { somarFormas } from "@/data/dashboardData";
+import { somarFormas as somarFormasServidor, somarBandeiras, somarGateways } from "../../../server/pagamentos.js";
+import { BandeirasCartao, FormasPagamento, GatewaysCartao, formasOrdenadas } from "@/components/FormasPagamento";
+import { somarFormas, nomeBandeira, nomeGateway, normalizarNomes } from "@/data/dashboardData";
 
 describe("formas de pagamento", () => {
   it("soma o valor pago por forma, em português, sem cancelados nem títulos sem pagador", () => {
@@ -84,6 +84,28 @@ describe("formas de pagamento", () => {
       t("Credit card", 100), t("Credit card", 50.5), t("Deposit", 30), t("Debit card", 0),
       t("Credit card", 999, { cancellationDate: "2026-10-02" }), t("Deposit", 999, { idMemberPayer: null }), t(undefined, 5), t("Voucher X", 7),
     ])).toEqual({ "Cartão de crédito": 150.5, "Pix e depósito": 30, "Não informada": 5, "Voucher X": 7 });
+  });
+  it("soma o pago em cartão por bandeira, sem Pix nem cancelados", () => {
+    const t = (forma: string, flag: string | null, v: number, o: Record<string, unknown> = {}) => ({ paymentType: { id: 1, name: forma }, cardFlag: flag, ammountPaid: v, idMemberPayer: 1, ...o });
+    expect(somarBandeiras([
+      t("Credit card", "Visa", 100), t("Debit card", "Visa", 20), t("Credit card", "Mastercard", 50), t("Credit card", null, 5),
+      t("Pix", null, 300), t("Credit card", "Elo", 999, { cancellationDate: "2026-10-02" }),
+    ])).toEqual({ Visa: 120, Mastercard: 50, "Não informada": 5 });
+    const h = renderToString(<BandeirasCartao total={{ bandeirasCartao: { Visa: 600, Mastercard: 400 } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
+    expect(h).toContain("Visa");
+    expect(h).toContain("por bandeira");
+  });
+  it("unifica nomes de bandeira e gateway escritos de jeitos diferentes", () => {
+    expect(normalizarNomes({ VISA: 1, Visa: 2, "VISA ELETRON": 3, MASTERCARD: 4, AmericanExpress: 5, OutrasBandeiras: 6 }, nomeBandeira))
+      .toEqual({ Visa: 6, Mastercard: 4, Amex: 5, "Outras bandeiras": 6 });
+    expect(["Redecard", "Rede", "STONE", "VISA", "Outros", "cielo"].map(nomeGateway)).toEqual(["Rede", "Rede", "Stone", "Não identificado", "Não identificado", "Cielo"]);
+  });
+  it("soma o pago em cartão por gateway (adquirente)", () => {
+    const t = (forma: string, acq: string | null, v: number) => ({ paymentType: { id: 1, name: forma }, cardAcquirer: acq, ammountPaid: v, idMemberPayer: 1 });
+    expect(somarGateways([t("Credit card", "Stone", 100), t("Debit card", "Rede", 30), t("Credit card", "Stone", 5), t("Deposit", null, 50)])).toEqual({ Stone: 105, Rede: 30 });
+    const h = renderToString(<GatewaysCartao total={{ gatewaysCartao: { Stone: 700, Rede: 300 } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
+    expect(h).toContain("Stone");
+    expect(h).toContain("por gateway");
   });
   it("a rede soma as unidades e a lista agrupa a cauda em Outras", () => {
     expect(somarFormas([{ formasPagamento: { A: 1 } }, { formasPagamento: { A: 2, B: 3 } }, {}])).toEqual({ A: 3, B: 3 });
