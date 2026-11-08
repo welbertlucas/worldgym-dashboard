@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
-import { ChurnChart } from "@/components/ChurnChart";
-import { RenovacoesChart } from "@/components/RenovacoesChart";
 import NovosContratosChart from "@/components/NovosContratosChart";
 import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
@@ -12,7 +10,8 @@ import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
 import { CampanhasTab } from "@/components/tabs/CampanhasTab";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
-import { BaseAlunos } from "@/components/clientes/BaseAlunos";
+import { AlunosTab } from "@/components/tabs/AlunosTab";
+import { RetencaoTab } from "@/components/tabs/RetencaoTab";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
 import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
@@ -360,27 +359,19 @@ const Index = () => {
           <section>
             <SectionTitle>Financeiro</SectionTitle>
           <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={financeiroSpecs} columns="xl:grid-cols-3" /></div>
-            <div className="grid grid-cols-1 gap-6 mb-6">
+            <div className="grid grid-cols-1 gap-6 mb-10">
               <RevenueChart selectedUnit={selectedUnit} />
             </div>
+            <SectionTitle hint="Quem está pagando em dia, quem está em atraso e por que as cobranças no cartão falham">Cobrança e inadimplência</SectionTitle>
+            <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")} columns="xl:grid-cols-2" /></div>
+            <div className="mb-6"><InadimplenciaChart selectedUnit={selectedUnit} /></div>
             <div className="mb-6"><CobrancasRecusa total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
           </section>
         )}
 
-        {activeTab === "retencao" && (
-          <section>
-            <SectionTitle>Retenção e Satisfação</SectionTitle>
-          <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={retencaoSpecs(!selectedUnit)} columns="xl:grid-cols-4" /></div>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-              <ChurnChart selectedUnit={selectedUnit} />
-              <InadimplenciaChart selectedUnit={selectedUnit} />
-            </div>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-              <RenovacoesChart selectedUnit={selectedUnit} />
-            </div>
-            <BaseAlunos ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} />
-          </section>
-        )}
+        {activeTab === "alunos" && <AlunosTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} />}
+
+        {activeTab === "retencao" && <RetencaoTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} />}
 
         {activeTab === "unidades" && (
           <UnidadesTab

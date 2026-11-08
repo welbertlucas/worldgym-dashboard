@@ -185,3 +185,21 @@ describe("Unidades: um menu só", () => {
     expect(detalhe).toContain("Exportar PDF");
   });
 });
+
+describe("Base de alunos e Retenção por assunto", () => {
+  it("cada menu traz as seções do seu assunto, sem misturar", async () => {
+    const { AlunosTab } = await import("@/components/tabs/AlunosTab");
+    const { RetencaoTab } = await import("@/components/tabs/RetencaoTab");
+    const m = month("2026-09", [unit("A", { churn: 4, renovacoes: 60 })]);
+    dashboardData.push(m);
+    const ctx = { cur: m, partial: false };
+    const alunos = renderToString(<AlunosTab ctx={ctx} month="2026-09" unit={null} />);
+    expect(alunos).toContain("Tamanho da base");
+    expect(alunos).toContain("Frequência");
+    expect(alunos).not.toContain("Motivos de cancelamento");
+    const ret = renderToString(<RetencaoTab ctx={ctx} month="2026-09" unit={null} />);
+    for (const t of ["Cancelamentos", "Renovação", "Satisfação"]) expect(ret).toContain(t);
+    expect(ret).not.toContain("Inadimplência");
+    expect(ret).not.toContain("Tamanho da base");
+  });
+});

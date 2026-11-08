@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, Wallet, UserCheck, Building2, BarChart3, Map as MapIcon, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, Building2, BarChart3, Map as MapIcon, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
 
 export interface NavItem { id: string; label: string; icon: LucideIcon; group: number }
 
@@ -8,6 +8,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "comercial", label: "Comercial", icon: TrendingUp, group: 1 },
   { id: "metas", label: "Metas", icon: Target, group: 1 },
   { id: "financeiro", label: "Financeiro", icon: Wallet, group: 1 },
+  { id: "alunos", label: "Base de alunos", icon: Users, group: 1 },
   { id: "retencao", label: "Retenção", icon: UserCheck, group: 1 },
   { id: "unidades", label: "Unidades", icon: Building2, group: 1 },
   { id: "benchmark", label: "Benchmark", icon: BarChart3, group: 1 },
