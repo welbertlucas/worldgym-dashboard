@@ -29,6 +29,27 @@ function BarraPartes({ partes, rotulo }: { partes: { nome: string; n: number; co
   );
 }
 
+const TIPOS_DA_ROSCA: { nome: string; cor: string }[] = [
+  { nome: "WG Local", cor: "hsl(var(--primary))" },
+  { nome: "WG Rede", cor: "hsl(222 25% 25%)" },
+  { nome: "WG 30", cor: "hsl(222 14% 55%)" },
+  { nome: "Aquática", cor: "hsl(200 70% 45%)" },
+];
+
+/**
+ * Fatias da rosca de planos por tipo: WG Local, WG Rede, WG 30 e Aquática; todo o resto dos planos vendidos (cortesias,
+ * promoções, parcerias e planos sem tipo) vira "Outros", para a rosca fechar 100% do total.
+ */
+export function fatiasPorTipo(familias: [string, number, number][], vendas: number, valor: number) {
+  const principais = TIPOS_DA_ROSCA.map((t) => {
+    const r = familias.find(([n]) => n === t.nome);
+    return { rotulo: t.nome, n: r?.[1] ?? 0, v: r?.[2] ?? 0, cor: t.cor };
+  }).filter((f) => f.n > 0).sort((a, b) => b.n - a.n);
+  const n = vendas - principais.reduce((s, f) => s + f.n, 0);
+  const v = valor - principais.reduce((s, f) => s + f.v, 0);
+  return n > 0 ? [...principais, { rotulo: "Outros", n, v: Math.max(0, v), cor: "hsl(var(--foreground) / 0.18)" }] : principais;
+}
+
 /**
  * Os planos mais vendidos do mês (a alunos novos e a quem voltou), o tipo da venda e a duração dos planos vendidos.
  * Na rede (porFamilia), agrupa pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos.
@@ -46,6 +67,8 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
   const top = familias ? familias.slice(0, 8) : lista.slice(0, TOP);
   const maior = top[0]?.[1] ?? 1;
   const dur = total.duracaoVenda ?? [0, 0, 0, 0, 0];
+  const fatias = familias ? fatiasPorTipo(familias, vendas, valor) : null;
+  const lider = fatias ? fatias.filter((f) => f.rotulo !== "Outros").sort((a, b) => b.n - a.n)[0] : null;
   return (
     <ChartCard
       title={familias ? "Planos mais vendidos por tipo" : "Contratos mais vendidos"}
@@ -54,12 +77,22 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
         <div className="flex flex-wrap gap-x-10 gap-y-3">
           <HeadlineStat label="Planos vendidos (novos + rematrículas)" value={vendas.toLocaleString("pt-BR")} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
           <HeadlineStat label="Valor médio por venda" value={moeda(valor / vendas)} swatch={<span className="h-2 w-2 rounded-full bg-foreground/50" />} />
-          <HeadlineStat label={familias ? `${top[0][0]} responde por` : `Os ${top.length} primeiros somam`} value={pct(familias ? top[0][1] : top.reduce((s, r) => s + r[1], 0), vendas)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
+          <HeadlineStat label={lider ? `${lider.rotulo} responde por` : `Os ${top.length} primeiros somam`} value={pct(lider ? lider.n : top.reduce((s, r) => s + r[1], 0), vendas)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
         </div>
       }
     >
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <ol className="space-y-3" aria-label={familias ? "Planos vendidos por tipo" : `Os ${top.length} planos mais vendidos`}>
+        {fatias ? (
+          <div className="self-center">
+            <MiniRosca
+              rotulo="Planos vendidos por tipo"
+              tamanho="h-40 w-40"
+              centro={{ valor: vendas.toLocaleString("pt-BR"), legenda: "planos vendidos" }}
+              fatias={fatias.map((f) => ({ rotulo: f.rotulo, n: f.n, cor: f.cor, detalhe: f.n > 0 ? <>média {moeda(f.v / f.n)}</> : undefined }))}
+            />
+          </div>
+        ) : (
+        <ol className="space-y-3" aria-label={`Os ${top.length} planos mais vendidos`}>
           {top.map(([nome, q, v], k) => (
             <li key={nome} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
               <span className="text-sm font-semibold tabular-nums text-muted-foreground">{k + 1}º</span>
@@ -71,6 +104,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
             </li>
           ))}
         </ol>
+        )}
         <div className="space-y-6">
           <div>
             <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Quem comprou</h4>
@@ -87,7 +121,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
         {familias
-          ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO; planos com Rede, PRO, Fit ou Anual no nome contam como WG Rede (Anual VIP e Anual Local não); free pass, experimental, promoção de 1º mês, parcerias e militares contam no total de planos vendidos, mas não aparecem na lista. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
+          ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO; planos com Rede, PRO, Fit ou Anual no nome contam como WG Rede (Anual VIP e Anual Local não); WG 90 conta como WG 30; "Outros" junta free pass, experimental, promoção de 1º mês, parcerias, militares e planos sem tipo. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
           : <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.</>}
         {" "}Renovações não entram no ranking porque são, na maior parte, a recorrência automática do mês ({tv.renov[0].toLocaleString("pt-BR")} no mês).
         Valor médio = valor da venda (num plano anual pago à vista, é o ano inteiro).

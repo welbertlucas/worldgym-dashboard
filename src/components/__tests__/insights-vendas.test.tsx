@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
-import { ContratosVendidos } from "@/components/ContratosVendidos";
-import { somarContratosVendidos, somarTipoVenda, type UnitData } from "@/data/dashboardData";
+import { ContratosVendidos, fatiasPorTipo } from "@/components/ContratosVendidos";
+import { somarContratosVendidos, somarTipoVenda, type TipoVenda, type UnitData } from "@/data/dashboardData";
 
 const limpo = (h: string) => h.replace(/<!-- -->/g, "");
 
@@ -127,7 +127,7 @@ describe("produtos e serviços mais vendidos", () => {
 });
 
 import { TaxasCobradas } from "@/components/ContratosVendidos";
-import { somarFamiliasVendidas, reagruparFamilias, reagruparProdutos, nomeDiaria } from "@/data/dashboardData";
+import { somarFamiliasVendidas, reagruparFamilias, reagruparProdutos, nomeDiaria, incluirWg90 } from "@/data/dashboardData";
 // @ts-expect-error módulo JS do servidor
 import { ehTaxa, familiaPlano, resumirVendas, nomeDiaria as nomeDiariaServidor } from "../../../server/vendas.js";
 
@@ -153,15 +153,28 @@ describe("planos por família e taxas fora dos produtos", () => {
     expect(familiaPlano("AULA EXPERIMENTAL")).toBe("Cortesias e promoções");
     expect(familiaPlano("ALGO NOVO")).toBe("Outros planos");
   });
+  it("WG 90 conta como WG 30, inclusive nos meses gravados quando ele ficava fora", () => {
+    expect(familiaPlano("WG90 | R$357,00 (À VISTA)")).toBe("WG 30");
+    expect(familiaPlano("WG 90 REDE")).toBe("WG 30");
+    const tv = { novo: [10, 1300], remat: [2, 200], renov: [0, 0] } as TipoVenda;
+    expect(incluirWg90([["WG Local", 8, 1000], ["WG 30", 2, 300]], tv)).toEqual([["WG Local", 8, 1000], ["WG 30", 4, 500]]);
+    expect(incluirWg90([["WG Local", 12, 1500]], tv)).toEqual([["WG Local", 12, 1500]]);
+  });
   it("reagrupa os tipos antigos já gravados nos meses carregados", () => {
     expect(reagruparFamilias([["WG Local", 10, 1000], ["WG Rede", 3, 500], ["WG PRO", 2, 600], ["Free pass", 4, 0], ["Promoção 1º mês", 1, 50], ["Outros planos", 1, 10]]))
       .toEqual([["WG Local", 10, 1000], ["WG Rede", 5, 1100], ["Cortesias e promoções", 5, 50], ["Outros planos", 1, 10]]);
   });
+  it("rosca por tipo: quatro tipos e o resto em Outros, fechando o total", () => {
+    const f = fatiasPorTipo([["WG Local", 6, 600], ["Cortesias e promoções", 3, 30], ["WG Rede", 1, 200], ["Outros planos", 1, 50]], 12, 980);
+    expect(f.map((x) => [x.rotulo, x.n, x.v])).toEqual([["WG Local", 6, 600], ["WG Rede", 1, 200], ["Outros", 5, 180]]);
+  });
   it("cortesias e promoções contam no total, mas não aparecem na lista por tipo", () => {
     const total = { familiasVendidas: [["WG Local", 6, 600], ["Cortesias e promoções", 3, 30], ["WG Rede", 1, 200]], contratosVendidos: [], tipoVenda: { novo: [8, 700], remat: [2, 130], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0] } as unknown as UnitData;
     const h = renderToString(<ContratosVendidos total={total} monthLabel="Out" partial={false} unitLabel="Rede" porFamilia />);
-    expect(h).not.toContain("Cortesias");
+    expect(h).not.toContain("Cortesias e promoções<");
     expect(h).toContain(">10<");
+    expect(h).toContain("Outros");
+    expect(h).toContain("30,0%");
     expect(h).toContain("60%");
   });
   it("agrupa diárias (separando as das unidades PRO), brinquedoteca e personal na lista de produtos", () => {
@@ -191,7 +204,7 @@ describe("planos por família e taxas fora dos produtos", () => {
       item("WORLD GYM PLUS 3X R$ 329,90", 329.9, { idMembership: 5 }), item("PRO+ SEMESTRAL 2X | R$447,00", 447, { idMembership: 6 }), item("PRO+", 277), item("WG 30 | R$ 189,90", 189.9, { idMembership: 2 }), item("01 - WG LOCAL RIACHO", 139.9, { idMembership: 3 }),
       item("MULTA DE CANCELAMENTO DE CONTRATO", 300), item("MULTA DE CANCELAMENTO 319,80", 319.8), item("TAXA DE ADESÃO", 50), item("COQUETELEIRA", 30),
     ] }])["Asa Norte"];
-    expect(u.familiasVendidas).toEqual([["WG Local", 2, 269.8], ["WG 30", 1, 189.9]]);
+    expect(u.familiasVendidas).toEqual([["WG 30", 2, 546.9], ["WG Local", 2, 269.8]]);
     expect(u.produtosVendidos).toEqual([["Pro+", 2, 724], ["WG Plus", 1, 329.9], ["COQUETELEIRA", 1, 30]]);
     expect(u.taxasCobradas.map((r: unknown[]) => r[0])).toEqual(["MULTA DE CANCELAMENTO 319,80", "MULTA DE CANCELAMENTO DE CONTRATO", "TAXA DE ADESÃO"]);
     expect(u.taxasResumo).toEqual([669.8, 2, 619.8]);

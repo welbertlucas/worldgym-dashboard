@@ -74,12 +74,13 @@ const FAMILIAS = [
   [CORTESIAS, /EX-? ?ALUNO|1[º°O]? M[ÊE]S/],
   ["Aquática", /AQUA|NATA[ÇC]|COMBO ?DUO/],
   [CORTESIAS, /PARCE|PACEIRO|MILITAR|GIFT|CONV[ÊE]NIO|TOP LIFE/],
+  // WG 90 (pacote trimestral) conta como WG 30.
+  ["WG 30", /WG ?-? ?90\b/],
   // Rede, PRO e Fit contam como WG Rede (antes de WG 30: "WG PRO 30" é Rede). Anual também, menos Anual VIP e Anual Local.
   ["WG Rede", /REDE|\bPRO\b|\bFIT\b|^(?!.*(VIP?\b|LOCAL)).*ANUAL/],
   ["WG 30", /WG ?-? ?30/],
   ["WG Local", /LOCAL|MENSAL|FLEX|\b[1-5] ?X\b/],
 ];
-const WG90 = /WG ?-? ?90\b/;
 export function familiaPlano(nome) {
   const t = String(nome || "").toUpperCase();
   for (const [f, re] of FAMILIAS) if (re.test(t)) return f;
@@ -138,12 +139,9 @@ export function resumirVendas(vendas, planos = new Map()) {
           const n = nomePlano(i);
           const at = u._planos.get(n) ?? [0, 0];
           u._planos.set(n, [at[0] + 1, at[1] + v]);
-          // WG 90 (pacote trimestral) fica fora da comparação por tipo.
-          if (!WG90.test(n.toUpperCase())) {
-            const f = familiaPlano(n);
-            const af = u._familias.get(f) ?? [0, 0];
-            u._familias.set(f, [af[0] + 1, af[1] + v]);
-          }
+          const f = familiaPlano(n);
+          const af = u._familias.get(f) ?? [0, 0];
+          u._familias.set(f, [af[0] + 1, af[1] + v]);
           u.duracaoVenda[faixaDuracao(planos.get(i.idMembership))] += 1;
         }
       }
