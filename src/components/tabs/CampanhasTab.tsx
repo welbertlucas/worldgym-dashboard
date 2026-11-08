@@ -11,7 +11,7 @@ export function CampanhasTab({ initialUnit }: { initialUnit: string | null }) {
   return (
     <div className="space-y-6">
       <div>
-        <SectionTitle hint="Foto de hoje do Meta: campanhas com status ativo em cada unidade, o que gastaram nos últimos 7 dias e quantos contatos trouxeram">Campanhas</SectionTitle>
+        <SectionTitle hint="Foto de hoje do Meta: campanhas com status ativo em cada unidade, o que gastaram nos últimos 7 dias e quantos contatos trouxeram">Tráfego pago</SectionTitle>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Unidade
           <Select value={unit ?? ""} onChange={(e) => setUnit(e.target.value || null)} className="h-9 w-64 text-sm font-normal text-foreground">

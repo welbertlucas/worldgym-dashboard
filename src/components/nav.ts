@@ -11,7 +11,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "unidades", label: "Unidades", icon: Building2, group: 1 },
   { id: "unidade", label: "Detalhe da unidade", icon: MapPin, group: 1 },
   { id: "mapa", label: "Mapa dos alunos", icon: MapIcon, group: 1 },
-  { id: "campanhas", label: "Campanhas", icon: Megaphone, group: 1 },
+  { id: "campanhas", label: "Tráfego pago", icon: Megaphone, group: 1 },
   { id: "metas", label: "Metas", icon: Target, group: 2 },
   { id: "riscos", label: "Riscos e Recomendações", icon: ShieldAlert, group: 2 },
 ];
