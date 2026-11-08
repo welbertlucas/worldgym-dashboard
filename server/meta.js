@@ -3,27 +3,27 @@
 // Tokens (nunca no código): META_TOKEN_DFGO (portfólio World Gym DF&GO) e META_TOKEN_BR01 (portfólio World Gym BR 01).
 const VERSAO = process.env.META_API_VERSION || "v24.0";
 
-/** Contas de anúncio -> unidade do painel. `unidade: null` = anúncio da rede toda. `incerta`: ligação a confirmar com o dono. */
+/** Contas de anúncio -> unidade do painel. `unidade: null` = anúncio da rede toda. */
 export const CONTAS = [
   { id: "264340275445545", conta: "WG 1 - Itapoã", unidade: "Itapoã", token: "DFGO" },
   { id: "588370222953971", conta: "WG 2 - Gama", unidade: "Gama", token: "DFGO" },
   { id: "648562409483340", conta: "WG 3 - Asa Norte", unidade: "Asa Norte", token: "DFGO" },
-  { id: "468674611432966", conta: "WG 4 - Planaltina", unidade: "Planaltina-GO", token: "DFGO", incerta: true },
+  { id: "468674611432966", conta: "WG 4 - Planaltina", unidade: "Planaltina-GO", token: "DFGO" },
   { id: "530042132213017", conta: "WG 5 - Samambaia", unidade: "Samambaia Norte", token: "DFGO" },
   { id: "271491753491104", conta: "WG 6 - Arniqueiras", unidade: "Arniqueira", token: "DFGO" },
   { id: "127794150418443", conta: "WG 7 - Riacho Fundo II", unidade: "Riacho Fundo II", token: "DFGO" },
   { id: "345445464586947", conta: "WG 8 - São Sebastião", unidade: "São Sebastião", token: "DFGO" },
   { id: "308150702074967", conta: "WG 9 - Ceilândia", unidade: "Ceilândia", token: "DFGO" },
   { id: "807832341176144", conta: "WG 10 - Sobradinho", unidade: "Sobradinho", token: "DFGO" },
-  { id: "1586361752143025", conta: "WG 11 - Aguas Claras", unidade: "Águas Claras Pro", token: "DFGO", incerta: true },
+  { id: "1586361752143025", conta: "WG 11 - Aguas Claras", unidade: "Águas Claras Pro", token: "DFGO" },
   { id: "787157320245418", conta: "WG 12 - Aguas Lindas", unidade: "Águas Lindas-GO", token: "DFGO" },
   { id: "365301839894540", conta: "WG 13 - Samambaia Sul", unidade: "Samambaia Sul", token: "DFGO" },
   { id: "1490683904963994", conta: "WG 14 - Ponte Alta", unidade: "Ponte Alta", token: "DFGO" },
   { id: "416852984397905", conta: "WG 15 - Goiânia Pro", unidade: "Goiânia Pro-GO", token: "DFGO" },
-  { id: "454696550610583", conta: "WG 16 - Planaltina DF", unidade: "Planaltina-DF", token: "DFGO", incerta: true },
+  { id: "454696550610583", conta: "WG 16 - Planaltina DF", unidade: "Planaltina-DF", token: "DFGO" },
   { id: "632835829720066", conta: "WG 16 - Novo Gama", unidade: "Novo Gama-GO", token: "DFGO" },
   { id: "1328519795654729", conta: "WG - Taguatinga Norte", unidade: "Taguatinga", token: "DFGO" },
-  { id: "1478514526365139", conta: "WG 14 - Águas Claras II", unidade: "Águas Claras Metrópole", token: "DFGO", incerta: true },
+  { id: "1478514526365139", conta: "WG 14 - Águas Claras II", unidade: "Águas Claras Metrópole", token: "DFGO" },
   { id: "1330879015199093", conta: "[CA03] WG Santa Maria", unidade: "Santa Maria", token: "DFGO" },
   { id: "911817731179169", conta: "[CA00] Institucional", unidade: null, token: "DFGO" },
 ];
