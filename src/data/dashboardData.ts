@@ -452,8 +452,10 @@ export const somarContratosVendidos = (us: Pick<UnitData, "contratosVendidos">[]
 /** Junta os produtos e serviços mais vendidos de várias unidades (pelo valor). */
 export const somarProdutosVendidos = (us: Pick<UnitData, "produtosVendidos">[]) => juntarRanking(us.map((u) => u.produtosVendidos), true);
 /** Junta as famílias de plano vendidas de várias unidades (todas, sem corte). */
-/** Grupos antigos gravados nos meses já carregados → grupos atuais (cortesias e promoções em Outros; WG PRO em WG Rede). */
-const FAMILIA_ATUAL: Record<string, string> = { "Free pass": "Outros planos", Experimental: "Outros planos", "Promoção 1º mês": "Outros planos", "Parcerias e militares": "Outros planos", "WG PRO": "WG Rede" };
+/** Free pass, experimental, promoção de 1º mês, parcerias e militares: contam nos planos vendidos, mas não aparecem na lista por tipo. */
+export const CORTESIAS = "Cortesias e promoções";
+/** Grupos antigos gravados nos meses já carregados → grupos atuais (WG PRO em WG Rede). */
+const FAMILIA_ATUAL: Record<string, string> = { "Free pass": CORTESIAS, Experimental: CORTESIAS, "Promoção 1º mês": CORTESIAS, "Parcerias e militares": CORTESIAS, "WG PRO": "WG Rede" };
 export function reagruparFamilias(fs: [string, number, number][]): [string, number, number][] {
   const m = new Map<string, [number, number]>();
   for (const [n, q, v] of fs) { const k = FAMILIA_ATUAL[n] ?? n; const a = m.get(k) ?? [0, 0]; m.set(k, [a[0] + q, Math.round((a[1] + v) * 100) / 100]); }

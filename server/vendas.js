@@ -65,17 +65,18 @@ export function faixaDuracao(plano) {
  * Família do plano, para comparar a rede: cada unidade dá nome próprio aos seus planos ("WG JARDIM INGÁ LOCAL | R$ 139,90",
  * "01 - WG LOCAL RIACHO 2"...), então o ranking da rede agrupa pelo tipo do plano. A ordem das regras importa.
  */
+export const CORTESIAS = "Cortesias e promoções";
 const FAMILIAS = [
-  // Cortesias, testes, promoções e convênios ficam em "Outros planos" (vêm antes para que "WG LOCAL MILITAR" não caia em WG Local).
-  ["Outros planos", /FREE ?PASS/],
-  ["Outros planos", /EXPERIMENTAL/],
-  ["Outros planos", /EX-? ?ALUNO|1[º°O]? M[ÊE]S/],
-  ["Aquática", /AQUA|NATA[ÇC]/],
-  ["Outros planos", /PARCE|PACEIRO|MILITAR|GIFT|CONV[ÊE]NIO|TOP LIFE/],
-  // WG PRO e Fit dão acesso à rede: contam como WG Rede.
-  ["WG Rede", /\bPRO\b|\bFIT\b/],
+  // Cortesias, testes, promoções e convênios: contam nos planos vendidos, mas o painel não os mostra na lista por tipo.
+  // Vêm antes para que "WG LOCAL MILITAR" não caia em WG Local.
+  [CORTESIAS, /FREE ?PASS/],
+  [CORTESIAS, /EXPERIMENTAL/],
+  [CORTESIAS, /EX-? ?ALUNO|1[º°O]? M[ÊE]S/],
+  ["Aquática", /AQUA|NATA[ÇC]|COMBO ?DUO/],
+  [CORTESIAS, /PARCE|PACEIRO|MILITAR|GIFT|CONV[ÊE]NIO|TOP LIFE/],
+  // Rede, PRO e Fit contam como WG Rede (antes de WG 30: "WG PRO 30" é Rede). Anual também, menos Anual VIP e Anual Local.
+  ["WG Rede", /REDE|\bPRO\b|\bFIT\b|^(?!.*(VIP?\b|LOCAL)).*ANUAL/],
   ["WG 30", /WG ?-? ?30/],
-  ["WG Rede", /REDE/],
   ["WG Local", /LOCAL|MENSAL|FLEX|\b[1-5] ?X\b/],
 ];
 const WG90 = /WG ?-? ?90\b/;

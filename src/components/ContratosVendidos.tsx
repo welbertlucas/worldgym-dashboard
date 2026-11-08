@@ -1,5 +1,5 @@
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
-import type { UnitData } from "@/data/dashboardData";
+import { CORTESIAS, type UnitData } from "@/data/dashboardData";
 
 const TOP = 5;
 const moeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -34,7 +34,9 @@ function BarraPartes({ partes, rotulo }: { partes: { nome: string; n: number; co
  */
 export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFamilia = false }: { total: UnitData; monthLabel: string; partial: boolean; unitLabel: string; porFamilia?: boolean }) {
   const subtitle = <>{unitLabel} • {monthLabel}{partial && " (mês em andamento: valores parciais)"}</>;
-  const familias = porFamilia && total.familiasVendidas?.length ? total.familiasVendidas : null;
+  // Cortesias e promoções contam no total de planos vendidos, mas ficam fora da lista por tipo.
+  const visiveis = total.familiasVendidas?.filter(([n]) => n !== CORTESIAS);
+  const familias = porFamilia && visiveis?.length ? visiveis : null;
   const lista = familias ?? total.contratosVendidos;
   const tv = total.tipoVenda;
   const vendas = tv ? tv.novo[0] + tv.remat[0] : 0;
@@ -84,7 +86,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
         {familias
-          ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO; WG PRO e Fit contam como WG Rede; free pass, experimental, promoção de 1º mês, parcerias e militares entram em Outros planos. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
+          ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO; planos com Rede, PRO, Fit ou Anual no nome contam como WG Rede (Anual VIP e Anual Local não); free pass, experimental, promoção de 1º mês, parcerias e militares contam no total de planos vendidos, mas não aparecem na lista. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
           : <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.</>}
         Renovações não entram no ranking porque são, na maior parte, a recorrência automática do mês ({tv.renov[0].toLocaleString("pt-BR")} no mês).
         Valor médio = valor da venda (num plano anual pago à vista, é o ano inteiro).

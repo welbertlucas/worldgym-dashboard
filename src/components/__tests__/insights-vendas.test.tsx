@@ -138,17 +138,31 @@ describe("planos por família e taxas fora dos produtos", () => {
     expect(familiaPlano("03 - WG LOCAL FLEX (R$157,00)")).toBe("WG Local");
     expect(familiaPlano("WG LOCAL 3X R$ 79,90")).toBe("WG Local");
     expect(familiaPlano("02 - WG REDE SOBRADINHO - R$169,90")).toBe("WG Rede");
-    expect(familiaPlano("06 - WG LOCAL EX- ALUNOS 1º MÊS R$ 49,90 (ONLINE)")).toBe("Outros planos");
-    expect(familiaPlano("07 - WG LOCAL MILITAR TAGUATINGA (119,90)")).toBe("Outros planos");
+    expect(familiaPlano("06 - WG LOCAL EX- ALUNOS 1º MÊS R$ 49,90 (ONLINE)")).toBe("Cortesias e promoções");
+    expect(familiaPlano("07 - WG LOCAL MILITAR TAGUATINGA (119,90)")).toBe("Cortesias e promoções");
     expect(familiaPlano("WG PRO SALVADOR ANUAL | R$ 319,90")).toBe("WG Rede");
     expect(familiaPlano("WORLD GYM CEILANDIA FIT R$ 129,90 (40 sessões)")).toBe("WG Rede");
-    expect(familiaPlano("X - FREE PASS (3 DIAS)")).toBe("Outros planos");
-    expect(familiaPlano("AULA EXPERIMENTAL")).toBe("Outros planos");
+    expect(familiaPlano("WORLD GYM GAMA ANUAL VIP")).toBe("Outros planos");
+    expect(familiaPlano("WORLD GYM SAMAMBAIA ANUAL VI (Sessões Ilimitadas)")).toBe("Outros planos");
+    expect(familiaPlano("WG PONTE ALTA ANUAL LOCAL | 119,90 A VISTA")).toBe("WG Local");
+    expect(familiaPlano("WG CEILÂNDIA COMBO DUO ANUAL")).toBe("Aquática");
+    expect(familiaPlano("WG PRO - ANUAL | VIP (Sessões Ilimitadas)")).toBe("WG Rede");
+    expect(familiaPlano("WG PRO 30 | R$329,90")).toBe("WG Rede");
+    expect(familiaPlano("WG CEILÂNDIA AQUA (2X) DUO ANUAL")).toBe("Aquática");
+    expect(familiaPlano("X - FREE PASS (3 DIAS)")).toBe("Cortesias e promoções");
+    expect(familiaPlano("AULA EXPERIMENTAL")).toBe("Cortesias e promoções");
     expect(familiaPlano("ALGO NOVO")).toBe("Outros planos");
   });
   it("reagrupa os tipos antigos já gravados nos meses carregados", () => {
     expect(reagruparFamilias([["WG Local", 10, 1000], ["WG Rede", 3, 500], ["WG PRO", 2, 600], ["Free pass", 4, 0], ["Promoção 1º mês", 1, 50], ["Outros planos", 1, 10]]))
-      .toEqual([["WG Local", 10, 1000], ["Outros planos", 6, 60], ["WG Rede", 5, 1100]]);
+      .toEqual([["WG Local", 10, 1000], ["WG Rede", 5, 1100], ["Cortesias e promoções", 5, 50], ["Outros planos", 1, 10]]);
+  });
+  it("cortesias e promoções contam no total, mas não aparecem na lista por tipo", () => {
+    const total = { familiasVendidas: [["WG Local", 6, 600], ["Cortesias e promoções", 3, 30], ["WG Rede", 1, 200]], contratosVendidos: [], tipoVenda: { novo: [8, 700], remat: [2, 130], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0] } as unknown as UnitData;
+    const h = renderToString(<ContratosVendidos total={total} monthLabel="Out" partial={false} unitLabel="Rede" porFamilia />);
+    expect(h).not.toContain("Cortesias");
+    expect(h).toContain(">10<");
+    expect(h).toContain("60%");
   });
   it("separa multas, taxas e ajustes dos produtos", () => {
     expect(ehTaxa("MULTA DE CANCELAMENTO DE CONTRATO")).toBe(true);
