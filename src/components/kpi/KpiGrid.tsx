@@ -1,4 +1,4 @@
-import { fracaoDoMes, isPartialMonth, projetarFechamento } from "@/data/periods";
+import { fracaoDoMes, projetarFechamento } from "@/data/periods";
 import { evoAtualizadoEm } from "@/data/dashboardData";
 import type { ReactNode } from "react";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
@@ -38,14 +38,14 @@ const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Recebime
 function sourceOf(title: string, v: MonthView): string {
   if (EVO_TITLES.has(title)) return "EVO";
   if (title === "Inadimplência" && v.total.inadimplenciaEvo) return "EVO";
-  if (["Novos Contratos", "Saldo de Clientes", "Vendas Online", "Diárias", "Camisetas", "Coqueteleiras", "Brinquedoteca", "Receita Complementar"].includes(title) && v.total.vendasEvo) return "EVO";
+  if (["Novos Contratos", "Saldo de Clientes", "Vendas Online", "Diárias", "Camisetas", "Coqueteleiras", "Brinquedoteca", "WG Plus", "Pro+", "Receita Complementar"].includes(title) && v.total.vendasEvo) return "EVO";
   if (title === "Renovação" && v.total.renovacoesEvo) return "EVO";
   if (title === "Taxa de Personal" && v.total.personalEvo) return "EVO";
   if ((title === "Conversão de Cadastros" || title === "Conversão") && v.total.icvEvo) return "EVO";
   if (["Alunos Ativos", "Saldo de Alunos", "Permanência Média", "LTV"].includes(title) && v.total.ativosFim !== undefined) return "EVO";
   if (title === "NPS" && v.total.npsEvo) return "WeHelp";
   if (title === "Churn" && v.total.cancelados > 0 && v.units.some((u) => u.ativosIni !== undefined)) return "EVO";
-  if ((title === "Adimplentes" || title === "Ticket Médio") && v.total.ativosEvo && (title === "Adimplentes" || !isPartialMonth(v.month))) return "EVO";
+  if ((title === "Adimplentes" || title === "Ticket Médio") && v.total.ativosEvo) return "EVO";
   return "planilha";
 }
 
