@@ -44,7 +44,7 @@ describe("TopUnits", () => {
     expect(html.indexOf(">D<")).toBeLessThan(html.indexOf(">C<"));
     expect(html).not.toContain(">A<"); // fora do top 3
     expect(html.replace(/\s|&nbsp;/g, "")).toContain("R$400.000");
-    expect(html).toContain("Ver todas as unidades");
+    expect(html).toContain("Ver o ranking de todas as unidades");
   });
 });
 

@@ -14,6 +14,7 @@ import { CampanhasTab } from "@/components/tabs/CampanhasTab";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { BaseAlunos } from "@/components/clientes/BaseAlunos";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
+import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
 import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
 import { UnitNavProvider } from "@/components/UnitLink";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -284,7 +285,7 @@ const Index = () => {
           onMonthChange={setSelectedMonth}
           onCompareMonthChange={setCompareMonth}
           onUnitChange={setSelectedUnit}
-          hideUnit={false}
+          hideUnit={activeTab === "benchmark"}
         />}
 
         {/* Comparativo */}
@@ -320,7 +321,7 @@ const Index = () => {
             deltas={unitDeltas}
             metas={metasData}
             onOpenRiscos={() => changeTab("riscos")}
-            onOpenUnidades={() => changeTab("unidades")}
+            onOpenUnidades={() => changeTab("benchmark")}
             onOpenMetas={() => changeTab("metas")}
           />
         )}
@@ -382,13 +383,20 @@ const Index = () => {
         {activeTab === "unidades" && (
           <UnidadesTab
             selectedMonth={fullMonthData.month}
-            evalMonth={evalMonth}
-            prevEvalMonth={evalIdx > 0 ? dashboardData[evalIdx - 1].month : null}
-            deltas={unitDeltas}
             unit={selectedUnit}
             compareMonth={compareMonth}
             metas={metasData}
+            onPick={openUnit}
             onOpenMetas={() => changeTab("metas")}
+          />
+        )}
+
+        {activeTab === "benchmark" && (
+          <BenchmarkTab
+            selectedMonth={fullMonthData.month}
+            evalMonth={evalMonth}
+            prevEvalMonth={evalIdx > 0 ? dashboardData[evalIdx - 1].month : null}
+            deltas={unitDeltas}
           />
         )}
 

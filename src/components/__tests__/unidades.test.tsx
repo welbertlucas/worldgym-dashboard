@@ -165,19 +165,22 @@ describe("Unidades: um menu só", () => {
     expect(html).toContain("Posição de A na rede");
   });
 
-  it("com Rede mostra ranking, contratos e a tabela recolhida; com uma unidade abre o detalhe dela", async () => {
+  it("Benchmark compara todas; Unidades sem unidade mostra a grade e, com unidade, o retrato", async () => {
     const { UnidadesTab } = await import("@/components/tabs/UnidadesTab");
-    dashboardData.push(month("2026-08", [unit("A", { faturamento: 300 }), unit("B", { faturamento: 200 })]), month("2026-09", [unit("A", { faturamento: 320 }), unit("B", { faturamento: 210 })]));
-    const props = { selectedMonth: "2026-09", evalMonth: null, prevEvalMonth: null, deltas: [], compareMonth: null, metas: [] };
-    const rede = renderToString(<UnidadesTab {...props} unit={null} />);
-    expect(rede).toContain("Desempenho por unidade");
-    expect(rede).toContain("Tabela completa");
-    expect(rede).not.toContain("Linha de comparação");
+    const { BenchmarkTab } = await import("@/components/tabs/BenchmarkTab");
+    dashboardData.push(month("2026-08", [unit("A", { faturamento: 300 }), unit("B", { faturamento: 200 })]), month("2026-09", [unit("A", { faturamento: 330 }), unit("B", { faturamento: 210 })]));
+    const bench = renderToString(<BenchmarkTab selectedMonth="2026-09" evalMonth={null} prevEvalMonth={null} deltas={[]} />);
+    expect(bench).toContain("Desempenho por unidade");
+    expect(bench).toContain("Tabela completa");
+    const props = { selectedMonth: "2026-09", compareMonth: null, metas: [], onPick: () => {} };
+    const grade = renderToString(<UnidadesTab {...props} unit={null} />).replace(/<!-- -->/g, "");
+    expect(grade).toContain("Escolha uma unidade");
+    expect(grade).toContain("+10,0%");
+    expect(grade).not.toContain("Desempenho por unidade");
     const detalhe = renderToString(<UnidadesTab {...props} unit="A" onOpenMetas={() => {}} />);
     expect(detalhe).toContain("Posição de A na rede");
     expect(detalhe).toContain("Linha de comparação");
     expect(detalhe).toContain("As setas de cada cartão comparam com");
-    expect(detalhe).toContain("Resultado de");
     expect(detalhe).toContain("Ver em Metas");
     expect(detalhe).toContain("Exportar PDF");
   });

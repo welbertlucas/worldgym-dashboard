@@ -1,87 +1,72 @@
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionTitle } from "@/components/SectionTitle";
-import { UnitHighlights } from "@/components/UnitHighlights";
-import { UnitDeltaChart } from "@/components/UnitDeltaChart";
-import { ContratosAtivos } from "@/components/unidades/ContratosAtivos";
-import { UnitsRanking } from "@/components/unidades/UnitsRanking";
-import { TopUnitsTable } from "@/components/TopUnitsTable";
-import { AtalhosSecoes, Secao } from "@/components/unidades/Secao";
 import { UnidadeDetalhe } from "@/components/tabs/UnidadeTab";
-import { type UnitDelta } from "@/data/unitMetrics";
 import { type Meta } from "@/data/metas";
 import { getDataByMonth } from "@/data/dashboardData";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 
 interface Props {
   selectedMonth: string;
-  /** Último mês fechado e o anterior: base das variações (cálculo existente). */
-  evalMonth: string | null;
-  prevEvalMonth: string | null;
-  deltas: UnitDelta[];
-  /** Unidade do filtro do topo; null = rede (compara todas). */
+  /** Unidade do filtro do topo; null = nenhuma escolhida (mostra a grade para escolher). */
   unit: string | null;
   compareMonth: string | null;
   metas: Meta[];
+  /** Escolhe uma unidade (vai para o filtro do topo). */
+  onPick: (unit: string) => void;
   onOpenMetas?: () => void;
 }
 
-/** Unidades: sem unidade no filtro, compara todas; com uma unidade no filtro, mostra o retrato dela. */
-export function UnidadesTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, unit, compareMonth, metas, onOpenMetas }: Props) {
-  const partial = isPartialMonth(selectedMonth);
-  const units = getDataByMonth(selectedMonth)?.units ?? [];
-  const hasDeltas = deltas.length > 0 && !!evalMonth && !!prevEvalMonth;
+const reais = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
 
-  if (unit) {
+/** Grade para escolher a unidade: faturamento do mês e variação contra o mês anterior. */
+function EscolherUnidade({ selectedMonth, onPick }: { selectedMonth: string; onPick: (u: string) => void }) {
+  const [y, m] = selectedMonth.split("-").map(Number);
+  const anterior = getDataByMonth(new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7));
+  const units = [...(getDataByMonth(selectedMonth)?.units ?? [])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const partial = isPartialMonth(selectedMonth);
+  return (
+    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Escolha uma unidade">
+      {units.map((u) => {
+        const ant = anterior?.units.find((x) => x.name === u.name)?.faturamento;
+        const varia = !partial && ant ? ((u.faturamento - ant) / ant) * 100 : null;
+        return (
+          <li key={u.name}>
+            <button type="button" onClick={() => onPick(u.name)} className="w-full rounded-xl border border-border bg-card px-4 py-3 text-left hover:border-foreground/40 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <span className="block truncate font-semibold text-foreground">{u.name}</span>
+              <span className="mt-1 flex items-baseline justify-between gap-2 text-sm">
+                <span className="tabular-nums text-foreground">{reais(u.faturamento)}<span className="text-xs text-muted-foreground"> faturamento{partial ? " (parcial)" : ""}</span></span>
+                {varia !== null && <span className={`text-xs font-medium tabular-nums ${varia >= 0 ? "text-success" : "text-destructive"}`}>{varia >= 0 ? "+" : ""}{varia.toFixed(1).replace(".", ",")}%</span>}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Unidades: o retrato de uma unidade. Sem unidade no filtro do topo, mostra a grade para escolher. */
+export function UnidadesTab({ selectedMonth, unit, compareMonth, metas, onPick, onOpenMetas }: Props) {
+  if (!unit) {
     return (
-      <div className="space-y-8">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <SectionTitle hint={`Retrato da unidade em ${formatMonthLong(selectedMonth)}. Para voltar à comparação entre todas as unidades, limpe o filtro "Unidade" no topo.`}>{unit}</SectionTitle>
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="no-print shrink-0 text-xs font-medium">
-            <Printer className="w-4 h-4" aria-hidden />
-            <span>Exportar PDF</span>
-          </Button>
-        </div>
-        <p className="hidden print:block text-sm text-muted-foreground">{unit} · {formatMonthLong(selectedMonth)} · emitido em {new Date().toLocaleDateString("pt-BR")}</p>
-        <UnidadeDetalhe unit={unit} selectedMonth={selectedMonth} compareMonth={compareMonth} metas={metas} deltas={deltas} evalMonth={evalMonth} prevEvalMonth={prevEvalMonth} onOpenMetas={onOpenMetas} />
+      <div className="space-y-6">
+        <SectionTitle hint={`Escolha uma unidade para ver o retrato dela em ${formatMonthLong(selectedMonth)}: resultado do mês, posição na rede, evolução e contratos. A variação é do faturamento contra o mês anterior. Para comparar todas as unidades entre si, use o menu Benchmark.`}>Unidades</SectionTitle>
+        <EscolherUnidade selectedMonth={selectedMonth} onPick={onPick} />
       </div>
     );
   }
-
-  const secoes = [
-    ...(hasDeltas ? [{ id: "un-destaques", rotulo: "Quem melhorou e quem piorou" }] : []),
-    { id: "un-ranking", rotulo: "Ranking" },
-    { id: "un-contratos", rotulo: "Contratos ativos" },
-    { id: "un-tabela", rotulo: "Tabela completa" },
-  ];
   return (
-    <div className="space-y-10">
-      <div className="space-y-3">
-        <SectionTitle hint={`Todas as ${units.length} unidades em ${formatMonthLong(selectedMonth)}${partial ? " (mês em andamento: valores parciais)" : ""}. Para ver uma unidade sozinha, escolha-a no filtro "Unidade" no topo ou clique no nome dela.`}>Unidades</SectionTitle>
-        <AtalhosSecoes itens={secoes} />
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionTitle hint={`Retrato da unidade em ${formatMonthLong(selectedMonth)}. Para escolher outra, use o filtro "Unidade" no topo; para comparar todas, o menu Benchmark.`}>{unit}</SectionTitle>
+        <Button variant="outline" size="sm" onClick={() => window.print()} className="no-print shrink-0 text-xs font-medium">
+          <Printer className="w-4 h-4" aria-hidden />
+          <span>Exportar PDF</span>
+        </Button>
       </div>
-
-      {hasDeltas && (
-        <Secao id="un-destaques" titulo="Quem melhorou e quem piorou" descricao={<>Variação de {formatMonthLong(evalMonth!)} em relação a {formatMonthLong(prevEvalMonth!)} (último mês fechado contra o anterior).</>}>
-          <UnitHighlights deltas={deltas} />
-        </Secao>
-      )}
-
-      <Secao id="un-ranking" titulo="Ranking" descricao="Posição de cada unidade no indicador escolhido. Em “Variação”, quanto cada uma mudou do penúltimo para o último mês fechado.">
-        <UnitsRanking units={units} monthLabel={formatMonthLong(selectedMonth)} partial={partial} variationView={hasDeltas ? <UnitDeltaChart deltas={deltas} curMonth={evalMonth!} prevMonth={prevEvalMonth!} /> : undefined} />
-      </Secao>
-
-      <Secao id="un-contratos" titulo="Contratos ativos" descricao="Foto de hoje do EVO: especiais/VIP, personal e plano local ou rede, por unidade.">
-        <ContratosAtivos units={units} />
-        {!units.some((u) => u.contratosAtivos !== undefined) && <p className="text-sm text-muted-foreground">A foto de contratos só existe no mês em andamento. Escolha o mês atual no topo para ver.</p>}
-      </Secao>
-
-      <Secao id="un-tabela" titulo="Tabela completa" descricao="Todos os indicadores de todas as unidades no mês, com busca e escolha de colunas.">
-        <details className="card-surface p-5">
-          <summary className="cursor-pointer text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Abrir tabela</summary>
-          <div className="mt-4"><TopUnitsTable selectedMonth={selectedMonth} /></div>
-        </details>
-      </Secao>
+      <p className="hidden print:block text-sm text-muted-foreground">{unit} · {formatMonthLong(selectedMonth)} · emitido em {new Date().toLocaleDateString("pt-BR")}</p>
+      <UnidadeDetalhe unit={unit} selectedMonth={selectedMonth} compareMonth={compareMonth} metas={metas} onOpenMetas={onOpenMetas} />
     </div>
   );
 }

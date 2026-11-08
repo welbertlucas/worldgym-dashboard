@@ -13,7 +13,6 @@ import { INDICATOR_BY_KEY } from "@/data/unitIndicators";
 import { PERIODOS, mesesNoIntervalo, serieDaRede, seriesPorMeses } from "@/data/unitSeries";
 import { viewFor } from "@/data/kpiView";
 import { sameMonthLastYear } from "@/data/alerts";
-import { type UnitDelta } from "@/data/unitMetrics";
 import { META_INDICATORS, TIER_LABEL, actualFor, getMeta, nextTier, tierReached, formatMetaValue, type Meta, type MetaKey } from "@/data/metas";
 import { formatMonthLong, getLastClosedMonth, isPartialMonth } from "@/data/periods";
 import { cn } from "@/lib/utils";
@@ -24,9 +23,6 @@ interface Props {
   /** Mês marcado em "Comparar com" no topo: os cartões passam a compará-lo com o mês exibido. */
   compareMonth: string | null;
   metas: Meta[];
-  deltas: UnitDelta[];
-  evalMonth: string | null;
-  prevEvalMonth: string | null;
   onOpenMetas?: () => void;
 }
 
