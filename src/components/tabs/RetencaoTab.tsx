@@ -25,16 +25,18 @@ export function RetencaoTab({ ctx, month, unit }: Props) {
       </div>
 
       <Secao id="rt-cancelamentos" titulo="Cancelamentos" descricao="Quanto da base cancelou no mês (churn), a evolução nos últimos meses e os motivos informados.">
-        <KpiGrid ctx={ctx} specs={so(["Churn"], false)} columns="xl:grid-cols-1" />
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <KpiGrid ctx={ctx} specs={so(["Churn"], false)} columns="sm:grid-cols-1" />
           <ChurnChart selectedUnit={unit} />
-          <MotivosCancelamento total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
         </div>
+        <MotivosCancelamento total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
       </Secao>
 
       <Secao id="rt-renovacao" titulo="Renovação" descricao="Dos contratos de prazo fixo que venceram no mês, quantos foram renovados.">
-        <KpiGrid ctx={ctx} specs={so(["Renovação"], false)} columns="xl:grid-cols-1" />
-        <RenovacoesChart selectedUnit={unit} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <KpiGrid ctx={ctx} specs={so(["Renovação"], false)} columns="sm:grid-cols-1" />
+          <RenovacoesChart selectedUnit={unit} />
+        </div>
       </Secao>
 
       <Secao id="rt-satisfacao" titulo="Satisfação" descricao="O que os alunos dizem: NPS (WeHelp), nota do Google e, na rede, nota do Reclame Aqui.">
