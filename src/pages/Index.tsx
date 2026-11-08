@@ -52,6 +52,9 @@ const Index = () => {
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   /** Unidade aberta pelos links de nome; a página de detalhe começa nela. */
   const [detailUnit, setDetailUnit] = useState<{ name: string; n: number } | null>(null);
+  // Abas com seletor de unidade próprio (Unidades, Mapa, Tráfego pago) avisam a unidade escolhida, para o cabeçalho acompanhar.
+  const [unidadeDaAba, setUnidadeDaAba] = useState<string | null>(null);
+  const ABAS_COM_SELETOR = ["unidades", "mapa", "campanhas"];
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("executiva");
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
@@ -238,7 +241,7 @@ const Index = () => {
                   Dashboard de resultados
                 </h1>
                 <p className="text-muted-foreground text-xs sm:text-sm sm:truncate first-letter:uppercase">
-                  {selectedUnit ? selectedUnit : "Rede"} • {formatDate(fullMonthData.month)}
+                  {(ABAS_COM_SELETOR.includes(activeTab) ? unidadeDaAba : selectedUnit) ?? "Rede"} • {formatDate(fullMonthData.month)}
                   {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
               </div>
@@ -390,12 +393,13 @@ const Index = () => {
             compareMonth={compareMonth}
             metas={metasData}
             onOpenMetas={() => changeTab("metas")}
+            onUnitChange={setUnidadeDaAba}
           />
         )}
 
 
-        {activeTab === "mapa" && <MapaAlunosTab initialUnit={selectedUnit} />}
-        {activeTab === "campanhas" && <CampanhasTab initialUnit={selectedUnit} />}
+        {activeTab === "mapa" && <MapaAlunosTab initialUnit={selectedUnit} onUnitChange={setUnidadeDaAba} />}
+        {activeTab === "campanhas" && <CampanhasTab initialUnit={selectedUnit} onUnitChange={setUnidadeDaAba} />}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 

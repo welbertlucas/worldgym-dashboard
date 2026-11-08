@@ -27,13 +27,16 @@ interface Props {
   compareMonth: string | null;
   metas: Meta[];
   onOpenMetas?: () => void;
+  /** Avisa a unidade escolhida em "Ver" (null = rede), para o cabeçalho da página acompanhar. */
+  onUnitChange?: (unit: string | null) => void;
 }
 
 /** Unidades: com "Rede", compara todas (ranking, destaques, contratos e tabela); com uma unidade, abre o detalhe dela. */
-export function UnidadesTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, initialUnit, openKey, compareMonth, metas, onOpenMetas }: Props) {
+export function UnidadesTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, initialUnit, openKey, compareMonth, metas, onOpenMetas, onUnitChange }: Props) {
   const nomes = useMemo(() => getAvailableUnits(), []);
   const [unit, setUnit] = useState<string | null>(initialUnit);
   useEffect(() => { setUnit(initialUnit); }, [initialUnit, openKey]);
+  useEffect(() => { onUnitChange?.(unit); }, [unit, onUnitChange]);
   const partial = isPartialMonth(selectedMonth);
   const units = getDataByMonth(selectedMonth)?.units ?? [];
   const hasDeltas = deltas.length > 0 && !!evalMonth && !!prevEvalMonth;

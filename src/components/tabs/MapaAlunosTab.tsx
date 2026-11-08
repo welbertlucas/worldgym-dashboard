@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Select } from "@/components/ui/select";
 import { SectionTitle } from "@/components/SectionTitle";
 import { OndeMoramAlunos } from "@/components/unidades/OndeMoramAlunos";
@@ -6,9 +6,10 @@ import { getAvailableUnits } from "@/data/dashboardData";
 import { dadosDoMapa } from "@/data/mapaAlunos";
 
 /** Mapa dos alunos: onde moram os alunos ativos hoje (bolhas por bairro) e onde ficam as unidades (pinos), da rede toda ou de uma unidade. */
-export function MapaAlunosTab({ initialUnit }: { initialUnit: string | null }) {
+export function MapaAlunosTab({ initialUnit, onUnitChange }: { initialUnit: string | null; onUnitChange?: (unit: string | null) => void }) {
   const units = useMemo(() => getAvailableUnits(), []);
   const [unit, setUnit] = useState<string | null>(initialUnit);
+  useEffect(() => { onUnitChange?.(unit); }, [unit, onUnitChange]);
   const dados = useMemo(() => dadosDoMapa(unit, units), [unit, units]);
   return (
     <div className="space-y-6">

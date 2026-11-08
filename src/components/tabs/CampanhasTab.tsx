@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Select } from "@/components/ui/select";
 import { SectionTitle } from "@/components/SectionTitle";
 import { CampanhasNoAr } from "@/components/CampanhasNoAr";
 import { getAvailableUnits } from "@/data/dashboardData";
 
 /** Campanhas de anúncio ativas hoje no Meta (Facebook e Instagram), da rede toda ou de uma unidade. */
-export function CampanhasTab({ initialUnit }: { initialUnit: string | null }) {
+export function CampanhasTab({ initialUnit, onUnitChange }: { initialUnit: string | null; onUnitChange?: (unit: string | null) => void }) {
   const units = useMemo(() => getAvailableUnits(), []);
   const [unit, setUnit] = useState<string | null>(initialUnit);
+  useEffect(() => { onUnitChange?.(unit); }, [unit, onUnitChange]);
   return (
     <div className="space-y-6">
       <div>
