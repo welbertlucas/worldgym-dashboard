@@ -177,7 +177,9 @@ describe("Unidades: um menu só", () => {
     expect(grade).toContain("Escolha uma unidade");
     expect(grade).toContain("+10,0%");
     expect(grade).not.toContain("Desempenho por unidade");
-    const detalhe = renderToString(<UnidadesTab {...props} unit="A" onOpenMetas={() => {}} />);
+    const detalhe = renderToString(<UnidadesTab {...props} unit="A" onOpenMetas={() => {}} onOpenTab={() => {}} />);
+    expect(detalhe.replace(/<!-- -->/g, "")).toContain("Comercial de A");
+    expect(detalhe.replace(/<!-- -->/g, "")).toContain("Retenção de A");
     expect(detalhe).toContain("Posição de A na rede");
     expect(detalhe).toContain("Linha de comparação");
     expect(detalhe).toContain("As setas de cada cartão comparam com");

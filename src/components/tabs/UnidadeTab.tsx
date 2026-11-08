@@ -24,7 +24,18 @@ interface Props {
   compareMonth: string | null;
   metas: Meta[];
   onOpenMetas?: () => void;
+  /** Abre um menu temático (Comercial, Financeiro…) já filtrado nesta unidade. */
+  onOpenTab?: (id: string) => void;
 }
+
+/** Menus temáticos que aceitam o filtro de unidade: atalhos do retrato para eles. */
+export const MENUS_DA_UNIDADE = [
+  { id: "comercial", rotulo: "Comercial" },
+  { id: "financeiro", rotulo: "Financeiro" },
+  { id: "alunos", rotulo: "Base de alunos" },
+  { id: "retencao", rotulo: "Retenção" },
+  { id: "metas", rotulo: "Metas" },
+] as const;
 
 const TREND_KEYS = ["faturamento", "recebimento", "inadimplenciaPerc", "churn", "renovacoes", "novosContratos"] as const;
 const unitSpecs: KpiSpec[] = [
@@ -34,7 +45,7 @@ const unitSpecs: KpiSpec[] = [
 const REDE = "__rede__";
 
 /** Uma unidade: indicadores do mês, posição na rede (ranking com ela em destaque), metas, contratos e evolução contra a rede ou outra unidade. */
-export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpenMetas }: Props) {
+export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpenMetas, onOpenTab }: Props) {
   const units = useMemo(() => getAvailableUnits(), []);
   const fechados = useMemo(() => dashboardData.filter((d) => !isPartialMonth(d.month)).map((d) => d.month), []);
   const [periodo, setPeriodo] = useState(12);
@@ -80,6 +91,7 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
     { id: "ud-evolucao", rotulo: "Evolução" },
     ...(outra ? [{ id: "ud-comparacao", rotulo: `Comparação com ${outra}` }] : []),
     ...(contratosDaUnidade ? [{ id: "ud-contratos", rotulo: "Contratos ativos" }] : []),
+    ...(onOpenTab ? [{ id: "ud-menus", rotulo: "Mais detalhes" }] : []),
   ];
 
   return (
@@ -151,6 +163,20 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
       {contratosDaUnidade && (
         <Secao id="ud-contratos" titulo="Contratos ativos hoje" descricao={<>Foto do EVO, sobre {contratosDaUnidade.total.toLocaleString("pt-BR")} contratos. Plano local libera até 9 unidades; plano rede, 10 ou mais (nas unidades Pro, todos são rede). Especiais/VIP e personal são recortes dentro deles.</>}>
           <ContratosTiles v={contratosDaUnidade} />
+        </Secao>
+      )}
+      {onOpenTab && (
+        <Secao id="ud-menus" titulo={`Mais detalhes de ${unit}`} descricao={`Abre o menu já filtrado em ${unit}. Para voltar à rede, use “Voltar para a rede” na faixa do topo.`}>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {MENUS_DA_UNIDADE.map((m) => (
+              <li key={m.id}>
+                <button type="button" onClick={() => onOpenTab(m.id)} className="no-print w-full rounded-xl border border-border bg-card px-4 py-3 text-left hover:border-foreground/40 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="block text-xs text-muted-foreground">Ver</span>
+                  <span className="block truncate text-sm font-semibold text-foreground">{m.rotulo} de {unit}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </Secao>
       )}
     </div>

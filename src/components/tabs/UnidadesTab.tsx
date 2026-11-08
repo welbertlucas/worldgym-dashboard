@@ -15,6 +15,8 @@ interface Props {
   /** Escolhe uma unidade (vai para o filtro do topo). */
   onPick: (unit: string) => void;
   onOpenMetas?: () => void;
+  /** Abre um menu temático já filtrado na unidade. */
+  onOpenTab?: (id: string) => void;
 }
 
 const reais = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
@@ -47,7 +49,7 @@ function EscolherUnidade({ selectedMonth, onPick }: { selectedMonth: string; onP
 }
 
 /** Unidades: o retrato de uma unidade. Sem unidade no filtro do topo, mostra a grade para escolher. */
-export function UnidadesTab({ selectedMonth, unit, compareMonth, metas, onPick, onOpenMetas }: Props) {
+export function UnidadesTab({ selectedMonth, unit, compareMonth, metas, onPick, onOpenMetas, onOpenTab }: Props) {
   if (!unit) {
     return (
       <div className="space-y-6">
@@ -66,7 +68,7 @@ export function UnidadesTab({ selectedMonth, unit, compareMonth, metas, onPick, 
         </Button>
       </div>
       <p className="hidden print:block text-sm text-muted-foreground">{unit} · {formatMonthLong(selectedMonth)} · emitido em {new Date().toLocaleDateString("pt-BR")}</p>
-      <UnidadeDetalhe unit={unit} selectedMonth={selectedMonth} compareMonth={compareMonth} metas={metas} onOpenMetas={onOpenMetas} />
+      <UnidadeDetalhe unit={unit} selectedMonth={selectedMonth} compareMonth={compareMonth} metas={metas} onOpenMetas={onOpenMetas} onOpenTab={onOpenTab} />
     </div>
   );
 }

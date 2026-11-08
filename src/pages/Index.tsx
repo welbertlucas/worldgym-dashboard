@@ -289,6 +289,17 @@ const Index = () => {
           hideUnit={semFiltroDeUnidade}
         />}
 
+        {/* Aviso de unidade filtrada: nos menus temáticos o filtro vale para a tela toda e segue ao trocar de menu. */}
+        {selectedUnit && ["comercial", "metas", "financeiro", "alunos", "retencao"].includes(activeTab) && (
+          <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
+            <span className="text-foreground">Mostrando só <b>{selectedUnit}</b>. Os números desta tela são desta unidade, não da rede.</span>
+            <span className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => changeTab("unidades")} className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Ver retrato de {selectedUnit}</button>
+              <button type="button" onClick={() => setSelectedUnit(null)} className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/90">Voltar para a rede</button>
+            </span>
+          </div>
+        )}
+
         {/* Comparativo */}
         {comparison && activeTab !== "unidades" && activeTab !== "mapa" && activeTab !== "campanhas" && (
           <section>
@@ -381,6 +392,7 @@ const Index = () => {
             metas={metasData}
             onPick={openUnit}
             onOpenMetas={() => changeTab("metas")}
+            onOpenTab={changeTab}
           />
         )}
 
