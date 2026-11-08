@@ -145,7 +145,9 @@ const Index = () => {
       }
     : fullMonthData;
 
-  const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, selectedUnit) : null;
+  // Visão Executiva e Benchmark são sempre da rede: o filtro de unidade não aparece nem vale nelas.
+  const semFiltroDeUnidade = activeTab === "executiva" || activeTab === "benchmark";
+  const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade ? null : selectedUnit) : null;
 
   const months = dashboardData.map((d) => d.month);
   const evalMonth = getLastClosedMonth(months);
@@ -239,7 +241,7 @@ const Index = () => {
                   Dashboard de resultados
                 </h1>
                 <p className="text-muted-foreground text-xs sm:text-sm sm:truncate first-letter:uppercase">
-                  {(ABAS_COM_SELETOR.includes(activeTab) ? unidadeDaAba : selectedUnit) ?? "Rede"} • {formatDate(fullMonthData.month)}
+                  {(ABAS_COM_SELETOR.includes(activeTab) ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? "Rede"} • {formatDate(fullMonthData.month)}
                   {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
               </div>
@@ -285,7 +287,7 @@ const Index = () => {
           onMonthChange={setSelectedMonth}
           onCompareMonthChange={setCompareMonth}
           onUnitChange={setSelectedUnit}
-          hideUnit={activeTab === "benchmark"}
+          hideUnit={semFiltroDeUnidade}
         />}
 
         {/* Comparativo */}
