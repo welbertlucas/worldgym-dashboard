@@ -127,7 +127,7 @@ describe("produtos e serviços mais vendidos", () => {
 });
 
 import { TaxasCobradas } from "@/components/ContratosVendidos";
-import { somarFamiliasVendidas } from "@/data/dashboardData";
+import { somarFamiliasVendidas, reagruparFamilias } from "@/data/dashboardData";
 // @ts-expect-error módulo JS do servidor
 import { ehTaxa, familiaPlano, resumirVendas } from "../../../server/vendas.js";
 
@@ -138,11 +138,17 @@ describe("planos por família e taxas fora dos produtos", () => {
     expect(familiaPlano("03 - WG LOCAL FLEX (R$157,00)")).toBe("WG Local");
     expect(familiaPlano("WG LOCAL 3X R$ 79,90")).toBe("WG Local");
     expect(familiaPlano("02 - WG REDE SOBRADINHO - R$169,90")).toBe("WG Rede");
-    expect(familiaPlano("06 - WG LOCAL EX- ALUNOS 1º MÊS R$ 49,90 (ONLINE)")).toBe("Promoção 1º mês");
-    expect(familiaPlano("07 - WG LOCAL MILITAR TAGUATINGA (119,90)")).toBe("Parcerias e militares");
-    expect(familiaPlano("WG PRO SALVADOR ANUAL | R$ 319,90")).toBe("WG PRO");
-    expect(familiaPlano("X - FREE PASS (3 DIAS)")).toBe("Free pass");
+    expect(familiaPlano("06 - WG LOCAL EX- ALUNOS 1º MÊS R$ 49,90 (ONLINE)")).toBe("Outros planos");
+    expect(familiaPlano("07 - WG LOCAL MILITAR TAGUATINGA (119,90)")).toBe("Outros planos");
+    expect(familiaPlano("WG PRO SALVADOR ANUAL | R$ 319,90")).toBe("WG Rede");
+    expect(familiaPlano("WORLD GYM CEILANDIA FIT R$ 129,90 (40 sessões)")).toBe("WG Rede");
+    expect(familiaPlano("X - FREE PASS (3 DIAS)")).toBe("Outros planos");
+    expect(familiaPlano("AULA EXPERIMENTAL")).toBe("Outros planos");
     expect(familiaPlano("ALGO NOVO")).toBe("Outros planos");
+  });
+  it("reagrupa os tipos antigos já gravados nos meses carregados", () => {
+    expect(reagruparFamilias([["WG Local", 10, 1000], ["WG Rede", 3, 500], ["WG PRO", 2, 600], ["Free pass", 4, 0], ["Promoção 1º mês", 1, 50], ["Outros planos", 1, 10]]))
+      .toEqual([["WG Local", 10, 1000], ["Outros planos", 6, 60], ["WG Rede", 5, 1100]]);
   });
   it("separa multas, taxas e ajustes dos produtos", () => {
     expect(ehTaxa("MULTA DE CANCELAMENTO DE CONTRATO")).toBe(true);

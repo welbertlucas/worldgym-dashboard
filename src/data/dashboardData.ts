@@ -452,6 +452,13 @@ export const somarContratosVendidos = (us: Pick<UnitData, "contratosVendidos">[]
 /** Junta os produtos e serviços mais vendidos de várias unidades (pelo valor). */
 export const somarProdutosVendidos = (us: Pick<UnitData, "produtosVendidos">[]) => juntarRanking(us.map((u) => u.produtosVendidos), true);
 /** Junta as famílias de plano vendidas de várias unidades (todas, sem corte). */
+/** Grupos antigos gravados nos meses já carregados → grupos atuais (cortesias e promoções em Outros; WG PRO em WG Rede). */
+const FAMILIA_ATUAL: Record<string, string> = { "Free pass": "Outros planos", Experimental: "Outros planos", "Promoção 1º mês": "Outros planos", "Parcerias e militares": "Outros planos", "WG PRO": "WG Rede" };
+export function reagruparFamilias(fs: [string, number, number][]): [string, number, number][] {
+  const m = new Map<string, [number, number]>();
+  for (const [n, q, v] of fs) { const k = FAMILIA_ATUAL[n] ?? n; const a = m.get(k) ?? [0, 0]; m.set(k, [a[0] + q, Math.round((a[1] + v) * 100) / 100]); }
+  return [...m].map(([n, [q, v]]) => [n, q, v] as [string, number, number]).sort((a, b) => b[1] - a[1] || b[2] - a[2]);
+}
 export const somarFamiliasVendidas = (us: Pick<UnitData, "familiasVendidas">[]) => juntarRanking(us.map((u) => u.familiasVendidas), false, Infinity);
 /** Junta as multas, taxas e ajustes cobrados de várias unidades (pelo valor). */
 export const somarTaxasCobradas = (us: Pick<UnitData, "taxasCobradas">[]) => juntarRanking(us.map((u) => u.taxasCobradas), true);
@@ -608,7 +615,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.acessos !== undefined) unit.acessos = e.acessos;
       if (e.perfil !== undefined) unit.perfil = e.perfil;
       if (e.perfilOport !== undefined) unit.perfilOport = e.perfilOport;
-      if (e.contratosVendidos !== undefined) { unit.contratosVendidos = e.contratosVendidos; unit.familiasVendidas = e.familiasVendidas; unit.tipoVenda = e.tipoVenda; unit.duracaoVenda = e.duracaoVenda; }
+      if (e.contratosVendidos !== undefined) { unit.contratosVendidos = e.contratosVendidos; unit.familiasVendidas = e.familiasVendidas && reagruparFamilias(e.familiasVendidas); unit.tipoVenda = e.tipoVenda; unit.duracaoVenda = e.duracaoVenda; }
       if (e.produtosVendidos !== undefined) { unit.produtosVendidos = e.produtosVendidos; unit.taxasCobradas = e.taxasCobradas; unit.taxasResumo = e.taxasResumo; }
       if (e.formasPagamento !== undefined) unit.formasPagamento = e.formasPagamento;
       if (e.bandeirasCartao !== undefined) unit.bandeirasCartao = normalizarNomes(e.bandeirasCartao, nomeBandeira);

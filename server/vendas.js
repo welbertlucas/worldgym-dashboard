@@ -66,12 +66,14 @@ export function faixaDuracao(plano) {
  * "01 - WG LOCAL RIACHO 2"...), então o ranking da rede agrupa pelo tipo do plano. A ordem das regras importa.
  */
 const FAMILIAS = [
-  ["Free pass", /FREE ?PASS/],
-  ["Experimental", /EXPERIMENTAL/],
-  ["Promoção 1º mês", /EX-? ?ALUNO|1[º°O]? M[ÊE]S/],
+  // Cortesias, testes, promoções e convênios ficam em "Outros planos" (vêm antes para que "WG LOCAL MILITAR" não caia em WG Local).
+  ["Outros planos", /FREE ?PASS/],
+  ["Outros planos", /EXPERIMENTAL/],
+  ["Outros planos", /EX-? ?ALUNO|1[º°O]? M[ÊE]S/],
   ["Aquática", /AQUA|NATA[ÇC]/],
-  ["Parcerias e militares", /PARCE|PACEIRO|MILITAR|GIFT|CONV[ÊE]NIO|TOP LIFE/],
-  ["WG PRO", /\bPRO\b/],
+  ["Outros planos", /PARCE|PACEIRO|MILITAR|GIFT|CONV[ÊE]NIO|TOP LIFE/],
+  // WG PRO e Fit dão acesso à rede: contam como WG Rede.
+  ["WG Rede", /\bPRO\b|\bFIT\b/],
   ["WG 30", /WG ?-? ?30/],
   ["WG Rede", /REDE/],
   ["WG Local", /LOCAL|MENSAL|FLEX|\b[1-5] ?X\b/],

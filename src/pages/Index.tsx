@@ -115,36 +115,6 @@ const Index = () => {
   const fullMonthData = (selectedMonth ? getDataByMonth(selectedMonth) : null) || getLatestData();
   const unitData = selectedUnit ? getUnitData(fullMonthData.month, selectedUnit) : null;
 
-  const currentData = selectedUnit && unitData
-    ? {
-        month: fullMonthData.month,
-        units: [unitData],
-        total: {
-          faturamento: unitData.faturamento,
-          recebimento: unitData.recebimento,
-          cac: unitData.cac,
-          ticketMedio: unitData.ticketMedio,
-          adimplentes: unitData.adimplentes,
-          inadimplentes: unitData.inadimplentes,
-          inadimplenciaPerc: unitData.inadimplenciaPerc,
-          churn: unitData.churn,
-          renovacoes: unitData.renovacoes,
-          icv: unitData.icv,
-          vendasOnline: unitData.vendasOnline,
-          cancelados: unitData.cancelados,
-          oportunidades: unitData.oportunidades,
-          conversoes: unitData.conversoes,
-          lifetime: unitData.lifetime,
-          diarias: unitData.diarias,
-          personal: unitData.personal,
-          camisetas: unitData.camisetas,
-          coqueteleiras: unitData.coqueteleiras,
-          notaGoogle: unitData.notaGoogle,
-          nps: unitData.nps,
-          reclameAqui: unitData.reclameAqui,
-        },
-      }
-    : fullMonthData;
 
   // Visão Executiva e Benchmark são sempre da rede: o filtro de unidade não aparece nem vale nelas.
   const semFiltroDeUnidade = activeTab === "executiva" || activeTab === "benchmark";
@@ -167,6 +137,8 @@ const Index = () => {
     ly: partialSelected || compareMonth ? undefined : viewFor(sameMonthLastYear(fullMonthData.month), kpiUnit),
     partial: partialSelected,
   };
+  // Receitas complementares da rede ou da unidade selecionada (com Brinquedoteca, WG Plus e Pro+).
+  const rc = kpiCtx.cur.total;
   const criticalCount = alerts.filter((a) => a.severity === "critical").length;
 
   const formatCurrency = (value: number) =>
@@ -357,16 +329,16 @@ const Index = () => {
             <DonutList
               title="Receitas complementares"
               subtitle="Participação de cada receita na soma das sete"
-              center={{ value: formatAbbreviatedNumber(receitaComplementar(currentData.total)), caption: "soma das sete" }}
+              center={{ value: formatAbbreviatedNumber(receitaComplementar(rc)), caption: "soma das sete" }}
               empty="Sem receitas complementares lançadas neste mês."
               items={[
-                { label: "Diárias", value: currentData.total.diarias, color: "hsl(222 25% 22%)", valueText: formatCurrency(currentData.total.diarias) },
-                { label: "Taxa de personal", value: currentData.total.personal, color: "hsl(4 90% 50%)", valueText: formatCurrency(currentData.total.personal) },
-                { label: "Brinquedoteca", value: (currentData.total as { kids?: number }).kids ?? 0, color: "hsl(142 50% 38%)", valueText: formatCurrency((currentData.total as { kids?: number }).kids ?? 0) },
-                { label: "WG Plus", value: (currentData.total as { plus?: number }).plus ?? 0, color: "hsl(32 85% 50%)", valueText: formatCurrency((currentData.total as { plus?: number }).plus ?? 0) },
-                { label: "Pro+", value: (currentData.total as { proMais?: number }).proMais ?? 0, color: "hsl(262 45% 52%)", valueText: formatCurrency((currentData.total as { proMais?: number }).proMais ?? 0) },
-                { label: "Camisetas", value: currentData.total.camisetas, color: "hsl(222 14% 52%)", valueText: formatCurrency(currentData.total.camisetas) },
-                { label: "Coqueteleiras", value: currentData.total.coqueteleiras, color: "hsl(220 14% 78%)", valueText: formatCurrency(currentData.total.coqueteleiras) },
+                { label: "Diárias", value: rc.diarias, color: "hsl(222 25% 22%)", valueText: formatCurrency(rc.diarias) },
+                { label: "Taxa de personal", value: rc.personal, color: "hsl(4 90% 50%)", valueText: formatCurrency(rc.personal) },
+                { label: "Brinquedoteca", value: rc.kids ?? 0, color: "hsl(142 50% 38%)", valueText: formatCurrency(rc.kids ?? 0) },
+                { label: "WG Plus", value: rc.plus ?? 0, color: "hsl(32 85% 50%)", valueText: formatCurrency(rc.plus ?? 0) },
+                { label: "Pro+", value: rc.proMais ?? 0, color: "hsl(262 45% 52%)", valueText: formatCurrency(rc.proMais ?? 0) },
+                { label: "Camisetas", value: rc.camisetas, color: "hsl(222 14% 52%)", valueText: formatCurrency(rc.camisetas) },
+                { label: "Coqueteleiras", value: rc.coqueteleiras, color: "hsl(220 14% 78%)", valueText: formatCurrency(rc.coqueteleiras) },
               ]}
             />
               <ProdutosVendidos total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} />
