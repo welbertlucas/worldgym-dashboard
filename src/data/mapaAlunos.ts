@@ -1,7 +1,20 @@
 import { dashboardData, somarPerfil, type Perfil, type UnitData } from "@/data/dashboardData";
 
 export interface Pino { nome: string; pos: [number, number] }
-export interface MapaDados { bairros: NonNullable<UnitData["bairros"]>; semBairro: number; pinos: Pino[]; alunos: number }
+export type Bairros = NonNullable<UnitData["bairros"]>;
+export interface MapaDados { bairros: Bairros; semBairro: number; inativos: Bairros; semBairroInativos: number; pinos: Pino[]; alunos: number }
+
+/** Soma listas de bairros (o mesmo bairro de unidades diferentes, ou de ativos e inativos, vira uma bolha só). */
+export function somarBairros(listas: Bairros[]): Bairros {
+  const por = new Map<string, Bairros[number]>();
+  for (const b of listas.flat()) {
+    const k = `${b[0]}|${b[1]}`;
+    const atual = por.get(k);
+    if (atual) { atual[2] += b[2]; if (!b[5]) atual[5] = undefined; }
+    else por.set(k, [...b] as Bairros[number]);
+  }
+  return [...por.values()];
+}
 
 /** Última foto de bairros de cada unidade (a mais recente que tem a foto). */
 function ultimaFoto(name: string): UnitData | undefined {
@@ -14,23 +27,16 @@ function ultimaFoto(name: string): UnitData | undefined {
  */
 export function dadosDoMapa(unit: string | null, nomes: string[]): MapaDados {
   const alvo = unit ? [unit] : nomes;
-  const por = new Map<string, NonNullable<UnitData["bairros"]>[number]>();
-  const pinos: Pino[] = [];
-  let semBairro = 0;
-  for (const nome of alvo) {
-    const u = ultimaFoto(nome);
-    if (!u) continue;
-    semBairro += u.semBairro ?? 0;
-    if (u.local) pinos.push({ nome, pos: u.local });
-    for (const b of u.bairros ?? []) {
-      const k = `${b[0]}|${b[1]}`;
-      const atual = por.get(k);
-      if (atual) { atual[2] += b[2]; if (!b[5]) atual[5] = undefined; }
-      else por.set(k, [...b] as NonNullable<UnitData["bairros"]>[number]);
-    }
-  }
-  const bairros = [...por.values()];
-  return { bairros, semBairro, pinos, alunos: bairros.reduce((s, b) => s + b[2], 0) };
+  const fotos = alvo.map(ultimaFoto).filter((u): u is UnitData => !!u);
+  const pinos: Pino[] = fotos.filter((u) => u.local).map((u) => ({ nome: u.name, pos: u.local! }));
+  const bairros = somarBairros(fotos.map((u) => u.bairros ?? []));
+  const inativos = somarBairros(fotos.map((u) => u.bairrosInativos ?? []));
+  return {
+    bairros, inativos, pinos,
+    semBairro: fotos.reduce((s, u) => s + (u.semBairro ?? 0), 0),
+    semBairroInativos: fotos.reduce((s, u) => s + (u.semBairroInativos ?? 0), 0),
+    alunos: bairros.reduce((s, b) => s + b[2], 0),
+  };
 }
 
 /** Perfil dos alunos da foto mais recente de cada unidade (a foto só existe no mês em que foi tirada): serve de reserva em meses fechados. */

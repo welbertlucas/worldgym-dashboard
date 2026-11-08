@@ -19,11 +19,11 @@ export function tituloBairro(s) {
 export const chaveBairro = (bairro, cidade) => `${semAcento(bairro).toUpperCase().replace(/\s+/g, " ").trim()}|${semAcento(cidade || "").toUpperCase().replace(/\s+/g, " ").trim()}`;
 
 /** Alunos ativos hoje por bairro: [{bairro, cidade, uf, n}], do maior para o menor. Alunos sem bairro ficam de fora (`semBairro`). */
-export function contarPorBairro(membros, hoje) {
+export function contarPorBairro(membros, hoje, entra = ativoNoDia) {
   const por = new Map();
   let semBairro = 0, ativos = 0;
   for (const m of membros) {
-    if (!ativoNoDia(resumoAluno(m).c, hoje)) continue;
+    if (!entra(resumoAluno(m).c, hoje)) continue;
     ativos++;
     const bairro = (m.neighborhood || "").trim();
     if (!bairro) { semBairro++; continue; }
@@ -35,6 +35,24 @@ export function contarPorBairro(membros, hoje) {
     por.set(k, o);
   }
   return { lista: [...por.values()].sort((a, b) => b.n - a.n), ativos, semBairro };
+}
+
+/** Mesmo dia, um ano antes (AAAA-MM-DD). */
+export const umAnoAntes = (dia) => `${Number(dia.slice(0, 4)) - 1}${dia.slice(4)}`;
+
+/**
+ * Aluno que saiu nos últimos 12 meses: não está ativo hoje, já teve contrato e o último contrato terminou
+ * (ou foi cancelado) de 12 meses atrás até ontem. Quem tem contrato futuro ainda não começado fica de fora.
+ */
+export function saiuNosUltimos12Meses(contratos, hoje) {
+  if (ativoNoDia(contratos, hoje) || contratos.some(([ini]) => ini && ini > hoje)) return false;
+  let ultima = "";
+  for (const [ini, fim, cancel] of contratos) {
+    if (!ini) continue;
+    const saida = cancel && (!fim || cancel < fim) ? cancel : fim;
+    if (saida && saida > ultima) ultima = saida;
+  }
+  return ultima >= umAnoAntes(hoje) && ultima < hoje;
 }
 
 /** Faixas do último acesso (catraca) dos alunos ativos hoje: até 7 dias, 8–14, 15–30, 31–60, mais de 60 e nunca acessou. */
@@ -56,7 +74,8 @@ export function contarUltimoAcesso(membros, hoje) {
 export async function fotoDosAlunos(idBranch, hoje) {
   const membros = await fetchAll(`/members?idBranch=${idBranch}`);
   const ativos = membros.filter((m) => ativoNoDia(resumoAluno(m).c, hoje));
-  return { ...contarPorBairro(membros, hoje), acessos: contarUltimoAcesso(membros, hoje), perfil: perfilDosAlunos(ativos, hoje) };
+  const { lista: inativos, semBairro: semBairroInativos } = contarPorBairro(membros, hoje, saiuNosUltimos12Meses);
+  return { ...contarPorBairro(membros, hoje), inativos, semBairroInativos, acessos: contarUltimoAcesso(membros, hoje), perfil: perfilDosAlunos(ativos, hoje) };
 }
 
 const UA = "worldgym-dashboard/1.0 (geocodificacao de bairros, uso interno)";

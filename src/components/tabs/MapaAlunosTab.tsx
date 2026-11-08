@@ -13,7 +13,7 @@ export function MapaAlunosTab({ initialUnit }: { initialUnit: string | null }) {
   return (
     <div className="space-y-6">
       <div>
-        <SectionTitle hint="Foto de hoje do EVO: alunos ativos por bairro de residência e a localização das unidades">Mapa dos alunos</SectionTitle>
+        <SectionTitle hint="Foto de hoje do EVO: alunos ativos (ou que saíram nos últimos 12 meses) por bairro de residência e a localização das unidades">Mapa dos alunos</SectionTitle>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
           Unidade
           <Select value={unit ?? ""} onChange={(e) => setUnit(e.target.value || null)} className="h-9 w-64 text-sm font-normal text-foreground">
@@ -22,7 +22,7 @@ export function MapaAlunosTab({ initialUnit }: { initialUnit: string | null }) {
           </Select>
         </label>
       </div>
-      <OndeMoramAlunos unit={unit ?? "Rede"} bairros={dados.bairros} semBairro={dados.semBairro} pinos={dados.pinos} />
+      <OndeMoramAlunos unit={unit ?? "Rede"} dados={dados} />
     </div>
   );
 }

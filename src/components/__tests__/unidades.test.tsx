@@ -91,10 +91,20 @@ describe("UnitComparison", () => {
   });
 });
 
+const SEM_MAPA = { bairros: [], semBairro: 0, inativos: [], semBairroInativos: 0, pinos: [], alunos: 0 };
+
 describe("OndeMoramAlunos", () => {
+  it("oferece Ativos, Inativos (12 meses) e Todos", async () => {
+    const { OndeMoramAlunos } = await import("@/components/unidades/OndeMoramAlunos");
+    const html = renderToString(<OndeMoramAlunos unit="Rede" dados={{ ...SEM_MAPA, bairros: [["Paranoá", "Brasília", 3, -15.77, -47.78]] }} />);
+    expect(html).toContain("Ativos");
+    expect(html).toContain("Inativos (12 meses)");
+    expect(html).toContain("Todos");
+  });
+
   it("lista os bairros com a participação de cada um e avisa o que ficou de fora", async () => {
     const { OndeMoramAlunos } = await import("@/components/unidades/OndeMoramAlunos");
-    const html = renderToString(<OndeMoramAlunos unit="Itapoã" semBairro={5} pinos={[{ nome: "Itapoã", pos: [-15.75, -47.72] }]} bairros={[["Paranoá", "Brasília", 30, -15.77, -47.78], ["Itapoã", "Brasília", 10, -15.74, -47.76]]} />);
+    const html = renderToString(<OndeMoramAlunos unit="Itapoã" dados={{ ...SEM_MAPA, semBairro: 5, pinos: [{ nome: "Itapoã", pos: [-15.75, -47.72] }], bairros: [["Paranoá", "Brasília", 30, -15.77, -47.78], ["Itapoã", "Brasília", 10, -15.74, -47.76]] }} />);
     expect(html).toContain("Paranoá");
     expect(html).toMatch(/75,0(<!-- -->)?%/);
     expect(html).toMatch(/5(<!-- -->)? sem endereço/);
@@ -102,7 +112,7 @@ describe("OndeMoramAlunos", () => {
 
   it("sem dados, orienta em vez de mostrar mapa vazio", async () => {
     const { OndeMoramAlunos } = await import("@/components/unidades/OndeMoramAlunos");
-    expect(renderToString(<OndeMoramAlunos unit="Itapoã" />)).toContain("Ainda não há bairros");
+    expect(renderToString(<OndeMoramAlunos unit="Itapoã" dados={SEM_MAPA} />)).toContain("Ainda não há bairros");
   });
 });
 

@@ -14,22 +14,31 @@ const locais = new Map((await listBranches()).map((b) => [b.idBranch, [b.latitud
 for (const [id, nome] of Object.entries(UNIDADES)) {
   const u = blob.units.find((x) => x.name === nome);
   if (!u) continue;
-  const { lista, semBairro, acessos, perfil } = await fotoDosAlunos(Number(id), hoje);
-  const bairros = [];
+  const { lista, semBairro, inativos, semBairroInativos, acessos, perfil } = await fotoDosAlunos(Number(id), hoje);
   let novos = 0;
   let falhou = false;
-  for (const b of lista) {
-    const k = chaveBairro(b.bairro, b.cidade);
-    if (!geo[k]) {
-      try { geo[k] = await coordenadasDoBairro(b); novos++; } catch (e) { falhou = e.message; break; } // não guarda a falha: a próxima carga tenta de novo
+  // Ativos e quem saiu nos últimos 12 meses: mesma lista de coordenadas (cada bairro é geocodificado uma vez só).
+  const localizar = async (itens) => {
+    const saida = [];
+    for (const b of itens) {
+      if (falhou) break;
+      const k = chaveBairro(b.bairro, b.cidade);
+      if (!geo[k]) {
+        try { geo[k] = await coordenadasDoBairro(b); novos++; } catch (e) { falhou = e.message; break; } // não guarda a falha: a próxima carga tenta de novo
+      }
+      if (geo[k]) saida.push([b.bairro, b.cidade, b.n, geo[k][0], geo[k][1], ...(geo[k][2] ? [1] : [])]);
     }
-    if (geo[k]) bairros.push([b.bairro, b.cidade, b.n, geo[k][0], geo[k][1], ...(geo[k][2] ? [1] : [])]);
-  }
+    return saida;
+  };
+  const bairros = await localizar(lista);
+  const bairrosInativos = await localizar(inativos);
   if (novos) await saveGeo(geo); // uma gravação por unidade (não por bairro): o Blob cobra por operação
   if (falhou) { console.log(nome, "PULADA —", falhou, "(rode de novo depois)"); continue; }
   const local = locais.get(Number(id));
   if (local && Number.isFinite(local[0]) && Number.isFinite(local[1]) && (local[0] || local[1])) u.local = local;
   u.bairros = bairros;
+  u.bairrosInativos = bairrosInativos;
+  u.semBairroInativos = semBairroInativos + inativos.filter((b) => !geo[chaveBairro(b.bairro, b.cidade)]).reduce((s, b) => s + b.n, 0);
   u.acessos = acessos;
   u.perfil = perfil;
   u.semBairro = semBairro + lista.filter((b) => !geo[chaveBairro(b.bairro, b.cidade)]).reduce((s, b) => s + b.n, 0);
