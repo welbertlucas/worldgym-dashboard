@@ -7,7 +7,7 @@ const noop = () => {};
 
 describe("navegação", () => {
   it("mantém as seções originais, na mesma ordem, mais o detalhe da unidade e o mapa dos alunos", () => {
-    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "comercial", "financeiro", "retencao", "unidades", "unidade", "mapa", "metas", "riscos"]);
+    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "comercial", "financeiro", "retencao", "unidades", "unidade", "mapa", "campanhas", "metas", "riscos"]);
   });
 
   it("sidebar lista todas as seções, marca a ativa e mostra o contador de críticos", () => {

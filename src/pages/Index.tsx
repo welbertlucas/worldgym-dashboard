@@ -10,7 +10,7 @@ import { DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
-import { CampanhasNoAr } from "@/components/CampanhasNoAr";
+import { CampanhasTab } from "@/components/tabs/CampanhasTab";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { BaseAlunos } from "@/components/clientes/BaseAlunos";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
@@ -273,7 +273,7 @@ const Index = () => {
 
         <main ref={mainRef} className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 sm:space-y-8 max-w-[1600px] scroll-mt-20">
         {/* Filtros */}
-        {activeTab !== "mapa" && <DateFilter
+        {activeTab !== "mapa" && activeTab !== "campanhas" && <DateFilter
           selectedMonth={fullMonthData.month}
           compareMonth={compareMonth}
           selectedUnit={selectedUnit}
@@ -284,7 +284,7 @@ const Index = () => {
         />}
 
         {/* Comparativo */}
-        {comparison && activeTab !== "unidade" && activeTab !== "mapa" && (
+        {comparison && activeTab !== "unidade" && activeTab !== "mapa" && activeTab !== "campanhas" && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -302,7 +302,7 @@ const Index = () => {
           </section>
         )}
 
-        {partialSelected && activeTab !== "executiva" && activeTab !== "mapa" && (
+        {partialSelected && activeTab !== "executiva" && activeTab !== "mapa" && activeTab !== "campanhas" && (
           <Notice><b>{formatDate(fullMonthData.month)}</b> está em andamento — os valores são parciais.</Notice>
         )}
 
@@ -333,7 +333,6 @@ const Index = () => {
             </div>
             <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
             <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
-            <div className="mb-6"><CampanhasNoAr unit={selectedUnit} /></div>
             <DonutList
               title="Receitas complementares"
               subtitle="Participação de cada receita na soma das cinco"
@@ -388,6 +387,7 @@ const Index = () => {
         {activeTab === "unidade" && <UnidadeTab selectedMonth={fullMonthData.month} initialUnit={detailUnit?.name ?? selectedUnit} openKey={detailUnit?.n} compareMonth={compareMonth} metas={metasData} />}
 
         {activeTab === "mapa" && <MapaAlunosTab initialUnit={selectedUnit} />}
+        {activeTab === "campanhas" && <CampanhasTab initialUnit={selectedUnit} />}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 
