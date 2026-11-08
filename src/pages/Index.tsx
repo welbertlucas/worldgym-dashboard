@@ -51,10 +51,9 @@ const Index = () => {
   const [compareMonth, setCompareMonth] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   /** Unidade aberta pelos links de nome; a página de detalhe começa nela. */
-  const [detailUnit, setDetailUnit] = useState<{ name: string; n: number } | null>(null);
   // Abas com seletor de unidade próprio (Unidades, Mapa, Tráfego pago) avisam a unidade escolhida, para o cabeçalho acompanhar.
   const [unidadeDaAba, setUnidadeDaAba] = useState<string | null>(null);
-  const ABAS_COM_SELETOR = ["unidades", "mapa", "campanhas"];
+  const ABAS_COM_SELETOR = ["mapa", "campanhas"];
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState("executiva");
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
@@ -76,12 +75,10 @@ const Index = () => {
   };
   // Abrir uma unidade compara períodos: no mês em andamento quase tudo está parcial ou sem dado,
   // então o mês passa para o último mês fechado (dá para voltar pelo filtro).
-  // Pelo menu, "Unidades" abre na visão da rede (a unidade aberta antes por um clique não fica presa).
-  const menuChange = (id: string) => { if (id === "unidades") setDetailUnit(null); changeTab(id); };
   const openUnit = (name: string) => {
     const fechado = getLastClosedMonth(dashboardData.map((d) => d.month));
     setSelectedMonth((cur) => (fechado && isPartialMonth(cur) ? fechado : cur));
-    setDetailUnit({ name, n: Date.now() });
+    setSelectedUnit(name); // a unidade vai para o filtro do topo: o mesmo filtro vale em todas as abas
     changeTab("unidades");
   };
   const [, forceTick] = useState(0);
@@ -216,12 +213,12 @@ const Index = () => {
     <div className="min-h-screen bg-background lg:flex">
       <Sidebar
         active={activeTab}
-        onChange={menuChange}
+        onChange={changeTab}
         criticalCount={criticalCount}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
       />
-      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={menuChange} criticalCount={criticalCount} />
+      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} criticalCount={criticalCount} />
 
       <div className="flex-1 min-w-0">
         <header className="border-b border-border sticky top-0 z-40 bg-white/85 backdrop-blur-md">
@@ -287,7 +284,7 @@ const Index = () => {
           onMonthChange={setSelectedMonth}
           onCompareMonthChange={setCompareMonth}
           onUnitChange={setSelectedUnit}
-          hideUnit={activeTab === "unidades"}
+          hideUnit={false}
         />}
 
         {/* Comparativo */}
@@ -388,12 +385,10 @@ const Index = () => {
             evalMonth={evalMonth}
             prevEvalMonth={evalIdx > 0 ? dashboardData[evalIdx - 1].month : null}
             deltas={unitDeltas}
-            initialUnit={detailUnit?.name ?? selectedUnit}
-            openKey={detailUnit?.n}
+            unit={selectedUnit}
             compareMonth={compareMonth}
             metas={metasData}
             onOpenMetas={() => changeTab("metas")}
-            onUnitChange={setUnidadeDaAba}
           />
         )}
 
