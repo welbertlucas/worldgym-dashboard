@@ -119,12 +119,12 @@ function RankingPorValor({ lista, rotulo }: { lista: Linha[]; rotulo: string }) 
 /** Produtos e serviços avulsos que mais faturaram no mês (diárias, coqueteleiras, bebidas, avaliações...). */
 export function ProdutosVendidos({ total, monthLabel, partial, unitLabel }: { total: UnitData; monthLabel: string; partial: boolean; unitLabel: string }) {
   const subtitle = <>{unitLabel} • {monthLabel}{partial && " (mês em andamento: valores parciais)"}</>;
-  const lista = (total.produtosVendidos ?? []).slice(0, 8);
+  const lista = (total.produtosVendidos ?? []).slice(0, 5);
   if (!lista.length) return <ChartCard title="Produtos e serviços mais vendidos" subtitle={subtitle}><ChartEmpty>Sem vendas avulsas do EVO neste mês.</ChartEmpty></ChartCard>;
   return (
     <ChartCard title="Produtos e serviços mais vendidos" subtitle={subtitle}>
       <RankingPorValor lista={lista} rotulo="Produtos e serviços que mais faturaram" />
-      <p className="mt-4 text-xs text-muted-foreground">Itens vendidos fora de contrato, pelo nome no EVO (cada unidade nomeia do seu jeito), ordenados pelo valor vendido no mês. Multas, taxas e ajustes de cobrança ficam no Financeiro.</p>
+      <p className="mt-4 text-xs text-muted-foreground">Os 5 itens que mais faturaram no mês. Pro+, WG Plus, diárias, brinquedoteca e taxa de personal aparecem somados, cada um na sua linha (avulsas e vendidas como contrato, como nos cartões); nas unidades PRO a diária aparece separada, com o nome da unidade. Os demais itens são vendas fora de contrato, pelo nome no EVO. Multas, taxas e ajustes de cobrança ficam no Financeiro.</p>
     </ChartCard>
   );
 }

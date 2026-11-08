@@ -92,6 +92,24 @@ export const ehTaxa = (nome) => /MULTA|PR[OÓ][ -]?RATA|TAXA|ADES[AÃ]O|INADIMPL
 /** Plano de academia (entra no ranking de contratos vendidos): contrato que não é diária, brinquedoteca nem personal. */
 const ehPlano = (i) => i.idMembership && !categoriaItem(i) && !/PERSONAL/.test(upper(i));
 
+/** Nome da diária na lista de produtos: "Diária" nas unidades comuns; nas PRO, "Diária WG PRO <cidade>" (preço e público diferentes). */
+export function nomeDiaria(unidade) {
+  return /\bPRO\b/i.test(unidade) ? `Diária WG PRO ${unidade.replace(/\s*PRO\b.*$/i, "").trim()}` : "Diária";
+}
+
+/**
+ * Linha agrupada da lista de produtos e serviços: Pro+, WG Plus, diárias, brinquedoteca e taxa de personal entram com o total da categoria
+ * (avulsas e vendidas como contrato, como nos cartões), em vez de uma linha por nome cadastrado na unidade.
+ */
+function grupoProduto(i, cat, unidade) {
+  if (cat === "proMais") return "Pro+";
+  if (cat === "plus") return "WG Plus";
+  if (cat === "diarias") return nomeDiaria(unidade);
+  if (cat === "kids") return "Brinquedoteca";
+  if (i.idMembership && /PERSONAL/.test(upper(i))) return "Taxa de personal";
+  return null;
+}
+
 export function resumirVendas(vendas, planos = new Map()) {
   const por = {};
   for (const s of vendas) {
@@ -100,7 +118,11 @@ export function resumirVendas(vendas, planos = new Map()) {
     const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0] });
     for (const i of s.saleItens || []) {
       // Produtos e serviços avulsos (camiseta, coqueteleira, diária, avaliação...): ranking pelo valor vendido.
-      if (!i.idMembership) {
+      const grupo = grupoProduto(i, categoriaItem(i), nome);
+      if (grupo) {
+        const at = u._avulsos.get(grupo) ?? [0, 0];
+        u._avulsos.set(grupo, [at[0] + (i.quantity || 1), at[1] + (i.saleValue || 0)]);
+      } else if (!i.idMembership) {
         const n = nomePlano(i) || "Sem descrição";
         const lista = ehTaxa(n) ? u._taxas : u._avulsos;
         const at = lista.get(n) ?? [0, 0];

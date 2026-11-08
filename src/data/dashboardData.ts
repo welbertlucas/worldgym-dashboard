@@ -449,6 +449,20 @@ function juntarRanking(listas: ([string, number, number][] | undefined)[], porVa
 
 /** Junta os planos mais vendidos de várias unidades pelo nome do plano. */
 export const somarContratosVendidos = (us: Pick<UnitData, "contratosVendidos">[]) => juntarRanking(us.map((u) => u.contratosVendidos));
+/** Mesmo nome de diária do servidor: "Diária" nas unidades comuns; nas PRO, "Diária WG PRO <cidade>". */
+export const nomeDiaria = (unidade: string) => (/\bPRO\b/i.test(unidade) ? `Diária WG PRO ${unidade.replace(/\s*PRO\b.*$/i, "").trim()}` : "Diária");
+/** Meses gravados antes do agrupamento: junta Pro+, WG Plus e as diárias (e a diária kids na Brinquedoteca) que vieram uma por nome. */
+export function reagruparProdutos(lista: [string, number, number][], unidade: string): [string, number, number][] {
+  const m = new Map<string, [number, number]>();
+  for (const [n, q, v] of lista) {
+    const t = n.toUpperCase();
+    const k = /KIDS|BRINQUEDOTECA/.test(t) && (/DI[AÁ]RIA|BRINQUEDOTECA/.test(t)) ? "Brinquedoteca"
+      : /\bPRO ?\+/.test(t) ? "Pro+" : /\bPLUS\b/.test(t) ? "WG Plus" : /DI[AÁ]RIA/.test(t) ? nomeDiaria(unidade) : n;
+    const a = m.get(k) ?? [0, 0];
+    m.set(k, [a[0] + q, Math.round((a[1] + v) * 100) / 100]);
+  }
+  return [...m].map(([n, [q, v]]) => [n, q, v] as [string, number, number]).sort((a, b) => b[2] - a[2] || b[1] - a[1]);
+}
 /** Junta os produtos e serviços mais vendidos de várias unidades (pelo valor). */
 export const somarProdutosVendidos = (us: Pick<UnitData, "produtosVendidos">[]) => juntarRanking(us.map((u) => u.produtosVendidos), true);
 /** Junta as famílias de plano vendidas de várias unidades (todas, sem corte). */
@@ -618,7 +632,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.perfil !== undefined) unit.perfil = e.perfil;
       if (e.perfilOport !== undefined) unit.perfilOport = e.perfilOport;
       if (e.contratosVendidos !== undefined) { unit.contratosVendidos = e.contratosVendidos; unit.familiasVendidas = e.familiasVendidas && reagruparFamilias(e.familiasVendidas); unit.tipoVenda = e.tipoVenda; unit.duracaoVenda = e.duracaoVenda; }
-      if (e.produtosVendidos !== undefined) { unit.produtosVendidos = e.produtosVendidos; unit.taxasCobradas = e.taxasCobradas; unit.taxasResumo = e.taxasResumo; }
+      if (e.produtosVendidos !== undefined) { unit.produtosVendidos = reagruparProdutos(e.produtosVendidos, unit.name); unit.taxasCobradas = e.taxasCobradas; unit.taxasResumo = e.taxasResumo; }
       if (e.formasPagamento !== undefined) unit.formasPagamento = e.formasPagamento;
       if (e.bandeirasCartao !== undefined) unit.bandeirasCartao = normalizarNomes(e.bandeirasCartao, nomeBandeira);
       if (e.gatewaysCartao !== undefined) unit.gatewaysCartao = normalizarNomes(e.gatewaysCartao, nomeGateway);

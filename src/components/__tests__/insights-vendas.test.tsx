@@ -118,18 +118,18 @@ describe("formas de pagamento", () => {
 
 import { ProdutosVendidos } from "@/components/ContratosVendidos";
 describe("produtos e serviços mais vendidos", () => {
-  it("lista até 8 itens pelo valor", () => {
+  it("lista até 5 itens pelo valor", () => {
     const produtosVendidos = Array.from({ length: 10 }, (_, k) => [`P${k}`, 10 - k, 1000 - k * 50]);
     const h = limpo(renderToString(<ProdutosVendidos total={{ produtosVendidos } as unknown as UnitData} monthLabel="Out" partial={false} unitLabel="Rede" />));
-    expect(h).toContain("P7");
-    expect(h).not.toContain("P8");
+    expect(h).toContain("P4");
+    expect(h).not.toContain("P5");
   });
 });
 
 import { TaxasCobradas } from "@/components/ContratosVendidos";
-import { somarFamiliasVendidas, reagruparFamilias } from "@/data/dashboardData";
+import { somarFamiliasVendidas, reagruparFamilias, reagruparProdutos, nomeDiaria } from "@/data/dashboardData";
 // @ts-expect-error módulo JS do servidor
-import { ehTaxa, familiaPlano, resumirVendas } from "../../../server/vendas.js";
+import { ehTaxa, familiaPlano, resumirVendas, nomeDiaria as nomeDiariaServidor } from "../../../server/vendas.js";
 
 describe("planos por família e taxas fora dos produtos", () => {
   it("agrupa os nomes de plano de cada unidade pelo tipo do plano", () => {
@@ -164,6 +164,21 @@ describe("planos por família e taxas fora dos produtos", () => {
     expect(h).toContain(">10<");
     expect(h).toContain("60%");
   });
+  it("agrupa diárias (separando as das unidades PRO), brinquedoteca e personal na lista de produtos", () => {
+    expect(nomeDiaria("Gama")).toBe("Diária");
+    expect(nomeDiaria("Salvador Pro-BA")).toBe("Diária WG PRO Salvador");
+    expect(nomeDiaria("Goiânia Pro-GO")).toBe("Diária WG PRO Goiânia");
+    expect(nomeDiaria("Águas Claras Pro")).toBe("Diária WG PRO Águas Claras");
+    expect(nomeDiariaServidor("Águas Claras Pro")).toBe("Diária WG PRO Águas Claras");
+    expect(reagruparProdutos([["DIARIA R$ 30,00", 10, 300], ["DIARIA KIDS WG X | R$ 10,00", 5, 50], ["DIÁRIA NATAÇÃO", 1, 45], ["COQUETELEIRA", 2, 60]], "Santa Maria"))
+      .toEqual([["Diária", 11, 345], ["COQUETELEIRA", 2, 60], ["Brinquedoteca", 5, 50]]);
+    expect(reagruparProdutos([["WG PRO DIÁRIA | R$70,00", 21, 1470], ["WG PRO DIÁRIA ALUNO(A) | R$35,00", 9, 315]], "Águas Claras Pro")).toEqual([["Diária WG PRO Águas Claras", 30, 1785]]);
+    const venda = (item: string, v: number, o: Record<string, unknown> = {}) => ({ idBranch: 5, saleItens: [{ item, saleValue: v, quantity: 1, ...o }] });
+    const u = Object.values(resumirVendas([venda("DIARIA 30,00", 30), venda("11 - WG DIÁRIA 30,00", 30, { idMembership: 9 }), venda("DIARIA KIDS | R$ 10", 10), venda("PERSONAL MENSAL", 100, { idMembership: 8 }), venda("COQUETELEIRA", 25),
+      venda("PRO+", 277), venda("WG PRO+ MENSAL", 300, { idMembership: 7 }), venda("WG PLUS 2X", 40, { idMembership: 6 })]))[0] as { produtosVendidos: unknown[] };
+    expect(u.produtosVendidos).toEqual([["Pro+", 2, 577], ["Taxa de personal", 1, 100], ["Diária", 2, 60], ["WG Plus", 1, 40], ["COQUETELEIRA", 1, 25], ["Brinquedoteca", 1, 10]]);
+    expect(reagruparProdutos([["PRO+", 9, 2493], ["WG PLUS", 2, 80]], "Águas Claras Pro")).toEqual([["Pro+", 9, 2493], ["WG Plus", 2, 80]]);
+  });
   it("separa multas, taxas e ajustes dos produtos", () => {
     expect(ehTaxa("MULTA DE CANCELAMENTO DE CONTRATO")).toBe(true);
     expect(ehTaxa("Pró-rata - Alteração de dia de cobrança")).toBe(true);
@@ -177,7 +192,7 @@ describe("planos por família e taxas fora dos produtos", () => {
       item("MULTA DE CANCELAMENTO DE CONTRATO", 300), item("MULTA DE CANCELAMENTO 319,80", 319.8), item("TAXA DE ADESÃO", 50), item("COQUETELEIRA", 30),
     ] }])["Asa Norte"];
     expect(u.familiasVendidas).toEqual([["WG Local", 2, 269.8], ["WG 30", 1, 189.9]]);
-    expect(u.produtosVendidos).toEqual([["PRO+", 1, 277], ["COQUETELEIRA", 1, 30]]);
+    expect(u.produtosVendidos).toEqual([["Pro+", 2, 724], ["WG Plus", 1, 329.9], ["COQUETELEIRA", 1, 30]]);
     expect(u.taxasCobradas.map((r: unknown[]) => r[0])).toEqual(["MULTA DE CANCELAMENTO 319,80", "MULTA DE CANCELAMENTO DE CONTRATO", "TAXA DE ADESÃO"]);
     expect(u.taxasResumo).toEqual([669.8, 2, 619.8]);
     expect(u.plus).toBe(329.9);
