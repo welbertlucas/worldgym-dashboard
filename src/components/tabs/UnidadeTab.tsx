@@ -115,8 +115,8 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
         </div>
       </Secao>
 
-      <Secao id="ud-posicao" titulo="Posição na rede" descricao={<>Onde {unit} fica entre as unidades em {rankMonth ? formatMonthLong(rankMonth) : "—"}{partial ? " (último mês fechado)" : ""}. 1º = melhor resultado. Clique numa posição para ver o ranking daquele indicador; a linha de {unit} fica destacada.</>}>
-        <UnitsRanking units={rankUnits} monthLabel={rankMonth ? formatMonthLong(rankMonth) : ""} partial={false} destaque={unit} />
+      <Secao id="ud-posicao" titulo="Posição na rede" descricao={<>Onde {unit} fica entre as unidades em {rankMonth ? formatMonthLong(rankMonth) : "—"}{partial ? " (último mês fechado)" : ""}. 1º = melhor resultado. Clique numa posição para trocar o indicador. Abaixo, {unit} com as duas unidades acima e as duas abaixo, e o 1º lugar como referência.</>}>
+        <UnitsRanking units={rankUnits} monthLabel={rankMonth ? formatMonthLong(rankMonth) : ""} partial={false} destaque={unit} onVerCompleto={onOpenTab ? () => onOpenTab("benchmark") : undefined} />
       </Secao>
 
       <Secao

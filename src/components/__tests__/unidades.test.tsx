@@ -205,3 +205,19 @@ describe("Base de alunos e Retenção por assunto", () => {
     expect(ret).not.toContain("Tamanho da base");
   });
 });
+
+describe("Posição na rede no retrato da unidade", () => {
+  it("mostra só o 1º lugar e as vizinhas, com link para o ranking completo", async () => {
+    const { recorteEmVolta } = await import("@/components/unidades/UnitsRanking");
+    expect(recorteEmVolta(23, 20)).toEqual([0, 18, 19, 20, 21, 22]);
+    expect(recorteEmVolta(23, 0)).toEqual([0, 1, 2]);
+    expect(recorteEmVolta(5, -1)).toEqual([0]);
+    const us = "ABCDEFGH".split("").map((n, i) => unit(n, { faturamento: 1000 - i * 100 }));
+    const html = renderToString(<UnitsRanking units={us} monthLabel="x" partial={false} destaque="G" onVerCompleto={() => {}} />);
+    expect(html).toContain("Ver ranking completo no Benchmark");
+    expect(html).not.toContain(">B<");
+    expect(html).toContain(">A<");
+    expect(html).toContain(">E<");
+    expect(html).not.toContain("Inverter ordem");
+  });
+});

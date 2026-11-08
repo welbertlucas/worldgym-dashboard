@@ -1,5 +1,5 @@
 import { UnitLink } from "@/components/UnitLink";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDownUp, Check, ChevronDown } from "lucide-react";
 import { type UnitData } from "@/data/dashboardData";
 import { CATEGORY_LABEL, INDICATORS, formatIndicator, hasData, type Category, type Indicator } from "@/data/unitIndicators";
@@ -17,6 +17,16 @@ interface Props {
   variationView?: React.ReactNode;
   /** Unidade em foco: a linha dela fica destacada e aparece a posição dela em cada indicador (clicar troca o indicador). */
   destaque?: string;
+  /** Com `destaque`: link para o ranking completo (no Benchmark). */
+  onVerCompleto?: () => void;
+}
+
+/** Recorte do ranking em volta da unidade em foco: o 1º lugar e até 2 acima e 2 abaixo dela (índices em `ordem`). */
+export function recorteEmVolta(n: number, i: number, raio = 2): number[] {
+  if (i < 0) return n ? [0] : [];
+  const set = new Set<number>([0]);
+  for (let k = Math.max(0, i - raio); k <= Math.min(n - 1, i + raio); k++) set.add(k);
+  return [...set].sort((a, b) => a - b);
 }
 
 /** Indicadores do resumo de posição da unidade em foco. */
@@ -91,7 +101,7 @@ function IndicadorMenu({ value, onChange, semDado }: { value: string; onChange: 
   );
 }
 
-export function UnitsRanking({ units, monthLabel, partial, variationView, destaque }: Props) {
+export function UnitsRanking({ units, monthLabel, partial, variationView, destaque, onVerCompleto }: Props) {
   const [key, setKey] = useState("faturamento");
   const [mode, setMode] = useState<"values" | "variation">("values");
   const [reversed, setReversed] = useState(false);
@@ -103,10 +113,13 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
   const lowerFirst = ind.direction === "lower";
   const bestFirst = [...withData].sort((a, b) => (lowerFirst ? a.v - b.v : b.v - a.v));
   const position = new Map(bestFirst.map((r, i) => [r.name, i + 1])); // posição real, mesmo com a ordem invertida
-  const rows = reversed ? [...bestFirst].reverse() : bestFirst;
+  const compacto = !!destaque;
+  const rowsTodas = reversed && !compacto ? [...bestFirst].reverse() : bestFirst;
+  const recorte = compacto ? recorteEmVolta(bestFirst.length, bestFirst.findIndex((r) => r.name === destaque)) : null;
+  const rows = recorte ? recorte.map((k) => bestFirst[k]) : rowsTodas;
 
-  const min = Math.min(0, ...rows.map((r) => r.v));
-  const max = Math.max(0, ...rows.map((r) => r.v));
+  const min = Math.min(0, ...bestFirst.map((r) => r.v)); // escala de todas as unidades, mesmo no recorte
+  const max = Math.max(0, ...bestFirst.map((r) => r.v));
   const span = max - min || 1;
   const zero = (-min / span) * 100; // posição do zero na escala (0 quando não há negativos)
 
@@ -121,7 +134,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
     <section className="card-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Desempenho por unidade</h3>
+          <h3 className="text-base font-semibold text-foreground">{compacto ? `${ind.label}: quem está perto de ${destaque}` : "Desempenho por unidade"}</h3>
           <p className="text-sm text-muted-foreground">
             {mode === "values" ? <>Valores de <span className="first-letter:uppercase">{monthLabel}</span>{partial && " (mês em andamento, valores parciais)"}</> : "Variação do último mês fechado em relação ao anterior"}
           </p>
@@ -166,7 +179,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
           )}
           <IndicadorMenu semDado={semDado} value={key} onChange={(k) => { setKey(k); setReversed(false); }} />
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+          {!compacto && <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">{orderText}</p>
             <button
               type="button"
@@ -175,13 +188,13 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
             >
               <ArrowDownUp className="w-3.5 h-3.5" aria-hidden /> Inverter ordem
             </button>
-          </div>
+          </div>}
 
           {rows.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">Nenhuma unidade tem dado de {nomeIndicador} neste mês. Escolha outro indicador ou outro mês.</p>
           ) : (
             <>
-            {!reversed && rows.length >= 3 && (
+            {!compacto && !reversed && rows.length >= 3 && (
               <ol className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label={`Três primeiras unidades por ${ind.label}`}>
                 {rows.slice(0, 3).map((r, i) => (
                   <li key={r.name} className="rounded-xl border border-border bg-white px-4 py-3">
@@ -196,12 +209,15 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
               </ol>
             )}
             <ol className="mt-4 space-y-1.5" aria-label={`Unidades por ${ind.label}`}>
-              {rows.map((r) => {
+              {rows.map((r, idx) => {
+                const salto = recorte && idx > 0 && recorte[idx] - recorte[idx - 1] > 1;
                 const tone = ind.tone?.(r.v);
                 const left = r.v >= 0 ? zero : zero - (-r.v / span) * 100;
                 const width = (Math.abs(r.v) / span) * 100;
                 return (
-                  <li key={r.name} aria-current={r.name === destaque ? "true" : undefined} className={cn("grid grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_12rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1", r.name === destaque && "-mx-2 rounded-lg bg-primary/10 px-2 py-1 ring-1 ring-primary/40")}>
+                  <Fragment key={r.name}>
+                  {salto && <li aria-hidden className="pl-[2.25rem] text-xs leading-none text-muted-foreground">⋮</li>}
+                  <li aria-current={r.name === destaque ? "true" : undefined} className={cn("grid grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_12rem_minmax(0,1fr)_7.5rem] items-center gap-x-3 gap-y-1", r.name === destaque && "-mx-2 rounded-lg bg-primary/10 px-2 py-1 ring-1 ring-primary/40")}>
                     <span className="text-xs text-muted-foreground tabular-nums">{position.get(r.name)}</span>
                     <span className="text-sm font-medium text-foreground truncate"><UnitLink name={r.name} /></span>
                     <span className="sm:order-4 text-sm font-semibold tabular-nums text-right">{formatIndicator(ind, r.v)}</span>
@@ -210,13 +226,18 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
                       {zero > 0 && <div className="absolute inset-y-[-3px] w-px bg-foreground/40" style={{ left: `${zero}%` }} />}
                     </div>
                   </li>
+                  </Fragment>
                 );
               })}
             </ol>
+            {compacto && !bestFirst.some((r) => r.name === destaque) && <p className="mt-3 text-sm text-muted-foreground">{destaque} não tem dado de {nomeIndicador} neste mês; acima, só o 1º lugar como referência.</p>}
             </>
           )}
 
-          {noData.length > 0 && (
+          {compacto && onVerCompleto && (
+            <button type="button" onClick={onVerCompleto} className="no-print mt-4 text-sm font-semibold text-primary-ink underline underline-offset-4 hover:text-primary-ink/80">Ver ranking completo no Benchmark</button>
+          )}
+          {!compacto && noData.length > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">Sem dado neste mês: {noData.join(", ")}.</p>
           )}
           {ind.tone && <p className="mt-2 text-xs text-muted-foreground">Cores seguem as faixas já usadas na tabela: {ind.toneHint}.</p>}
