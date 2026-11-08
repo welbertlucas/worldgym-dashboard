@@ -1,4 +1,3 @@
-import { isPartialMonth } from "@/data/periods";
 import { authFetch } from "@/lib/auth";
 // A planilha deixou de ser pública — os dados agora passam por uma função na Vercel
 // (api/sheet-data.js) que lê com uma conta de serviço do Google, pra não depender de
@@ -527,6 +526,9 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
     }
     for (const e of evo.units) {
       let unit = md.units.find((u) => u.name === e.name);
+      // Unidade que ainda não operava no EVO naquele mês (sem faturamento nem recebimento lá) e tem números na
+      // planilha: fica com a planilha, em vez de virar zero (meses antigos, antes da migração da unidade).
+      if (unit && unit.faturamento > 0 && !e.faturamento && !e.recebimento) continue;
       if (!unit) {
         unit = emptyUnit(e.name);
         md.units.push(unit);
@@ -542,12 +544,12 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.inadimplenciaPerc = e.inadimplenciaPerc ?? unit.inadimplenciaPerc;
       }
       // Ticket médio = recebimento ÷ alunos ativos no fim do mês; adimplentes = ativos - inadimplentes.
-      // No mês em andamento o recebimento é parcial, então o ticket fica com a planilha até o mês fechar.
       if (e.ativosFim !== undefined && e.ativosFim > 0) {
         unit.ativosFim = e.ativosFim;
         unit.ativosEvo = true;
         unit.adimplentes = Math.max(0, e.ativosFim - unit.inadimplentes);
-        if (!isPartialMonth(evo.month)) unit.ticketMedio = Math.round((unit.recebimento / e.ativosFim) * 100) / 100;
+        // No mês em andamento o recebimento é parcial, e o ticket também (o card mostra quanto do mês anterior já foi alcançado).
+        unit.ticketMedio = Math.round((unit.recebimento / e.ativosFim) * 100) / 100;
       }
       // Etapas 3 e 4: cancelados e churn (histórico de contratos) e vendas (novos contratos, online, avulsas).
       if (e.cancelados !== undefined && e.ativosIni !== undefined) {
@@ -709,7 +711,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
               adimplentes: md.units.reduce((s, u) => s + u.adimplentes, 0),
               ativosFim: ativos,
               ativosEvo: true,
-              ...(!isPartialMonth(evo.month) && ativos ? { ticketMedio: Math.round((rec / ativos) * 100) / 100 } : {}),
+              ...(ativos ? { ticketMedio: Math.round((rec / ativos) * 100) / 100 } : {}),
             };
           })()
         : {}),

@@ -4,7 +4,7 @@ export const AJUDA: Record<string, string> = {
   "Previsão de faturamento": "Faturamento do mês inteiro: o que já venceu mais o que ainda vai vencer até o último dia. Só aparece no mês em andamento. Vem do EVO.",
   Recebimento: "Valor efetivamente pago no mês, pela data do pagamento, sem cancelados e sem transferências entre contas da própria empresa. Vem do EVO.",
   Inadimplência: "Percentual de pagantes do mês com algum título vencido e ainda não pago no fim do mês (no mês em andamento, até hoje). Pagante é quem tem título vencendo no mês. Vem do EVO a partir de 11/2025; antes, da planilha.",
-  "Ticket Médio": "Recebimento do mês dividido pelos alunos ativos no último dia do mês (aluno com contrato vigente, não cancelado). Vem do EVO; no mês em andamento, ainda da planilha, porque o recebimento é parcial.",
+  "Ticket Médio": "Recebimento do mês dividido pelos alunos ativos no último dia do mês (aluno com contrato vigente, não cancelado). Vem do EVO. No mês em andamento é parcial (o recebimento ainda está entrando): o card mostra quanto do ticket do mês anterior já foi alcançado.",
   Adimplentes: "Alunos ativos no último dia do mês menos os inadimplentes. Aluno ativo é quem tem contrato vigente e não cancelado. Vem do EVO.",
   "Novos Contratos": "Contratos novos do mês nas vendas do EVO: itens de contrato que não renovam um contrato anterior. Diária vendida como contrato conta como diária, não como contrato novo. Vem do EVO desde jan/2025; antes, da planilha.",
   "Saldo de Clientes": "Novos contratos menos cancelados no mês. Vem do EVO desde jan/2025; antes, da planilha.",

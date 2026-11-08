@@ -383,3 +383,18 @@ describe("treinos e projeção", () => {
     expect(fracaoDoMes("2026-11", new Date(2026, 11, 20))).toBe(1); // mês já passou
   });
 });
+
+import { mergeEvo as mergeEvo2 } from "@/data/dashboardData";
+describe("unidade fora do EVO e ticket parcial", () => {
+  it("não troca os números da planilha por zero quando a unidade ainda não operava no EVO", () => {
+    const planilha = [{ month: "2024-03", units: [{ name: "Ponte Alta", faturamento: 100000, recebimento: 90000, ticketMedio: 120 }], total: {} }] as never;
+    const out = mergeEvo2(planilha, [{ month: "2024-03", units: [{ name: "Ponte Alta", faturamento: 0, recebimento: 0, ativosFim: 4 }] }] as never);
+    expect(out[0].units[0].faturamento).toBe(100000);
+    expect(out[0].units[0].ticketMedio).toBe(120);
+  });
+  it("calcula o ticket do mês em andamento com o recebimento parcial", () => {
+    const ym = new Date().toISOString().slice(0, 7);
+    const out = mergeEvo2([], [{ month: ym, units: [{ name: "Gama", faturamento: 50000, recebimento: 30000, ativosFim: 1000 }] }] as never);
+    expect(out[0].units[0].ticketMedio).toBe(30);
+  });
+});

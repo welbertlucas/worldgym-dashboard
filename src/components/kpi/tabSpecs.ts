@@ -39,7 +39,8 @@ export const complementaresSpecs: KpiSpec[] = [
 export const financeiroSpecs: KpiSpec[] = [
   { title: "Faturamento", kind: "flow", pick: (v) => v.total.faturamento, fmt: formatAbbreviatedNumber },
   { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber },
-  { title: "Ticket Médio", kind: "level", pick: (v) => v.total.ticketMedio, fmt: brl },
+  // Ticket = recebimento ÷ ativos: no mês em andamento acumula como o recebimento (comparado como fluxo).
+  { title: "Ticket Médio", kind: "flow", pick: (v) => v.total.ticketMedio, fmt: brl },
 ];
 
 /** Nota do Reclame Aqui só existe para a rede (a planilha não a traz por unidade). */
@@ -61,5 +62,5 @@ export const clientesSpecs: KpiSpec[] = [
   { title: "Alunos Ativos", kind: "level", noDataIfZero: true, pick: (v) => v.total.ativosFim ?? 0, fmt: int },
   { title: "Saldo de Alunos", kind: "flow", noDataIfZero: true, pick: (v) => saldoAlunos(v.total) ?? 0, fmt: sinal },
   { title: "Permanência Média", kind: "level", noDataIfZero: true, pick: (v) => v.total.permanenciaMeses ?? 0, fmt: meses },
-  { title: "LTV", kind: "level", noDataIfZero: true, pick: (v) => ltv(v.total), fmt: brl },
+  { title: "LTV", kind: "flow", noDataIfZero: true, pick: (v) => ltv(v.total), fmt: brl },
 ];
