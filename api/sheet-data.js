@@ -9,6 +9,7 @@
 
 import { GoogleAuth } from "google-auth-library";
 import { cors, exigirLogin } from "./_auth.js";
+import { filtrarLinhasPlanilha, filtrarLinhasMetas } from "../server/visibilidade.js";
 
 const SPREADSHEET_ID = "1TGh4MEDDbuRgJMkfYltP6II2s42z7L2Gv6RV7X9K1kg";
 
@@ -31,7 +32,8 @@ export default async function handler(req, res) {
     res.status(204).end();
     return;
   }
-  if (!exigirLogin(req, res)) return;
+  const sessao = await exigirLogin(req, res);
+  if (!sessao) return;
 
   try {
     const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -60,7 +62,8 @@ export default async function handler(req, res) {
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
-    res.status(200).send(rowsToCsv(values ?? []));
+    const linhas = values ?? [];
+    res.status(200).send(rowsToCsv(sheet === "Metas" ? filtrarLinhasMetas(linhas, sessao) : filtrarLinhasPlanilha(linhas, sessao)));
   } catch (err) {
     res.status(500).json({ error: String(err.message ?? err) });
   }

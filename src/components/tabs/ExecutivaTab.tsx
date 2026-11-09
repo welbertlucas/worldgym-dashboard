@@ -6,7 +6,7 @@ import { TopUnits } from "@/components/executiva/TopUnits";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { MetasKpiCard, type RedeGoal } from "@/components/executiva/MetasKpiCard";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
-import { type MonthData, dashboardData } from "@/data/dashboardData";
+import { type MonthData, dashboardData, dashboardDataRede } from "@/data/dashboardData";
 import { type Alert } from "@/data/alerts";
 import { buildRecommendations } from "@/data/recommendations";
 import { type UnitDelta } from "@/data/unitMetrics";
@@ -50,11 +50,11 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
     .filter((x): x is RedeGoal => x !== null);
 
   // Gráfico de tendência: últimos 12 meses FECHADOS (o mês em andamento não entra, para não parecer queda).
-  const closed = dashboardData.filter((d) => !isPartialMonth(d.month)).slice(-12);
-  const partialMonthData = dashboardData.filter((d) => isPartialMonth(d.month)).slice(-1)[0];
+  const closed = dashboardDataRede.filter((d) => !isPartialMonth(d.month)).slice(-12);
+  const partialMonthData = dashboardDataRede.filter((d) => isPartialMonth(d.month)).slice(-1)[0];
 
   // Mesmo mês do ano anterior (só para mês fechado e se existir na planilha).
-  const ly = partial || comparaMesEscolhido ? undefined : dashboardData.find((d) => d.month === sameMonthLastYear(month.month));
+  const ly = partial || comparaMesEscolhido ? undefined : dashboardDataRede.find((d) => d.month === sameMonthLastYear(month.month));
   const ctx: KpiContext = { cur: month, prev, ly, partial };
   const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
   // Ritmo do mês: em que nível da meta de faturamento a previsão fecha o mês.
@@ -108,7 +108,7 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
 
       <section className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2 min-w-0">
-          <RevenueTrend closed={closed} all={dashboardData} partialMonth={partialMonthData} />
+          <RevenueTrend closed={closed} all={dashboardDataRede} partialMonth={partialMonthData} />
         </div>
         <TopUnits units={month.units} monthLabel={formatMonthLong(month.month)} partial={partial} onOpen={onOpenUnidades} />
       </section>

@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS da função serverless
 import { criarToken, tokenValido, senhaCorreta, protegido, exigirLogin } from "../../../api/_auth.js";
+// @ts-expect-error módulo JS do servidor
+import { definirArmazem } from "../../../server/armazem.js";
+// @ts-expect-error módulo JS do servidor
+import { limparCache } from "../../../server/acesso.js";
+
+const memoria = () => {
+  const m = new Map<string, unknown>();
+  return { async ler(c: string) { return (m.get(c) as unknown) ?? null; }, async gravar(c: string, d: unknown) { m.set(c, structuredClone(d)); } };
+};
 
 const res = () => {
   const r: any = { headers: {} as Record<string, string>, code: 200 };
@@ -11,8 +20,8 @@ const res = () => {
 };
 
 describe("senha do dashboard (api/_auth)", () => {
-  beforeEach(() => { process.env.DASHBOARD_PASSWORD = "segredo-de-teste"; });
-  afterEach(() => { delete process.env.DASHBOARD_PASSWORD; });
+  beforeEach(() => { process.env.DASHBOARD_PASSWORD = "segredo-de-teste"; definirArmazem(memoria()); limparCache(); });
+  afterEach(() => { delete process.env.DASHBOARD_PASSWORD; definirArmazem(null); limparCache(); });
 
   it("aceita só a senha certa", () => {
     expect(senhaCorreta("segredo-de-teste")).toBe(true);
@@ -35,19 +44,20 @@ describe("senha do dashboard (api/_auth)", () => {
     expect(tokenValido(token)).toBe(false);
   });
 
-  it("rotas de dados respondem 401 sem token e liberam com token", () => {
+  it("rotas de dados respondem 401 sem token e liberam com token", async () => {
     const r1 = res();
-    expect(exigirLogin({ headers: {} }, r1)).toBe(false);
+    expect(await exigirLogin({ headers: {} }, r1)).toBe(false);
     expect(r1.code).toBe(401);
     const { token } = criarToken();
     const r2 = res();
-    expect(exigirLogin({ headers: { authorization: `Bearer ${token}` } }, r2)).toBe(true);
+    const sessao = await exigirLogin({ headers: { authorization: `Bearer ${token}` } }, r2);
+    expect(sessao).toMatchObject({ papel: "dono" });
   });
 
-  it("sem DASHBOARD_PASSWORD a proteção fica desligada", () => {
+  it("sem DASHBOARD_PASSWORD a proteção fica desligada", async () => {
     delete process.env.DASHBOARD_PASSWORD;
     expect(protegido()).toBe(false);
-    expect(exigirLogin({ headers: {} }, res())).toBe(true);
+    expect(await exigirLogin({ headers: {} }, res())).toBeTruthy();
     expect(senhaCorreta("qualquer")).toBe(false);
   });
 });

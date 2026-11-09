@@ -5,13 +5,15 @@ import { MetricCard } from "@/components/MetricCard";
 import { TopUnits } from "@/components/executiva/TopUnits";
 import { RevenueTrend } from "@/components/executiva/RevenueTrend";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
-import { dashboardData } from "@/data/dashboardData";
+import { dashboardData, dashboardDataRede } from "@/data/dashboardData";
 import { priorYearValue, splitPartial } from "@/components/chartData";
 import { partialDot } from "@/components/PartialDot";
 import { monthKey } from "@/data/periods";
 import { month, unit } from "@/data/__tests__/helpers";
 
-afterEach(() => { dashboardData.length = 0; });
+afterEach(() => { dashboardData.length = 0; dashboardDataRede.length = 0; });
+/** Em produção os dois conjuntos são preenchidos juntos (para dono e master são iguais). */
+const carregar = (...ms: ReturnType<typeof month>[]) => { dashboardData.push(...ms); dashboardDataRede.push(...ms); };
 
 describe("MetricCard (tile)", () => {
   it("mostra valor, valor anterior, chips de variação com a referência e marca a direção", () => {
@@ -50,7 +52,7 @@ describe("TopUnits", () => {
 
 describe("série do ano anterior", () => {
   it("lê o mesmo mês do ano anterior (rede e unidade) ou null", () => {
-    dashboardData.push(month("2025-09", [unit("A", { churn: 5 })]), month("2026-09", [unit("A", { churn: 6 })]));
+    carregar(month("2025-09", [unit("A", { churn: 5 })]), month("2026-09", [unit("A", { churn: 6 })]));
     expect(priorYearValue("2026-09", "A", (u) => u.churn)).toBe(5);
     expect(priorYearValue("2026-09", null, (u) => u.faturamento)).toBe(100000);
     expect(priorYearValue("2026-09", "Z", (u) => u.churn)).toBeNull();
@@ -61,7 +63,7 @@ describe("série do ano anterior", () => {
 describe("Visão Executiva", () => {
   it("renderiza indicadores, gráfico, ranking, prioridades e comparação sem quebrar", () => {
     const months = ["2025-09", "2026-07", "2026-08", "2026-09"].map((m) => month(m, [unit("A"), unit("B", { faturamento: 80000 })]));
-    dashboardData.push(...months);
+    carregar(...months);
     const cur = months[3];
     const html = renderToString(
       <ExecutivaTab month={cur} prev={months[2]} alerts={[]} evalMonth="2026-09" deltas={[]} metas={[]} onOpenRiscos={() => {}} onOpenUnidades={() => {}} />,
@@ -83,7 +85,7 @@ describe("mês em andamento", () => {
     const cur = monthKey(new Date());
     const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1);
     const months = [month(monthKey(prevDate), [unit("A")]), month(cur, [unit("A")])];
-    dashboardData.push(...months);
+    carregar(...months);
     const html = renderToString(
       <ExecutivaTab month={months[1]} prev={months[0]} alerts={[]} evalMonth={null} deltas={[]} metas={[]} onOpenRiscos={() => {}} onOpenUnidades={() => {}} />,
     ).replace(/<!-- -->/g, "");

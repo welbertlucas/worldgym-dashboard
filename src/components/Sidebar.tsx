@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "@/components/nav";
+import { itensDoMenu } from "@/components/nav";
+import { podeGerirAcessos } from "@/lib/auth";
 import wgLogo from "@/assets/wg-logo.png";
 
 interface NavProps {
@@ -12,16 +13,17 @@ interface NavProps {
 }
 
 function NavList({ active, onChange, criticalCount, collapsed = false }: NavProps & { collapsed?: boolean }) {
+  const itens = itensDoMenu(podeGerirAcessos());
   return (
     <nav aria-label="Seções do dashboard" className="flex-1 overflow-y-auto px-3 py-2">
       <ul className="space-y-0.5">
-        {NAV_ITEMS.map((item, i) => {
+        {itens.map((item, i) => {
           const Icon = item.icon;
           const isActive = active === item.id;
           const badge = item.id === "riscos" ? criticalCount : 0;
           return (
             <li key={item.id}>
-              {i > 0 && NAV_ITEMS[i - 1].group !== item.group && <div className="my-2 mx-2 h-px bg-border" role="separator" />}
+              {i > 0 && itens[i - 1].group !== item.group && <div className="my-2 mx-2 h-px bg-border" role="separator" />}
               <button
                 type="button"
                 onClick={() => onChange(item.id)}

@@ -2,6 +2,8 @@
 // GET /api/indicadores            -> lista de meses disponíveis
 // GET /api/indicadores?month=AAAA-MM -> unidades daquele mês
 import { loadMonth, listMonths, loadAll } from "../server/store.js";
+import { cors, exigirLogin } from "./_auth.js";
+import { filtrarMes, filtrarMeses } from "../server/visibilidade.js";
 
 // Memória da instância: enquanto ela estiver quente, abrir o painel não gasta nenhuma operação no Blob.
 const TTL_MS = 10 * 60 * 1000;
@@ -18,12 +20,12 @@ async function todosOsMeses() {
   memo = { em: Date.now(), dados };
   return dados;
 }
-import { cors, exigirLogin } from "./_auth.js";
 
 export default async function handler(req, res) {
   cors(req, res);
   if (req.method === "OPTIONS") return res.status(204).end();
-  if (!exigirLogin(req, res)) return;
+  const sessao = await exigirLogin(req, res);
+  if (!sessao) return;
 
   try {
     const { month, all } = req.query;
@@ -31,14 +33,14 @@ export default async function handler(req, res) {
     if (all) {
       const dados = await todosOsMeses();
       res.setHeader("Cache-Control", "private, max-age=300");
-      return res.status(200).json({ months: dados });
+      return res.status(200).json({ months: filtrarMeses(dados, sessao) });
     }
     if (!month) return res.status(200).json({ months: await listMonths() });
     if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: "month deve ser AAAA-MM" });
     const data = await loadMonth(month);
     if (!data) return res.status(404).json({ error: "mês ainda não calculado" });
     res.setHeader("Cache-Control", "private, max-age=300");
-    return res.status(200).json(data);
+    return res.status(200).json(filtrarMes(data, sessao));
   } catch (err) {
     return res.status(500).json({ error: String(err.message ?? err) });
   }

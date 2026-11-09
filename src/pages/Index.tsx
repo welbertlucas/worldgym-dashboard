@@ -22,15 +22,16 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
 import { MetasTab } from "@/components/tabs/MetasTab";
+import { AcessosTab } from "@/components/tabs/AcessosTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
 import { comercialSpecs, complementaresSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { viewFor } from "@/data/kpiView";
 import { computeAlerts, sameMonthLastYear } from "@/data/alerts";
 import { computeUnitDeltas } from "@/data/unitMetrics";
-import { metasData, syncMetasFromSheets } from "@/data/metas";
+import { metasData, metasRede, syncMetasFromSheets } from "@/data/metas";
 import { formatMonthLong, getLastClosedMonth, isPartialMonth } from "@/data/periods";
 import {
-  getLatestData, getDataByMonth, comparePeriods, dashboardData,
+  getLatestData, getDataByMonth, getDataByMonthRede, comparePeriods, dashboardData, dashboardDataRede,
   getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets, evoAtualizadoEm, receitaComplementar,
 } from "@/data/dashboardData";
 import { Button } from "@/components/ui/button";
@@ -42,11 +43,12 @@ import {
   RefreshCw, LogOut, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
-import { getToken, sair } from "@/lib/auth";
+import { getToken, getUsuario, podeAtualizar, podeGerirAcessos, sair } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 /** Intervalo da atualização automática dos dados (planilha e metas). */
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
+const NOME_DO_NIVEL = { dono: "Dono", master: "Master", unidades: "Unidades" } as const;
 
 const Index = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
@@ -125,6 +127,14 @@ const Index = () => {
   const alerts = computeAlerts(dashboardData, metasData);
   const evalIdx = evalMonth ? months.indexOf(evalMonth) : -1;
   const unitDeltas = evalIdx > 0 ? computeUnitDeltas(dashboardData[evalIdx], dashboardData[evalIdx - 1]) : [];
+  // A Visão Executiva e o Benchmark olham a rede inteira (para quem tem acesso só a algumas unidades, as outras vêm com o nome escondido).
+  const monthsRede = dashboardDataRede.map((d) => d.month);
+  const evalMonthRede = getLastClosedMonth(monthsRede);
+  const evalIdxRede = evalMonthRede ? monthsRede.indexOf(evalMonthRede) : -1;
+  const unitDeltasRede = evalIdxRede > 0 ? computeUnitDeltas(dashboardDataRede[evalIdxRede], dashboardDataRede[evalIdxRede - 1]) : [];
+  const redeMonthData = getDataByMonthRede(fullMonthData.month) ?? fullMonthData;
+  const selIdxRede = monthsRede.indexOf(redeMonthData.month);
+  const redePrevMonthData = selIdxRede > 0 ? dashboardDataRede[selIdxRede - 1] : undefined;
   const selIdx = months.indexOf(fullMonthData.month);
   const prevMonthData = selIdx > 0 ? dashboardData[selIdx - 1] : undefined;
   const partialSelected = isPartialMonth(fullMonthData.month);
@@ -229,7 +239,12 @@ const Index = () => {
                 {evoAtualizadoEm && <> · EVO atualizado em {new Date(evoAtualizadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</>}
               </p>
             )}
-            <Button
+            {getUsuario() && !getUsuario()!.legado && (
+              <p className="hidden md:block text-xs text-muted-foreground truncate max-w-[14rem]" title={getUsuario()!.email}>
+                {getUsuario()!.nome} · {NOME_DO_NIVEL[getUsuario()!.papel]}
+              </p>
+            )}
+            {podeAtualizar() && <Button
               variant="outline"
               size="sm"
               onClick={() => refresh(false)}
@@ -240,7 +255,7 @@ const Index = () => {
             >
               <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
               <span className="hidden sm:inline">{syncing ? "Atualizando..." : "Atualizar da planilha"}</span>
-            </Button>
+            </Button>}
             {getToken() && (
               <Button variant="ghost" size="sm" onClick={sair} aria-label="Sair" className="shrink-0 text-xs font-medium">
                 <LogOut className="w-4 h-4" aria-hidden />
@@ -253,7 +268,7 @@ const Index = () => {
 
         <main ref={mainRef} className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 sm:space-y-8 max-w-[1600px] scroll-mt-20">
         {/* Filtros */}
-        {activeTab !== "mapa" && activeTab !== "campanhas" && <DateFilter
+        {activeTab !== "mapa" && activeTab !== "campanhas" && activeTab !== "acessos" && <DateFilter
           selectedMonth={fullMonthData.month}
           compareMonth={compareMonth}
           selectedUnit={selectedUnit}
@@ -275,7 +290,7 @@ const Index = () => {
         )}
 
         {/* Comparativo */}
-        {comparison && activeTab !== "unidades" && activeTab !== "mapa" && activeTab !== "campanhas" && (
+        {comparison && activeTab !== "unidades" && activeTab !== "mapa" && activeTab !== "campanhas" && activeTab !== "acessos" && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -293,19 +308,19 @@ const Index = () => {
           </section>
         )}
 
-        {partialSelected && activeTab !== "executiva" && activeTab !== "mapa" && activeTab !== "campanhas" && (
+        {partialSelected && activeTab !== "executiva" && activeTab !== "mapa" && activeTab !== "campanhas" && activeTab !== "acessos" && (
           <Notice><b>{formatDate(fullMonthData.month)}</b> está em andamento — os valores são parciais.</Notice>
         )}
 
         {activeTab === "executiva" && (
           <ExecutivaTab
-            month={fullMonthData}
-            prev={compareMonth ? getDataByMonth(compareMonth) ?? prevMonthData : prevMonthData}
+            month={redeMonthData}
+            prev={compareMonth ? getDataByMonthRede(compareMonth) ?? redePrevMonthData : redePrevMonthData}
             comparaMesEscolhido={!!compareMonth}
             alerts={alerts}
-            evalMonth={evalMonth}
-            deltas={unitDeltas}
-            metas={metasData}
+            evalMonth={evalMonthRede}
+            deltas={unitDeltasRede}
+            metas={metasRede}
             onOpenRiscos={() => changeTab("riscos")}
             onOpenUnidades={() => changeTab("benchmark")}
             onOpenMetas={() => changeTab("metas")}
@@ -385,9 +400,9 @@ const Index = () => {
         {activeTab === "benchmark" && (
           <BenchmarkTab
             selectedMonth={fullMonthData.month}
-            evalMonth={evalMonth}
-            prevEvalMonth={evalIdx > 0 ? dashboardData[evalIdx - 1].month : null}
-            deltas={unitDeltas}
+            evalMonth={evalMonthRede}
+            prevEvalMonth={evalIdxRede > 0 ? dashboardDataRede[evalIdxRede - 1].month : null}
+            deltas={unitDeltasRede}
           />
         )}
 
@@ -398,6 +413,8 @@ const Index = () => {
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 
         {activeTab === "riscos" && <RiscosTab alerts={alerts} evalMonth={evalMonth} />}
+
+        {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
         </main>
       </div>
     </div>

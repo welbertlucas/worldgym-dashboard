@@ -1,4 +1,4 @@
-import { authFetch } from "@/lib/auth";
+import { authFetch, unidadesProprias } from "@/lib/auth";
 import { type UnitData, type MonthData, dashboardData } from "@/data/dashboardData";
 
 // Aba "Metas" da planilha — colunas: Mês | Unidade | Indicador | Bronze | Prata | Ouro
@@ -55,6 +55,8 @@ const INDICATOR_ALIASES: Record<string, MetaKey> = {
 };
 
 export let metasData: Meta[] = [];
+/** Metas com as da rede (TOTAL): só a Visão Executiva usa. Para quem tem acesso só a algumas unidades, `metasData` fica sem elas. */
+export let metasRede: Meta[] = [];
 
 function parseBR(s: string | undefined): number {
   if (!s) return NaN;
@@ -130,10 +132,13 @@ export async function syncMetasFromSheets(): Promise<{ ok: boolean; count: numbe
     const res = await authFetch(METAS_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const parsed = parseMetasCSV(await res.text());
-    metasData = parsed;
+    metasRede = parsed;
+    // Meta da rede contra o total de só algumas unidades enganaria: quem vê só as suas fica com as metas das unidades.
+    metasData = unidadesProprias() ? parsed.filter((m) => m.unit !== "TOTAL") : parsed;
     return { ok: true, count: parsed.length };
   } catch {
     metasData = [];
+    metasRede = [];
     return { ok: false, count: 0 };
   }
 }

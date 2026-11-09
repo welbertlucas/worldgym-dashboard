@@ -1,7 +1,7 @@
 import { UnitLink } from "@/components/UnitLink";
 import { useState } from "react";
 import { ChevronUp, ChevronDown, ChevronsUpDown, Search, Table2 } from "lucide-react";
-import { getDataByMonth, getLatestData, UnitData } from "@/data/dashboardData";
+import { getDataByMonthRede, getLatestData, UnitData } from "@/data/dashboardData";
 import { INDICATOR_BY_KEY, type Tone } from "@/data/unitIndicators";
 import { formatAbbreviatedNumber, cn } from "@/lib/utils";
 
@@ -65,7 +65,8 @@ export function TopUnitsTable({ selectedMonth }: TopUnitsTableProps) {
   const [view, setView] = useState<View>("main");
   const [open, setOpen] = useState(false); // tabela completa fica recolhida: a leitura principal é o ranking
 
-  const monthData = getDataByMonth(selectedMonth) || getLatestData();
+  // A tabela é do benchmark: usa a rede inteira (para quem tem acesso só a algumas unidades, as outras vêm com o nome escondido).
+  const monthData = getDataByMonthRede(selectedMonth) || getLatestData();
   const visible = columns.filter((c) => c.key === "name" || view === "all" || c.group === view);
 
   const units = monthData.units

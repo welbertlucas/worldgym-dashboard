@@ -1,4 +1,4 @@
-import { authFetch } from "@/lib/auth";
+import { authFetch, unidadesProprias } from "@/lib/auth";
 // A planilha deixou de ser pública — os dados agora passam por uma função na Vercel
 // (api/sheet-data.js) que lê com uma conta de serviço do Google, pra não depender de
 // "qualquer pessoa com o link" conseguir ver os dados direto na planilha.
@@ -155,6 +155,12 @@ export interface MonthData {
 }
 
 export let dashboardData: MonthData[] = [];
+/**
+ * A rede inteira (com os nomes das unidades de outras pessoas escondidos pelo servidor). Só a Visão Executiva e o Benchmark usam.
+ * Para dono e master é igual a `dashboardData`; para quem tem acesso só a algumas unidades, `dashboardData` traz só as
+ * unidades dele (e o total é a soma delas), e aqui fica a rede, para o benchmark.
+ */
+export const dashboardDataRede: MonthData[] = [];
 /** Quando o EVO foi consultado pela última vez pela rotina diária (ISO), ou null se o EVO não respondeu. */
 export let evoAtualizadoEm: string | null = null;
 
@@ -175,7 +181,8 @@ function normalizeMonth(raw: string): string {
   return raw.replace(/^(\d{4})-(\d)$/, "$1-0$2");
 }
 
-export function parseCSV(csv: string): MonthData[] {
+/** `soUnidades`: lê só as linhas dessas unidades (o TOTAL da planilha fica de fora e é refeito pela soma delas). */
+export function parseCSV(csv: string, soUnidades?: string[]): MonthData[] {
   const lines = csv
     .split("\n")
     .map((l) => l.trim())
@@ -229,6 +236,7 @@ export function parseCSV(csv: string): MonthData[] {
     const unit = cols[iUnidade]?.trim() ?? "";
     if (!month || !unit) continue;
     lastMonth = month;
+    if (soUnidades && !soUnidades.includes(unit)) continue;
 
     const row: UnitData = {
       name: unit,
@@ -377,8 +385,16 @@ export async function syncDashboardDataFromSheets(): Promise<{
     evoAtualizadoEm = evoMonths.map((m) => m.generatedAt ?? "").sort().pop() || null;
     const parsed = mergeEvo(parseCSV(csv), evoMonths);
     if (parsed.length === 0) throw new Error("Nenhum dado encontrado na planilha.");
+    // Acesso só a algumas unidades: o conjunto de trabalho tem só elas (e o total é a soma delas); a rede fica à parte, para o benchmark.
+    const proprias = unidadesProprias();
+    const escopo = proprias
+      ? mergeEvo(parseCSV(csv, proprias), evoMonths.map((m) => ({ ...m, units: m.units.filter((u) => proprias.includes(u.name)) })))
+      : parsed;
+    if (escopo.length === 0) throw new Error("Nenhum dado das suas unidades.");
     dashboardData.length = 0;
-    dashboardData.push(...parsed);
+    dashboardData.push(...escopo);
+    dashboardDataRede.length = 0;
+    dashboardDataRede.push(...parsed);
     return { ok: true, count: parsed.length };
   } catch (e) {
     return { ok: false, error: String(e) };
@@ -859,6 +875,10 @@ export function getLatestData(): MonthData {
 
 export function getDataByMonth(month: string): MonthData | undefined {
   return dashboardData.find((d) => d.month === month);
+}
+
+export function getDataByMonthRede(month: string): MonthData | undefined {
+  return dashboardDataRede.find((d) => d.month === month);
 }
 
 export function getUnitData(month: string, unit: string): UnitData | undefined {

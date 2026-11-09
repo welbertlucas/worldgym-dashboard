@@ -6,7 +6,7 @@ import { UnitsRanking } from "@/components/unidades/UnitsRanking";
 import { TopUnitsTable } from "@/components/TopUnitsTable";
 import { AtalhosSecoes, Secao } from "@/components/unidades/Secao";
 import { type UnitDelta } from "@/data/unitMetrics";
-import { getDataByMonth } from "@/data/dashboardData";
+import { getDataByMonthRede } from "@/data/dashboardData";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
 /** Benchmark: as unidades comparadas entre si (sempre todas; o filtro de unidade não se aplica aqui). */
 export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas }: Props) {
   const partial = isPartialMonth(selectedMonth);
-  const units = getDataByMonth(selectedMonth)?.units ?? [];
+  const units = getDataByMonthRede(selectedMonth)?.units ?? [];
   const hasDeltas = deltas.length > 0 && !!evalMonth && !!prevEvalMonth;
   const secoes = [
     ...(hasDeltas ? [{ id: "bm-destaques", rotulo: "Quem melhorou e quem piorou" }] : []),

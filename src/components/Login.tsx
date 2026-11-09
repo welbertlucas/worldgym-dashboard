@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Globo } from "@/components/Globo";
-import { entrar } from "@/lib/auth";
+import { entrar, loginComEmail } from "@/lib/auth";
 
 // Estrelas fixas (posições sorteadas uma vez, com semente, para não mudarem a cada visita).
 const ESTRELAS = (() => {
@@ -10,6 +10,8 @@ const ESTRELAS = (() => {
 })();
 
 export function Login({ onEntrou }: { onEntrou: () => void }) {
+  const comEmail = loginComEmail(); // só depois que o dono cria os acessos; antes vale a senha única
+  const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [mostrar, setMostrar] = useState(false);
   const [erro, setErro] = useState("");
@@ -17,10 +19,10 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
-    if (!senha || enviando) return;
+    if (!senha || (comEmail && !email.trim()) || enviando) return;
     setEnviando(true);
     setErro("");
-    const r = await entrar(senha);
+    const r = await entrar(senha, email);
     setEnviando(false);
     if (r.ok) onEntrou();
     else setErro(r.erro);
@@ -51,15 +53,31 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
           <h2 className="mb-2 text-balance font-['Montserrat'] text-[clamp(1.75rem,2.4vw,2.1rem)] font-extrabold leading-[1.2] tracking-[-0.025em] text-black">
             Entrar no Atlas
           </h2>
-          <p className="mb-8 leading-normal text-[#6B7078]">Digite a senha de acesso para ver os resultados da rede.</p>
+          <p className="mb-8 leading-normal text-[#6B7078]">{comEmail ? "Entre com o seu e-mail e a senha de acesso." : "Digite a senha de acesso para ver os resultados da rede."}</p>
 
+          {comEmail && (
+            <label className="mb-4 flex flex-col gap-2">
+              <span className="text-[0.88rem] font-semibold text-black">E-mail</span>
+              <span className="flex items-stretch rounded-[14px] border-[1.5px] border-[#DCDFE3] bg-[#F7F8F9] transition-[border-color,box-shadow,background-color] duration-150 focus-within:border-[#C41230] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(196,18,48,0.13)]">
+                <input
+                  type="email"
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="min-w-0 flex-1 border-0 bg-transparent px-[1.1rem] py-4 text-[1.05rem] text-black outline-none"
+                />
+              </span>
+            </label>
+          )}
           <label className="flex flex-col gap-2">
             <span className="text-[0.88rem] font-semibold text-black">Senha de acesso</span>
             <span className="flex items-stretch rounded-[14px] border-[1.5px] border-[#DCDFE3] bg-[#F7F8F9] transition-[border-color,box-shadow,background-color] duration-150 focus-within:border-[#C41230] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(196,18,48,0.13)]">
               <input
                 type={mostrar ? "text" : "password"}
                 autoComplete="current-password"
-                autoFocus
+                autoFocus={!comEmail}
                 required
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}

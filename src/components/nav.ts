@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, Building2, BarChart3, Map as MapIcon, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
+import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, Building2, BarChart3, Map as MapIcon, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
 
 export interface NavItem { id: string; label: string; icon: LucideIcon; group: number }
 
@@ -16,3 +16,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "campanhas", label: "Tráfego pago", icon: Megaphone, group: 1 },
   { id: "riscos", label: "Riscos e Recomendações", icon: ShieldAlert, group: 2 },
 ];
+
+/** Itens do menu para quem está logado: a tela de acessos só aparece para o dono. */
+export const itensDoMenu = (gerirAcessos: boolean): NavItem[] =>
+  gerirAcessos ? [...NAV_ITEMS, { id: "acessos", label: "Acessos", icon: KeyRound, group: 3 }] : NAV_ITEMS;
