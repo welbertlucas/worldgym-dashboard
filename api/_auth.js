@@ -116,7 +116,7 @@ export async function exigirLogin(req, res, { papeis } = {}) {
   }
 }
 
-const ORIGENS = new Set(["https://welbertlucas.github.io", "http://localhost:5173"]);
+const ORIGENS = new Set(["https://welbertlucas.github.io", "https://atlas.worldgymacademia.com.br", "http://localhost:5173"]);
 export function cors(req, res) {
   const origin = req.headers.origin;
   if (origin && ORIGENS.has(origin)) res.setHeader("Access-Control-Allow-Origin", origin);

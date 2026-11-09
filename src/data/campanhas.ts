@@ -1,6 +1,6 @@
-import { authFetch } from "@/lib/auth";
+import { authFetch, API_BASE } from "@/lib/auth";
 
-const URL_CAMPANHAS = "https://worldgym-dashboard-sigma.vercel.app/api/campanhas";
+const URL_CAMPANHAS = `${API_BASE}/campanhas`;
 
 export interface Campanha {
   id: string;

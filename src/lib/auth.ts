@@ -1,6 +1,8 @@
 // Senha do dashboard: o token vem de /api/login e segue em toda chamada de dados.
-const API = "https://worldgym-dashboard-sigma.vercel.app/api";
-export const API_BASE = API;
+/** No domínio do Atlas o servidor responde no mesmo endereço (/api); fora dele (GitHub Pages, testes locais) usa o endereço da Vercel. */
+const NO_DOMINIO_DO_ATLAS = typeof location !== "undefined" && location.hostname === "atlas.worldgymacademia.com.br";
+export const API_BASE = NO_DOMINIO_DO_ATLAS ? "/api" : "https://worldgym-dashboard-sigma.vercel.app/api";
+const API = API_BASE;
 const KEY = "wg-dashboard-token";
 
 export const AUTH_REQUIRED_EVENT = "wg-auth-required";

@@ -1,9 +1,9 @@
-import { authFetch, unidadesProprias } from "@/lib/auth";
+import { authFetch, unidadesProprias, API_BASE } from "@/lib/auth";
 import { type UnitData, type MonthData, dashboardData } from "@/data/dashboardData";
 
 // Aba "Metas" da planilha — colunas: Mês | Unidade | Indicador | Bronze | Prata | Ouro
 // Unidade "TOTAL" (ou "Rede") = meta da rede. Mês: aaaa-mm, ou por nome ("Outubro", "out/2026", "10/2026"); sem ano, vale o ano do último mês da planilha.
-const METAS_URL = "https://worldgym-dashboard-sigma.vercel.app/api/sheet-data?sheet=Metas";
+const METAS_URL = `${API_BASE}/sheet-data?sheet=Metas`;
 
 export type MetaKey = keyof Pick<
   UnitData,

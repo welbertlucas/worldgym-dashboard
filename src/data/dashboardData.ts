@@ -1,10 +1,10 @@
-import { authFetch, unidadesProprias } from "@/lib/auth";
+import { authFetch, unidadesProprias, API_BASE } from "@/lib/auth";
 // A planilha deixou de ser pública — os dados agora passam por uma função na Vercel
 // (api/sheet-data.js) que lê com uma conta de serviço do Google, pra não depender de
 // "qualquer pessoa com o link" conseguir ver os dados direto na planilha.
-const CSV_URL = "https://worldgym-dashboard-sigma.vercel.app/api/sheet-data";
+const CSV_URL = `${API_BASE}/sheet-data`;
 // Faturamento e recebimento vêm do EVO (api/indicadores); o resto ainda vem da planilha.
-const EVO_URL = "https://worldgym-dashboard-sigma.vercel.app/api/indicadores";
+const EVO_URL = `${API_BASE}/indicadores`;
 
 export interface Cobrancas { falhas: number; recuperadas: number; abertas: number; valorAberto: number; valorRecuperado: number }
 export interface MotivoRecusa { n: number; abertas: number; valorAberto: number }
