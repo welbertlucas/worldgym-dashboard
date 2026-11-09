@@ -51,6 +51,10 @@ export interface UnitData {
   /** Renovação: contratos de prazo fixo que vencem no mês e os que não foram renovados (EVO). */
   aVencer?: number;
   naoRenovados?: number;
+  /** Contratos vencidos e não renovados no mês por tipo (Diárias, WG 30, WG Local...), do relatório do EVO. */
+  naoRenovadosTipos?: Record<string, number>;
+  /** Planos com mais contratos não renovados no mês, pelo nome no EVO: [nome, quantidade]. */
+  naoRenovadosPlanos?: [string, number][];
   /** Taxa de renovação calculada a partir dos contratos do EVO. */
   renovacoesEvo?: boolean;
   /** Fluxo de alunos no mês (EVO): entradas (novos e retornos) e saídas (cancelados e vencidos) que levam de ativosIni a ativosFim. */
@@ -378,7 +382,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -627,6 +631,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.aVencer !== undefined && e.naoRenovados !== undefined) {
         unit.aVencer = e.aVencer;
         unit.naoRenovados = e.naoRenovados;
+        if (e.naoRenovadosTipos) unit.naoRenovadosTipos = e.naoRenovadosTipos;
+        if (e.naoRenovadosPlanos) unit.naoRenovadosPlanos = e.naoRenovadosPlanos;
         unit.renovacoesEvo = true;
         unit.renovacoes = taxaRenovacao(e.aVencer, e.naoRenovados);
       }
@@ -712,6 +718,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
             return {
               aVencer: us.reduce((n, u) => n + (u.aVencer ?? 0), 0),
               naoRenovados: us.reduce((n, u) => n + (u.naoRenovados ?? 0), 0),
+              ...(us.some((u) => u.naoRenovadosTipos) ? { naoRenovadosTipos: somarMapas(us.map((u) => u.naoRenovadosTipos)) } : {}),
               renovacoes: taxaRenovacao(us.reduce((n, u) => n + (u.aVencer ?? 0), 0), us.reduce((n, u) => n + (u.naoRenovados ?? 0), 0)),
               renovacoesEvo: true,
             };

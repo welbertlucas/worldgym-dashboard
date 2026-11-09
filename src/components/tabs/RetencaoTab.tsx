@@ -4,6 +4,7 @@ import { retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { ChurnChart } from "@/components/ChurnChart";
 import { RenovacoesChart } from "@/components/RenovacoesChart";
 import { MotivosCancelamento } from "@/components/clientes/MotivosCancelamento";
+import { NaoRenovados } from "@/components/clientes/NaoRenovados";
 import { AtalhosSecoes, Secao } from "@/components/unidades/Secao";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 
@@ -32,11 +33,12 @@ export function RetencaoTab({ ctx, month, unit }: Props) {
         <MotivosCancelamento total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
       </Secao>
 
-      <Secao id="rt-renovacao" titulo="Renovação" descricao="Dos contratos de prazo fixo que venceram no mês, quantos foram renovados.">
+      <Secao id="rt-renovacao" titulo="Renovação" descricao="Dos contratos de prazo fixo que venceram no mês, quantos foram renovados e quais ficaram sem renovar.">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
           <KpiGrid ctx={ctx} specs={so(["Renovação"], false)} columns="sm:grid-cols-1" />
           <RenovacoesChart selectedUnit={unit} />
         </div>
+        <NaoRenovados total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} porTipo={!unit} />
       </Secao>
 
       <Secao id="rt-satisfacao" titulo="Satisfação" descricao="O que os alunos dizem: NPS (WeHelp), nota do Google e, na rede, nota do Reclame Aqui.">
