@@ -5,7 +5,7 @@ const globo = `${import.meta.env.BASE_URL}globo-wg.png`;
 
 export function Globo({ className }: { className?: string }) {
   return (
-    <div className={`globo-sobe relative aspect-square ${className ?? ""}`}>
+    <div className={`relative aspect-square ${className ?? ""}`}>
       <div className="globo-flutua absolute inset-0">
         {/* Halo do céu atrás do globo */}
         <div aria-hidden className="absolute -inset-[18%] rounded-full bg-[radial-gradient(closest-side,rgba(110,155,255,0.32),rgba(70,110,255,0.09)_60%,transparent)] blur-2xl" />

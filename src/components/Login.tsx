@@ -33,7 +33,7 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
           <span className="block text-[clamp(2.1rem,3.2vw,2.9rem)] font-bold tracking-[0.12em]">Atlas</span>
         </h1>
         <div className="flex flex-1 items-center justify-center py-10 lg:absolute lg:inset-0 lg:py-0">
-          <Globo className="w-[min(82%,640px,80vh)]" />
+          <Globo className="w-[min(60%,460px,58vh)]" />
         </div>
       </section>
 
