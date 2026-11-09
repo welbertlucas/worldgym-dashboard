@@ -55,6 +55,8 @@ export interface UnitData {
   naoRenovadosTipos?: Record<string, number>;
   /** Planos com mais contratos não renovados no mês, pelo nome no EVO: [nome, quantidade]. */
   naoRenovadosPlanos?: [string, number][];
+  /** Não renovados de diária, free pass e experimental: contam na taxa, mas ficam fora da lista. */
+  naoRenovadosFora?: number;
   /** Taxa de renovação calculada a partir dos contratos do EVO. */
   renovacoesEvo?: boolean;
   /** Fluxo de alunos no mês (EVO): entradas (novos e retornos) e saídas (cancelados e vencidos) que levam de ativosIni a ativosFim. */
@@ -66,6 +68,10 @@ export interface UnitData {
   permanenciaMeses?: number;
   /** Alunos que cancelaram no mês, por motivo (categorias de texto → quantidade). */
   motivosCancel?: Record<string, number>;
+  /** Alunos que cancelaram no mês pelo tipo do contrato cancelado (WG Local, WG 30, Promoções...). */
+  canceladosTipos?: Record<string, number>;
+  /** Planos com mais cancelamentos no mês, pelo nome no EVO: [nome, alunos]. */
+  canceladosPlanos?: [string, number][];
   /** Origem das oportunidades do mês: [cadastradas, convertidas no mês] por origem (EVO). */
   origens?: Record<string, [number, number]>;
   /** Cobranças que falharam no vencimento (mês do vencimento): recuperadas e em aberto, com valores (EVO). */
@@ -382,7 +388,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -583,6 +589,24 @@ export const taxaConversao = (oportunidades: number, conversoes: number) =>
   oportunidades > 0 ? Math.round((conversoes / oportunidades) * 1000) / 10 : 0;
 
 /** Taxa de renovação em % com uma casa; 0 quando não há contratos a vencer. */
+/** Diária, free pass e experimental: entram na taxa de renovação (como no EVO), mas não aparecem na lista de não renovados. */
+export const FORA_DA_LISTA = ["Diárias", "Free pass e experimental"];
+const FORA_RE = /DI[AÁ]RIA|FREE ?PASS|EXPERIMENTAL/i;
+/**
+ * Tira da lista de contratos não renovados a diária, o free pass e o experimental, guardando quantos foram (naoRenovadosFora).
+ * Vencidos, não renovados e a taxa continuam os do EVO. Detalhe gravado antes da separação (free pass dentro de
+ * "Cortesias e promoções") fica como veio.
+ */
+export function listaSemDiarias(u: Pick<UnitData, "naoRenovadosTipos" | "naoRenovadosPlanos">) {
+  const t = u.naoRenovadosTipos;
+  if (!t || "Cortesias e promoções" in t) return {};
+  return {
+    naoRenovadosFora: FORA_DA_LISTA.reduce((n, k) => n + (t[k] ?? 0), 0),
+    naoRenovadosTipos: Object.fromEntries(Object.entries(t).filter(([k]) => !FORA_DA_LISTA.includes(k))),
+    naoRenovadosPlanos: (u.naoRenovadosPlanos ?? []).filter(([n]) => !FORA_RE.test(n)),
+  };
+}
+
 export const taxaRenovacao = (aVencer: number, naoRenovados: number) =>
   aVencer > 0 ? Math.round(((Math.max(0, aVencer - naoRenovados)) / aVencer) * 1000) / 10 : 0;
 
@@ -635,6 +659,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         if (e.naoRenovadosPlanos) unit.naoRenovadosPlanos = e.naoRenovadosPlanos;
         unit.renovacoesEvo = true;
         unit.renovacoes = taxaRenovacao(e.aVencer, e.naoRenovados);
+        Object.assign(unit, listaSemDiarias(unit));
       }
       // Fluxo de alunos, permanência e motivos de cancelamento (EVO).
       if (e.fluxoNovos !== undefined) {
@@ -645,6 +670,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.permanenciaMeses = e.permanenciaMeses ?? 0;
       }
       if (e.motivosCancel !== undefined) unit.motivosCancel = e.motivosCancel;
+      if (e.canceladosTipos) unit.canceladosTipos = e.canceladosTipos;
+      if (e.canceladosPlanos) unit.canceladosPlanos = e.canceladosPlanos;
       // Origem das oportunidades, cobranças com falha e treinos (EVO).
       if (e.origens !== undefined) unit.origens = e.origens;
       if (e.cobrancas !== undefined) { unit.cobrancas = e.cobrancas; unit.recusaMotivos = e.recusaMotivos ?? {}; }
@@ -718,7 +745,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
             return {
               aVencer: us.reduce((n, u) => n + (u.aVencer ?? 0), 0),
               naoRenovados: us.reduce((n, u) => n + (u.naoRenovados ?? 0), 0),
-              ...(us.some((u) => u.naoRenovadosTipos) ? { naoRenovadosTipos: somarMapas(us.map((u) => u.naoRenovadosTipos)) } : {}),
+              ...(us.some((u) => u.naoRenovadosTipos) ? { naoRenovadosTipos: somarMapas(us.map((u) => u.naoRenovadosTipos)), naoRenovadosFora: us.reduce((n, u) => n + (u.naoRenovadosFora ?? 0), 0) } : {}),
               renovacoes: taxaRenovacao(us.reduce((n, u) => n + (u.aVencer ?? 0), 0), us.reduce((n, u) => n + (u.naoRenovados ?? 0), 0)),
               renovacoesEvo: true,
             };
@@ -738,6 +765,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
           })()
         : {}),
       ...(md.units.some((u) => u.motivosCancel !== undefined) ? { motivosCancel: somarMotivos(md.units) } : {}),
+      ...(md.units.some((u) => u.canceladosTipos) ? { canceladosTipos: somarMapas(md.units.map((u) => u.canceladosTipos)) } : {}),
       ...(md.units.some((u) => u.origens !== undefined) ? { origens: somarOrigens(md.units) } : {}),
       ...(md.units.some((u) => u.cobrancas !== undefined) ? { cobrancas: somarCobrancas(md.units), recusaMotivos: somarRecusa(md.units) } : {}),
       ...(md.units.some((u) => u.acessos !== undefined)

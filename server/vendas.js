@@ -81,6 +81,18 @@ const FAMILIAS = [
   ["WG 30", /WG ?-? ?30/],
   ["WG Local", /LOCAL|MENSAL|FLEX|\b[1-5] ?X\b/],
 ];
+/**
+ * Tipo de um contrato (vencido ou cancelado), para comparar a rede: diárias e free pass/experimental à parte,
+ * promoções de 1º mês, parcerias, militares e gift card como "Promoções", o resto pelos tipos dos planos vendidos.
+ */
+export function tipoContrato(nome) {
+  const t = String(nome || "").toUpperCase();
+  if (/DI[AÁ]RIA/.test(t)) return "Diárias";
+  if (/FREE ?PASS|EXPERIMENTAL/.test(t)) return "Free pass e experimental";
+  const f = familiaPlano(nome);
+  return f === CORTESIAS ? "Promoções" : f;
+}
+
 export function familiaPlano(nome) {
   const t = String(nome || "").toUpperCase();
   for (const [f, re] of FAMILIAS) if (re.test(t)) return f;

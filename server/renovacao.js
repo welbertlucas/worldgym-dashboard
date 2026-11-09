@@ -4,12 +4,10 @@
 import { evoBuffer } from "./evo.js";
 import { diaDeCorte } from "./ativos.js";
 import { lerXlsx } from "./xlsx.js";
-import { familiaPlano } from "./vendas.js";
+import { tipoContrato } from "./vendas.js";
 
-/** Tipo do contrato não renovado, para comparar a rede: diárias à parte; o resto pelos mesmos tipos dos planos vendidos. */
-export function tipoNaoRenovado(nome) {
-  return /DI[AÁ]RIA/i.test(String(nome || "")) ? "Diárias" : familiaPlano(nome);
-}
+/** Tipo do contrato não renovado (mesma regra dos cancelados). */
+export const tipoNaoRenovado = tipoContrato;
 
 /**
  * Por unidade: quantos contratos venceram sem renovar no mês, quantos por tipo (todos) e os planos com mais não renovados

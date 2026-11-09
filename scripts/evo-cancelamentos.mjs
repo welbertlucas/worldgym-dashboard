@@ -1,7 +1,7 @@
-// Grava por unidade, nos meses já calculados: `motivosCancel` (alunos que cancelaram, por motivo).
+// Grava por unidade, nos meses já calculados: `motivosCancel` (alunos que cancelaram, por motivo) e os contratos cancelados por tipo e por plano.
 // Uso: node --env-file=.env.local scripts/evo-cancelamentos.mjs 2026-10 2026-11
 import { hojeBR } from "../server/evo.js";
-import { motivosDoMes } from "../server/cancelamentos.js";
+import { canceladosDoMes } from "../server/cancelamentos.js";
 import { UNIDADES } from "../server/ativos.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 
@@ -11,11 +11,13 @@ for (const ym of process.argv.slice(2)) {
   try {
     const blob = await loadMonth(ym);
     if (!blob) throw new Error("mês ainda não foi calculado; rode evo-backfill antes");
-    const por = await motivosDoMes(ym, hoje);
+    const por = await canceladosDoMes(ym, hoje);
     let n = 0;
     for (const u of blob.units) {
       if (!Object.values(UNIDADES).includes(u.name)) continue;
-      u.motivosCancel = por[u.name] ?? {};
+      u.motivosCancel = por[u.name]?.motivos ?? {};
+      u.canceladosTipos = por[u.name]?.tipos ?? {};
+      u.canceladosPlanos = por[u.name]?.planos ?? [];
       n++;
     }
     blob.cancelEm = new Date().toISOString();

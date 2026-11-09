@@ -5,12 +5,12 @@ const MAX_LINHAS = 8;
 const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1).replace(".", ",")}%` : "—");
 
 /** Linhas da lista: na rede, por tipo de contrato; na unidade, pelo nome do plano. A cauda vira "Demais". */
-export function linhasNaoRenovados(total: Pick<UnitData, "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos">, porTipo: boolean): [string, number][] {
+export function linhasNaoRenovados(total: Pick<UnitData, "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "naoRenovadosFora">, porTipo: boolean): [string, number][] {
   const base: [string, number][] = porTipo
     ? Object.entries(total.naoRenovadosTipos ?? {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])
     : [...(total.naoRenovadosPlanos ?? [])];
   const topo = base.slice(0, MAX_LINHAS);
-  const resto = (total.naoRenovados ?? 0) - topo.reduce((s, [, n]) => s + n, 0);
+  const resto = (total.naoRenovados ?? 0) - (total.naoRenovadosFora ?? 0) - topo.reduce((s, [, n]) => s + n, 0);
   return resto > 0 && topo.length ? [...topo, [porTipo ? "Demais tipos" : "Demais planos", resto]] : topo;
 }
 
@@ -53,7 +53,8 @@ export function NaoRenovados({ total, monthLabel, partial, unitLabel, porTipo }:
       )}
       <p className="mt-3 text-xs text-muted-foreground">
         Contratos de prazo fixo (sem cobrança recorrente) que terminaram no mês e não foram cancelados; não renovados vêm do relatório de Renovações do EVO.
-        {porTipo ? " Diárias, free pass e experimental também vencem e entram na conta, como no EVO. Escolha uma unidade para ver os planos pelo nome." : " Planos pelo nome no EVO."}
+        {" "}Os números e a taxa são os do EVO. Diária, free pass e experimental entram na conta, como no EVO, mas não aparecem na lista{total.naoRenovadosFora ? ` (${total.naoRenovadosFora.toLocaleString("pt-BR")} não renovados neste mês)` : ""}; promoção de 1º mês, parcerias, militares e gift card aparecem como Promoções.
+        {porTipo ? " Escolha uma unidade para ver os planos pelo nome." : " Planos pelo nome no EVO."}
         {" "}Só contagens: nenhum dado do aluno é guardado.
       </p>
     </ChartCard>
