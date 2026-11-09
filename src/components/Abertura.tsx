@@ -5,7 +5,7 @@ export function Abertura() {
     <div
       role="status"
       aria-label="Carregando o World Gym Atlas"
-      className="fixed inset-0 flex flex-col items-center justify-center gap-6 bg-[radial-gradient(130%_90%_at_30%_115%,#E62A2A_0%,#B8151F_24%,#82101E_48%,#550C18_74%,#360812_100%)] text-white"
+      className="fixed inset-0 flex flex-col items-center justify-center gap-6 bg-[radial-gradient(130%_90%_at_30%_115%,#21398A_0%,#152A6A_26%,#0C1A4C_52%,#061030_76%,#030819_100%)] text-white"
     >
       <img src={`${import.meta.env.BASE_URL}globo-wg.png`} alt="" className="h-[140px] w-[140px] opacity-95" />
       <p className="text-center font-['Cinzel'] uppercase leading-none">

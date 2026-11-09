@@ -106,14 +106,13 @@
   }
 }
 
-/* Tela de login: estrelas piscam e brilham; o globo sobe uma vez ao abrir e depois flutua e balança. */
+/* Tela de login: estrelas piscam e brilham; o globo sobe uma vez ao abrir e depois flutua devagar. */
 .ceu-estrela { animation: ceu-pisca 3.2s ease-in-out infinite alternate; }
-.ceu-estrela-forte { animation-duration: 2.4s; }
-@keyframes ceu-pisca { from { opacity: 0.4; } to { opacity: 1; } }
+@keyframes ceu-pisca { from { opacity: 0.25; } to { opacity: 1; } }
 .globo-sobe { animation: globo-sobe 1.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes globo-sobe { from { opacity: 0; transform: translateY(18%); } to { opacity: 1; transform: none; } }
-.globo-flutua { animation: globo-flutua 6s ease-in-out 1.6s infinite alternate; }
-@keyframes globo-flutua { from { transform: translateY(2%) rotate(-3deg); } to { transform: translateY(-5.5%) rotate(3deg); } }
+.globo-flutua { animation: globo-flutua 8s ease-in-out 1.6s infinite alternate; }
+@keyframes globo-flutua { from { transform: translateY(1%); } to { transform: translateY(-3%); } }
 @media (prefers-reduced-motion: reduce) {
   .ceu-estrela, .globo-sobe, .globo-flutua { animation: none; }
 }

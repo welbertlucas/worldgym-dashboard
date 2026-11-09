@@ -1,17 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Globo } from "@/components/Globo";
+import { Ceu } from "@/components/Ceu";
 import { entrar, loginComEmail } from "@/lib/auth";
-
-// Estrelas fixas (posições sorteadas uma vez, com semente, para não mudarem a cada visita).
-// Cerca de uma em cada seis é uma estrela forte: maior, com halo e piscando mais.
-const ESTRELAS = (() => {
-  let s = 7;
-  const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  return Array.from({ length: 150 }, () => {
-    const forte = r() < 0.17;
-    return { x: r() * 100, y: r() * 100, t: forte ? r() * 1.2 + 1.7 : r() * 1.3 + 0.6, d: r() * 4, forte };
-  });
-})();
 
 export function Login({ onEntrou }: { onEntrou: () => void }) {
   const comEmail = loginComEmail(); // só depois que o dono cria os acessos; antes vale a senha única
@@ -34,30 +24,16 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
 
   return (
     <main className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,1fr)_28rem]">
-      {/* Céu: noite avermelhada, com o horizonte aceso no vermelho da marca. O globo do logo da World Gym ocupa o centro. */}
-      <section className="relative isolate flex min-h-[46vh] flex-col overflow-hidden bg-[#360812] p-[clamp(1.75rem,4vw,3.25rem)] text-white">
-        <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(130%_90%_at_30%_115%,#E62A2A_0%,#B8151F_24%,#82101E_48%,#550C18_74%,#360812_100%)]" />
-        <svg aria-hidden className="absolute inset-0 -z-10 h-full w-full" preserveAspectRatio="none">
-          <defs>
-            <radialGradient id="halo-estrela">
-              <stop offset="0%" stopColor="#fff" stopOpacity="0.9" />
-              <stop offset="35%" stopColor="#FFE1DA" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          {ESTRELAS.map((e, i) => (
-            <g key={i} className={e.forte ? "ceu-estrela ceu-estrela-forte" : "ceu-estrela"} style={{ animationDelay: `${e.d}s` }}>
-              <circle cx={`${e.x}%`} cy={`${e.y}%`} r={e.t * (e.forte ? 6 : 3.2)} fill="url(#halo-estrela)" />
-              <circle cx={`${e.x}%`} cy={`${e.y}%`} r={e.t} fill="#fff" />
-            </g>
-          ))}
-        </svg>
-        <h1 className="font-['Cinzel'] uppercase leading-none">
+      {/* Céu: noite azul-marinho, como o céu de verdade. O globo do logo da World Gym ocupa o centro. */}
+      <section className="relative isolate flex min-h-[46vh] flex-col overflow-hidden bg-[#050B22] p-[clamp(1.75rem,4vw,3.25rem)] text-white">
+        <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(130%_90%_at_30%_115%,#21398A_0%,#152A6A_26%,#0C1A4C_52%,#061030_76%,#030819_100%)]" />
+        <Ceu className="absolute inset-0 -z-10" />
+        <h1 className="relative z-10 font-['Cinzel'] uppercase leading-none">
           <span className="mb-2 block text-[clamp(0.85rem,1.15vw,1rem)] font-medium tracking-[0.42em] text-white/80">World Gym</span>
           <span className="block text-[clamp(2.1rem,3.2vw,2.9rem)] font-bold tracking-[0.12em]">Atlas</span>
         </h1>
-        <div className="flex flex-1 items-center justify-center py-10">
-          <Globo className="w-[min(82%,640px)]" />
+        <div className="flex flex-1 items-center justify-center py-10 lg:absolute lg:inset-0 lg:py-0">
+          <Globo className="w-[min(82%,640px,80vh)]" />
         </div>
       </section>
 
