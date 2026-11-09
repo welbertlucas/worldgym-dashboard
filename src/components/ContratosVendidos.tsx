@@ -121,7 +121,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
         {familias
-          ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO; planos com Rede, PRO, Fit ou Anual no nome contam como WG Rede (Anual VIP e Anual Local não); WG 90 conta como WG 30; "Outros" junta free pass, experimental, promoção de 1º mês, parcerias, militares e planos sem tipo. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
+          ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
           : <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.</>}
         {" "}Renovações não entram no ranking porque são, na maior parte, a recorrência automática do mês ({tv.renov[0].toLocaleString("pt-BR")} no mês).
         Valor médio = valor da venda (num plano anual pago à vista, é o ano inteiro).
