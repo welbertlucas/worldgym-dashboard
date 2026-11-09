@@ -1,6 +1,6 @@
 {
-  "name": "World Gym – Dashboard de Resultados",
-  "short_name": "World Gym",
+  "name": "World Gym Atlas",
+  "short_name": "Atlas",
   "start_url": "/worldgym-dashboard/",
   "scope": "/worldgym-dashboard/",
   "display": "standalone",

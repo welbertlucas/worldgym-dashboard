@@ -62,8 +62,8 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
       <img src={wgLogo} alt="World Gym" className="h-9 w-auto shrink-0" />
       {!collapsed && (
         <div className="min-w-0 leading-tight">
-          <p className="text-sm font-semibold text-foreground truncate">World Gym Brasil</p>
-          <p className="text-xs text-muted-foreground truncate">Resultados da rede</p>
+          <p className="text-sm font-semibold text-foreground truncate">Atlas</p>
+          <p className="text-xs text-muted-foreground truncate">World Gym Brasil</p>
         </div>
       )}
     </div>
