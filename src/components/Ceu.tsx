@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Céu da tela de login: campo de estrelas desenhado uma vez num canvas (milhares de estrelas de tamanhos, brilhos e cores
 // diferentes, mais densas numa faixa diagonal que lembra a Via Láctea, com poeira difusa e poucas estrelas grandes com halo).
@@ -17,6 +17,18 @@ function sorteio(semente: number) {
 
 // Cores das estrelas como no céu de verdade: maioria branca, muitas azuladas, algumas amareladas e poucas alaranjadas.
 const CORES: [number, number, number][] = [[255, 250, 245], [255, 250, 245], [255, 250, 245], [255, 250, 245], [255, 250, 245], [255, 250, 245], [190, 212, 255], [190, 212, 255], [190, 212, 255], [255, 236, 190], [255, 210, 160]];
+
+const GRANDES = (() => {
+  const r = sorteio(4242);
+  return Array.from({ length: 5 }, (_, i) => ({ fx: 0.08 + r() * 0.84, fy: 0.06 + r() * 0.88, cor: CORES[[0, 7, 9, 0, 10][i]], d: r() * 3 }));
+})();
+
+function ponto2(ctx: CanvasRenderingContext2D, x: number, y: number, raio: number, c: readonly number[]) {
+  ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},1)`;
+  ctx.beginPath();
+  ctx.arc(x, y, raio, 0, Math.PI * 2);
+  ctx.fill();
+}
 
 function desenhar(canvas: HTMLCanvasElement, w: number, h: number, dpr: number) {
   const ctx = canvas.getContext("2d");
@@ -96,23 +108,16 @@ function desenhar(canvas: HTMLCanvasElement, w: number, h: number, dpr: number) 
     ctx.fillRect(x - halo, y - halo, halo * 2, halo * 2);
     ponto(x, y, raio, 0.95);
   }
-  // poucas estrelas grandes, com halo e um leve cruzado de luz
-  for (let i = 0; i < 5; i++) {
-    const x = w * (0.08 + r() * 0.84), y = h * (0.06 + r() * 0.88), c = cor();
-    const halo = (20 + r() * 14) * escala;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, halo);
-    g.addColorStop(0, rgba(c, 0.75));
-    g.addColorStop(0.18, rgba(c, 0.25));
-    g.addColorStop(1, rgba(c, 0));
-    ctx.fillStyle = g;
-    ctx.fillRect(x - halo, y - halo, halo * 2, halo * 2);
-    ctx.strokeStyle = rgba(c, 0.28);
+  // poucas estrelas grandes: o ponto e um leve cruzado de luz (o halo, que pulsa, é desenhado por cima, no SVG)
+  for (const g of GRANDES) {
+    const x = w * g.fx, y = h * g.fy, c = g.cor, braco = 30 * escala;
+    ctx.strokeStyle = rgba(c, 0.3);
     ctx.lineWidth = 0.6;
     ctx.beginPath();
-    ctx.moveTo(x - halo * 1.3, y); ctx.lineTo(x + halo * 1.3, y);
-    ctx.moveTo(x, y - halo * 1.3); ctx.lineTo(x, y + halo * 1.3);
+    ctx.moveTo(x - braco, y); ctx.lineTo(x + braco, y);
+    ctx.moveTo(x, y - braco); ctx.lineTo(x, y + braco);
     ctx.stroke();
-    ponto(x, y, 2 * escala, 1);
+    ponto2(ctx, x, y, 2 * escala, c);
   }
   ctx.globalCompositeOperation = "source-over";
 }
@@ -120,11 +125,14 @@ function desenhar(canvas: HTMLCanvasElement, w: number, h: number, dpr: number) 
 // Estrelas que piscam (só opacidade, devagar); com "reduzir movimento" ficam paradas pelo CSS.
 const PISCANDO = (() => {
   const r = sorteio(77);
-  return Array.from({ length: 46 }, () => ({ x: r() * 100, y: r() * 100, t: 0.7 + r() * 0.9, d: r() * 5, s: 2.2 + r() * 3 }));
+  return Array.from({ length: 150 }, () => ({ x: r() * 100, y: r() * 100, t: 0.7 + r() * 0.9, d: r() * 6, s: 2 + r() * 3.5 }));
 })();
+
+type Cadente = { k: number; x: number; y: number; a: number };
 
 export function Ceu({ className }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [cadente, setCadente] = useState<Cadente | null>(null);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -141,14 +149,43 @@ export function Ceu({ className }: { className?: string }) {
     return () => { window.clearTimeout(espera); obs.disconnect(); };
   }, []);
 
+  // Estrela cadente: uma risca de luz cruza o céu de vez em quando (a primeira logo no começo, depois a cada 18 a 32 s).
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let k = 0;
+    const ids: number[] = [];
+    const agendar = (ms: number) => {
+      ids.push(window.setTimeout(() => {
+        setCadente({ k: ++k, x: 8 + Math.random() * 55, y: 4 + Math.random() * 38, a: 16 + Math.random() * 24 });
+        ids.push(window.setTimeout(() => setCadente(null), 1500));
+        agendar(18000 + Math.random() * 14000);
+      }, ms));
+    };
+    agendar(4500);
+    return () => ids.forEach((id) => window.clearTimeout(id));
+  }, []);
+
   return (
     <div aria-hidden className={className}>
       <canvas ref={ref} className="absolute inset-0 h-full w-full" />
       <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+        <defs>
+          {GRANDES.map((g, i) => (
+            <radialGradient key={i} id={`halo-grande-${i}`}>
+              <stop offset="0%" stopColor={`rgb(${g.cor.join(",")})`} stopOpacity="0.8" />
+              <stop offset="22%" stopColor={`rgb(${g.cor.join(",")})`} stopOpacity="0.25" />
+              <stop offset="100%" stopColor={`rgb(${g.cor.join(",")})`} stopOpacity="0" />
+            </radialGradient>
+          ))}
+        </defs>
         {PISCANDO.map((e, i) => (
           <circle key={i} className="ceu-estrela" cx={`${e.x}%`} cy={`${e.y}%`} r={e.t} fill="#fff" style={{ animationDelay: `${e.d}s`, animationDuration: `${e.s}s` }} />
         ))}
+        {GRANDES.map((g, i) => (
+          <circle key={`g${i}`} className="ceu-pulsa" cx={`${g.fx * 100}%`} cy={`${g.fy * 100}%`} r={30} fill={`url(#halo-grande-${i})`} style={{ animationDelay: `${g.d}s` }} />
+        ))}
       </svg>
+      {cadente && <div key={cadente.k} className="ceu-cadente" style={{ left: `${cadente.x}%`, top: `${cadente.y}%`, ["--ang" as string]: `${cadente.a}deg` }} />}
     </div>
   );
 }
