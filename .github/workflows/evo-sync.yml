@@ -6,7 +6,9 @@ name: Atualizar indicadores do EVO
 
 on:
   schedule:
-    - cron: "0 5 * * *"
+    # 03:37 UTC = 00:37 em Brasília: depois que as unidades fecham, com o dia anterior completo. Minuto "quebrado" porque o GitHub
+    # atrasa muito as tarefas marcadas no começo da hora (em novembro/2026 a das 05:00 UTC chegou a começar 6 a 8 horas depois).
+    - cron: "37 3 * * *"
   workflow_dispatch:
     inputs:
       months:
