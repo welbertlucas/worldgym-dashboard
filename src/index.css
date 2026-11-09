@@ -106,13 +106,30 @@
   }
 }
 
-/* Tela de login: estrelas piscam devagar; o globo sobe uma vez ao abrir e depois flutua de leve. */
-.ceu-estrela { animation: ceu-pisca 4s ease-in-out infinite alternate; }
-@keyframes ceu-pisca { from { opacity: 0.25; } to { opacity: 1; } }
+/* Tela de login: estrelas piscam e brilham; o globo sobe uma vez ao abrir e depois flutua e balança. */
+.ceu-estrela { animation: ceu-pisca 3.2s ease-in-out infinite alternate; }
+.ceu-estrela-forte { animation-duration: 2.4s; }
+@keyframes ceu-pisca { from { opacity: 0.4; } to { opacity: 1; } }
 .globo-sobe { animation: globo-sobe 1.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes globo-sobe { from { opacity: 0; transform: translateY(18%); } to { opacity: 1; transform: none; } }
-.globo-flutua { animation: globo-flutua 7s ease-in-out 1.6s infinite alternate; }
-@keyframes globo-flutua { from { transform: translateY(0); } to { transform: translateY(-2.5%); } }
+.globo-flutua { animation: globo-flutua 6s ease-in-out 1.6s infinite alternate; }
+@keyframes globo-flutua { from { transform: translateY(2%) rotate(-3deg); } to { transform: translateY(-5.5%) rotate(3deg); } }
 @media (prefers-reduced-motion: reduce) {
   .ceu-estrela, .globo-sobe, .globo-flutua { animation: none; }
+}
+
+/* Login: o preenchimento automático do navegador pinta o fundo do campo (azulado, de cantos retos). Aqui ele segue a caixa arredondada e a cor dela. */
+.login-campo input:-webkit-autofill,
+.login-campo input:-webkit-autofill:hover,
+.login-campo input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #F7F8F9 inset;
+  -webkit-text-fill-color: #000;
+  caret-color: #000;
+  border-radius: 0;
+  transition: background-color 9999s ease-out;
+}
+.login-campo:focus-within input:-webkit-autofill,
+.login-campo:focus-within input:-webkit-autofill:hover,
+.login-campo:focus-within input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset;
 }

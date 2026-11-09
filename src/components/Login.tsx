@@ -3,10 +3,14 @@ import { Globo } from "@/components/Globo";
 import { entrar, loginComEmail } from "@/lib/auth";
 
 // Estrelas fixas (posições sorteadas uma vez, com semente, para não mudarem a cada visita).
+// Cerca de uma em cada seis é uma estrela forte: maior, com halo e piscando mais.
 const ESTRELAS = (() => {
   let s = 7;
   const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  return Array.from({ length: 140 }, () => ({ x: r() * 100, y: r() * 100, t: r() * 1.3 + 0.3, d: r() * 4 }));
+  return Array.from({ length: 150 }, () => {
+    const forte = r() < 0.17;
+    return { x: r() * 100, y: r() * 100, t: forte ? r() * 1.2 + 1.7 : r() * 1.3 + 0.6, d: r() * 4, forte };
+  });
 })();
 
 export function Login({ onEntrou }: { onEntrou: () => void }) {
@@ -29,13 +33,23 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
   };
 
   return (
-    <main className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,1.2fr)_minmax(380px,1fr)]">
+    <main className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,1fr)_28rem]">
       {/* Céu: noite avermelhada, com o horizonte aceso no vermelho da marca. O globo do logo da World Gym ocupa o centro. */}
       <section className="relative isolate flex min-h-[46vh] flex-col overflow-hidden bg-[#360812] p-[clamp(1.75rem,4vw,3.25rem)] text-white">
         <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(130%_90%_at_30%_115%,#E62A2A_0%,#B8151F_24%,#82101E_48%,#550C18_74%,#360812_100%)]" />
         <svg aria-hidden className="absolute inset-0 -z-10 h-full w-full" preserveAspectRatio="none">
+          <defs>
+            <radialGradient id="halo-estrela">
+              <stop offset="0%" stopColor="#fff" stopOpacity="0.9" />
+              <stop offset="35%" stopColor="#FFE1DA" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+          </defs>
           {ESTRELAS.map((e, i) => (
-            <circle key={i} className="ceu-estrela" cx={`${e.x}%`} cy={`${e.y}%`} r={e.t} fill="#fff" style={{ animationDelay: `${e.d}s` }} />
+            <g key={i} className={e.forte ? "ceu-estrela ceu-estrela-forte" : "ceu-estrela"} style={{ animationDelay: `${e.d}s` }}>
+              <circle cx={`${e.x}%`} cy={`${e.y}%`} r={e.t * (e.forte ? 6 : 3.2)} fill="url(#halo-estrela)" />
+              <circle cx={`${e.x}%`} cy={`${e.y}%`} r={e.t} fill="#fff" />
+            </g>
           ))}
         </svg>
         <h1 className="font-['Cinzel'] uppercase leading-none">
@@ -48,7 +62,7 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
       </section>
 
       {/* Painel de entrada no mesmo padrão do gerador de escalas da World Gym. */}
-      <section className="flex flex-col items-center justify-center px-[clamp(1.5rem,5vw,4.5rem)] py-10">
+      <section className="flex flex-col items-center justify-center px-6 py-10 lg:px-8">
         <form onSubmit={enviar} className="my-auto flex w-full max-w-[380px] flex-col">
           <h2 className="mb-2 text-balance font-['Montserrat'] text-[clamp(1.75rem,2.4vw,2.1rem)] font-extrabold leading-[1.2] tracking-[-0.025em] text-black">
             Entrar no Atlas
@@ -58,7 +72,7 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
           {comEmail && (
             <label className="mb-4 flex flex-col gap-2">
               <span className="text-[0.88rem] font-semibold text-black">E-mail</span>
-              <span className="flex items-stretch rounded-[14px] border-[1.5px] border-[#DCDFE3] bg-[#F7F8F9] transition-[border-color,box-shadow,background-color] duration-150 focus-within:border-[#C41230] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(196,18,48,0.13)]">
+              <span className="login-campo flex items-stretch overflow-hidden rounded-[14px] border-[1.5px] border-[#DCDFE3] bg-[#F7F8F9] transition-[border-color,box-shadow,background-color] duration-150 focus-within:border-[#C41230] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(196,18,48,0.13)]">
                 <input
                   type="email"
                   autoComplete="username"
@@ -73,7 +87,7 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
           )}
           <label className="flex flex-col gap-2">
             <span className="text-[0.88rem] font-semibold text-black">Senha de acesso</span>
-            <span className="flex items-stretch rounded-[14px] border-[1.5px] border-[#DCDFE3] bg-[#F7F8F9] transition-[border-color,box-shadow,background-color] duration-150 focus-within:border-[#C41230] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(196,18,48,0.13)]">
+            <span className="login-campo flex items-stretch overflow-hidden rounded-[14px] border-[1.5px] border-[#DCDFE3] bg-[#F7F8F9] transition-[border-color,box-shadow,background-color] duration-150 focus-within:border-[#C41230] focus-within:bg-white focus-within:shadow-[0_0_0_4px_rgba(196,18,48,0.13)]">
               <input
                 type={mostrar ? "text" : "password"}
                 autoComplete="current-password"
