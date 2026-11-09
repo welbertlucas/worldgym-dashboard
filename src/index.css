@@ -9,12 +9,12 @@
 
     --border: 222 16% 91%;
     --input: 222 14% 88%;
-    --ring: 4 90% 50%;
+    --ring: 350 83% 42%;
 
-    --primary: 4 90% 50%;
+    --primary: 350 83% 42%;
     --primary-foreground: 0 0% 100%;
-    /* Vermelho da marca para TEXTO pequeno (contraste ≥ 4,5:1); o --primary segue para fundos e ícones. */
-    --primary-ink: 4 85% 44%;
+    /* Vermelho do logo World Gym (#C41230). Versão mais escura para TEXTO pequeno (contraste ≥ 4,5:1); o --primary segue para fundos e ícones. */
+    --primary-ink: 350 83% 38%;
 
     --secondary: 220 25% 97%;
     --secondary-foreground: 222 25% 18%;

@@ -1,8 +1,7 @@
-import globo from "@/assets/globo-wg.png";
-
 // O globo do logo da World Gym (recortado do arquivo oficial) montado como uma esfera:
 // corpo vermelho com luz vindo do alto à esquerda, desenho do logo em branco que some no lado da sombra,
 // brilho de reflexo, halo e um anel celeste (o céu que Atlas sustenta) passando por trás e pela frente.
+const globo = `${import.meta.env.BASE_URL}globo-wg.png`;
 const ANEL = "absolute left-1/2 top-1/2 h-[30%] w-[132%] -translate-x-1/2 -translate-y-1/2 -rotate-[16deg] rounded-[50%] border-[1.5px] border-white/45";
 
 export function Globo({ className }: { className?: string }) {

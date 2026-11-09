@@ -61,10 +61,10 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
     <div className={cn("flex items-center gap-3 px-4 h-16 shrink-0", collapsed && "justify-center px-0")}>
       <img src={wgLogo} alt="World Gym" className="h-9 w-auto shrink-0" />
       {!collapsed && (
-        <div className="min-w-0 leading-tight">
-          <p className="text-sm font-semibold text-foreground truncate">Atlas</p>
-          <p className="text-xs text-muted-foreground truncate">World Gym Brasil</p>
-        </div>
+        <p className="min-w-0 font-['Cinzel'] uppercase leading-none text-foreground">
+          <span className="block text-[0.6rem] font-medium tracking-[0.38em] text-muted-foreground">World Gym</span>
+          <span className="mt-1 block text-xl font-bold tracking-[0.12em]">Atlas</span>
+        </p>
       )}
     </div>
   );

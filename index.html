@@ -18,7 +18,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Montserrat:wght@700;800&family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Abertura antes do app carregar (o React troca pelo componente Abertura, que é igual). -->
+      <div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;color:#fff;background:radial-gradient(130% 90% at 30% 115%,#E62A2A 0%,#B8151F 24%,#82101E 48%,#550C18 74%,#360812 100%);font-family:Cinzel,serif;text-transform:uppercase;line-height:1;text-align:center">
+        <img src="%BASE_URL%globo-wg.png" alt="" width="140" height="140" style="opacity:.95" />
+        <p style="margin:0"><span style="display:block;font-size:13px;font-weight:500;letter-spacing:.42em;color:rgba(255,255,255,.8)">World Gym</span><span style="display:block;margin-top:8px;font-size:34px;font-weight:700;letter-spacing:.12em">Atlas</span></p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

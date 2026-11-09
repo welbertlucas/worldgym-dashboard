@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Login } from "@/components/Login";
+import { Abertura } from "@/components/Abertura";
 import Index from "@/pages/Index";
 import { AUTH_REQUIRED_EVENT, precisaDeLogin } from "@/lib/auth";
 
@@ -16,7 +17,7 @@ export default function App() {
     return () => window.removeEventListener(AUTH_REQUIRED_EVENT, pedir);
   }, []);
 
-  if (estado === "verificando") return null;
+  if (estado === "verificando") return <Abertura />;
   if (estado === "login") return <Login onEntrou={() => setEstado("pronto")} />;
   return (
     <>
