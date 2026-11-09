@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import type { UnitData } from "@/data/dashboardData";
 
@@ -32,6 +33,9 @@ export function horarioDePico(media: number[]): { sem: number; hora: number; med
 
 /** Entradas na catraca por dia da semana e hora (média por dia), como no Insights; mais as entradas de cada dia do mês. */
 export function MapaCalorEntradas({ total, month, monthLabel, partial, unitLabel }: { total: UnitData; month: string; monthLabel: string; partial: boolean; unitLabel: string }) {
+  // Dia (barra) e célula do mapa sob o mouse ou o dedo: o valor aparece na hora, sem depender da dica do navegador.
+  const [dia, setDia] = useState<number | null>(null);
+  const [cel, setCel] = useState<number | null>(null);
   const subtitle = <>{unitLabel} • {monthLabel}{partial && " (mês em andamento: até hoje)"}</>;
   const calor = total.calor;
   const porDia = total.entradasDia ?? [];
@@ -80,8 +84,10 @@ export function MapaCalorEntradas({ total, month, monthLabel, partial, unitLabel
                   return (
                     <td
                       key={h}
-                      title={`${NOME_LONGO[d.sem]}, ${h}h às ${h + 1}h: ${dec(v)} entradas em média`}
-                      className={topo ? "h-7 rounded-[4px] ring-2 ring-primary ring-inset" : "h-7 rounded-[4px]"}
+                      onMouseEnter={() => setCel(d.sem * 24 + h)}
+                      onMouseLeave={() => setCel(null)}
+                      onClick={() => setCel(d.sem * 24 + h)}
+                      className={topo || cel === d.sem * 24 + h ? "h-7 cursor-default rounded-[4px] ring-2 ring-primary ring-inset" : "h-7 cursor-default rounded-[4px]"}
                       style={{ background: v > 0 ? `hsl(4 90% 50% / ${0.06 + i * 0.84})` : "hsl(var(--secondary))" }}
                     >
                       <span className="sr-only">{dec(v)}</span>
@@ -93,6 +99,11 @@ export function MapaCalorEntradas({ total, month, monthLabel, partial, unitLabel
           </tbody>
         </table>
       </div>
+      <p className="mt-2 min-h-[1.25rem] text-sm text-foreground" aria-live="polite">
+        {cel !== null
+          ? <><span className="font-semibold capitalize">{NOME_LONGO[Math.floor(cel / 24)]}</span>, {cel % 24}h às {cel % 24 + 1}h: <span className="font-semibold tabular-nums">{dec(media[cel])}</span> entradas em média</>
+          : <span className="text-muted-foreground">Passe o mouse ou toque num quadrado para ver a média daquela hora.</span>}
+      </p>
       <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground" aria-hidden>
         <span>menos</span>
         <span className="h-2 w-24 rounded-full" style={{ background: "linear-gradient(to right, hsl(4 90% 50% / 0.06), hsl(4 90% 50% / 0.9))" }} />
@@ -102,10 +113,22 @@ export function MapaCalorEntradas({ total, month, monthLabel, partial, unitLabel
       {porDia.length > 0 && (
         <div className="mt-6">
           <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Entradas por dia do mês</h4>
-          <div className="flex h-20 items-end gap-[2px]" role="img" aria-label={`Entradas por dia; o maior dia teve ${int(maiorDia)}`}>
+          <p className="mb-2 min-h-[1.25rem] text-sm text-foreground" aria-live="polite">
+            {(() => {
+              const k = dia ?? porDia.indexOf(maiorDia);
+              const sem = new Date(Date.UTC(y, m - 1, k + 1)).getUTCDay();
+              return <>{dia === null && <span className="text-muted-foreground">Maior dia: </span>}<span className="font-semibold">{k + 1}/{String(m).padStart(2, "0")}</span> ({NOME_LONGO[sem]}): <span className="font-semibold tabular-nums">{int(porDia[k])}</span> entradas</>;
+            })()}
+          </p>
+          <div className="flex h-20 items-stretch gap-[2px]" role="img" aria-label={`Entradas por dia; o maior dia teve ${int(maiorDia)}`} onMouseLeave={() => setDia(null)}>
             {porDia.map((n, k) => {
               const sem = new Date(Date.UTC(y, m - 1, k + 1)).getUTCDay();
-              return <div key={k} title={`${k + 1}/${String(m).padStart(2, "0")} (${NOME_LONGO[sem]}): ${int(n)} entradas`} className={sem === 0 || sem === 6 ? "flex-1 rounded-t-sm bg-foreground/25" : "flex-1 rounded-t-sm bg-foreground/70"} style={{ height: `${Math.max((n / maiorDia) * 100, n ? 2 : 0)}%` }} />;
+              const cor = dia === k ? "bg-primary" : sem === 0 || sem === 6 ? "bg-foreground/25" : "bg-foreground/70";
+              return (
+                <div key={k} className="flex flex-1 cursor-default items-end" onMouseEnter={() => setDia(k)} onClick={() => setDia(k)}>
+                  <div className={`w-full rounded-t-sm ${cor}`} style={{ height: `${Math.max((n / maiorDia) * 100, n ? 2 : 0)}%` }} />
+                </div>
+              );
             })}
           </div>
           <div className="mt-1 flex justify-between text-[11px] text-muted-foreground tabular-nums"><span>1</span><span>{porDia.length}</span></div>
@@ -113,7 +136,7 @@ export function MapaCalorEntradas({ total, month, monthLabel, partial, unitLabel
       )}
       <p className="mt-4 text-xs text-muted-foreground">
         Entradas liberadas na catraca (reconhecimento facial, teclado, app ou liberação manual); saídas e acessos bloqueados ficam de fora.
-        Cada célula é a média de entradas naquela hora em um dia daquele tipo no mês. Fim de semana em cinza no gráfico por dia.
+        Cada célula é a média de entradas naquela hora em um dia daquele tipo no mês. Fim de semana em cinza no gráfico por dia; passe o mouse ou toque numa barra para ver o dia.
         Idas por aluno = entradas ÷ pessoas diferentes que vieram{unitLabel === "Rede" ? " (na rede, quem treina em duas unidades conta nas duas)" : ""}. Só contagens: ninguém é identificado.
       </p>
     </ChartCard>
