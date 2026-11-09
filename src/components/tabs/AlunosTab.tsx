@@ -2,7 +2,6 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
 import { clientesSpecs } from "@/components/kpi/tabSpecs";
 import { FluxoClientesChart } from "@/components/clientes/FluxoClientesChart";
-import { TreinosCard } from "@/components/clientes/TreinosCard";
 import { PerfilAlunosCard } from "@/components/clientes/PerfilAlunosCard";
 import { AcessosCard } from "@/components/clientes/AcessosCard";
 import { SaldoHeatmap } from "@/components/clientes/SaldoHeatmap";
@@ -12,7 +11,7 @@ import { formatMonthLong, isPartialMonth } from "@/data/periods";
 
 interface Props { ctx: KpiContext; month: string; unit: string | null }
 
-/** Base de alunos: quantos são (base, entradas e saídas), quem são (perfil) e como frequentam (check-in e treinos). Tudo vem do EVO. */
+/** Base de alunos: quantos são (base, entradas e saídas), quem são (perfil) e como frequentam (check-in). Tudo vem do EVO. */
 export function AlunosTab({ ctx, month, unit }: Props) {
   const total = ctx.cur.total;
   const monthLabel = formatMonthLong(month);
@@ -35,10 +34,9 @@ export function AlunosTab({ ctx, month, unit }: Props) {
         <PerfilAlunosCard total={total} monthLabel={monthLabel} unit={unit} />
       </Secao>
 
-      <Secao id="al-frequencia" titulo="Frequência" descricao="Em que dias e horários os alunos treinam, quando vieram pela última vez e como está o treino deles. Quem some costuma cancelar depois.">
+      <Secao id="al-frequencia" titulo="Frequência" descricao="Em que dias e horários os alunos treinam e quando vieram pela última vez. Quem some costuma cancelar depois.">
         <MapaCalorEntradas total={total} month={month} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
         <AcessosCard total={total} month={month} monthLabel={monthLabel} unit={unit} />
-        <TreinosCard total={total} month={month} monthLabel={monthLabel} unit={unit} />
       </Secao>
     </div>
   );
