@@ -30,8 +30,12 @@ void main() {
     vec3 n = vec3(q, z);
     float c = cos(uYaw), s = sin(uYaw);
     vec3 m = vec3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c);
-    float ink = 0.0;
-    if (m.z > 0.0 && length(m.xy) < 0.965) ink = texture2D(uTex, vec2(m.x * 0.5 + 0.5, 0.5 - m.y * 0.5)).a;
+    // O desenho do logo só existe até 95% do raio (depois vem o anel de contorno, que não usamos). Para cobrir a esfera até a
+    // borda, a parte de fora (a partir de 70%) é comprimida de leve; o que gira para além da borda usa o espelho do que está na frente.
+    float rho = length(m.xy);
+    vec2 dir = rho > 0.0001 ? m.xy / rho : vec2(0.0);
+    float t = rho < 0.7 ? rho : 0.7 + (rho - 0.7) * 0.8;
+    float ink = texture2D(uTex, vec2(dir.x * t * 0.5 + 0.5, 0.5 - dir.y * t * 0.5)).a;
     float diff = max(dot(n, L), 0.0);
     vec3 ocean = vec3(0.74, 0.08, 0.12) * (0.16 + 0.95 * diff);
     vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
