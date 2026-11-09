@@ -127,9 +127,9 @@ describe("produtos e serviços mais vendidos", () => {
 });
 
 import { TaxasCobradas } from "@/components/ContratosVendidos";
-import { somarFamiliasVendidas, reagruparFamilias, reagruparProdutos, nomeDiaria, incluirWg90 } from "@/data/dashboardData";
+import { somarFamiliasVendidas, reagruparFamilias, reagruparProdutos, incluirWg90 } from "@/data/dashboardData";
 // @ts-expect-error módulo JS do servidor
-import { ehTaxa, familiaPlano, resumirVendas, nomeDiaria as nomeDiariaServidor } from "../../../server/vendas.js";
+import { ehTaxa, familiaPlano, resumirVendas } from "../../../server/vendas.js";
 
 describe("planos por família e taxas fora dos produtos", () => {
   it("agrupa os nomes de plano de cada unidade pelo tipo do plano", () => {
@@ -178,19 +178,14 @@ describe("planos por família e taxas fora dos produtos", () => {
     expect(h).toContain("60%");
   });
   it("agrupa diárias (separando as das unidades PRO), brinquedoteca e personal na lista de produtos", () => {
-    expect(nomeDiaria("Gama")).toBe("Diária");
-    expect(nomeDiaria("Salvador Pro-BA")).toBe("Diária WG PRO Salvador");
-    expect(nomeDiaria("Goiânia Pro-GO")).toBe("Diária WG PRO Goiânia");
-    expect(nomeDiaria("Águas Claras Pro")).toBe("Diária WG PRO Águas Claras");
-    expect(nomeDiariaServidor("Águas Claras Pro")).toBe("Diária WG PRO Águas Claras");
-    expect(reagruparProdutos([["DIARIA R$ 30,00", 10, 300], ["DIARIA KIDS WG X | R$ 10,00", 5, 50], ["DIÁRIA NATAÇÃO", 1, 45], ["COQUETELEIRA", 2, 60]], "Santa Maria"))
+    expect(reagruparProdutos([["DIARIA R$ 30,00", 10, 300], ["DIARIA KIDS WG X | R$ 10,00", 5, 50], ["DIÁRIA NATAÇÃO", 1, 45], ["COQUETELEIRA", 2, 60]]))
       .toEqual([["Diária", 11, 345], ["COQUETELEIRA", 2, 60], ["Brinquedoteca", 5, 50]]);
-    expect(reagruparProdutos([["WG PRO DIÁRIA | R$70,00", 21, 1470], ["WG PRO DIÁRIA ALUNO(A) | R$35,00", 9, 315]], "Águas Claras Pro")).toEqual([["Diária WG PRO Águas Claras", 30, 1785]]);
+    expect(reagruparProdutos([["WG PRO DIÁRIA | R$70,00", 21, 1470], ["Diária WG PRO Salvador", 9, 630]])).toEqual([["Diária", 30, 2100]]);
     const venda = (item: string, v: number, o: Record<string, unknown> = {}) => ({ idBranch: 5, saleItens: [{ item, saleValue: v, quantity: 1, ...o }] });
     const u = Object.values(resumirVendas([venda("DIARIA 30,00", 30), venda("11 - WG DIÁRIA 30,00", 30, { idMembership: 9 }), venda("DIARIA KIDS | R$ 10", 10), venda("PERSONAL MENSAL", 100, { idMembership: 8 }), venda("COQUETELEIRA", 25),
       venda("PRO+", 277), venda("WG PRO+ MENSAL", 300, { idMembership: 7 }), venda("WG PLUS 2X", 40, { idMembership: 6 })]))[0] as { produtosVendidos: unknown[] };
     expect(u.produtosVendidos).toEqual([["Pro+", 2, 577], ["Taxa de personal", 1, 100], ["Diária", 2, 60], ["WG Plus", 1, 40], ["COQUETELEIRA", 1, 25], ["Brinquedoteca", 1, 10]]);
-    expect(reagruparProdutos([["PRO+", 9, 2493], ["WG PLUS", 2, 80]], "Águas Claras Pro")).toEqual([["Pro+", 9, 2493], ["WG Plus", 2, 80]]);
+    expect(reagruparProdutos([["PRO+", 9, 2493], ["WG PLUS", 2, 80]])).toEqual([["Pro+", 9, 2493], ["WG Plus", 2, 80]]);
   });
   it("separa multas, taxas e ajustes dos produtos", () => {
     expect(ehTaxa("MULTA DE CANCELAMENTO DE CONTRATO")).toBe(true);

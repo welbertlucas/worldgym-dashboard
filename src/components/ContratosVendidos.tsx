@@ -159,7 +159,7 @@ export function ProdutosVendidos({ total, monthLabel, partial, unitLabel }: { to
   return (
     <ChartCard title="Produtos e serviços mais vendidos" subtitle={subtitle}>
       <RankingPorValor lista={lista} rotulo="Produtos e serviços que mais faturaram" />
-      <p className="mt-4 text-xs text-muted-foreground">Os 5 itens que mais faturaram no mês. Pro+, WG Plus, diárias, brinquedoteca e taxa de personal aparecem somados, cada um na sua linha (avulsas e vendidas como contrato, como nos cartões); nas unidades PRO a diária aparece separada, com o nome da unidade. Os demais itens são vendas fora de contrato, pelo nome no EVO. Multas, taxas e ajustes de cobrança ficam no Financeiro.</p>
+      <p className="mt-4 text-xs text-muted-foreground">Os 5 itens que mais faturaram no mês. Pro+, WG Plus, diárias, brinquedoteca e taxa de personal aparecem somados, cada um na sua linha (avulsas e vendidas como contrato, como nos cartões); as diárias de todas as unidades, inclusive as PRO, ficam numa linha só. Os demais itens são vendas fora de contrato, pelo nome no EVO. Multas, taxas e ajustes de cobrança ficam no Financeiro.</p>
     </ChartCard>
   );
 }
