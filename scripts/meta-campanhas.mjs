@@ -4,7 +4,12 @@ import { campanhasDaRede } from "../server/meta.js";
 import { saveCampanhas } from "../server/store.js";
 
 const tokens = { DFGO: process.env.META_TOKEN_DFGO, BR01: process.env.META_TOKEN_BR01 };
-if (!tokens.DFGO && !tokens.BR01) throw new Error("Nenhum token do Meta configurado (META_TOKEN_DFGO / META_TOKEN_BR01).");
+// Sem nenhuma chave cadastrada a rotina fica desligada e termina sem erro (em vez de falhar e mandar e-mail todo dia);
+// cadastradas META_TOKEN_DFGO / META_TOKEN_BR01 nos segredos do GitHub, ela passa a gravar sozinha.
+if (!tokens.DFGO && !tokens.BR01) {
+  console.log("Campanhas do Meta desligadas: nenhuma chave cadastrada (META_TOKEN_DFGO / META_TOKEN_BR01). A foto anterior foi mantida.");
+  process.exit(0);
+}
 const { campanhas, erros } = await campanhasDaRede(tokens);
 for (const e of erros) console.log(`ERRO ${e.conta}: ${e.erro}`);
 const contasLidas = new Set(campanhas.map((c) => c.conta)).size;
