@@ -382,7 +382,7 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
 <table role="presentation" width="100%" style="max-width:600px;border-collapse:collapse">
 <tr><td style="padding:0;font-size:0;line-height:0"><img src="${esc(banner)}" width="600" alt="World Gym" style="display:block;width:100%;max-width:600px;height:auto;border-radius:30px 30px 0 0"></td></tr>
 <tr><td class="miolo" style="background:#ffffff;padding:30px 48px 42px;border-radius:0 0 18px 18px">
-<p style="${P}">Bom dia${primeiro ? ", " + primeiro : ""}! Este é o resumo ${quem}, com os números de ontem e do mês.${r.temRef ? " As comparações são sempre com o mesmo dia do mês passado." : ""}</p>
+<p style="${P}">Bom dia${primeiro ? ", " + primeiro : ""}! Este é o resumo ${quem}, com os números de ontem e do mês.</p>
 ${avisos}
 <p style="margin:26px 0 0;padding:12px 0;border-top:1px solid ${TRACO};border-bottom:1px solid ${TRACO};text-align:center;font-family:${sans};font-size:14px;letter-spacing:.6px;color:${SUAVE}">${data}</p>
 ${caixa}

@@ -69,8 +69,8 @@ describe("resumo diário", () => {
     const usr = { papel: "unidades", unidades: ["<b>X</b>", "Y"], nome: "Zé <i>" };
     const html = renderizarEmail(montarResumo(m, usr, "2026-11-10", refX), usr);
     expect(html).not.toContain("<b>X</b>");
-    expect(html).toContain("mesmo dia do mês passado");
-    for (const t of ["No resumo de hoje", "O faturamento do mês soma", "Vendas</h2>", "vendas online", "receitas complementares", "contratos vendidos", "conversão média", "Retenção</h2>", "cancelamentos", "O churn do mês está em", "renovados", "alunos adimplentes", "dos pagantes", "Contratos mais vendidos</h2>", "Satisfação</h2>", "O NPS do mês está em", "pesquisas", "neutros", "Alertas</h2>", "pedindo atenção", "Este é o resumo da World Gym", "sócio ou gestor de mais de uma unidade", "Ver as pesquisas no WeHelp", "https://app.wehelpsoftware.com", "do mês passado"]) expect(html).toContain(t);
+    expect(html).not.toContain("As comparações são sempre"); // frase tirada da saudação a pedido do dono
+    for (const t of ["No resumo de hoje", "O faturamento do mês soma", "Vendas</h2>", "vendas online", "receitas complementares", "contratos vendidos", "conversão média", "Retenção</h2>", "cancelamentos", "O churn do mês está em", "renovados", "alunos adimplentes", "dos pagantes", "Contratos mais vendidos</h2>", "Satisfação</h2>", "O NPS do mês está em", "pesquisas", "neutros", "Alertas</h2>", "pedindo atenção", "Este é o resumo da World Gym", "sócio ou gestor de mais de uma unidade", "Ver as pesquisas no WeHelp", "https://app.wehelpsoftware.com"]) expect(html).toContain(t);
     const sem = renderizarEmail(montarResumo(m, usr, "2026-11-10", null), usr);
     expect(sem).not.toMatch(/(acima|abaixo)<\/span> do mês passado/);
     expect(sem).toContain("aparece quando");
