@@ -49,12 +49,13 @@ export function campanhaDoMeta(c, conta) {
     gasto7d: Number(i.spend || 0),
     impressoes7d: Number(i.impressions || 0),
     cliques7d: Number(i.clicks || 0),
+    frequencia7d: Number(i.frequency || 0), // vezes, em média, que a mesma pessoa viu o anúncio na semana
     leads7d: leadsDe(i.actions),
     conversas7d: soma(i.actions, CONVERSA),
   };
 }
 
-const CAMPOS = "name,objective,effective_status,start_time,stop_time,daily_budget,insights.date_preset(last_7d){spend,impressions,clicks,actions}";
+const CAMPOS = "name,objective,effective_status,start_time,stop_time,daily_budget,insights.date_preset(last_7d){spend,impressions,clicks,frequency,actions}";
 
 async function graph(url, token) {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });

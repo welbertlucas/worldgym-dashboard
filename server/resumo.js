@@ -153,7 +153,9 @@ export function resumirMetas(metas, ym, usuario, total, atuais) {
 
 // ---------- o resumo de cada usuário ----------
 /** `ref` = foto do mesmo dia do mês passado (ou null). */
-export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas = null, ontem = null) {
+/** `alertasMeta`: alertas do tráfego pago (server/alertasMeta.js) da rede toda; cada pessoa recebe só os das unidades dela
+ *  (e os da conta Institucional, se for dono ou master). */
+export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas = null, ontem = null, alertasMeta = []) {
   const ateDia = diaAnterior(hoje);
   const ym = ateDia.slice(0, 7); // no dia 1º, o resumo é o fechamento do mês que acabou
   const mes = meses.find((x) => x.month === ym);
@@ -174,6 +176,7 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   const multi = atuais.length > 1;
   const alertas = alertasDe(total, totalRef, multi ? (usuario.papel === "unidades" ? "Suas unidades" : "A rede") : atuais[0].nome);
   if (multi) for (const u of atuais) alertas.push(...alertasDe({ ...u, renovacao: taxaRenovacao(u.aVencer, u.naoRenovados), nps: npsDe(u) }, refs.find((r) => r.nome === u.nome) ?? null, u.nome));
+  alertas.push(...alertasMeta.filter((a) => nomes.has(a.quem) || (usuario.papel !== "unidades" && a.quem === "Institucional")));
   const linhas = atuais.map((x) => ({ nome: x.nome, recebimento: x.recebimento, faturamento: x.faturamento, inadimplenciaPerc: pctInad(x), ativos: x.ativos, aVencer: x.aVencer, cancelados: x.cancelados, novosContratos: x.novosContratos, nps: npsDe(x) })).sort((a, b) => b.faturamento - a.faturamento);
   // No dia 1º, o "dia" é o mês inteiro (base zero); nos outros, precisa da foto de anteontem.
   const ontemDoUsuario = ontem ? Object.entries(ontem.units ?? {}).filter(([n]) => nomes.has(n)).map(([nome, v]) => ({ nome, ...v })) : [];

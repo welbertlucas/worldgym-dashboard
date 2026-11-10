@@ -3,6 +3,7 @@ import { Select } from "@/components/ui/select";
 import { SectionTitle } from "@/components/SectionTitle";
 import { CampanhasNoAr } from "@/components/CampanhasNoAr";
 import { RetornoMeta } from "@/components/RetornoMeta";
+import { AlertasMeta } from "@/components/AlertasMeta";
 import { INSTITUCIONAL } from "@/data/campanhas";
 import { unidadesProprias } from "@/lib/auth";
 import { getAvailableMonths, getAvailableUnits } from "@/data/dashboardData";
@@ -19,7 +20,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month }: { initialUnit
   return (
     <div className="space-y-6">
       <div>
-        <SectionTitle hint="Quanto se investiu no Meta no mês, quanto custou cada aluno (CAC) e o retorno (ROI); embaixo, as campanhas que estão veiculando. A conta Institucional fica separada das unidades">Tráfego pago</SectionTitle>
+        <SectionTitle hint="Alertas de melhoria das campanhas; quanto se investiu no Meta no mês, quanto custou cada aluno (CAC) e o retorno (ROI); embaixo, as campanhas que estão veiculando. A conta Institucional fica separada das unidades">Tráfego pago</SectionTitle>
         <div className="flex flex-wrap gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Unidade
@@ -37,6 +38,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month }: { initialUnit
           </label>
         </div>
       </div>
+      <AlertasMeta unit={unit} />
       <RetornoMeta unit={unit} month={mes} />
       <CampanhasNoAr unit={unit} />
     </div>

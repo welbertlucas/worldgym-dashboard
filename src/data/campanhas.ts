@@ -1,4 +1,5 @@
 import { authFetch, API_BASE } from "@/lib/auth";
+import { ORIGEM_META } from "../../server/alertasMeta.js";
 
 const URL_CAMPANHAS = `${API_BASE}/campanhas`;
 
@@ -15,6 +16,8 @@ export interface Campanha {
   gasto7d: number;
   impressoes7d: number;
   cliques7d: number;
+  /** Vezes, em média, que a mesma pessoa viu o anúncio na semana (fotos antigas não têm). */
+  frequencia7d?: number;
   leads7d: number;
   conversas7d: number;
 }
@@ -66,8 +69,7 @@ export const custoPorContato = (c: Campanha): number | null => {
   return n > 0 ? c.gasto7d / n : null;
 };
 
-/** Origem do cadastro no EVO que conta como vinda do Meta (Instagram, Facebook, anúncio pago). */
-export const ORIGEM_META = /insta|face|\bfb\b|\bmeta\b|an[uú]ncio|tr[aá]fego pago|patrocinad/i;
+export { ORIGEM_META };
 
 /** Oportunidades do mês com origem no Meta: [cadastradas, convertidas] e quais nomes de origem entraram na conta. */
 export function origemMeta(origens: Record<string, [number, number]> | undefined) {

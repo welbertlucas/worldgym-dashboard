@@ -5,7 +5,8 @@
 //       --para=teste@x.com (TESTE): manda os resumos para esse endereço, com "[TESTE]" no assunto; não grava foto nem o registro de enviados.
 // Todo dia, antes de enviar, grava a "foto" dos números até ontem (base da comparação com o mesmo dia do mês seguinte).
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { loadAll } from "../server/store.js";
+import { loadAll, loadCampanhas, loadMetaMeses } from "../server/store.js";
+import { alertasMeta } from "../server/alertasMeta.js";
 import { listarUsuarios } from "../server/acesso.js";
 import { hojeBR } from "../server/evo.js";
 import { lerMetasPlanilha } from "../server/metas.js";
@@ -37,6 +38,15 @@ if (!previa && !teste && mes) {
 let metas = null; // null = não deu para ler: o e-mail trata como meta não cadastrada
 try { metas = await lerMetasPlanilha(); console.log(`metas lidas: ${metas.length}`); } catch (e) { console.log(`metas indisponíveis: ${e.message}`); }
 
+// Alertas do tráfego pago (Meta): campanhas da foto do dia e unidades no mês, cruzadas com os alunos do EVO.
+let alertasDoMeta = [];
+try {
+  const [foto, metaMeses] = await Promise.all([loadCampanhas(), loadMetaMeses()]);
+  const ym = ateDia.slice(0, 7), [a, m] = ym.split("-").map(Number), ant = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`;
+  alertasDoMeta = alertasMeta({ campanhas: foto?.campanhas ?? [], metaMes: metaMeses?.[ym], metaAnterior: metaMeses?.[ant], evoMes: mes, evoAnterior: meses.find((x) => x.month === ant), hoje });
+  console.log(`alertas do Meta: ${alertasDoMeta.length}`);
+} catch (e) { console.log(`alertas do Meta indisponíveis: ${e.message}`); }
+
 const asset = (nome) => new URL(`../server/assets/${nome}`, import.meta.url);
 const anexo = (arquivo, id) => ({ filename: arquivo, content: readFileSync(asset(arquivo)).toString("base64"), content_id: id });
 const anexos = previa ? null : [anexo("banner-resumo.png", "banner-atlas"), anexo("assinatura-logo.png", "assinatura-logo"), anexo("assinatura-selo.png", "assinatura-selo")];
@@ -60,7 +70,7 @@ try {
   for (const u of usuarios) {
     const email = String(u.email).toLowerCase();
     if (enviados.has(email)) { ja++; console.log(`já enviado hoje: ${u.email}`); continue; }
-    const r = montarResumo(meses, u, hoje, ref, metas, ontem);
+    const r = montarResumo(meses, u, hoje, ref, metas, ontem, alertasDoMeta);
     if (!r) { sem++; console.log(`sem dados: ${u.email}`); continue; }
     const html = renderizarEmail(r, u, { url: process.env.ATLAS_URL || undefined, urlWehelp: process.env.WEHELP_URL || undefined, contato: process.env.RESUMO_CONTATO || undefined, banner: previa ? "banner-resumo.png" : "cid:banner-atlas", assinatura: previa ? undefined : { logo: "cid:assinatura-logo", selo: "cid:assinatura-selo" } });
     try {
