@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error módulos JS do servidor
 import { parseMetas, situacaoMeta } from "../../../server/metas.js";
 // @ts-expect-error módulos JS do servidor
-import { valoresDoDia, montarResumo, renderizarEmail, totalizar, unidadesDoUsuario, alertasDe, mesmoDiaMesAnterior, diaAnterior, dadosDeHoje, fotoDe, assunto, textoPrevia, enviarEmail, chaveDoEnvio } from "../../../server/resumo.js";
+import { valoresDoDia, montarResumo, renderizarEmail, totalizar, unidadesDoUsuario, alertasDe, mesmoDiaMesAnterior, diaAnterior, dadosDeHoje, fotoDe, assunto, textoPrevia, enviarEmail, chaveDoEnvio, enviarSmtp, envioConfigurado, remetente, anexosSmtp } from "../../../server/resumo.js";
 
 const un = (name: string, o: any = {}) => ({ name, faturamento: 1000, recebimento: 800, vendasOnline: 600, diarias: 100, personal: 50, pagantes: 100, adimplentes: 90, inadimplentes: 10, oportunidades: 50, conversoes: 10, ativosIni: 110, contratosVendidos: [["Anual", 6, 3000], ["Mensal", 9, 1800], ["Semestral", 2, 1600], ["Trimestral", 1, 400]], ativosFim: 120, aVencer: 10, naoRenovados: 2, cancelados: 3, novosContratos: 7, npsPromotores: 8, npsDetratores: 2, npsRespostas: 10, ...o });
 const agora = "2026-11-10T04:00:00.000Z";
@@ -228,6 +228,33 @@ describe("resumo diário", () => {
     const c3: any[] = [];
     await expect(enviarEmail(msg, cfg([resp(500), resp(502), resp(503), resp(200)], [], c3))).rejects.toThrow("Resend HTTP 503");
     expect(c3).toHaveLength(3);
+  });
+  it("envio pelo Zoho: remetente da caixa, imagens embutidas, nova tentativa só em falha temporária", async () => {
+    const env = { SMTP_USUARIO: "lucas.lima@worldgymacademia.com.br", SMTP_SENHA: "x" };
+    expect(envioConfigurado(env)).toBe(true);
+    expect(envioConfigurado({ RESEND_API_KEY: "k" })).toBe(false);
+    expect(envioConfigurado({})).toBe(false);
+    expect(remetente(env)).toBe("Lucas | World Gym <lucas.lima@worldgymacademia.com.br>");
+    // o Zoho só aceita o endereço da própria conta: de RESUMO_REMETENTE fica só o nome
+    expect(remetente({ ...env, RESUMO_REMETENTE: "Outro Nome <onboarding@resend.dev>" })).toBe("Outro Nome <lucas.lima@worldgymacademia.com.br>");
+    expect(remetente({ ...env, RESUMO_REMETENTE: "onboarding@resend.dev" })).toBe("Lucas | World Gym <lucas.lima@worldgymacademia.com.br>");
+    expect(remetente({ RESUMO_REMETENTE: "Lucas | World Gym <a@b.c>" })).toBe("Lucas | World Gym <a@b.c>");
+    expect(anexosSmtp([{ filename: "b.png", content: "QUJD", content_id: "banner-atlas" }])).toEqual([{ filename: "b.png", content: "QUJD", encoding: "base64", cid: "banner-atlas" }]);
+
+    const msg = { para: "x@y.z", assunto: "s", html: "<p>", anexos: [{ filename: "b.png", content: "QUJD", content_id: "banner-atlas" }], chaveUnica: "resumo-diario/2026-11-09/x@y.z" };
+    const enviados: any[] = [];
+    const fila: any[] = [Object.assign(new Error("conexão caiu"), { code: "ECONNECTION" }), null];
+    const transportar = { sendMail: async (m: any) => { enviados.push(m); const x = fila.shift(); if (x) throw x; } };
+    expect(await enviarSmtp(msg, { env, transportar, dormir: async () => {} })).toEqual({ repetido: false });
+    expect(enviados).toHaveLength(2);
+    expect(enviados[0]).toMatchObject({ from: "Lucas | World Gym <lucas.lima@worldgymacademia.com.br>", to: "x@y.z", subject: "s", messageId: "<resumo-diario.2026-11-09.x.y.z@worldgymacademia.com.br>" });
+    expect(enviados[0].attachments[0].cid).toBe("banner-atlas");
+
+    // senha errada / SMTP não liberado no plano: desiste na hora
+    const c: any[] = [];
+    const recusa = { sendMail: async (m: any) => { c.push(m); throw Object.assign(new Error("535 Authentication Failed"), { code: "EAUTH", responseCode: 535 }); } };
+    await expect(enviarSmtp(msg, { env, transportar: recusa, dormir: async () => {} })).rejects.toThrow("Zoho SMTP");
+    expect(c).toHaveLength(1);
   });
   it("texto: variação escrita junto do mês, sem 'igual', 'nenhum contrato novo', um botão só e rodapé com motivo", () => {
     const usr = { papel: "unidades", unidades: ["Gama"], nome: "B" };

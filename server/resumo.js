@@ -410,9 +410,55 @@ export const chaveDoEnvio = (dia, email) => `resumo-diario/${dia}/${String(email
 
 const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
+/** Envio pela caixa do Zoho (SMTP) quando SMTP_USUARIO e SMTP_SENHA (senha de aplicativo) existem; senão, pelo Resend. */
+export const smtpConfigurado = (env = process.env) => Boolean(env.SMTP_USUARIO && env.SMTP_SENHA);
+export const envioConfigurado = (env = process.env) => smtpConfigurado(env) || Boolean(env.RESEND_API_KEY && env.RESUMO_REMETENTE);
+/** Remetente. No Zoho o endereço é sempre o da conta (o Zoho recusa outro); de RESUMO_REMETENTE só vale o nome. */
+export function remetente(env = process.env) {
+  if (!env.SMTP_USUARIO) return env.RESUMO_REMETENTE || "";
+  const nome = String(env.RESUMO_REMETENTE ?? "").match(/^\s*"?([^"<]+?)"?\s*</)?.[1] || "Lucas | World Gym";
+  return `${nome} <${env.SMTP_USUARIO}>`;
+}
+
+let transporte = null;
+async function transporteSmtp(env) {
+  if (!transporte) {
+    const { default: nodemailer } = await import("nodemailer");
+    transporte = nodemailer.createTransport({
+      host: env.SMTP_HOST || "smtp.zoho.com", port: Number(env.SMTP_PORTA || 465), secure: Number(env.SMTP_PORTA || 465) === 465,
+      auth: { user: env.SMTP_USUARIO, pass: env.SMTP_SENHA },
+    });
+  }
+  return transporte;
+}
+
+/** Anexos no formato do Resend ({ filename, content em base64, content_id }) -> formato do nodemailer (imagens embutidas por cid). */
+export const anexosSmtp = (anexos) => (anexos ?? []).map((a) => ({ filename: a.filename, content: a.content, encoding: "base64", ...(a.content_id ? { cid: a.content_id } : {}) }));
+
+/** Envia pelo Zoho (SMTP). Erro de senha/permissão (5xx do SMTP) não adianta repetir; queda de conexão e limite temporário (4xx), sim. */
+export async function enviarSmtp({ para, assunto: subject, html, anexos, chaveUnica }, { env = process.env, transportar, dormir = esperar, tentativas = 3 } = {}) {
+  const t = transportar ?? (await transporteSmtp(env));
+  const dominio = String(env.SMTP_USUARIO).split("@")[1] || "worldgymacademia.com.br";
+  const messageId = chaveUnica ? `<${chaveUnica.replace(/[^a-z0-9.-]/gi, ".")}@${dominio}>` : undefined;
+  let erro;
+  for (let i = 1; i <= tentativas; i++) {
+    try {
+      await t.sendMail({ from: remetente(env), to: para, subject, html, attachments: anexosSmtp(anexos), ...(messageId ? { messageId } : {}) });
+      return { repetido: false };
+    } catch (e) {
+      erro = new Error(`Zoho SMTP: ${String(e?.response || e?.message || e).slice(0, 200)}`);
+      if (e?.responseCode >= 500 || e?.code === "EAUTH") throw erro;
+    }
+    if (i < tentativas) await dormir(1000 * 2 ** i);
+  }
+  throw erro;
+}
+
 /** Envia por Resend. Tenta de novo em limite de envios (429), erro do servidor (5xx) e falha de rede; os demais erros não adiantam repetir.
- *  Devolve `{ repetido }`: true quando o Resend reconheceu a chave e não mandou outro e-mail. */
-export async function enviarEmail({ para, assunto: subject, html, anexos, chaveUnica }, { chave = process.env.RESEND_API_KEY, de = process.env.RESUMO_REMETENTE, buscar = fetch, dormir = esperar, tentativas = 3 } = {}) {
+ *  Devolve `{ repetido }`: true quando o Resend reconheceu a chave e não mandou outro e-mail. Com o Zoho configurado, envia por ele. */
+export async function enviarEmail(msg, { chave = process.env.RESEND_API_KEY, de = process.env.RESUMO_REMETENTE, buscar = fetch, dormir = esperar, tentativas = 3, env = process.env } = {}) {
+  if (smtpConfigurado(env)) return enviarSmtp(msg, { env, dormir, tentativas });
+  const { para, assunto: subject, html, anexos, chaveUnica } = msg;
   if (!chave || !de) throw new Error("RESEND_API_KEY e RESUMO_REMETENTE são obrigatórios para enviar.");
   const body = JSON.stringify({ from: de, to: [para], subject, html, ...(anexos ? { attachments: anexos } : {}) });
   const headers = { Authorization: `Bearer ${chave}`, "Content-Type": "application/json", ...(chaveUnica ? { "Idempotency-Key": chaveUnica } : {}) };

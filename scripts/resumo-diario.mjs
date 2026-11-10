@@ -1,5 +1,5 @@
 // Resumo diário por e-mail para todos os acessos ativos.
-// Uso:  node --env-file=.env.local scripts/resumo-diario.mjs            -> envia (precisa de RESEND_API_KEY e RESUMO_REMETENTE)
+// Uso:  node --env-file=.env.local scripts/resumo-diario.mjs            -> envia (pelo Zoho com SMTP_USUARIO + SMTP_SENHA, ou pelo Resend com RESEND_API_KEY + RESUMO_REMETENTE)
 //       node --env-file=.env.local scripts/resumo-diario.mjs --previa [dir]  -> grava um .html por usuário em `dir` e NÃO envia
 //       acrescente --so=email@x.com para limitar a uma pessoa; --reenviar manda de novo para quem já recebeu hoje.
 //       --para=teste@x.com (TESTE): manda os resumos para esse endereço, com "[TESTE]" no assunto; não grava foto nem o registro de enviados.
@@ -9,7 +9,7 @@ import { loadAll } from "../server/store.js";
 import { listarUsuarios } from "../server/acesso.js";
 import { hojeBR } from "../server/evo.js";
 import { lerMetasPlanilha } from "../server/metas.js";
-import { montarResumo, renderizarEmail, assunto, enviarEmail, lerEnviados, salvarEnviados, chaveDoEnvio, diaAnterior, mesmoDiaMesAnterior, lerFoto, salvarFoto, fotoDe, dadosDeHoje } from "../server/resumo.js";
+import { montarResumo, renderizarEmail, assunto, enviarEmail, envioConfigurado, smtpConfigurado, lerEnviados, salvarEnviados, chaveDoEnvio, diaAnterior, mesmoDiaMesAnterior, lerFoto, salvarFoto, fotoDe, dadosDeHoje } from "../server/resumo.js";
 
 const args = process.argv.slice(2);
 const previa = args.includes("--previa");
@@ -43,16 +43,17 @@ const anexos = previa ? null : [anexo("banner-resumo.png", "banner-atlas"), anex
 const usuarios = (await listarUsuarios()).filter((u) => u.ativo !== false && (!so || u.email === so));
 if (previa) { mkdirSync(dir, { recursive: true }); for (const f of ["banner-resumo.png", "assinatura-logo.png", "assinatura-selo.png"]) copyFileSync(asset(f), `${dir}/${f}`); }
 
-// Sem RESEND_API_KEY/RESUMO_REMETENTE o envio fica desligado: a foto do dia já foi gravada acima (o histórico das
-// comparações começa a se formar) e o job termina sem erro, em vez de falhar todo dia até o Resend ser configurado.
-if (!previa && !(process.env.RESEND_API_KEY && process.env.RESUMO_REMETENTE)) {
-  console.log("envio desligado: RESEND_API_KEY e RESUMO_REMETENTE ainda não configurados (só a foto do dia foi gravada)");
+// Sem Zoho (SMTP_USUARIO/SMTP_SENHA) nem Resend (RESEND_API_KEY/RESUMO_REMETENTE) o envio fica desligado: a foto do dia já foi
+// gravada acima (o histórico das comparações começa a se formar) e o job termina sem erro, em vez de falhar todo dia.
+if (!previa && !envioConfigurado()) {
+  console.log("envio desligado: nem o Zoho (SMTP_USUARIO/SMTP_SENHA) nem o Resend estão configurados (só a foto do dia foi gravada)");
   process.exit(0);
 }
+if (!previa) console.log(`envio pelo ${smtpConfigurado() ? "Zoho" : "Resend"}`);
 
 // Quem já recebeu o resumo deste dia fica de fora (rodar de novo depois de uma falha só completa o que faltou). --reenviar ignora o registro.
 const enviados = previa || reenviar || teste ? new Set() : await lerEnviados(ateDia);
-const PAUSA_MS = 300; // o Resend aceita 10 envios por segundo; a pausa deixa folga
+const PAUSA_MS = smtpConfigurado() ? 2000 : 300; // Resend: 10 por segundo; Zoho limita envios em rajada, então vai com calma
 
 let ok = 0, falhas = 0, sem = 0, ja = 0;
 try {
