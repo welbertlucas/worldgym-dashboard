@@ -1,0 +1,33 @@
+name: Resumo diário por e-mail
+
+# Envia a cada acesso ativo o resumo das unidades dele. 10:00 UTC = 07:00 em Brasília.
+# Minuto "quebrado" porque o GitHub atrasa tarefas marcadas no começo da hora; o EVO termina de madrugada (00:37).
+on:
+  schedule:
+    - cron: "47 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: resumo-diario
+  cancel-in-progress: false
+
+jobs:
+  enviar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Enviar resumos
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESUMO_REMETENTE: ${{ secrets.RESUMO_REMETENTE }}
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: node scripts/resumo-diario.mjs
