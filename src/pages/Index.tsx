@@ -408,7 +408,7 @@ const Index = () => {
 
 
         {activeTab === "mapa" && <MapaAlunosTab initialUnit={selectedUnit} onUnitChange={setUnidadeDaAba} />}
-        {activeTab === "campanhas" && <CampanhasTab initialUnit={selectedUnit} onUnitChange={setUnidadeDaAba} />}
+        {activeTab === "campanhas" && <CampanhasTab initialUnit={selectedUnit} onUnitChange={setUnidadeDaAba} month={fullMonthData.month} />}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 

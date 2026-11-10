@@ -80,8 +80,11 @@ export function filtrarLinhasMetas(linhas, sessao) {
   return [linhas[0], ...linhas.slice(1).filter((l) => ehTotal(l[i]) || propria(sessao, l[i]))];
 }
 
-/** Campanhas (Meta): só as das unidades da pessoa; sem as da rede toda e sem os erros (citam contas). */
+/** Campanhas (Meta): só as das unidades da pessoa; sem as da rede toda e sem os erros (citam contas). Vale também para os meses. */
 export function filtrarCampanhas(foto, sessao) {
   if (veTudo(sessao) || !foto) return foto;
-  return { ...foto, campanhas: (foto.campanhas ?? []).filter((c) => c.unidade && propria(sessao, c.unidade)), erros: [] };
+  const meses = Object.fromEntries(Object.entries(foto.meses ?? {}).map(([ym, m]) => [ym, {
+    ...m, erros: [], unidades: Object.fromEntries(Object.entries(m.unidades ?? {}).filter(([u]) => propria(sessao, u))),
+  }]));
+  return { ...foto, campanhas: (foto.campanhas ?? []).filter((c) => c.unidade && propria(sessao, c.unidade)), erros: [], meses };
 }

@@ -1,6 +1,6 @@
 // Campanhas de anúncio ativas (foto diária gravada por scripts/meta-campanhas.mjs).
-// GET /api/campanhas -> { geradoEm, campanhas: [...], erros: [...] }
-import { loadCampanhas } from "../server/store.js";
+// GET /api/campanhas -> { geradoEm, campanhas: [...], erros: [...], meses: { [AAAA-MM]: { geradoEm, unidades, erros } } }
+import { loadCampanhas, loadMetaMeses } from "../server/store.js";
 import { cors, exigirLogin } from "./_auth.js";
 import { filtrarCampanhas } from "../server/visibilidade.js";
 
@@ -13,7 +13,10 @@ export default async function handler(req, res) {
   const sessao = await exigirLogin(req, res);
   if (!sessao) return;
   try {
-    if (!memo || Date.now() - memo.em > TTL_MS) memo = { em: Date.now(), dados: (await loadCampanhas()) ?? { geradoEm: null, campanhas: [], erros: [] } };
+    if (!memo || Date.now() - memo.em > TTL_MS) {
+      const [foto, meses] = await Promise.all([loadCampanhas(), loadMetaMeses()]);
+      memo = { em: Date.now(), dados: { ...(foto ?? { geradoEm: null, campanhas: [], erros: [] }), meses: meses ?? {} } };
+    }
     res.setHeader("Cache-Control", "private, max-age=300");
     return res.status(200).json(filtrarCampanhas(memo.dados, sessao));
   } catch (e) {

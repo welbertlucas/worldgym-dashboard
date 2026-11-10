@@ -1,7 +1,10 @@
 // Lê as campanhas ativas do Meta (só leitura) e grava a foto do dia no Blob.
+// Também grava o investimento e os resultados de cada unidade por mês (todas as campanhas, inclusive as pausadas),
+// que o painel cruza com as vendas do EVO para o CAC e o ROI. Por padrão refaz o mês anterior e o corrente;
+// META_MESES="2025-01..2026-11" refaz outros meses (carga histórica).
 // Uso: META_TOKEN_DFGO=... node --env-file=.env.local scripts/meta-campanhas.mjs
-import { campanhasDaRede } from "../server/meta.js";
-import { saveCampanhas } from "../server/store.js";
+import { campanhasDaRede, listaDeMeses, mesesDaRede, mesesDaRotina } from "../server/meta.js";
+import { saveCampanhas, saveMetaMeses } from "../server/store.js";
 
 const tokens = { DFGO: process.env.META_TOKEN_DFGO, BR01: process.env.META_TOKEN_BR01 };
 // Sem nenhuma chave cadastrada a rotina fica desligada e termina sem erro (em vez de falhar e mandar e-mail todo dia);
@@ -17,3 +20,14 @@ console.log(`${campanhas.length} campanhas ativas em ${contasLidas} contas; ${er
 if (!campanhas.length && erros.length) throw new Error("Nada foi lido; a foto anterior foi mantida.");
 await saveCampanhas({ geradoEm: new Date().toISOString(), campanhas, erros });
 console.log("Gravado: campanhas/atual.json");
+
+const meses = process.env.META_MESES ? listaDeMeses(process.env.META_MESES) : mesesDaRotina();
+const porMes = await mesesDaRede(tokens, meses);
+for (const [ym, m] of Object.entries(porMes)) {
+  const inv = Object.values(m.unidades).reduce((s, u) => s + u.investimento, 0);
+  console.log(`${ym}: R$ ${inv.toFixed(2)} investidos em ${Object.keys(m.unidades).length} unidades; ${m.erros.length} contas com erro`);
+}
+if (Object.values(porMes).some((m) => Object.keys(m.unidades).length)) {
+  await saveMetaMeses(Object.fromEntries(Object.entries(porMes).filter(([, m]) => Object.keys(m.unidades).length)));
+  console.log("Gravado: campanhas/meses.json");
+}

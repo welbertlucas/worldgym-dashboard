@@ -1,11 +1,17 @@
 name: Atualizar campanhas do Meta
 
-# Lê as campanhas ativas de cada unidade no Meta (só leitura) e grava a foto do dia no Blob da Vercel.
+# Lê as campanhas ativas de cada unidade no Meta (só leitura) e grava a foto do dia no Blob da Vercel,
+# junto com o investimento e os resultados de cada unidade no mês anterior e no corrente (para o CAC e o ROI).
 # Às 06:30 de Brasília pelo despertador da Vercel (vercel.json -> /api/despertador); o agendamento abaixo fica de reserva.
 on:
   schedule:
     - cron: "30 9 * * *"
   workflow_dispatch:
+    inputs:
+      meses:
+        description: "Meses a refazer (ex.: 2025-01..2026-11). Vazio = mês anterior e mês corrente."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -24,9 +30,10 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - name: Campanhas ativas
+      - name: Campanhas ativas e investimento do mês
         env:
           META_TOKEN_DFGO: ${{ secrets.META_TOKEN_DFGO }}
           META_TOKEN_BR01: ${{ secrets.META_TOKEN_BR01 }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          META_MESES: ${{ inputs.meses }}
         run: node scripts/meta-campanhas.mjs

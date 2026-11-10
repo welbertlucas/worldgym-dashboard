@@ -31,6 +31,8 @@ export const CONTAS = [
 const LEAD = new Set(["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"]);
 const CONVERSA = new Set(["onsite_conversion.messaging_conversation_started_7d"]);
 const soma = (acoes, tipos) => (acoes || []).filter((a) => tipos.has(a.action_type)).reduce((s, a) => s + Number(a.value || 0), 0);
+// "lead" já é o total de leads; os outros tipos são partes dele. Pega o maior para não contar o mesmo lead duas vezes.
+const leadsDe = (acoes) => Math.max(0, ...(acoes || []).filter((a) => LEAD.has(a.action_type)).map((a) => Number(a.value || 0)));
 
 /** Campanha do Graph API -> linha do painel (valores em R$ e contagens dos últimos 7 dias). */
 export function campanhaDoMeta(c, conta) {
@@ -47,7 +49,7 @@ export function campanhaDoMeta(c, conta) {
     gasto7d: Number(i.spend || 0),
     impressoes7d: Number(i.impressions || 0),
     cliques7d: Number(i.clicks || 0),
-    leads7d: soma(i.actions, LEAD),
+    leads7d: leadsDe(i.actions),
     conversas7d: soma(i.actions, CONVERSA),
   };
 }
@@ -85,4 +87,69 @@ export async function campanhasDaRede(tokens, contas = CONTAS, pausaMs = 300) {
     await new Promise((r) => setTimeout(r, pausaMs));
   }
   return { campanhas, erros };
+}
+
+/** Último dia de um mês "AAAA-MM" (ISO). */
+const fimDoMes = (ym) => { const [a, m] = ym.split("-").map(Number); return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10); };
+/** Hoje em Brasília (ISO). */
+export const hojeBrasilia = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+
+/** Investimento e resultados de uma conta num mês: todas as campanhas, inclusive as já pausadas ou encerradas. */
+export async function mesDaConta(conta, token, ym, hoje = hojeBrasilia()) {
+  const fim = fimDoMes(ym);
+  const periodo = encodeURIComponent(JSON.stringify({ since: `${ym}-01`, until: fim < hoje ? fim : hoje }));
+  const r = await graph(`https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=account&fields=spend,impressions,clicks,actions&time_range=${periodo}`, token);
+  const i = r.data?.[0] ?? {};
+  return { investimento: Number(i.spend || 0), impressoes: Number(i.impressions || 0), cliques: Number(i.clicks || 0), leads: leadsDe(i.actions), conversas: soma(i.actions, CONVERSA) };
+}
+
+const REDE = "Rede";
+const CAMPOS_MES = ["investimento", "impressoes", "cliques", "leads", "conversas"];
+
+/**
+ * Meses fechados (ou o mês corrente até hoje) da rede: { [AAAA-MM]: { geradoEm, unidades: { [unidade | "Rede"]: {...} }, erros } }.
+ * A conta Institucional entra como "Rede". Conta que falha não derruba as outras.
+ */
+export async function mesesDaRede(tokens, meses, contas = CONTAS, pausaMs = 300, hoje = hojeBrasilia()) {
+  const saida = {};
+  for (const ym of meses) {
+    if (`${ym}-01` > hoje) continue;
+    const unidades = {};
+    const erros = [];
+    for (const conta of contas) {
+      const token = tokens[conta.token];
+      if (!token) { erros.push({ conta: conta.conta, erro: `sem token ${conta.token}` }); continue; }
+      try {
+        const r = await mesDaConta(conta, token, ym, hoje);
+        const u = (unidades[conta.unidade ?? REDE] ??= Object.fromEntries(CAMPOS_MES.map((k) => [k, 0])));
+        for (const k of CAMPOS_MES) u[k] = Math.round((u[k] + r[k]) * 100) / 100;
+      } catch (e) { erros.push({ conta: conta.conta, erro: e.message }); }
+      await new Promise((r) => setTimeout(r, pausaMs));
+    }
+    saida[ym] = { geradoEm: new Date().toISOString(), unidades, erros };
+  }
+  return saida;
+}
+
+/** "2025-01..2026-11" ou "2026-10,2026-11" -> lista de meses. */
+export function listaDeMeses(texto) {
+  const out = [];
+  for (const parte of String(texto || "").split(",").map((x) => x.trim()).filter(Boolean)) {
+    const [de, ate] = parte.split("..");
+    if (!/^\d{4}-\d{2}$/.test(de) || (ate && !/^\d{4}-\d{2}$/.test(ate))) throw new Error(`Mês inválido: ${parte} (use AAAA-MM ou AAAA-MM..AAAA-MM)`);
+    let [a, m] = de.split("-").map(Number);
+    const fim = ate ?? de;
+    for (let ym = de; ym <= fim; ym = `${a}-${String(m).padStart(2, "0")}`) {
+      out.push(ym);
+      if (m === 12) { a += 1; m = 1; } else m += 1;
+    }
+  }
+  return out;
+}
+
+/** Mês anterior e mês corrente, em Brasília: a rotina diária refaz os dois (o anterior fecha com os ajustes do Meta). */
+export function mesesDaRotina(hoje = hojeBrasilia()) {
+  const [a, m] = hoje.split("-").map(Number);
+  const ant = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`;
+  return [ant, hoje.slice(0, 7)];
 }

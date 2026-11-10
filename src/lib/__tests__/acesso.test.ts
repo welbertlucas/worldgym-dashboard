@@ -190,7 +190,9 @@ describe("o que o nível 'unidades' enxerga", () => {
   });
 
   it("campanhas: só as das unidades dele, sem as da rede toda nem os erros", () => {
-    const foto = { geradoEm: "x", campanhas: [{ unidade: "Itapoã" }, { unidade: "Gama" }, { unidade: null }], erros: [{ conta: "c", erro: "e" }] };
-    expect(vis.filtrarCampanhas(foto, sessao)).toEqual({ geradoEm: "x", campanhas: [{ unidade: "Itapoã" }], erros: [] });
+    const z = { investimento: 1, impressoes: 0, cliques: 0, leads: 0, conversas: 0 };
+    const meses = { "2026-11": { geradoEm: "y", erros: [{ conta: "c", erro: "e" }], unidades: { Itapoã: z, Gama: z, Rede: z } } };
+    const foto = { geradoEm: "x", campanhas: [{ unidade: "Itapoã" }, { unidade: "Gama" }, { unidade: null }], erros: [{ conta: "c", erro: "e" }], meses };
+    expect(vis.filtrarCampanhas(foto, sessao)).toEqual({ geradoEm: "x", campanhas: [{ unidade: "Itapoã" }], erros: [], meses: { "2026-11": { geradoEm: "y", erros: [], unidades: { Itapoã: z } } } });
   });
 });

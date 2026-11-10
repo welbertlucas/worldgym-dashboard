@@ -61,3 +61,19 @@ export async function loadCampanhas() {
   if (!r || r.statusCode !== 200) return null;
   return JSON.parse(await new Response(r.stream).text());
 }
+
+// Investimento e resultados do Meta por unidade e mês (todas as campanhas): { [AAAA-MM]: { geradoEm, unidades, erros } }.
+const metaMesesPath = "campanhas/meses.json";
+
+export async function loadMetaMeses() {
+  const r = await get(metaMesesPath, { access: "private", useCache: false });
+  if (!r || r.statusCode !== 200) return null;
+  return JSON.parse(await new Response(r.stream).text());
+}
+
+/** Junta os meses novos aos já gravados (os outros meses ficam como estavam). */
+export async function saveMetaMeses(novos) {
+  const tudo = { ...((await loadMetaMeses()) ?? {}), ...novos };
+  await put(metaMesesPath, JSON.stringify(tudo), { access: "private", contentType: "application/json", addRandomSuffix: false, allowOverwrite: true });
+  return tudo;
+}
