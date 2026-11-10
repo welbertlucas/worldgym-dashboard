@@ -1,6 +1,6 @@
 // Lê as campanhas ativas do Meta (só leitura) e grava a foto do dia no Blob.
 // Também grava o investimento e os resultados de cada unidade por mês (todas as campanhas, inclusive as pausadas),
-// que o painel cruza com as vendas do EVO para o CAC e o ROI. Por padrão refaz o mês anterior e o corrente;
+// que o painel mostra por mês e os alertas usam. Por padrão refaz o mês anterior e o corrente;
 // META_MESES="2025-01..2026-11" refaz outros meses (carga histórica).
 // Uso: META_TOKEN_DFGO=... node --env-file=.env.local scripts/meta-campanhas.mjs
 import { campanhasDaRede, listaDeMeses, mesesDaRede, mesesDaRotina } from "../server/meta.js";

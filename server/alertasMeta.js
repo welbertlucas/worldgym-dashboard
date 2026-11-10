@@ -20,10 +20,6 @@ export const LIMITES_META = {
   conversaoBaixa: 0.05,
   /** Cadastros do mês sem origem no EVO a partir desta fração (0,5 = metade): a conversão não é confiável. */
   semOrigemAlta: 0.5,
-  /** CAC do mês acima desta proporção do mês anterior (1,3 = 30% mais caro). */
-  cacAltaFator: 1.3,
-  /** Só compara CAC com pelo menos estes alunos vindos do Meta nos dois meses. */
-  cacMinAlunos: 3,
 };
 
 /** Origem do cadastro no EVO que conta como vinda do Meta (Instagram, Facebook, anúncio pago). */
@@ -100,15 +96,10 @@ export function alertasDeUnidades({ metaMes, metaAnterior, evoMes, evoAnterior, 
       const total = Object.values(origens).reduce((s, [c]) => s + c, 0);
       const semOrigem = total ? (origens["Sem origem"]?.[0] ?? 0) / total : 0;
       if (o.cadastradas === 0 || semOrigem >= L.semOrigemAlta) {
-        add("atencao", "Origem Meta não marcada no EVO", `${contatos} contatos do Meta no mês e só ${o.cadastradas} ${o.cadastradas === 1 ? "cadastro" : "cadastros"} com origem Instagram ou Facebook no EVO${semOrigem >= L.semOrigemAlta ? `; ${pct(semOrigem)} dos cadastros do mês estão sem origem` : ""}.`, "Orientar a recepção a marcar a origem no cadastro do prospect; sem isso o CAC e o ROI do Meta ficam subestimados.");
+        add("atencao", "Origem Meta não marcada no EVO", `${contatos} contatos do Meta no mês e só ${o.cadastradas} ${o.cadastradas === 1 ? "cadastro" : "cadastros"} com origem Instagram ou Facebook no EVO${semOrigem >= L.semOrigemAlta ? `; ${pct(semOrigem)} dos cadastros do mês estão sem origem` : ""}.`, "Orientar a recepção a marcar a origem no cadastro do prospect; sem isso não dá para saber quantos alunos o Meta trouxe.");
       } else if (o.convertidas / contatos < L.conversaoBaixa) {
         add("atencao", "Contatos do Meta não viram alunos", `${contatos} contatos no mês e ${o.convertidas} ${o.convertidas === 1 ? "aluno" : "alunos"} vindos do Meta (${pct(o.convertidas / contatos)}).`, "O anúncio está trazendo gente: revisar a velocidade e o roteiro de resposta no WhatsApp e o convite para a aula experimental.");
       }
-    }
-    const oa = origemMetaDe(evo(evoAnterior, nome)?.origens);
-    if (o.convertidas >= L.cacMinAlunos && oa.convertidas >= L.cacMinAlunos && v.investimento > 0 && (ant?.investimento ?? 0) > 0) {
-      const cac = v.investimento / o.convertidas, cacAnt = ant.investimento / oa.convertidas;
-      if (cac >= cacAnt * L.cacAltaFator) add("atencao", "CAC do Meta subindo", `${reais(cac)} por aluno neste mês, contra ${reais(cacAnt)} no mês passado (${pct(cac / cacAnt - 1)} a mais).`, "Ver quais campanhas encareceram o contato e se a conversão de contato em aluno caiu.");
     }
   }
   return out;

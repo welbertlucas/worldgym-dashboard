@@ -3,7 +3,7 @@ export type Gravidade = "critico" | "atencao";
 export interface AlertaMeta { quem: string; gravidade: Gravidade; titulo: string; fato: string; acao: string; campanha?: string }
 export interface LimitesMeta {
   gastoSemContato: number; custoAltoFator: number; custoAltoMinContatos: number; frequenciaAlta: number; terminaEmDias: number;
-  conversaoMinContatos: number; conversaoBaixa: number; semOrigemAlta: number; cacAltaFator: number; cacMinAlunos: number;
+  conversaoMinContatos: number; conversaoBaixa: number; semOrigemAlta: number;
 }
 export const LIMITES_META: LimitesMeta;
 export const ORIGEM_META: RegExp;

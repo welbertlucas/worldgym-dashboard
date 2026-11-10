@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
-import { campanhasDaUnidade, custoPorContato, INSTITUCIONAL, investimentoDoMes, nomeDoObjetivo, origemMeta, retornoDoMeta, type Campanha } from "@/data/campanhas";
-import { RetornoMeta } from "@/components/RetornoMeta";
+import { campanhasDaUnidade, custoPorContato, INSTITUCIONAL, investimentoDoMes, nomeDoObjetivo, type Campanha } from "@/data/campanhas";
+import { InvestimentoMeta } from "@/components/InvestimentoMeta";
 import { CampanhasNoAr } from "@/components/CampanhasNoAr";
 
 const c = (o: Partial<Campanha>): Campanha => ({ id: "1", unidade: "Gama", conta: "WG 2 - Gama", nome: "X", objetivo: null, inicio: null, fim: null, orcamentoDiario: null, gasto7d: 0, impressoes7d: 0, cliques7d: 0, leads7d: 0, conversas7d: 0, ...o });
@@ -27,17 +27,7 @@ describe("campanhas", () => {
   });
 });
 
-describe("CAC e ROI do Meta", () => {
-  it("conta como Meta só as origens de Instagram, Facebook e anúncio", () => {
-    const o = origemMeta({ Instagram: [10, 4], "Facebook/Instagram": [5, 1], Convite: [20, 9], "Anúncio Pago": [2, 1], Passante: [3, 3] });
-    expect(o.nomes).toEqual(["Anúncio Pago", "Facebook/Instagram", "Instagram"]);
-    expect(o).toMatchObject({ cadastradas: 17, convertidas: 6 });
-  });
-  it("CAC = investimento ÷ alunos; ROI pelo LTV; sem aluno ou sem LTV fica sem número", () => {
-    expect(retornoDoMeta(1000, 4, 1500)).toEqual({ cac: 250, retorno: 6000, roi: 5 });
-    expect(retornoDoMeta(1000, 0, 1500)).toMatchObject({ cac: null, roi: null });
-    expect(retornoDoMeta(1000, 4, 0)).toMatchObject({ cac: 250, roi: null });
-  });
+describe("investimento do Meta no mês", () => {
   it("investimento da unidade, da rede (sem a Institucional) e da Institucional", () => {
     const z = { impressoes: 0, cliques: 0, leads: 0, conversas: 0 };
     const mes = { geradoEm: "", erros: [], unidades: { Gama: { ...z, investimento: 300 }, Itapoã: { ...z, investimento: 200 }, Rede: { ...z, investimento: 50 } } };
@@ -48,7 +38,7 @@ describe("CAC e ROI do Meta", () => {
     expect(investimentoDoMes(undefined, null)).toBeNull();
   });
   it("antes de carregar mostra o estado de espera, sem quebrar", () => {
-    expect(renderToString(<RetornoMeta unit={null} month="2026-11" />)).toContain("CAC e ROI");
-    expect(renderToString(<RetornoMeta unit={INSTITUCIONAL} month="2026-11" />)).toContain("CAC e ROI");
+    expect(renderToString(<InvestimentoMeta unit={null} month="2026-11" />)).toContain("Investimento no Meta");
+    expect(renderToString(<InvestimentoMeta unit={INSTITUCIONAL} month="2026-11" />)).toContain("Investimento no Meta");
   });
 });

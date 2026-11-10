@@ -49,13 +49,6 @@ describe("alertas do tráfego pago: unidades", () => {
     expect(r.map((a) => [a.quem, a.titulo])).toEqual([["A", "Origem Meta não marcada no EVO"], ["B", "Contatos do Meta não viram alunos"], ["D", "Origem Meta não marcada no EVO"]]);
     expect(r[2].fato).toContain("89% dos cadastros do mês estão sem origem");
   });
-  it("CAC subindo contra o mês passado, com alunos mínimos; a Institucional não entra", () => {
-    const r = alertasDeUnidades({
-      metaMes: meta({ A: [1000, 5, 0], Rede: [5000, 0, 0] }), metaAnterior: meta({ A: [600, 5, 0] }),
-      evoMes: evo({ A: { Instagram: [10, 4] } }), evoAnterior: evo({ A: { Facebook: [10, 4] } }), campanhas: [camp({ unidade: "A" })],
-    });
-    expect(r.map((a) => [a.quem, a.titulo])).toEqual([["A", "CAC do Meta subindo"]]); // R$ 250 contra R$ 150
-  });
   it("origens do Meta reconhecidas", () => {
     expect(origemMetaDe({ Instagram: [3, 1], "Facebook Ads": [2, 1], Convite: [9, 9] })).toEqual({ cadastradas: 5, convertidas: 2 });
     expect(LIMITES_META.gastoSemContato).toBe(100);

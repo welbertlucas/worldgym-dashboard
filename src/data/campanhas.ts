@@ -1,5 +1,4 @@
 import { authFetch, API_BASE } from "@/lib/auth";
-import { ORIGEM_META } from "../../server/alertasMeta.js";
 
 const URL_CAMPANHAS = `${API_BASE}/campanhas`;
 
@@ -69,16 +68,6 @@ export const custoPorContato = (c: Campanha): number | null => {
   return n > 0 ? c.gasto7d / n : null;
 };
 
-export { ORIGEM_META };
-
-/** Oportunidades do mês com origem no Meta: [cadastradas, convertidas] e quais nomes de origem entraram na conta. */
-export function origemMeta(origens: Record<string, [number, number]> | undefined) {
-  const nomes = Object.keys(origens ?? {}).filter((o) => ORIGEM_META.test(o)).sort();
-  const cadastradas = nomes.reduce((s, o) => s + origens![o][0], 0);
-  const convertidas = nomes.reduce((s, o) => s + origens![o][1], 0);
-  return { nomes, cadastradas, convertidas };
-}
-
 /** Investimento do Meta no mês: da unidade, da conta Institucional ou, sem escolha, a soma das unidades (sem a Institucional). */
 export function investimentoDoMes(mes: MesMeta | undefined, unidade: string | null): ResultadoMeta | null {
   if (!mes) return null;
@@ -88,18 +77,6 @@ export function investimentoDoMes(mes: MesMeta | undefined, unidade: string | nu
   const out: ResultadoMeta = { investimento: 0, impressoes: 0, cliques: 0, leads: 0, conversas: 0 };
   for (const u of us) for (const k of Object.keys(out) as (keyof ResultadoMeta)[]) out[k] += u[k];
   return out;
-}
-
-/**
- * CAC = investimento ÷ alunos vindos do Meta (oportunidades com origem Instagram/Facebook convertidas no mês).
- * ROI = (alunos × LTV − investimento) ÷ investimento; LTV = ticket médio × permanência média da unidade.
- * null quando falta o dado (sem aluno convertido, sem LTV ou sem investimento).
- */
-export function retornoDoMeta(investimento: number, alunos: number, ltv: number) {
-  const cac = alunos > 0 && investimento > 0 ? investimento / alunos : null;
-  const retorno = alunos * ltv;
-  const roi = investimento > 0 && ltv > 0 && alunos > 0 ? (retorno - investimento) / investimento : null;
-  return { cac, retorno, roi };
 }
 
 /** Investimento da conta Institucional no mês (0 se não houver). */

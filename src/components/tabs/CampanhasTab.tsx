@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Select } from "@/components/ui/select";
 import { SectionTitle } from "@/components/SectionTitle";
 import { CampanhasNoAr } from "@/components/CampanhasNoAr";
-import { RetornoMeta } from "@/components/RetornoMeta";
+import { InvestimentoMeta } from "@/components/InvestimentoMeta";
 import { AlertasMeta } from "@/components/AlertasMeta";
 import { INSTITUCIONAL } from "@/data/campanhas";
 import { unidadesProprias } from "@/lib/auth";
@@ -20,7 +20,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month }: { initialUnit
   return (
     <div className="space-y-6">
       <div>
-        <SectionTitle hint="Alertas de melhoria das campanhas; quanto se investiu no Meta no mês, quanto custou cada aluno (CAC) e o retorno (ROI); embaixo, as campanhas que estão veiculando. A conta Institucional fica separada das unidades">Tráfego pago</SectionTitle>
+        <SectionTitle hint="Alertas de melhoria das campanhas, quanto se investiu no Meta no mês e as campanhas que estão veiculando. A conta Institucional fica separada das unidades">Tráfego pago</SectionTitle>
         <div className="flex flex-wrap gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             Unidade
@@ -31,7 +31,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month }: { initialUnit
             </Select>
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-            Mês do CAC e ROI
+            Mês do investimento
             <Select value={mes} onChange={(e) => setMes(e.target.value)} className="h-9 w-48 text-sm font-normal text-foreground">
               {meses.map((m) => { const [a, n] = m.split("-").map(Number); return <option key={m} value={m}>{new Date(a, n - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</option>; })}
             </Select>
@@ -39,7 +39,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month }: { initialUnit
         </div>
       </div>
       <AlertasMeta unit={unit} />
-      <RetornoMeta unit={unit} month={mes} />
+      <InvestimentoMeta unit={unit} month={mes} />
       <CampanhasNoAr unit={unit} />
     </div>
   );
