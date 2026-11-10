@@ -343,8 +343,8 @@ const Index = () => {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <DonutList
               title="Receitas complementares"
-              subtitle="Participação de cada receita na soma das sete"
-              center={{ value: formatAbbreviatedNumber(receitaComplementar(rc)), caption: "soma das sete" }}
+              subtitle="Participação de cada receita na soma"
+              center={{ value: formatAbbreviatedNumber(receitaComplementar(rc)), caption: "soma" }}
               empty="Sem receitas complementares lançadas neste mês."
               items={[
                 { label: "Diárias", value: rc.diarias, color: "hsl(222 25% 22%)", valueText: formatCurrency(rc.diarias) },

@@ -13,7 +13,7 @@ export function PerfilOportunidades({ total, monthLabel, partial, unitLabel }: {
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div>
           <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Gênero</h4>
-          <GeneroBarra itens={GENEROS.map((g, k) => ({ rotulo: g.rotulo, n: p.g[k][0], conv: p.g[k][1] }))} />
+          <GeneroBarra tamanho="h-40 w-40" itens={GENEROS.map((g, k) => ({ rotulo: g.rotulo, n: p.g[k][0], conv: p.g[k][1] }))} />
         </div>
         <div>
           <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Faixa etária <span className="normal-case tracking-normal">(abaixo de cada coluna: quantos convertem)</span></h4>

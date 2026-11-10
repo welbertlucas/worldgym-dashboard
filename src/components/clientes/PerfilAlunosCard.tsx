@@ -23,12 +23,13 @@ export function PerfilAlunosCard({ total, monthLabel, unit }: { total: UnitData;
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div>
           <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Gênero</h4>
-          <GeneroBarra itens={GENEROS.map((g, k) => ({ rotulo: g.rotulo, n: p.g[k] }))} />
+          <GeneroBarra tamanho="h-40 w-40" itens={GENEROS.map((g, k) => ({ rotulo: g.rotulo, n: p.g[k] }))} />
           {informados / alunos >= 0.1 && (
             <div className="mt-6">
               <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Estado civil <span className="normal-case tracking-normal">({pct(informados, alunos)} dos alunos informaram)</span></h4>
               <MiniRosca
                 rotulo="Estado civil"
+                tamanho="h-40 w-40"
                 fatias={(civil.length > 5 ? [...civil.slice(0, 4), ["Outros", civil.slice(4).reduce((t, [, n]) => t + n, 0)] as [string, number]] : civil).map(([nome, n], k) => ({ rotulo: nome, n, cor: CORES_CIVIL[k % CORES_CIVIL.length] }))}
               />
             </div>

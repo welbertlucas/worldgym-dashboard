@@ -14,11 +14,12 @@ export const GENEROS = [
 export type Item = { rotulo: string; n: number; conv?: number };
 
 /** Gênero: rosca com o percentual de cada fatia ao lado (e, nas oportunidades, quantas convertem). */
-export function GeneroBarra({ itens }: { itens: Item[] }) {
+export function GeneroBarra({ itens, tamanho }: { itens: Item[]; /** classes de tamanho da rosca (padrão do MiniRosca: h-28 w-28) */ tamanho?: string }) {
   const total = itens.reduce((s, i) => s + i.n, 0);
   return (
     <MiniRosca
       rotulo="Gênero"
+      tamanho={tamanho}
       centro={{ valor: fmt(total), legenda: "pessoas" }}
       fatias={itens.map((i, k) => ({ rotulo: i.rotulo, n: i.n, cor: GENEROS[k].cor, detalhe: i.conv !== undefined ? <>{pct(i.conv, i.n)} convertem</> : undefined }))}
     />
