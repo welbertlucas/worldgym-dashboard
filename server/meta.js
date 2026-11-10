@@ -63,14 +63,25 @@ async function graph(url, token) {
   return corpo;
 }
 
-/** Campanhas ativas de uma conta de anúncio (segue a paginação). */
-export async function campanhasAtivas(conta, token) {
+const diasAtras = (hoje, n) => new Date(Date.parse(`${hoje}T12:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
+
+/**
+ * O Meta deixa o status "ativa" em campanhas que já acabaram (conjuntos de anúncios encerrados, data final passada).
+ * No ar = não encerrada e com entrega nos últimos 7 dias (gasto ou impressões), ou começou nesta semana.
+ */
+export function estaNoAr(c, hoje = hojeBrasilia()) {
+  if (c.fim && c.fim < hoje) return false;
+  return c.gasto7d > 0 || c.impressoes7d > 0 || Boolean(c.inicio && c.inicio >= diasAtras(hoje, 7));
+}
+
+/** Campanhas no ar de uma conta de anúncio (segue a paginação). */
+export async function campanhasAtivas(conta, token, hoje = hojeBrasilia()) {
   const filtro = encodeURIComponent(JSON.stringify(["ACTIVE"]));
   let url = `https://graph.facebook.com/${VERSAO}/act_${conta.id}/campaigns?fields=${encodeURIComponent(CAMPOS)}&effective_status=${filtro}&limit=100`;
   const saida = [];
   for (let pagina = 0; url && pagina < 10; pagina++) {
     const r = await graph(url, token);
-    for (const c of r.data ?? []) saida.push(campanhaDoMeta(c, conta));
+    for (const c of r.data ?? []) { const x = campanhaDoMeta(c, conta); if (estaNoAr(x, hoje)) saida.push(x); }
     url = r.paging?.next ?? null;
   }
   return saida;

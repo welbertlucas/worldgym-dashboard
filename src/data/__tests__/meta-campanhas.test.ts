@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 // @ts-expect-error módulo JS do servidor
-import { campanhaDoMeta, campanhasDaRede, CONTAS, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
+import { campanhaDoMeta, campanhasDaRede, CONTAS, estaNoAr, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
 
 const conta = { id: "1", conta: "WG 3 - Asa Norte", unidade: "Asa Norte", token: "DFGO" };
 
@@ -21,7 +21,7 @@ describe("campanhaDoMeta", () => {
 describe("campanhasDaRede", () => {
   afterEach(() => vi.unstubAllGlobals());
   it("uma conta com erro não derruba as outras, e conta sem token é avisada", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("act_2/") ? { ok: false, status: 400, json: async () => ({ error: { message: "sem permissão" } }) } : { ok: true, status: 200, json: async () => ({ data: [{ id: "c1", name: "A" }] }) }));
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("act_2/") ? { ok: false, status: 400, json: async () => ({ error: { message: "sem permissão" } }) } : { ok: true, status: 200, json: async () => ({ data: [{ id: "c1", name: "A", insights: { data: [{ spend: "5" }] } }] }) }));
     const contas = [{ ...conta, id: "1" }, { ...conta, id: "2", conta: "B" }, { ...conta, id: "3", conta: "C", token: "BR01" }];
     const r = await campanhasDaRede({ DFGO: "x" }, contas, 0);
     expect(r.campanhas).toHaveLength(1);
@@ -56,5 +56,20 @@ describe("investimento do mês por unidade (Meta)", () => {
     expect(listaDeMeses("2026-10, 2026-11")).toEqual(["2026-10", "2026-11"]);
     expect(() => listaDeMeses("2026-1")).toThrow();
     expect(mesesDaRotina("2026-01-05")).toEqual(["2025-12", "2026-01"]);
+  });
+});
+
+describe("campanha no ar (o Meta deixa 'ativa' campanha que já acabou)", () => {
+  const base = { gasto7d: 0, impressoes7d: 0, inicio: "2025-03-14", fim: null };
+  it("ativa no Meta, mas sem entrega há mais de 7 dias: fora", () => {
+    expect(estaNoAr(base, "2026-11-10")).toBe(false);
+  });
+  it("data final já passou: fora, mesmo com gasto na semana", () => {
+    expect(estaNoAr({ ...base, gasto7d: 50, fim: "2026-11-05" }, "2026-11-10")).toBe(false);
+  });
+  it("gastou ou apareceu na semana, ou começou nesta semana: no ar", () => {
+    expect(estaNoAr({ ...base, gasto7d: 0.5 }, "2026-11-10")).toBe(true);
+    expect(estaNoAr({ ...base, impressoes7d: 10, fim: "2026-11-30" }, "2026-11-10")).toBe(true);
+    expect(estaNoAr({ ...base, inicio: "2026-11-09" }, "2026-11-10")).toBe(true);
   });
 });

@@ -20,7 +20,7 @@ export interface Campanha {
 }
 /** Investimento e resultados do Meta de uma unidade num mês (todas as campanhas, inclusive as pausadas). */
 export interface ResultadoMeta { investimento: number; impressoes: number; cliques: number; leads: number; conversas: number }
-/** Unidades do mês; "Rede" = conta Institucional (anúncio da rede toda). */
+/** Unidades do mês; a chave "Rede" é a conta Institucional (anúncio da rede toda). */
 export interface MesMeta { geradoEm: string; unidades: Record<string, ResultadoMeta>; erros: { conta: string; erro: string }[] }
 export interface FotoCampanhas { geradoEm: string | null; campanhas: Campanha[]; erros: { conta: string; erro: string }[]; meses?: Record<string, MesMeta> }
 
@@ -39,9 +39,15 @@ export function carregarCampanhas(): Promise<FotoCampanhas | null> {
   return pedido;
 }
 
-/** Campanhas de uma unidade (com as da rede toda) ou, sem unidade, de todas; as que mais gastam primeiro. */
+/** Escolha "Institucional" na aba: a conta Institucional fica separada das unidades e da soma da rede. */
+export const INSTITUCIONAL = "Institucional";
+/** Chave da conta Institucional nos meses gravados. */
+const CHAVE_INSTITUCIONAL = "Rede";
+
+/** Só as campanhas da escolha: a unidade, a conta Institucional ou, sem escolha, todas as unidades (sem a Institucional). */
 export function campanhasDaUnidade(lista: Campanha[], unidade: string | null): Campanha[] {
-  return lista.filter((c) => !unidade || c.unidade === unidade || c.unidade === null).sort((a, b) => b.gasto7d - a.gasto7d);
+  const ok = (c: Campanha) => (unidade === INSTITUCIONAL ? c.unidade === null : unidade ? c.unidade === unidade : c.unidade !== null);
+  return lista.filter(ok).sort((a, b) => b.gasto7d - a.gasto7d);
 }
 
 export const OBJETIVOS: Record<string, string> = {
@@ -71,10 +77,11 @@ export function origemMeta(origens: Record<string, [number, number]> | undefined
   return { nomes, cadastradas, convertidas };
 }
 
-/** Investimento do Meta no mês: da unidade ou, sem unidade, de todas (inclui a conta Institucional). */
+/** Investimento do Meta no mês: da unidade, da conta Institucional ou, sem escolha, a soma das unidades (sem a Institucional). */
 export function investimentoDoMes(mes: MesMeta | undefined, unidade: string | null): ResultadoMeta | null {
   if (!mes) return null;
-  const us = unidade ? [mes.unidades[unidade]].filter(Boolean) : Object.values(mes.unidades);
+  const chave = unidade === INSTITUCIONAL ? CHAVE_INSTITUCIONAL : unidade;
+  const us = chave ? [mes.unidades[chave]].filter(Boolean) : Object.entries(mes.unidades).filter(([k]) => k !== CHAVE_INSTITUCIONAL).map(([, v]) => v);
   if (!us.length) return null;
   const out: ResultadoMeta = { investimento: 0, impressoes: 0, cliques: 0, leads: 0, conversas: 0 };
   for (const u of us) for (const k of Object.keys(out) as (keyof ResultadoMeta)[]) out[k] += u[k];
@@ -92,3 +99,6 @@ export function retornoDoMeta(investimento: number, alunos: number, ltv: number)
   const roi = investimento > 0 && ltv > 0 && alunos > 0 ? (retorno - investimento) / investimento : null;
   return { cac, retorno, roi };
 }
+
+/** Investimento da conta Institucional no mês (0 se não houver). */
+export const investimentoInstitucional = (mes: MesMeta | undefined) => mes?.unidades[CHAVE_INSTITUCIONAL]?.investimento ?? 0;
