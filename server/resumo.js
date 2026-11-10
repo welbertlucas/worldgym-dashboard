@@ -281,7 +281,34 @@ const secao = (titulo, emoji, corpo, cor = TINTA) => `${SEPARADOR}${tituloSecao(
 /** Endereço do rodapé ("Dúvidas ou sugestões"). Pode ser trocado pela variável RESUMO_CONTATO sem mexer no código. */
 export const CONTATO_PADRAO = "lucas.lima@worldgymbrasil.com.br";
 
-export function renderizarEmail(r, usuario, { url = "https://atlas.worldgymacademia.com.br", banner = "banner-resumo.png", urlWehelp = "https://app.wehelpsoftware.com", contato = CONTATO_PADRAO } = {}) {
+/** Assinatura no fim do e-mail (no celular, as classes as-* encolhem logo, selo e espaços), no mesmo estilo do resto (fundo claro, mesma fonte): logo do gorila em preto,
+ *  um traço fino, e ao lado nome, cargo, empresa e site; embaixo do texto uma linha
+ *  igual ao traço vertical (mesma espessura e cor) que vai até o selo de 50 anos, também em grafite, alinhado à margem direita do texto. Só a logo e o selo são imagem; o resto é texto. */
+export const ASSINATURA = {
+  nome: "Lucas Lima",
+  cargo: "COO",
+  empresa: "World Gym Brasil",
+  site: ["www.worldgymacademia.com.br", "https://www.worldgymacademia.com.br"],
+  imagens: { logo: "assinatura-logo.png", selo: "assinatura-selo.png" },
+};
+function blocoAssinatura(img = ASSINATURA.imagens) {
+  const a = ASSINATURA, linha = `margin:0;font-size:13px;line-height:1.5;color:${SUAVE}`;
+  return `<table role="presentation" width="100%" style="margin:40px 0 0;border-collapse:collapse"><tr>
+<td class="as-logo" valign="middle" style="padding:0 16px 0 0"><img src="${esc(img.logo)}" width="88" alt="World Gym" style="display:block;width:88px;height:auto;border:0;outline:none"></td>
+<td class="as-texto" width="100%" valign="middle" style="padding:0 0 0 16px;border-left:1px solid ${TRACO}">
+<table role="presentation" width="100%" style="border-collapse:collapse"><tr>
+<td class="as-linha" width="100%" valign="bottom" style="padding:0 18px 10px 0;border-bottom:1px solid ${TRACO};font-family:${sans}">
+<p style="margin:0;font-size:15px;line-height:1.4;font-weight:700;color:${TINTA}">${esc(a.nome)}</p>
+<p style="${linha}">${esc(a.cargo)}</p>
+<p style="${linha}">${esc(a.empresa)}</p>
+<p class="as-site" style="margin:4px 0 0;font-size:13px;line-height:1.5"><a href="${esc(a.site[1])}" style="color:${SUAVE};text-decoration:none">${esc(a.site[0])}</a></p>
+</td>
+<td class="as-selo" valign="bottom" style="padding:0 0 0 12px"><img src="${esc(img.selo)}" width="60" alt="50º aniversário World Gym" style="display:block;width:60px;height:auto;border:0;outline:none"></td>
+</tr></table>
+</td></tr></table>`;
+}
+
+export function renderizarEmail(r, usuario, { url = "https://atlas.worldgymacademia.com.br", banner = "banner-resumo.png", assinatura = ASSINATURA.imagens, urlWehelp = "https://app.wehelpsoftware.com", contato = CONTATO_PADRAO } = {}) {
   const t = r.total, f = r.totalRef, d = r.dia;
   const primeiro = esc(String(usuario.nome ?? "").trim().split(/\s+/)[0] || "");
   const quem = r.unidade ? `da World Gym ${esc(r.unidade)}` : "da rede World Gym";
@@ -348,12 +375,12 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
   const maisUnidades = r.papel === "unidades" ? `<p style="${P};margin-top:28px;font-size:14px;color:${SUAVE}">Se você é sócio ou gestor de mais de uma unidade, <a href="${esc(url)}" style="color:${VERMELHO};font-weight:600">acesse o Atlas</a> para ver todos os indicadores.</p>` : "";
   const rodape = ["Você recebe este e-mail porque tem acesso ao World Gym Atlas.", contato ? `Dúvidas ou sugestões: <a href="mailto:${esc(contato)}" style="color:#7a7a85">${esc(contato)}</a>.` : ""].filter(Boolean).join("<br>");
 
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>@media (max-width:520px){.miolo{padding:26px 20px 34px!important}}</style></head>
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>@media (max-width:520px){.miolo{padding:26px 20px 34px!important}.as-logo{padding-right:10px!important}.as-logo img{width:56px!important}.as-texto{padding-left:10px!important}.as-linha{padding-right:8px!important}.as-site{font-size:12px!important}.as-selo{padding-left:8px!important}.as-selo img{width:44px!important}}</style></head>
 <body style="margin:0;background:${FUNDO}">
 <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${FUNDO};mso-hide:all">${esc(textoPrevia(r))}${"&#847;&zwnj;&nbsp;".repeat(90)}</div>
 <table role="presentation" width="100%" style="background:${FUNDO}"><tr><td align="center" style="padding:28px 12px 36px">
 <table role="presentation" width="100%" style="max-width:600px;border-collapse:collapse">
-<tr><td style="font-size:0;line-height:0"><img src="${esc(banner)}" width="600" alt="World Gym" style="display:block;width:100%;max-width:600px;height:auto;border-radius:30px 30px 0 0"></td></tr>
+<tr><td style="padding:0;font-size:0;line-height:0"><img src="${esc(banner)}" width="600" alt="World Gym" style="display:block;width:100%;max-width:600px;height:auto;border-radius:30px 30px 0 0"></td></tr>
 <tr><td class="miolo" style="background:#ffffff;padding:30px 48px 42px;border-radius:0 0 18px 18px">
 <p style="${P}">Bom dia${primeiro ? ", " + primeiro : ""}! Este é o resumo ${quem}, com os números de ontem e do mês.${r.temRef ? " As comparações são sempre com o mesmo dia do mês passado." : ""}</p>
 ${avisos}
@@ -366,6 +393,7 @@ ${nps}
 ${alertas}
 ${maisUnidades}
 <p style="margin:36px 0 0" align="center"><a href="${esc(url)}" style="display:inline-block;background:${VERMELHO};color:#ffffff;text-decoration:none;font-family:${sans};font-size:15px;font-weight:600;padding:14px 34px;border-radius:10px">${n ? "Ver alertas no Atlas" : "Abrir o Atlas"}</a></p>
+${blocoAssinatura(assinatura)}
 </td></tr>
 <tr><td style="padding:22px 8px 0;font-family:${sans};font-size:12px;line-height:1.7;color:#9a9aa5;text-align:center">${rodape}</td></tr>
 </table></td></tr></table></body></html>`

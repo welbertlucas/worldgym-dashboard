@@ -37,10 +37,11 @@ if (!previa && !teste && mes) {
 let metas = null; // null = não deu para ler: o e-mail trata como meta não cadastrada
 try { metas = await lerMetasPlanilha(); console.log(`metas lidas: ${metas.length}`); } catch (e) { console.log(`metas indisponíveis: ${e.message}`); }
 
-const bannerArquivo = new URL("../server/assets/banner-resumo.png", import.meta.url);
-const anexos = previa ? null : [{ filename: "banner-atlas.png", content: readFileSync(bannerArquivo).toString("base64"), content_id: "banner-atlas" }];
+const asset = (nome) => new URL(`../server/assets/${nome}`, import.meta.url);
+const anexo = (arquivo, id) => ({ filename: arquivo, content: readFileSync(asset(arquivo)).toString("base64"), content_id: id });
+const anexos = previa ? null : [anexo("banner-resumo.png", "banner-atlas"), anexo("assinatura-logo.png", "assinatura-logo"), anexo("assinatura-selo.png", "assinatura-selo")];
 const usuarios = (await listarUsuarios()).filter((u) => u.ativo !== false && (!so || u.email === so));
-if (previa) { mkdirSync(dir, { recursive: true }); copyFileSync(bannerArquivo, `${dir}/banner-resumo.png`); }
+if (previa) { mkdirSync(dir, { recursive: true }); for (const f of ["banner-resumo.png", "assinatura-logo.png", "assinatura-selo.png"]) copyFileSync(asset(f), `${dir}/${f}`); }
 
 // Sem RESEND_API_KEY/RESUMO_REMETENTE o envio fica desligado: a foto do dia já foi gravada acima (o histórico das
 // comparações começa a se formar) e o job termina sem erro, em vez de falhar todo dia até o Resend ser configurado.
@@ -60,7 +61,7 @@ try {
     if (enviados.has(email)) { ja++; console.log(`já enviado hoje: ${u.email}`); continue; }
     const r = montarResumo(meses, u, hoje, ref, metas, ontem);
     if (!r) { sem++; console.log(`sem dados: ${u.email}`); continue; }
-    const html = renderizarEmail(r, u, { url: process.env.ATLAS_URL || undefined, urlWehelp: process.env.WEHELP_URL || undefined, contato: process.env.RESUMO_CONTATO || undefined, banner: previa ? "banner-resumo.png" : "cid:banner-atlas" });
+    const html = renderizarEmail(r, u, { url: process.env.ATLAS_URL || undefined, urlWehelp: process.env.WEHELP_URL || undefined, contato: process.env.RESUMO_CONTATO || undefined, banner: previa ? "banner-resumo.png" : "cid:banner-atlas", assinatura: previa ? undefined : { logo: "cid:assinatura-logo", selo: "cid:assinatura-selo" } });
     try {
       if (previa) writeFileSync(`${dir}/${u.email.replace(/[^a-z0-9@.]/g, "_")}.html`, `<!-- assunto: ${assunto(r).replace(/--/g, "- -")} -->\n${html}`);
       else {
