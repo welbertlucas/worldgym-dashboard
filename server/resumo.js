@@ -372,7 +372,7 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
     : secao("Alertas", "✅", `<p style="${P}">Nenhum alerta hoje: os indicadores estão dentro do esperado.</p>`);
 
   // Dono de unidade e gestor (papel "unidades"): o aviso aparece para todos; master e dono da rede já recebem a rede inteira.
-  const maisUnidades = r.papel === "unidades" ? `<p style="${P};margin-top:28px;font-size:14px;color:${SUAVE}">Se você é sócio ou gestor de mais de uma unidade, <a href="${esc(url)}" style="color:${VERMELHO};font-weight:600">acesse o Atlas</a> para ver todos os indicadores.</p>` : "";
+  const maisUnidades = r.papel === "unidades" ? `<p style="${P};margin-top:32px;font-size:13px;line-height:1.6;color:${SUAVE}">Se você é sócio ou gestor de mais de uma unidade, <a href="${esc(url)}" style="color:${VERMELHO};font-weight:600">acesse o Atlas</a> para ver todos os indicadores.</p>` : "";
   const rodape = ["Você recebe este e-mail porque tem acesso ao World Gym Atlas.", contato ? `Dúvidas ou sugestões: <a href="mailto:${esc(contato)}" style="color:#7a7a85">${esc(contato)}</a>.` : ""].filter(Boolean).join("<br>");
 
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>@media (max-width:520px){.miolo{padding:26px 20px 34px!important}.as-logo{padding-right:10px!important}.as-logo img{width:56px!important}.as-texto{padding-left:10px!important}.as-linha{padding-right:8px!important}.as-site{font-size:12px!important}.as-selo{padding-left:8px!important}.as-selo img{width:44px!important}}</style></head>
@@ -391,8 +391,8 @@ ${retencao}
 ${topo}
 ${nps}
 ${alertas}
-${maisUnidades}
 <p style="margin:36px 0 0" align="center"><a href="${esc(url)}" style="display:inline-block;background:${VERMELHO};color:#ffffff;text-decoration:none;font-family:${sans};font-size:15px;font-weight:600;padding:14px 34px;border-radius:10px">${n ? "Ver alertas no Atlas" : "Abrir o Atlas"}</a></p>
+${maisUnidades}
 ${blocoAssinatura(assinatura)}
 </td></tr>
 <tr><td style="padding:22px 8px 0;font-family:${sans};font-size:12px;line-height:1.7;color:#9a9aa5;text-align:center">${rodape}</td></tr>
