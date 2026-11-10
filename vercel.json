@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/despertador?rotina=evo-sync", "schedule": "37 3 * * *" },
+    { "path": "/api/despertador?rotina=meta-sync", "schedule": "30 9 * * *" },
+    { "path": "/api/despertador?rotina=resumo-diario", "schedule": "47 9 * * *" }
+  ]
+}

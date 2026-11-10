@@ -1,7 +1,8 @@
 name: Resumo diário por e-mail
 
-# Envia a cada acesso ativo o resumo das unidades dele. 10:00 UTC = 07:00 em Brasília.
-# Minuto "quebrado" porque o GitHub atrasa tarefas marcadas no começo da hora; o EVO termina de madrugada (00:37).
+# Envia a cada acesso ativo o resumo das unidades dele, às 06:47 de Brasília (09:47 UTC). Quem dispara no horário é o
+# despertador da Vercel (vercel.json -> /api/despertador); o agendamento abaixo fica de reserva, porque o do GitHub atrasa
+# de 8 a 10 horas. Rodar duas vezes não duplica e-mail: quem já recebeu o resumo do dia fica de fora.
 on:
   schedule:
     - cron: "47 9 * * *"

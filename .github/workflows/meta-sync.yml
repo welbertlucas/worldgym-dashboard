@@ -1,6 +1,7 @@
 name: Atualizar campanhas do Meta
 
 # Lê as campanhas ativas de cada unidade no Meta (só leitura) e grava a foto do dia no Blob da Vercel.
+# Às 06:30 de Brasília pelo despertador da Vercel (vercel.json -> /api/despertador); o agendamento abaixo fica de reserva.
 on:
   schedule:
     - cron: "30 9 * * *"

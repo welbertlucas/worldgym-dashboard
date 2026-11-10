@@ -29,7 +29,23 @@ async function throttle() {
   if (at > now) await new Promise((r) => setTimeout(r, at - now));
 }
 
-export async function evoGet(path, tries = 7) {
+// Esperas entre tentativas: 1, 2, 4, 8, 16, 32, 64 s e depois 2 min cada (10 tentativas ≈ 8 min no total).
+// O EVO às vezes fica alguns minutos fora (500/503) ou recusa o login no próprio banco; esperar mais é o que resolve.
+const TENTATIVAS = 10;
+const espera = (i) => new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** i, 120_000)));
+
+/**
+ * Vale tentar de novo? 429 e 5xx sim. 4xx (parâmetro inválido, credencial errada) não melhora repetindo, com uma exceção:
+ * o EVO devolve 401 quando o backend dele está sobrecarregado ("Timeout expired") ou quando o servidor não consegue logar
+ * no próprio banco ("A connection was successfully established with the server, but then an error occurred during the
+ * login process"). Esses 401 são transitórios: a mesma credencial funciona nas consultas antes e depois.
+ */
+export function transitorio(status, texto = "") {
+  if (status === 429 || status >= 500) return true;
+  return status === 401 && /timeout|login process|connection was successfully established/i.test(texto);
+}
+
+export async function evoGet(path, tries = TENTATIVAS) {
   let last = "";
   for (let i = 0; i < tries; i++) {
     await throttle();
@@ -39,7 +55,7 @@ export async function evoGet(path, tries = 7) {
     } catch (e) {
       // Queda de rede (fetch failed): vale tentar de novo, como 429 e 5xx.
       last = `rede ${e.cause?.code || e.message}`;
-      await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+      await espera(i);
       continue;
     }
     if (res.ok) {
@@ -48,22 +64,19 @@ export async function evoGet(path, tries = 7) {
         return await res.json();
       } catch (e) {
         last = `rede ao ler resposta ${e.cause?.code || e.message}`;
-        await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+        await espera(i);
         continue;
       }
     }
     last = `${res.status} ${(await res.text()).slice(0, 120)}`;
-    // 4xx (credencial, parâmetro inválido) não melhora repetindo: só 429 e 5xx merecem nova tentativa.
-    // O EVO às vezes devolve 401 "Timeout expired" quando o backend dele está sobrecarregado: é transitório.
-    const transient401 = res.status === 401 && /timeout/i.test(last);
-    if (res.status < 500 && res.status !== 429 && !transient401) break;
-    await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+    if (!transitorio(res.status, last)) break;
+    await espera(i);
   }
   throw new Error(`EVO ${last} em ${path}`);
 }
 
 /** GET que devolve o corpo em bytes (relatórios em Excel). `path` começa em /api/... (qualquer versão). */
-export async function evoBuffer(path, tries = 5) {
+export async function evoBuffer(path, tries = TENTATIVAS) {
   let last = "";
   for (let i = 0; i < tries; i++) {
     await throttle();
@@ -75,7 +88,7 @@ export async function evoBuffer(path, tries = 5) {
     } catch (e) {
       last = `rede ${e.cause?.code || e.message}`;
     }
-    await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+    await espera(i);
   }
   throw new Error(`EVO ${last} em ${path}`);
 }

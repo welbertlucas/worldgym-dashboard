@@ -6,8 +6,8 @@ name: Atualizar indicadores do EVO
 
 on:
   schedule:
-    # 03:37 UTC = 00:37 em Brasília: depois que as unidades fecham, com o dia anterior completo. Minuto "quebrado" porque o GitHub
-    # atrasa muito as tarefas marcadas no começo da hora (em novembro/2026 a das 05:00 UTC chegou a começar 6 a 8 horas depois).
+    # Quem dispara no horário é o despertador da Vercel (vercel.json -> /api/despertador), às 00:37 de Brasília: o agendador do
+    # GitHub atrasa de 8 a 10 horas (novembro/2026). Este horário fica só de reserva: se o despertador já rodou hoje, ele pula.
     - cron: "37 3 * * *"
   workflow_dispatch:
     inputs:
@@ -23,20 +23,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  sync:
+  # A execução agendada do GitHub chega horas atrasada. Se o despertador (ou alguém, à mão) já rodou hoje com sucesso, ou
+  # ainda está rodando, ela não carrega o EVO de novo no meio do dia.
+  verificar:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    permissions:
+      actions: read
+    outputs:
+      pular: ${{ steps.v.outputs.pular }}
+    steps:
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENTO: ${{ github.event_name }}
+        run: |
+          pular=false
+          if [ "$EVENTO" = "schedule" ]; then
+            hoje="$(TZ=America/Sao_Paulo date +%F)"
+            n="$(gh run list -R "$GITHUB_REPOSITORY" --workflow evo-sync.yml --event workflow_dispatch --limit 20 \
+              --json createdAt,status,conclusion \
+              --jq "[.[] | select(.conclusion == \"success\" or .status != \"completed\") | select((.createdAt | fromdateiso8601) - 10800 | strftime(\"%Y-%m-%d\") == \"$hoje\")] | length")"
+            if [ "$n" -gt 0 ]; then pular=true; echo "Já rodou hoje ($hoje) pelo despertador ou à mão: pulando."; fi
+          fi
+          echo "pular=$pular" >> "$GITHUB_OUTPUT"
+
+  sync:
+    needs: verificar
+    if: needs.verificar.outputs.pular != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm ci
-      - name: Calcular e gravar
+      - name: Meses a calcular
         env:
-          EVO_DNS: ${{ secrets.EVO_DNS }}
-          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           MONTHS: ${{ github.event.inputs.months }}
         run: |
           if [ -z "$MONTHS" ]; then
@@ -44,15 +67,25 @@ jobs:
           else
             MONTHS="${MONTHS//,/ }"
           fi
-          node scripts/evo-backfill.mjs $MONTHS
           echo "MONTHS_DONE=$MONTHS" >> "$GITHUB_ENV"
-      - name: Alunos ativos no fim do mês (ticket médio e adimplentes)
+      # Daqui em diante, cada etapa roda mesmo que uma anterior tenha falhado (if: !cancelled()): uma queda do EVO numa
+      # parte não impede as outras, e a consolidação no fim sempre publica no painel o que deu certo. A execução continua
+      # marcada como falha no GitHub para a gente ver o que faltou.
+      - name: Calcular e gravar
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-backfill.mjs $MONTHS_DONE
+      - if: ${{ !cancelled() }}
+        name: Alunos ativos no fim do mês (ticket médio e adimplentes)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-ativos.mjs $MONTHS_DONE
-      - name: NPS por unidade (WeHelp)
+      - if: ${{ !cancelled() }}
+        name: NPS por unidade (WeHelp)
         # Não derruba a sincronização do EVO se o WeHelp estiver fora do ar ou sem as credenciais cadastradas.
         continue-on-error: true
         env:
@@ -60,67 +93,78 @@ jobs:
           WEHELP_CLIENT_SECRET: ${{ secrets.WEHELP_CLIENT_SECRET }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/wehelp-nps.mjs $MONTHS_DONE
-      - name: Motivos de cancelamento
+      - if: ${{ !cancelled() }}
+        name: Motivos de cancelamento
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-cancelamentos.mjs $MONTHS_DONE
-      - name: Cobranças com falha e motivos de recusa
+      - if: ${{ !cancelled() }}
+        name: Cobranças com falha e motivos de recusa
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-cobrancas.mjs $MONTHS_DONE
-      - name: Situação dos treinos (foto de hoje)
+      - if: ${{ !cancelled() }}
+        name: Situação dos treinos (foto de hoje)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-treinos.mjs
-      - name: Onde moram os alunos (bairros, foto de hoje)
+      - if: ${{ !cancelled() }}
+        name: Onde moram os alunos (bairros, foto de hoje)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-bairros.mjs
-      - name: Conversão de cadastros (prospects do EVO)
+      - if: ${{ !cancelled() }}
+        name: Conversão de cadastros (prospects do EVO)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-prospects.mjs $MONTHS_DONE
-      - name: Perfil das oportunidades (gênero e idade)
+      - if: ${{ !cancelled() }}
+        name: Perfil das oportunidades (gênero e idade)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-perfil-oportunidades.mjs $MONTHS_DONE
-      - name: Vendas do mês (novos contratos, vendas online, avulsas, planos e produtos mais vendidos)
+      - if: ${{ !cancelled() }}
+        name: Vendas do mês (novos contratos, vendas online, avulsas, planos e produtos mais vendidos)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-vendas.mjs $MONTHS_DONE
-      - name: Entradas na catraca (mapa de calor dia × hora)
+      - if: ${{ !cancelled() }}
+        name: Entradas na catraca (mapa de calor dia × hora)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-entradas.mjs $MONTHS_DONE
-      - name: Recebimento por forma de pagamento
+      - if: ${{ !cancelled() }}
+        name: Recebimento por forma de pagamento
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-formas-pagamento.mjs $MONTHS_DONE
-      - name: Contratos ativos, especiais/VIP e personal (mês corrente)
+      - if: ${{ !cancelled() }}
+        name: Contratos ativos, especiais/VIP e personal (mês corrente)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-contratos.mjs
-      - name: Consolidar os meses num arquivo só (o painel lê só este)
+      - if: ${{ !cancelled() }}
+        name: Consolidar os meses num arquivo só (o painel lê só este)
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-consolidar.mjs
