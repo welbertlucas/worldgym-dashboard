@@ -2,6 +2,7 @@
 // Uso:  node --env-file=.env.local scripts/resumo-diario.mjs            -> envia (precisa de RESEND_API_KEY e RESUMO_REMETENTE)
 //       node --env-file=.env.local scripts/resumo-diario.mjs --previa [dir]  -> grava um .html por usuário em `dir` e NÃO envia
 //       acrescente --so=email@x.com para limitar a uma pessoa; --reenviar manda de novo para quem já recebeu hoje.
+//       --para=teste@x.com (TESTE): manda os resumos para esse endereço, com "[TESTE]" no assunto; não grava foto nem o registro de enviados.
 // Todo dia, antes de enviar, grava a "foto" dos números até ontem (base da comparação com o mesmo dia do mês seguinte).
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { loadAll } from "../server/store.js";
@@ -15,6 +16,8 @@ const previa = args.includes("--previa");
 const dir = args.find((a, i) => args[i - 1] === "--previa" && !a.startsWith("--")) ?? "previa-resumo";
 const so = args.find((a) => a.startsWith("--so="))?.slice(5).toLowerCase();
 const reenviar = args.includes("--reenviar"); // manda de novo mesmo para quem já recebeu hoje (testes)
+const para = args.find((a) => a.startsWith("--para="))?.slice(7).trim(); // teste: todos os resumos vão para este endereço
+const teste = !!para;
 const hoje = hojeBR();
 const ateDia = diaAnterior(hoje);
 
@@ -25,7 +28,7 @@ const ontem = await lerFoto(diaAnterior(ateDia)).catch(() => null); // base dos 
 console.log(`dia dos números: ${ateDia} | foto de referência (${mesmoDiaMesAnterior(ateDia)}): ${ref ? "ok" : "ainda não existe"}`);
 
 // A foto de hoje só vale se o EVO terminou esta madrugada; senão ela ficaria com números velhos e enganaria a comparação do mês seguinte.
-if (!previa && mes) {
+if (!previa && !teste && mes) {
   if (dadosDeHoje(mes, hoje)) { await salvarFoto(fotoDe(mes, ateDia)); console.log(`foto de ${ateDia} gravada`); }
   else console.log("EVO ainda não atualizou os dados de hoje: foto não gravada, e-mail leva o aviso de dados antigos");
 }
@@ -47,7 +50,7 @@ if (!previa && !(process.env.RESEND_API_KEY && process.env.RESUMO_REMETENTE)) {
 }
 
 // Quem já recebeu o resumo deste dia fica de fora (rodar de novo depois de uma falha só completa o que faltou). --reenviar ignora o registro.
-const enviados = previa || reenviar ? new Set() : await lerEnviados(ateDia);
+const enviados = previa || reenviar || teste ? new Set() : await lerEnviados(ateDia);
 const PAUSA_MS = 300; // o Resend aceita 10 envios por segundo; a pausa deixa folga
 
 let ok = 0, falhas = 0, sem = 0, ja = 0;
@@ -62,8 +65,12 @@ try {
       if (previa) writeFileSync(`${dir}/${u.email.replace(/[^a-z0-9@.]/g, "_")}.html`, `<!-- assunto: ${assunto(r).replace(/--/g, "- -")} -->\n${html}`);
       else {
         // --reenviar usa outra chave, senão o Resend devolveria o envio anterior sem mandar de novo
-        const { repetido } = await enviarEmail({ para: u.email, assunto: assunto(r), html, anexos, chaveUnica: chaveDoEnvio(ateDia, email) + (reenviar ? `/${Date.now()}` : "") });
-        enviados.add(email);
+        const destino = teste ? para : u.email;
+        const titulo = teste ? `[TESTE] ${assunto(r)} (resumo de ${u.email})` : assunto(r);
+        const chave = teste ? `teste/${ateDia}/${email}/${Date.now()}` : chaveDoEnvio(ateDia, email) + (reenviar ? `/${Date.now()}` : "");
+        const { repetido } = await enviarEmail({ para: destino, assunto: titulo, html, anexos, chaveUnica: chave });
+        if (!teste) enviados.add(email);
+        if (teste) console.log(`teste: resumo de ${u.email} enviado para ${para}`);
         if (repetido) { ja++; console.log(`já enviado hoje (confirmado pelo Resend): ${u.email}`); continue; }
         await new Promise((fim) => setTimeout(fim, PAUSA_MS));
       }
@@ -74,7 +81,7 @@ try {
     }
   }
 } finally {
-  if (!previa && enviados.size) await salvarEnviados(ateDia, enviados).catch((e) => console.log(`registro de enviados não gravado: ${e.message}`));
+  if (!previa && !teste && enviados.size) await salvarEnviados(ateDia, enviados).catch((e) => console.log(`registro de enviados não gravado: ${e.message}`));
 }
 console.log(`${previa ? "prévias" : "enviados"}: ${ok} | já enviados antes: ${ja} | sem dados: ${sem} | falhas: ${falhas}`);
 if (falhas) process.exitCode = 1;
