@@ -60,7 +60,7 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
             <div><dt className="text-xs text-muted-foreground">Custo por venda online</dt><dd className="tabular-nums font-semibold text-foreground">{reais2(inv.investimento / compras)}</dd></div>
             <div><dt className="text-xs text-muted-foreground">Retorno por R$ 1 investido</dt><dd className="tabular-nums text-foreground">{valorCompras > 0 && inv.investimento > 0 ? reais2(valorCompras / inv.investimento) : "—"}</dd></div>
           </dl>
-          <p className="mt-2 text-xs text-muted-foreground">Só conta quem comprou no site depois de ver ou clicar num anúncio (até 7 dias do clique ou 1 dia da visualização, regra do Meta). Matrícula fechada na recepção ou pelo WhatsApp não entra, e bloqueios de rastreamento do celular e do navegador fazem o número sair menor que o real.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Valor = o que o site informa ao Meta no momento da compra. Só conta quem comprou no site depois de ver ou clicar num anúncio (até 7 dias do clique ou 1 dia da visualização, regra do Meta). Matrícula fechada na recepção ou pelo WhatsApp não entra, e bloqueios de rastreamento do celular e do navegador fazem o número sair menor que o real.</p>
         </div>
       )}
 

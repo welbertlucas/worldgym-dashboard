@@ -129,6 +129,19 @@ describe("anúncios do Meta (servidor)", () => {
     expect(urls[1]).toContain("ids=a1");
   });
 
+  it("lote recusado pelos ids: busca as miniaturas pela lista de anúncios da conta", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      urls.push(url);
+      if (url.includes("/insights")) return { ok: true, status: 200, json: async () => ({ data: [{ ad_id: "a1", spend: "10" }, { ad_id: "apagado", spend: "5" }] }) };
+      if (url.includes("?ids=")) return { ok: false, status: 400, json: async () => ({ error: { message: "Some of the aliases you requested do not exist" } }) };
+      return { ok: true, status: 200, json: async () => ({ data: [{ id: "a1", creative: { image_url: "https://img/a1-grande.jpg", thumbnail_url: "https://img/a1.jpg" } }] }) };
+    }));
+    const lista = await anunciosDaConta(conta, "tk", "2026-11-10");
+    expect(lista.map((a: { id: string; imagem: string | null }) => [a.id, a.imagem])).toEqual([["a1", "https://img/a1-grande.jpg"], ["apagado", null]]);
+    expect(urls[2]).toContain("act_1/ads?");
+  });
+
   it("sem miniatura o anúncio continua", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => (url.includes("/insights")
       ? { ok: true, status: 200, json: async () => ({ data: [{ ad_id: "a1", spend: "10" }] }) }

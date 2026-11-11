@@ -124,15 +124,34 @@ export function anuncioDoMeta(i, conta) {
   };
 }
 
-/** Miniaturas dos criativos, de 50 em 50 anúncios. Sem miniatura o anúncio continua no ranking (falha aqui não derruba nada). */
-async function miniaturas(ids, token) {
+/**
+ * Miniaturas dos criativos, de 50 em 50 anúncios. Primeiro pede pelos ids (uma chamada); se o Meta recusar o lote
+ * (um anúncio apagado derruba a chamada inteira), pede pela lista de anúncios da conta filtrada por esses ids, que
+ * simplesmente não traz os apagados. Sem miniatura o anúncio continua no ranking.
+ */
+async function miniaturas(ids, token, contaId) {
   const out = {};
+  const campos = encodeURIComponent("creative{thumbnail_url,image_url}");
+  const guardar = (id, c) => { if (c) out[id] = c.image_url || c.thumbnail_url || null; };
+  let avisou = false;
   for (let i = 0; i < ids.length; i += 50) {
     const lote = ids.slice(i, i + 50);
     try {
-      const r = await graph(`https://graph.facebook.com/${VERSAO}/?ids=${lote.join(",")}&fields=${encodeURIComponent("creative{thumbnail_url,image_url}")}`, token);
-      for (const id of lote) { const c = r[id]?.creative; if (c) out[id] = c.image_url || c.thumbnail_url || null; }
-    } catch { /* segue sem miniatura */ }
+      const r = await graph(`https://graph.facebook.com/${VERSAO}/?ids=${lote.join(",")}&fields=${campos}`, token);
+      for (const id of lote) guardar(id, r[id]?.creative);
+      continue;
+    } catch (e) {
+      if (!avisou) { avisou = true; console.log(`miniaturas pelos ids recusadas (act_${contaId}): ${e.message}; tentando pela lista de anúncios`); }
+    }
+    try {
+      const filtro = encodeURIComponent(JSON.stringify([{ field: "id", operator: "IN", value: lote }]));
+      let url = `https://graph.facebook.com/${VERSAO}/act_${contaId}/ads?fields=id,${campos}&filtering=${filtro}&limit=100`;
+      for (let p = 0; url && p < 3; p++) {
+        const r = await graph(url, token);
+        for (const a of r.data ?? []) guardar(a.id, a.creative);
+        url = r.paging?.next ?? null;
+      }
+    } catch (e) { console.log(`miniaturas indisponíveis (act_${contaId}): ${e.message}`); }
   }
   return out;
 }
@@ -147,7 +166,7 @@ export async function anunciosDaConta(conta, token, hoje = hojeBrasilia()) {
     for (const i of r.data ?? []) { const a = anuncioDoMeta(i, conta); if (a.id && a.gasto30d > 0) lista.push(a); }
     url = r.paging?.next ?? null;
   }
-  const fotos = await miniaturas(lista.map((a) => a.id), token);
+  const fotos = await miniaturas(lista.map((a) => a.id), token, conta.id);
   for (const a of lista) a.imagem = fotos[a.id] ?? null;
   return lista;
 }
