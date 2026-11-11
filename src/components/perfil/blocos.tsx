@@ -32,12 +32,12 @@ export function IdadeColunas({ itens }: { itens: Item[] }) {
   const maior = Math.max(1, ...itens.slice(0, -1).map((i) => i.n));
   const topo = itens.slice(0, -1).reduce((m, i, k) => (i.n > itens[m].n ? k : m), 0);
   return (
-    <ol className="flex h-48 items-end gap-1.5 sm:gap-3" aria-label="Distribuição por faixa etária">
+    <ol className="flex h-48 items-end gap-1 sm:gap-3" aria-label="Distribuição por faixa etária">
       {itens.map((i, k) => {
         const semData = k === itens.length - 1;
         return (
           <li key={i.rotulo} className="flex h-full min-w-0 flex-1 flex-col justify-end text-center">
-            <span className="text-xs font-semibold tabular-nums text-foreground">{pct(i.n, total)}</span>
+            <span className="text-[10px] font-semibold tabular-nums tracking-tight text-foreground sm:text-xs sm:tracking-normal">{pct(i.n, total)}</span>
             <div className="mt-1 flex flex-1 items-end">
               <div className={cn("w-full rounded-t-lg", semData ? "bg-foreground/15" : k === topo ? "bg-primary" : "bg-primary/45")} style={{ height: `${Math.max(2, (i.n / maior) * 100)}%`, maxHeight: "100%" }} title={`${i.rotulo}: ${fmt(i.n)}`} />
             </div>

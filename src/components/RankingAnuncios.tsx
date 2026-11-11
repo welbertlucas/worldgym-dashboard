@@ -24,8 +24,10 @@ function Item({ a, pos, mostrarUnidade, destaque }: { a: Anuncio; pos?: number; 
         <p className="truncate text-sm font-medium text-foreground" title={a.nome}>{a.nome || "Anúncio sem nome"}</p>
         <p className="truncate text-xs text-muted-foreground" title={a.campanha}>{mostrarUnidade && <>{a.unidade ?? "Institucional"} · </>}{a.campanha}</p>
         <p className="text-xs tabular-nums text-muted-foreground">{reais(a.gasto30d)} gastos · {contatos.toLocaleString("pt-BR")} contatos{taxa !== null && <> · CTR {taxa.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</>}</p>
+        {/* No celular o destaque vai para baixo do texto, senão o nome e os números ficam espremidos */}
+        <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground sm:hidden">{destaque}</p>
       </div>
-      <span className="shrink-0 text-right text-sm font-semibold tabular-nums text-foreground">{destaque}</span>
+      <span className="hidden shrink-0 text-right text-sm font-semibold tabular-nums text-foreground sm:block">{destaque}</span>
     </li>
   );
 }

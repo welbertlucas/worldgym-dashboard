@@ -65,7 +65,7 @@ export function MapaCalorEntradas({ total, month, monthLabel, partial, unitLabel
         </div>
       }
     >
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[640px] border-separate border-spacing-[2px] text-[11px]" aria-label="Média de entradas por dia da semana e hora">
           <thead>
             <tr>
