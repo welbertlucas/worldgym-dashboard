@@ -30,8 +30,8 @@ function TooltipBox({ active, payload }: { active?: boolean; payload?: { payload
   );
 }
 
-/** Faturamento da rede nos últimos meses fechados, com o mesmo mês do ano anterior em linha tracejada. */
-export function RevenueTrend({ closed, all, partialMonth }: { closed: MonthData[]; all: MonthData[]; partialMonth?: MonthData }) {
+/** Faturamento (da rede ou das unidades da pessoa) nos últimos meses fechados, com o mesmo mês do ano anterior em linha tracejada. */
+export function RevenueTrend({ closed, all, partialMonth, escopo = "da rede" }: { closed: MonthData[]; all: MonthData[]; partialMonth?: MonthData; escopo?: string }) {
   const toRow = (m: MonthData): Row => {
     const prior = all.find((d) => d.month === sameMonthLastYear(m.month));
     return { month: m.month, label: short(m.month), atual: m.total.faturamento, anterior: prior ? prior.total.faturamento : null };
@@ -46,7 +46,7 @@ export function RevenueTrend({ closed, all, partialMonth }: { closed: MonthData[
     <section className="card-surface p-5 sm:p-6 min-w-0" aria-labelledby="hero-titulo">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 id="hero-titulo" className="text-base font-semibold text-foreground">Faturamento da rede</h3>
+          <h3 id="hero-titulo" className="text-base font-semibold text-foreground">{`Faturamento ${escopo}`}</h3>
           <p className="text-sm text-muted-foreground">Últimos {rows.length} meses fechados em relação ao mesmo mês do ano anterior</p>
         </div>
         <ul className="flex items-center gap-4 text-xs text-muted-foreground" aria-label="Legenda">

@@ -112,6 +112,30 @@ describe("Visão Executiva em meias-luas", () => {
     expect(html).toContain("0,0 p.p. vs. jan. de 2000"); // taxa parcial comparada com o mês anterior (o total do helper não varia)
     expect(html).toMatch(/25% de R\$\s?1,0M de jan\. de 2000/); // faturamento parcial
   });
+
+  it("perfil de uma unidade: só a unidade, com as metas dela e sem nada da rede", () => {
+    const ant = month("2026-08", [unit("A", { faturamento: 100000 })]);
+    const m = month("2026-09", [unit("A", { faturamento: 120000 })]);
+    const metas = [
+      { month: "2026-09", unit: "TOTAL", key: "faturamento", bronze: 5000000 },
+      { month: "2026-09", unit: "A", key: "faturamento", bronze: 110000 },
+    ];
+    const html = renderToString(<ExecutivaTab month={m} prev={ant} {...props} metas={metas as never} serie={[ant, m]} unidades={["A"]} />).replace(/<!-- -->/g, "");
+    for (const s of ["Metas da unidade", "Faturamento de A", "Números de A", "1 de 1 meta atingida", "Prioridades"]) expect(html).toContain(s);
+    for (const s of ["da rede", "Maiores faturamentos", "diretoria"]) expect(html).not.toContain(s);
+  });
+
+  it("perfil com várias unidades: soma das unidades e das metas delas, ignorando a meta da rede", () => {
+    const m = month("2026-09", [unit("A", { faturamento: 100000 }), unit("B", { faturamento: 100000 })]);
+    const metas = [
+      { month: "2026-09", unit: "TOTAL", key: "faturamento", bronze: 5000000 },
+      { month: "2026-09", unit: "A", key: "faturamento", bronze: 90000 },
+      { month: "2026-09", unit: "B", key: "faturamento", bronze: 90000 },
+    ];
+    const html = renderToString(<ExecutivaTab month={m} {...props} metas={metas as never} serie={[m]} unidades={["A", "B"]} />).replace(/<!-- -->/g, "");
+    for (const s of ["Metas das suas unidades", "Faturamento das suas unidades", "Soma das suas 2 unidades", "1 de 1 meta atingida", "Maiores faturamentos"]) expect(html).toContain(s);
+    expect(html).not.toContain("da rede");
+  });
 });
 
 describe("DonutList", () => {

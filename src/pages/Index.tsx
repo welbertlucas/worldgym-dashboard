@@ -44,7 +44,7 @@ import {
   RefreshCw, LogOut, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
-import { getToken, getUsuario, podeAtualizar, podeGerirAcessos, sair } from "@/lib/auth";
+import { getToken, getUsuario, podeAtualizar, podeGerirAcessos, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 /** Intervalo da atualização automática dos dados (planilha e metas). */
@@ -137,13 +137,19 @@ const Index = () => {
   const unitData = selectedUnit ? getUnitData(fullMonthData.month, selectedUnit) : null;
 
 
-  // Visão Executiva e Benchmark são sempre da rede: o filtro de unidade não aparece nem vale nelas.
+  // Visão Executiva e Benchmark não têm filtro de unidade. A Executiva é da rede para quem vê tudo e,
+  // no perfil de unidades, só a soma das unidades da pessoa (nada da rede).
+  const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = activeTab === "executiva" || activeTab === "benchmark";
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade ? null : selectedUnit) : null;
 
   const months = dashboardData.map((d) => d.month);
   const evalMonth = getLastClosedMonth(months);
-  const alerts = computeAlerts(dashboardData, metasData);
+  // Perfil de unidades: o "total" é a soma das unidades da pessoa, então nem a meta da rede (TOTAL) nem os
+  // alertas "da rede" valem (comparavam R$ milhões da rede com a soma de uma ou duas unidades).
+  const alerts = soAsProprias
+    ? computeAlerts(dashboardData, metasData.filter((m) => m.unit !== "TOTAL")).filter((a) => a.unit !== "Rede")
+    : computeAlerts(dashboardData, metasData);
   const evalIdx = evalMonth ? months.indexOf(evalMonth) : -1;
   const unitDeltas = evalIdx > 0 ? computeUnitDeltas(dashboardData[evalIdx], dashboardData[evalIdx - 1]) : [];
   // A Visão Executiva e o Benchmark olham a rede inteira (para quem tem acesso só a algumas unidades, as outras vêm com o nome escondido).
@@ -333,13 +339,11 @@ const Index = () => {
 
         {activeTab === "executiva" && (
           <ExecutivaTab
-            month={redeMonthData}
-            prev={compareMonth ? getDataByMonthRede(compareMonth) ?? redePrevMonthData : redePrevMonthData}
+            {...(soAsProprias
+              ? { month: fullMonthData, prev: compareMonth ? getDataByMonth(compareMonth) ?? prevMonthData : prevMonthData, evalMonth, deltas: unitDeltas, metas: metasData, serie: dashboardData, unidades: soAsProprias }
+              : { month: redeMonthData, prev: compareMonth ? getDataByMonthRede(compareMonth) ?? redePrevMonthData : redePrevMonthData, evalMonth: evalMonthRede, deltas: unitDeltasRede, metas: metasRede, serie: dashboardDataRede })}
             comparaMesEscolhido={!!compareMonth}
             alerts={alerts}
-            evalMonth={evalMonthRede}
-            deltas={unitDeltasRede}
-            metas={metasRede}
             onOpenRiscos={() => changeTab("riscos")}
             onOpenUnidades={() => changeTab("benchmark")}
             onOpenMetas={() => changeTab("metas")}
