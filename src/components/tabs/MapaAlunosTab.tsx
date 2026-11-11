@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Select } from "@/components/ui/select";
+import { ChipUnidade } from "@/components/DateFilter";
 import { SectionTitle } from "@/components/SectionTitle";
 import { OndeMoramAlunos } from "@/components/unidades/OndeMoramAlunos";
 import { getAvailableUnits } from "@/data/dashboardData";
@@ -15,13 +15,9 @@ export function MapaAlunosTab({ initialUnit, onUnitChange }: { initialUnit: stri
     <div className="space-y-6">
       <div>
         <SectionTitle hint="Foto de hoje do EVO: alunos ativos (ou que saíram nos últimos 12 meses) por bairro de residência e a localização das unidades">Mapa dos alunos</SectionTitle>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-          Unidade
-          <Select value={unit ?? ""} onChange={(e) => setUnit(e.target.value || null)} className="h-9 w-64 text-sm font-normal text-foreground">
-            <option value="">Rede (todas as unidades)</option>
-            {units.map((u) => <option key={u} value={u}>{u}</option>)}
-          </Select>
-        </label>
+        <div className="min-w-0 sm:w-72">
+          <ChipUnidade id="mapa-unidade" value={unit} units={units} onChange={setUnit} />
+        </div>
       </div>
       <OndeMoramAlunos unit={unit ?? "Rede"} dados={dados} />
     </div>

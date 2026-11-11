@@ -15,7 +15,7 @@ interface DateFilterProps {
   hideCompare?: boolean;
 }
 
-function formatMonth(m: string) {
+export function formatMonth(m: string) {
   const [y, mo] = m.split("-").map(Number);
   const s = new Date(y, (mo || 1) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -25,7 +25,7 @@ function formatMonth(m: string) {
  * Um filtro em forma de "chip": ícone, rótulo pequeno e o valor escolhido em destaque. O select nativo fica por cima,
  * invisível, então o clique abre o seletor do próprio sistema (bom no celular) e leitores de tela leem o select de verdade.
  */
-function Chip({ id, rotulo, valor, icone, ativo, children, value, onChange, aoLimpar, rotuloLimpar, antes, depois }: {
+export function Chip({ id, rotulo, valor, icone, ativo, children, value, onChange, aoLimpar, rotuloLimpar, antes, depois }: {
   id: string; rotulo: string; valor: string; icone: ReactNode; ativo?: boolean; children: ReactNode;
   value: string; onChange: (v: string) => void; aoLimpar?: () => void; rotuloLimpar?: string; antes?: ReactNode; depois?: ReactNode;
 }) {
@@ -59,28 +59,55 @@ function Chip({ id, rotulo, valor, icone, ativo, children, value, onChange, aoLi
 
 const seta = "relative z-10 flex h-full w-9 shrink-0 items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
+/** Chip de mês com setas de mês anterior/próximo (meses em ordem crescente). */
+export function ChipMes({ id, rotulo, value, months, onChange }: { id: string; rotulo: string; value: string; months: string[]; onChange: (m: string) => void }) {
+  const i = months.indexOf(value);
+  const anterior = i > 0 ? months[i - 1] : null;
+  const proximo = i >= 0 && i < months.length - 1 ? months[i + 1] : null;
+  return (
+    <Chip
+      id={id}
+      rotulo={rotulo}
+      valor={formatMonth(value)}
+      icone={<CalendarDays className="h-4 w-4" />}
+      value={value}
+      onChange={onChange}
+      antes={<button type="button" className={cn(seta, "rounded-l-2xl border-r border-border")} disabled={!anterior} onClick={() => anterior && onChange(anterior)} aria-label="Mês anterior" title="Mês anterior"><ChevronLeft className="h-4 w-4" aria-hidden /></button>}
+      depois={<button type="button" className={cn(seta, "rounded-r-2xl border-l border-border")} disabled={!proximo} onClick={() => proximo && onChange(proximo)} aria-label="Próximo mês" title="Próximo mês"><ChevronRight className="h-4 w-4" aria-hidden /></button>}
+    >
+      {[...months].reverse().map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
+    </Chip>
+  );
+}
+
+/** Chip de unidade: "Toda a rede" + as unidades; `extras` entra logo depois da rede (ex.: Institucional). */
+export function ChipUnidade({ id, value, units, onChange, extras, rotuloRede = "Toda a rede" }: { id: string; value: string | null; units: string[]; onChange: (u: string | null) => void; extras?: ReactNode; rotuloRede?: string }) {
+  return (
+    <Chip
+      id={id}
+      rotulo="Unidade"
+      valor={value ?? rotuloRede}
+      icone={<Building2 className="h-4 w-4" />}
+      ativo={!!value}
+      value={value ?? ""}
+      onChange={(v) => onChange(v || null)}
+      aoLimpar={value ? () => onChange(null) : undefined}
+      rotuloLimpar="Limpar filtro de unidade"
+    >
+      <option value="">{rotuloRede}</option>
+      {extras}
+      {units.map((u) => <option key={u} value={u}>{u}</option>)}
+    </Chip>
+  );
+}
+
 export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthChange, onCompareMonthChange, onUnitChange, hideUnit, hideCompare }: DateFilterProps) {
   const months = getAvailableMonths();
   const units = getAvailableUnits();
-  const i = months.indexOf(selectedMonth);
-  const anterior = i > 0 ? months[i - 1] : null;
-  const proximo = i >= 0 && i < months.length - 1 ? months[i + 1] : null;
-
   return (
     <div role="group" aria-label="Filtros do dashboard" className="grid grid-cols-1 gap-2.5 border-b border-border pb-4 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-3">
       <div className="min-w-0 lg:w-72">
-        <Chip
-          id="filtro-mes"
-          rotulo="Mês de referência"
-          valor={formatMonth(selectedMonth)}
-          icone={<CalendarDays className="h-4 w-4" />}
-          value={selectedMonth}
-          onChange={onMonthChange}
-          antes={<button type="button" className={cn(seta, "rounded-l-2xl border-r border-border")} disabled={!anterior} onClick={() => anterior && onMonthChange(anterior)} aria-label="Mês anterior" title="Mês anterior"><ChevronLeft className="h-4 w-4" aria-hidden /></button>}
-          depois={<button type="button" className={cn(seta, "rounded-r-2xl border-l border-border")} disabled={!proximo} onClick={() => proximo && onMonthChange(proximo)} aria-label="Próximo mês" title="Próximo mês"><ChevronRight className="h-4 w-4" aria-hidden /></button>}
-        >
-          {[...months].reverse().map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
-        </Chip>
+        <ChipMes id="filtro-mes" rotulo="Mês de referência" value={selectedMonth} months={months} onChange={onMonthChange} />
       </div>
 
       {!hideCompare && (
@@ -104,20 +131,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
 
       {!hideUnit && (
         <div className="min-w-0 sm:col-span-2 lg:w-64">
-          <Chip
-            id="filtro-unidade"
-            rotulo="Unidade"
-            valor={selectedUnit ?? "Toda a rede"}
-            icone={<Building2 className="h-4 w-4" />}
-            ativo={!!selectedUnit}
-            value={selectedUnit ?? ""}
-            onChange={(v) => onUnitChange(v || null)}
-            aoLimpar={selectedUnit ? () => onUnitChange(null) : undefined}
-            rotuloLimpar="Limpar filtro de unidade"
-          >
-            <option value="">Toda a rede</option>
-            {units.map((u) => <option key={u} value={u}>{u}</option>)}
-          </Chip>
+          <ChipUnidade id="filtro-unidade" value={selectedUnit} units={units} onChange={onUnitChange} />
         </div>
       )}
     </div>
