@@ -383,20 +383,19 @@ const Index = () => {
         {activeTab === "financeiro" && (
           <section>
             <SectionTitle>Financeiro</SectionTitle>
-          <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={financeiroSpecs} columns="xl:grid-cols-3" /></div>
+            {/* Adimplentes e inadimplência ficam junto com os cards do financeiro, todos do mesmo tamanho */}
+            <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[...financeiroSpecs, ...retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")]} columns="lg:grid-cols-3 xl:grid-cols-5" /></div>
             <div className="grid grid-cols-1 gap-6 mb-10">
               <RevenueChart selectedUnit={selectedUnit} />
+              <InadimplenciaChart selectedUnit={selectedUnit} />
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <FormasPagamento total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
                 <BandeirasCartao total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
                 <GatewaysCartao total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
                 <TaxasCobradas total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} />
               </div>
+              <CobrancasRecusa total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} />
             </div>
-            <SectionTitle hint="Quem está pagando em dia, quem está em atraso e por que as cobranças no cartão falham">Cobrança e inadimplência</SectionTitle>
-            <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")} columns="xl:grid-cols-2" /></div>
-            <div className="mb-6"><InadimplenciaChart selectedUnit={selectedUnit} /></div>
-            <div className="mb-6"><CobrancasRecusa total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
           </section>
         )}
 
