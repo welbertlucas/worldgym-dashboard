@@ -6,6 +6,7 @@ import { InvestimentoMeta } from "@/components/InvestimentoMeta";
 import { AlertasMeta } from "@/components/AlertasMeta";
 import { EvolucaoMeta } from "@/components/EvolucaoMeta";
 import { RankingAnuncios } from "@/components/RankingAnuncios";
+import { ContatosPorHorario } from "@/components/ContatosPorHorario";
 import { INSTITUCIONAL } from "@/data/campanhas";
 import { unidadesProprias } from "@/lib/auth";
 import { getAvailableMonths, getAvailableUnits } from "@/data/dashboardData";
@@ -22,7 +23,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month }: { initialUnit
   return (
     <div className="space-y-6">
       <div>
-        <SectionTitle hint="Alertas de melhoria das campanhas, quanto se investiu no Meta no mês, a evolução mês a mês, os anúncios que trazem contato mais barato e as campanhas que estão veiculando. A conta Institucional fica separada das unidades">Tráfego pago</SectionTitle>
+        <SectionTitle hint="Alertas de melhoria das campanhas, quanto se investiu no Meta no mês, a evolução mês a mês, os anúncios que trazem contato mais barato, os horários dos contatos e as campanhas que estão veiculando. A conta Institucional fica separada das unidades">Tráfego pago</SectionTitle>
         <div role="group" aria-label="Filtros do tráfego pago" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-3">
           <div className="min-w-0 lg:w-72">
             <ChipUnidade id="trafego-unidade" value={unit} units={units} onChange={setUnit} extras={veInstitucional && <option value={INSTITUCIONAL}>Institucional (conta da rede)</option>} />
@@ -36,6 +37,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month }: { initialUnit
       <InvestimentoMeta unit={unit} month={mes} />
       <EvolucaoMeta unit={unit} month={mes} />
       <RankingAnuncios unit={unit} />
+      <ContatosPorHorario unit={unit} />
       <CampanhasNoAr unit={unit} />
     </div>
   );

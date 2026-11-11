@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 // @ts-expect-error módulo JS do servidor
-import { anunciosDaConta, campanhaDoMeta, campanhasDaRede, CONTAS, estaNoAr, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
+import { anunciosDaConta, calorDaConta, campanhaDoMeta, campanhasDaRede, CONTAS, estaNoAr, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
 
 const conta = { id: "1", conta: "WG 3 - Asa Norte", unidade: "Asa Norte", token: "DFGO" };
 
@@ -45,7 +45,7 @@ describe("investimento do mês por unidade (Meta)", () => {
     const contas = [{ ...conta, id: "1" }, { ...conta, id: "2" }, { ...conta, id: "3", unidade: null }];
     const r = await mesesDaRede({ DFGO: "x" }, ["2026-11", "2026-12"], contas, 0, "2026-11-10");
     expect(Object.keys(r)).toEqual(["2026-11"]);
-    expect(r["2026-11"].unidades["Asa Norte"]).toEqual({ investimento: 201, impressoes: 20, cliques: 4, leads: 6, conversas: 0, compras: 0, valorCompras: 0 });
+    expect(r["2026-11"].unidades["Asa Norte"]).toEqual({ investimento: 201, impressoes: 20, alcance: 0, cliques: 4, leads: 6, conversas: 0, compras: 0, valorCompras: 0 });
     expect(r["2026-11"].unidades.Rede.investimento).toBe(100.5);
     // mês corrente vai só até hoje; todas as campanhas da conta (nível conta), não só as ativas
     expect(decodeURIComponent(urls[0])).toContain('"since":"2026-11-01","until":"2026-11-10"');
@@ -177,5 +177,37 @@ describe("investimento como parte do faturamento", () => {
     expect(pctDoFaturamento(mes, null, de)).toBeCloseTo(1); // 1.500 / 150.000 (Ceilândia sem investimento e Sobradinho sem conta não entram)
     expect(pctDoFaturamento(mes, INSTITUCIONAL, de)).toBeNull();
     expect(pctDoFaturamento(mes, "Sobradinho", de)).toBeNull();
+  });
+});
+
+describe("horários dos contatos", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("soma leads e conversas por dia da semana e hora nas últimas 4 semanas", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      urls.push(url);
+      return { ok: true, status: 200, json: async () => ({ data: [
+        { date_start: "2026-11-09", hourly_stats_aggregated_by_advertiser_time_zone: "19:00:00 - 19:59:59", actions: [{ action_type: "onsite_conversion.messaging_conversation_started_7d", value: "3" }, { action_type: "lead", value: "1" }] },
+        { date_start: "2026-11-02", hourly_stats_aggregated_by_advertiser_time_zone: "19:00:00 - 19:59:59", actions: [{ action_type: "onsite_conversion.messaging_conversation_started_7d", value: "2" }] },
+        { date_start: "2026-11-08", hourly_stats_aggregated_by_advertiser_time_zone: "08:00:00 - 08:59:59", actions: [] },
+      ] }) };
+    }));
+    const c = await calorDaConta(conta, "tk", "2026-11-11");
+    expect(c).toHaveLength(168);
+    expect(c[1 * 24 + 19]).toBe(6); // segundas, 19h
+    expect(c.reduce((s: number, n: number) => s + n, 0)).toBe(6);
+    expect(decodeURIComponent(urls[0])).toContain('"since":"2026-10-14","until":"2026-11-10"');
+    expect(urls[0]).toContain("breakdowns=hourly_stats_aggregated_by_advertiser_time_zone");
+  });
+
+  it("escolha: unidade, Institucional e rede sem a Institucional", async () => {
+    const { calorDaEscolha, INSTITUCIONAL } = await import("@/data/campanhas");
+    const v = (k: number, n: number) => Array.from({ length: 168 }, (_, i) => (i === k ? n : 0));
+    const calor = { de: "2026-10-14", ate: "2026-11-10", unidades: { Gama: v(10, 2), Itapoã: v(10, 3), Rede: v(10, 50) } };
+    expect(calorDaEscolha(calor, "Gama")?.[10]).toBe(2);
+    expect(calorDaEscolha(calor, null)?.[10]).toBe(5);
+    expect(calorDaEscolha(calor, INSTITUCIONAL)?.[10]).toBe(50);
+    expect(calorDaEscolha(calor, "Sobradinho")).toBeNull();
+    expect(calorDaEscolha(undefined, null)).toBeNull();
   });
 });

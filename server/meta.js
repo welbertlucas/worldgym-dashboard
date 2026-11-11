@@ -174,6 +174,44 @@ export async function anunciosDaRede(tokens, contas = CONTAS, pausaMs = 300, hoj
   return { anuncios, erros };
 }
 
+/**
+ * Contatos (leads + conversas) por dia da semana × hora nos últimos 28 dias completos (4 de cada dia da semana),
+ * no fuso da conta de anúncio. Vetor de 168 posições: dia da semana × 24 + hora, domingo = 0 (igual ao mapa das entradas).
+ */
+export async function calorDaConta(conta, token, hoje = hojeBrasilia()) {
+  const periodo = encodeURIComponent(JSON.stringify({ since: diasAtras(hoje, 28), until: diasAtras(hoje, 1) }));
+  let url = `https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=account&fields=actions&time_range=${periodo}&time_increment=1&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&limit=500`;
+  const calor = Array(168).fill(0);
+  for (let pagina = 0; url && pagina < 10; pagina++) {
+    const r = await graph(url, token);
+    for (const l of r.data ?? []) {
+      const h = Number(String(l.hourly_stats_aggregated_by_advertiser_time_zone ?? "").slice(0, 2));
+      if (!Number.isInteger(h) || h < 0 || h > 23 || !l.date_start) continue;
+      const sem = new Date(`${l.date_start}T12:00:00Z`).getUTCDay();
+      calor[sem * 24 + h] += leadsDe(l.actions) + soma(l.actions, CONVERSA);
+    }
+    url = r.paging?.next ?? null;
+  }
+  return calor;
+}
+
+/** Calor de todas as contas, somando as contas da mesma unidade. A Institucional fica em "Rede". */
+export async function calorDaRede(tokens, contas = CONTAS, pausaMs = 300, hoje = hojeBrasilia()) {
+  const unidades = {};
+  const erros = [];
+  for (const conta of contas) {
+    const token = tokens[conta.token];
+    if (!token) continue;
+    try {
+      const c = await calorDaConta(conta, token, hoje);
+      const alvo = (unidades[conta.unidade ?? "Rede"] ??= Array(168).fill(0));
+      c.forEach((n, k) => { alvo[k] += n; });
+    } catch (e) { erros.push({ conta: conta.conta, erro: e.message }); }
+    await new Promise((r) => setTimeout(r, pausaMs));
+  }
+  return { de: diasAtras(hoje, 28), ate: diasAtras(hoje, 1), unidades, erros };
+}
+
 /** Último dia de um mês "AAAA-MM" (ISO). */
 const fimDoMes = (ym) => { const [a, m] = ym.split("-").map(Number); return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10); };
 /** Hoje em Brasília (ISO). */
@@ -183,13 +221,13 @@ export const hojeBrasilia = () => new Date(Date.now() - 3 * 3600 * 1000).toISOSt
 export async function mesDaConta(conta, token, ym, hoje = hojeBrasilia()) {
   const fim = fimDoMes(ym);
   const periodo = encodeURIComponent(JSON.stringify({ since: `${ym}-01`, until: fim < hoje ? fim : hoje }));
-  const r = await graph(`https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=account&fields=spend,impressions,clicks,actions,action_values&time_range=${periodo}`, token);
+  const r = await graph(`https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=account&fields=spend,impressions,reach,clicks,actions,action_values&time_range=${periodo}`, token);
   const i = r.data?.[0] ?? {};
-  return { investimento: Number(i.spend || 0), impressoes: Number(i.impressions || 0), cliques: Number(i.clicks || 0), leads: leadsDe(i.actions), conversas: soma(i.actions, CONVERSA), ...comprasDe(i.actions, i.action_values) };
+  return { investimento: Number(i.spend || 0), impressoes: Number(i.impressions || 0), alcance: Number(i.reach || 0), cliques: Number(i.clicks || 0), leads: leadsDe(i.actions), conversas: soma(i.actions, CONVERSA), ...comprasDe(i.actions, i.action_values) };
 }
 
 const REDE = "Rede";
-const CAMPOS_MES = ["investimento", "impressoes", "cliques", "leads", "conversas", "compras", "valorCompras"];
+const CAMPOS_MES = ["investimento", "impressoes", "alcance", "cliques", "leads", "conversas", "compras", "valorCompras"];
 
 /**
  * Meses fechados (ou o mês corrente até hoje) da rede: { [AAAA-MM]: { geradoEm, unidades: { [unidade | "Rede"]: {...} }, erros } }.

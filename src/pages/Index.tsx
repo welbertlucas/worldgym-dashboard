@@ -244,18 +244,18 @@ const Index = () => {
                 {getUsuario()!.nome} · {NOME_DO_NIVEL[getUsuario()!.papel]}
               </p>
             )}
-            {podeAtualizar() && <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refresh(false)}
-              disabled={syncing}
-              aria-label="Atualizar da planilha"
-              title={loadedAt ? `Dados carregados às ${loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${evoAtualizadoEm ? ` · EVO atualizado em ${new Date(evoAtualizadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}` : undefined}
-              className="shrink-0 text-xs font-medium"
-            >
-              <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
-              <span className="hidden sm:inline">{syncing ? "Atualizando..." : "Atualizar da planilha"}</span>
-            </Button>}
+            {podeAtualizar() && (
+              <button
+                type="button"
+                onClick={() => refresh(false)}
+                disabled={syncing}
+                aria-label={syncing ? "Atualizando da planilha" : "Atualizar da planilha"}
+                title={`${syncing ? "Atualizando da planilha…" : "Atualizar da planilha"}${loadedAt ? ` · dados carregados às ${loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${evoAtualizadoEm ? ` · EVO atualizado em ${new Date(evoAtualizadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}` : ""}`}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-foreground/25 hover:text-foreground disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} aria-hidden />
+              </button>
+            )}
             {getToken() && (
               <Button variant="ghost" size="sm" onClick={sair} aria-label="Sair" className="shrink-0 text-xs font-medium">
                 <LogOut className="w-4 h-4" aria-hidden />

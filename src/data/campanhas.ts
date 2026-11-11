@@ -25,6 +25,8 @@ export interface ResultadoMeta {
   investimento: number; impressoes: number; cliques: number; leads: number; conversas: number;
   /** Compras marcadas pelo pixel do Meta no site/checkout e o valor delas (meses lidos antes de 11/2026 não têm). */
   compras?: number; valorCompras?: number;
+  /** Pessoas diferentes que viram os anúncios no mês (meses lidos antes de 11/2026 não têm). */
+  alcance?: number;
 }
 /** Unidades do mês; a chave "Rede" é a conta Institucional (anúncio da rede toda). */
 export interface MesMeta { geradoEm: string; unidades: Record<string, ResultadoMeta>; erros: { conta: string; erro: string }[] }
@@ -43,7 +45,9 @@ export interface Anuncio {
   compras30d?: number;
   imagem: string | null;
 }
-export interface FotoCampanhas { geradoEm: string | null; campanhas: Campanha[]; erros: { conta: string; erro: string }[]; meses?: Record<string, MesMeta>; anuncios?: Anuncio[] }
+/** Contatos por dia da semana × hora (168 posições, domingo = 0) nos últimos 28 dias; a chave "Rede" é a Institucional. */
+export interface CalorContatos { de: string; ate: string; unidades: Record<string, number[]> }
+export interface FotoCampanhas { geradoEm: string | null; campanhas: Campanha[]; erros: { conta: string; erro: string }[]; meses?: Record<string, MesMeta>; anuncios?: Anuncio[]; calor?: CalorContatos }
 
 let pedido: Promise<FotoCampanhas | null> | null = null;
 
@@ -93,7 +97,7 @@ export function investimentoDoMes(mes: MesMeta | undefined, unidade: string | nu
   const chave = unidade === INSTITUCIONAL ? CHAVE_INSTITUCIONAL : unidade;
   const us = chave ? [mes.unidades[chave]].filter(Boolean) : Object.entries(mes.unidades).filter(([k]) => k !== CHAVE_INSTITUCIONAL).map(([, v]) => v);
   if (!us.length) return null;
-  const out: Required<ResultadoMeta> = { investimento: 0, impressoes: 0, cliques: 0, leads: 0, conversas: 0, compras: 0, valorCompras: 0 };
+  const out: Required<ResultadoMeta> = { investimento: 0, impressoes: 0, cliques: 0, leads: 0, conversas: 0, compras: 0, valorCompras: 0, alcance: 0 };
   for (const u of us) for (const k of Object.keys(out) as (keyof ResultadoMeta)[]) out[k] += u[k] ?? 0;
   return out;
 }
@@ -150,4 +154,13 @@ export function pctDoFaturamento(mes: MesMeta | undefined, unidade: string | nul
     fat += f;
   }
   return fat > 0 ? (inv / fat) * 100 : null;
+}
+
+/** Calor dos contatos da escolha: a unidade, a Institucional ou, na rede, a soma das unidades (sem a Institucional). null sem dado. */
+export function calorDaEscolha(calor: CalorContatos | undefined, unidade: string | null): number[] | null {
+  if (!calor) return null;
+  if (unidade) return calor.unidades[unidade === INSTITUCIONAL ? CHAVE_INSTITUCIONAL : unidade] ?? null;
+  const us = Object.entries(calor.unidades).filter(([k]) => k !== CHAVE_INSTITUCIONAL).map(([, v]) => v);
+  if (!us.length) return null;
+  return Array.from({ length: 168 }, (_, k) => us.reduce((s, v) => s + (v[k] ?? 0), 0));
 }

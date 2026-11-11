@@ -48,10 +48,12 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
         </div>
       }
     >
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
         <div><dt className="text-xs text-muted-foreground">Leads</dt><dd className="tabular-nums text-foreground">{int(inv.leads)}</dd></div>
         <div><dt className="text-xs text-muted-foreground">Conversas iniciadas</dt><dd className="tabular-nums text-foreground">{int(inv.conversas)}</dd></div>
         <div><dt className="text-xs text-muted-foreground">Impressões</dt><dd className="tabular-nums text-foreground">{int(inv.impressoes)}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">Alcance (pessoas diferentes)</dt><dd className="tabular-nums text-foreground">{inv.alcance ? int(inv.alcance) : "—"}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">Vezes que cada pessoa viu</dt><dd className="tabular-nums text-foreground">{inv.alcance ? (inv.impressoes / inv.alcance).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "—"}</dd></div>
         <div><dt className="text-xs text-muted-foreground">Cliques</dt><dd className="tabular-nums text-foreground">{int(inv.cliques)}</dd></div>
         <div><dt className="text-xs text-muted-foreground">CTR (cliques a cada 100 exibições)</dt><dd className="tabular-nums text-foreground">{pct(ctr(inv.cliques, inv.impressoes))}</dd></div>
         <div><dt className="text-xs text-muted-foreground">CPM (custo de mil exibições)</dt><dd className="tabular-nums text-foreground">{cpm(inv.investimento, inv.impressoes) === null ? "—" : reais2(cpm(inv.investimento, inv.impressoes)!)}</dd></div>
@@ -92,7 +94,7 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
 
       {!unit && mes.erros.length ? <p className="mt-3 text-xs text-warning">{mes.erros.length} {mes.erros.length === 1 ? "conta de anúncio não pôde ser lida" : "contas de anúncio não puderam ser lidas"} neste mês; o investimento delas não entra.</p> : null}
       <p className="mt-3 text-xs text-muted-foreground">
-        Investimento = todas as campanhas do mês no Meta, inclusive as já pausadas. Contato = lead ou conversa iniciada.{pctFat !== null && <> Do faturamento = investido no Meta ÷ faturamento do mês no EVO{unit ? "" : " (na rede, só das unidades com conta de anúncio lida)"}.</>}
+        Investimento = todas as campanhas do mês no Meta, inclusive as já pausadas. Contato = lead ou conversa iniciada.{inv.alcance && !unit ? " Alcance da rede = soma das unidades (quem viu anúncio de duas unidades conta duas vezes)." : ""}{pctFat !== null && <> Do faturamento = investido no Meta ÷ faturamento do mês no EVO{unit ? "" : " (na rede, só das unidades com conta de anúncio lida)"}.</>}
         {unit === INSTITUCIONAL ? " A conta Institucional anuncia para a rede toda e fica separada das unidades." : !unit && institucional > 0 ? ` A rede soma só as unidades; a conta Institucional (${reais(institucional)} no mês) fica separada: escolha "Institucional" para vê-la.` : ""}
       </p>
     </ChartCard>

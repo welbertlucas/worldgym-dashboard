@@ -223,3 +223,11 @@ describe("o que o nível 'unidades' enxerga", () => {
     expect(vis.filtrarCampanhas(foto, sessao)).toEqual({ geradoEm: "x", campanhas: [{ unidade: "Itapoã" }], erros: [], meses: { "2026-11": { geradoEm: "y", erros: [], unidades: { Itapoã: z } } } });
   });
 });
+
+describe("horários dos contatos por nível", () => {
+  it("quem vê só algumas unidades recebe só o calor delas", () => {
+    const foto = { geradoEm: "x", campanhas: [], erros: [], calor: { de: "a", ate: "b", unidades: { Gama: [1], Itapoã: [2], Rede: [3] } } };
+    const r = vis.filtrarCampanhas(foto, { papel: "unidades", unidades: ["Gama"] });
+    expect(Object.keys(r.calor.unidades)).toEqual(["Gama"]);
+  });
+});

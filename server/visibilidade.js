@@ -87,5 +87,6 @@ export function filtrarCampanhas(foto, sessao) {
     ...m, erros: [], unidades: Object.fromEntries(Object.entries(m.unidades ?? {}).filter(([u]) => propria(sessao, u))),
   }]));
   const sua = (c) => c.unidade && propria(sessao, c.unidade);
-  return { ...foto, campanhas: (foto.campanhas ?? []).filter(sua), ...(foto.anuncios ? { anuncios: foto.anuncios.filter(sua) } : {}), erros: [], meses };
+  const calor = foto.calor ? { ...foto.calor, unidades: Object.fromEntries(Object.entries(foto.calor.unidades ?? {}).filter(([u]) => propria(sessao, u))) } : undefined;
+  return { ...foto, campanhas: (foto.campanhas ?? []).filter(sua), ...(foto.anuncios ? { anuncios: foto.anuncios.filter(sua) } : {}), ...(calor ? { calor } : {}), erros: [], meses };
 }

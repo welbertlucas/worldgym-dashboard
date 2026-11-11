@@ -3,7 +3,7 @@
 // que o painel mostra por mês e os alertas usam. Por padrão refaz o mês anterior e o corrente;
 // META_MESES="2025-01..2026-11" refaz outros meses (carga histórica).
 // Uso: META_TOKEN_DFGO=... node --env-file=.env.local scripts/meta-campanhas.mjs
-import { anunciosDaRede, campanhasDaRede, listaDeMeses, mesesDaRede, mesesDaRotina } from "../server/meta.js";
+import { anunciosDaRede, calorDaRede, campanhasDaRede, listaDeMeses, mesesDaRede, mesesDaRotina } from "../server/meta.js";
 import { saveCampanhas, saveMetaMeses } from "../server/store.js";
 
 const tokens = { DFGO: process.env.META_TOKEN_DFGO, BR01: process.env.META_TOKEN_BR01 };
@@ -26,7 +26,16 @@ try {
   anuncios = r.anuncios;
   console.log(`${anuncios.length} anúncios com gasto nos últimos 30 dias (${anuncios.filter((a) => a.imagem).length} com miniatura)`);
 } catch (e) { console.log(`anúncios indisponíveis: ${e.message}`); }
-await saveCampanhas({ geradoEm: new Date().toISOString(), campanhas, erros, ...(anuncios ? { anuncios } : {}) });
+// Contatos por dia da semana e hora (últimos 28 dias). Se falhar, a foto sai sem ele.
+let calor = null;
+try {
+  calor = await calorDaRede(tokens);
+  for (const e of calor.erros) console.log(`ERRO horários ${e.conta}: ${e.erro}`);
+  const total = Object.values(calor.unidades).reduce((s, c) => s + c.reduce((a, b) => a + b, 0), 0);
+  console.log(`horários dos contatos: ${total} contatos de ${calor.de} a ${calor.ate} em ${Object.keys(calor.unidades).length} unidades`);
+  delete calor.erros;
+} catch (e) { console.log(`horários indisponíveis: ${e.message}`); }
+await saveCampanhas({ geradoEm: new Date().toISOString(), campanhas, erros, ...(anuncios ? { anuncios } : {}), ...(calor ? { calor } : {}) });
 console.log("Gravado: campanhas/atual.json");
 
 const meses = process.env.META_MESES ? listaDeMeses(process.env.META_MESES) : mesesDaRotina();
