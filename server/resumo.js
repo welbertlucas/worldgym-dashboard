@@ -385,10 +385,9 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
 
   // ---- Retenção
   const canc = d ? (d.cancelados ? `Foram ${b(`${int(d.cancelados)} ${d.cancelados === 1 ? "cancelamento" : "cancelamentos"}`)} ontem.` : "Não houve cancelamentos ontem.") : "";
-  const adim = d?.adimplentes == null ? "" : d.adimplentes === 0 ? " (o mesmo número de ontem)" : ` (${int(Math.abs(d.adimplentes))} ${d.adimplentes > 0 ? "a mais" : "a menos"} que ontem)`;
   const retencao = secao("Retenção", "🤝", `
 <p style="${P}">O churn do mês está em ${b(`${virg(churn)}%`)}${entre(vari(churn, churnRef, { melhorSeSobe: false, pp: true }))}. ${canc} No mês, são ${b(`${int(t.cancelados)} cancelamentos`)}${entre(vari(t.cancelados, f?.cancelados, { melhorSeSobe: false }))}, e ${b(`${int(t.renovados)} contratos`)} foram renovados${entre(vari(t.renovados, f?.renovados))}.</p>
-<p style="${P}">${r.unidade ? "A unidade tem" : "A rede tem"} ${b(`${int(t.adimplentes)} alunos adimplentes`)} hoje${adim}. A inadimplência está em ${b(`${virg(t.inadimplenciaPerc)}% dos pagantes`)}${entre(vari(t.inadimplenciaPerc, f?.inadimplenciaPerc, { melhorSeSobe: false, pp: true }))}.</p>`);
+<p style="${P}">A inadimplência está em ${b(`${virg(t.inadimplenciaPerc)}% dos pagantes`)}${entre(vari(t.inadimplenciaPerc, f?.inadimplenciaPerc, { melhorSeSobe: false, pp: true }))}.</p>`);
 
   // ---- Contratos mais vendidos
   const top = r.top ?? [];
