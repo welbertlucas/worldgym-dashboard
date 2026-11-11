@@ -297,7 +297,7 @@ export const ASSINATURA = {
 function blocoAssinatura(img = ASSINATURA.imagens) {
   const a = ASSINATURA, linha = `margin:0;font-size:13px;line-height:1.5;color:${SUAVE}`;
   return `<table role="presentation" width="100%" style="margin:40px 0 0;border-collapse:collapse"><tr>
-<td class="as-logo" valign="middle" style="padding:0 16px 0 0"><img src="${esc(img.logo)}" width="88" alt="World Gym" style="display:block;width:88px;height:auto;border:0;outline:none"></td>
+<td class="as-logo" valign="middle" style="padding:0 16px 0 0"><img src="${esc(img.logo)}" width="94" alt="World Gym" style="display:block;width:94px;height:auto;border:0;outline:none"></td>
 <td class="as-texto" width="100%" valign="middle" style="padding:0 0 0 16px;border-left:1px solid ${TRACO}">
 <table role="presentation" width="100%" style="border-collapse:collapse"><tr>
 <td class="as-linha" width="100%" valign="bottom" style="padding:0 18px 10px 0;border-bottom:1px solid ${TRACO};font-family:${sans}">
@@ -306,7 +306,7 @@ function blocoAssinatura(img = ASSINATURA.imagens) {
 <p style="${linha}">${esc(a.empresa)}</p>
 <p class="as-site" style="margin:4px 0 0;font-size:13px;line-height:1.5"><a href="${esc(a.site[1])}" style="color:${SUAVE};text-decoration:none">${esc(a.site[0])}</a></p>
 </td>
-<td class="as-selo" valign="bottom" style="padding:0 0 0 12px"><img src="${esc(img.selo)}" width="60" alt="50º aniversário World Gym" style="display:block;width:60px;height:auto;border:0;outline:none"></td>
+<td class="as-selo" valign="bottom" style="padding:0 0 0 12px"><img src="${esc(img.selo)}" width="64" alt="50º aniversário World Gym" style="display:block;width:64px;height:auto;border:0;outline:none"></td>
 </tr></table>
 </td></tr></table>`;
 }

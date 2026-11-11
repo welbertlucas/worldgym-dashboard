@@ -4,7 +4,7 @@
 //       acrescente --so=email@x.com para limitar a uma pessoa; --reenviar manda de novo para quem já recebeu hoje.
 //       --para=teste@x.com (TESTE): manda os resumos para esse endereço, com "[TESTE]" no assunto; não grava foto nem o registro de enviados.
 // Todo dia, antes de enviar, grava a "foto" dos números até ontem (base da comparação com o mesmo dia do mês seguinte).
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { loadAll, loadCampanhas, loadMetaMeses } from "../server/store.js";
 import { alertasMeta } from "../server/alertasMeta.js";
 import { listarUsuarios } from "../server/acesso.js";
@@ -47,9 +47,9 @@ try {
   console.log(`alertas do Meta: ${alertasDoMeta.length}`);
 } catch (e) { console.log(`alertas do Meta indisponíveis: ${e.message}`); }
 
-const asset = (nome) => new URL(`../server/assets/${nome}`, import.meta.url);
-const anexo = (arquivo, id) => ({ filename: arquivo, content: readFileSync(asset(arquivo)).toString("base64"), content_id: id });
-const anexos = previa ? null : [anexo("banner-resumo.png", "banner-atlas"), anexo("assinatura-logo.png", "assinatura-logo"), anexo("assinatura-selo.png", "assinatura-selo")];
+// Imagens publicadas no site do Atlas (public/email): o e-mail só aponta para elas, sem anexos (o Gmail mostrava cada imagem como anexo).
+const asset = (nome) => new URL(`../public/email/${nome}`, import.meta.url);
+const IMAGENS = `${(process.env.ATLAS_URL || "https://atlas.worldgymacademia.com.br").replace(/\/$/, "")}/email`;
 const usuarios = (await listarUsuarios()).filter((u) => u.ativo !== false && (!so || u.email === so));
 if (previa) { mkdirSync(dir, { recursive: true }); for (const f of ["banner-resumo.png", "assinatura-logo.png", "assinatura-selo.png"]) copyFileSync(asset(f), `${dir}/${f}`); }
 
@@ -72,7 +72,7 @@ try {
     if (enviados.has(email)) { ja++; console.log(`já enviado hoje: ${u.email}`); continue; }
     const r = montarResumo(meses, u, hoje, ref, metas, ontem, alertasDoMeta);
     if (!r) { sem++; console.log(`sem dados: ${u.email}`); continue; }
-    const html = renderizarEmail(r, u, { url: process.env.ATLAS_URL || undefined, urlWehelp: process.env.WEHELP_URL || undefined, contato: process.env.RESUMO_CONTATO || undefined, banner: previa ? "banner-resumo.png" : "cid:banner-atlas", assinatura: previa ? undefined : { logo: "cid:assinatura-logo", selo: "cid:assinatura-selo" } });
+    const html = renderizarEmail(r, u, { url: process.env.ATLAS_URL || undefined, urlWehelp: process.env.WEHELP_URL || undefined, contato: process.env.RESUMO_CONTATO || undefined, banner: previa ? "banner-resumo.png" : `${IMAGENS}/banner-resumo.png`, assinatura: previa ? undefined : { logo: `${IMAGENS}/assinatura-logo.png`, selo: `${IMAGENS}/assinatura-selo.png` } });
     try {
       if (previa) writeFileSync(`${dir}/${u.email.replace(/[^a-z0-9@.]/g, "_")}.html`, `<!-- assunto: ${assunto(r).replace(/--/g, "- -")} -->\n${html}`);
       else {
@@ -80,7 +80,7 @@ try {
         const destino = teste ? para : u.email;
         const titulo = teste ? `[TESTE] ${assunto(r)} (resumo de ${u.email})` : assunto(r);
         const chave = teste ? `teste/${ateDia}/${email}/${Date.now()}` : chaveDoEnvio(ateDia, email) + (reenviar ? `/${Date.now()}` : "");
-        const { repetido } = await enviarEmail({ para: destino, assunto: titulo, html, anexos, chaveUnica: chave });
+        const { repetido } = await enviarEmail({ para: destino, assunto: titulo, html, chaveUnica: chave });
         if (!teste) enviados.add(email);
         if (teste) console.log(`teste: resumo de ${u.email} enviado para ${para}`);
         if (repetido) { ja++; console.log(`já enviado hoje (confirmado pelo Resend): ${u.email}`); continue; }
