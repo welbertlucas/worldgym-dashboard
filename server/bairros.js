@@ -71,8 +71,8 @@ export function contarUltimoAcesso(membros, hoje) {
 }
 
 /** Uma única leitura dos alunos da unidade serve aos bairros, ao último acesso e ao perfil (gênero, idade, estado civil). */
-export async function fotoDosAlunos(idBranch, hoje) {
-  const membros = await fetchAll(`/members?idBranch=${idBranch}`);
+export async function fotoDosAlunos(idBranch, hoje, jaBaixados = null) {
+  const membros = jaBaixados ?? (await fetchAll(`/members?idBranch=${idBranch}`));
   const ativos = membros.filter((m) => ativoNoDia(resumoAluno(m).c, hoje));
   const { lista: inativos, semBairro: semBairroInativos } = contarPorBairro(membros, hoje, saiuNosUltimos12Meses);
   return { ...contarPorBairro(membros, hoje), inativos, semBairroInativos, acessos: contarUltimoAcesso(membros, hoje), perfil: perfilDosAlunos(ativos, hoje) };
@@ -124,4 +124,38 @@ export async function coordenadasDoBairro({ bairro, cidade, uf }, busca = nomina
     if (c) return [...c, 1];
   }
   return null;
+}
+
+/**
+ * Aplica a foto dos alunos de uma unidade no mês (`u`): geocodifica os bairros novos (guardando em `geo`) e grava
+ * bairros, quem saiu, acessos e perfil. Devolve { novos, falhou }: com falha na geocodificação a unidade fica como estava.
+ */
+export async function aplicarBairros(u, foto, geo, local) {
+  const { lista, semBairro, inativos, semBairroInativos, acessos, perfil } = foto;
+  let novos = 0;
+  let falhou = false;
+  // Ativos e quem saiu nos últimos 12 meses: mesma lista de coordenadas (cada bairro é geocodificado uma vez só).
+  const localizar = async (itens) => {
+    const saida = [];
+    for (const b of itens) {
+      if (falhou) break;
+      const k = chaveBairro(b.bairro, b.cidade);
+      if (!geo[k]) {
+        try { geo[k] = await coordenadasDoBairro(b); novos++; } catch (e) { falhou = e.message; break; } // não guarda a falha: a próxima carga tenta de novo
+      }
+      if (geo[k]) saida.push([b.bairro, b.cidade, b.n, geo[k][0], geo[k][1], ...(geo[k][2] ? [1] : [])]);
+    }
+    return saida;
+  };
+  const bairros = await localizar(lista);
+  const bairrosInativos = await localizar(inativos);
+  if (falhou) return { novos, falhou };
+  if (local && Number.isFinite(local[0]) && Number.isFinite(local[1]) && (local[0] || local[1])) u.local = local;
+  u.bairros = bairros;
+  u.bairrosInativos = bairrosInativos;
+  u.semBairroInativos = semBairroInativos + inativos.filter((b) => !geo[chaveBairro(b.bairro, b.cidade)]).reduce((s, b) => s + b.n, 0);
+  u.acessos = acessos;
+  u.perfil = perfil;
+  u.semBairro = semBairro + lista.filter((b) => !geo[chaveBairro(b.bairro, b.cidade)]).reduce((s, b) => s + b.n, 0);
+  return { novos, falhou };
 }

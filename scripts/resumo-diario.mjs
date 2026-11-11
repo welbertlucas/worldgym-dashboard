@@ -43,7 +43,7 @@ let alertasDoMeta = [];
 try {
   const [foto, metaMeses] = await Promise.all([loadCampanhas(), loadMetaMeses()]);
   const ym = ateDia.slice(0, 7), [a, m] = ym.split("-").map(Number), ant = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`;
-  alertasDoMeta = alertasMeta({ campanhas: foto?.campanhas ?? [], metaMes: metaMeses?.[ym], metaAnterior: metaMeses?.[ant], evoMes: mes, evoAnterior: meses.find((x) => x.month === ant), hoje });
+  alertasDoMeta = alertasMeta({ campanhas: foto?.campanhas ?? [], metaMes: metaMeses?.[ym], metaAnterior: metaMeses?.[ant], evoMes: mes, evoAnterior: meses.find((x) => x.month === ant), hoje, historico: metaMeses ?? undefined });
   console.log(`alertas do Meta: ${alertasDoMeta.length}`);
 } catch (e) { console.log(`alertas do Meta indisponíveis: ${e.message}`); }
 

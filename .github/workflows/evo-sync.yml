@@ -78,12 +78,12 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-backfill.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
-        name: Alunos ativos no fim do mês (ticket médio e adimplentes)
+        name: Alunos ativos, renovação e onde moram (uma leitura dos alunos para tudo)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-        run: node scripts/evo-ativos.mjs $MONTHS_DONE
+        run: node scripts/evo-alunos.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
         name: NPS por unidade (WeHelp)
         # Não derruba a sincronização do EVO se o WeHelp estiver fora do ar ou sem as credenciais cadastradas.
@@ -114,13 +114,6 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-treinos.mjs
-      - if: ${{ !cancelled() }}
-        name: Onde moram os alunos (bairros, foto de hoje)
-        env:
-          EVO_DNS: ${{ secrets.EVO_DNS }}
-          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-        run: node scripts/evo-bairros.mjs
       - if: ${{ !cancelled() }}
         name: Conversão de cadastros (prospects do EVO)
         env:

@@ -20,6 +20,8 @@ export const LIMITES_META = {
   conversaoBaixa: 0.05,
   /** Cadastros do mês sem origem no EVO a partir desta fração (0,5 = metade): a conversão não é confiável. */
   semOrigemAlta: 0.5,
+  /** Pixel parado: a unidade já teve pelo menos estas vendas online num mês dos últimos 12... */
+  pixelMinVendasAntes: 5,
 };
 
 /** Origem do cadastro no EVO que conta como vinda do Meta (Instagram, Facebook, anúncio pago). */
@@ -105,7 +107,44 @@ export function alertasDeUnidades({ metaMes, metaAnterior, evoMes, evoAnterior, 
   return out;
 }
 
-/** Todos os alertas do Meta: campanhas (foto do dia) + unidades (mês corrente contra o anterior). */
-export function alertasMeta({ campanhas = [], metaMes, metaAnterior, evoMes, evoAnterior, hoje, limites = LIMITES_META }) {
-  return [...alertasDeCampanhas(campanhas, { hoje, limites }), ...alertasDeUnidades({ metaMes, metaAnterior, evoMes, evoAnterior, campanhas, limites })];
+const MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const nomeMes = (ym) => `${MESES_PT[Number(ym.slice(5)) - 1]} de ${ym.slice(0, 4)}`;
+const antes = (ym, n = 1) => { let [a, m] = ym.split("-").map(Number); m -= n; while (m < 1) { m += 12; a -= 1; } return `${a}-${String(m).padStart(2, "0")}`; };
+
+/**
+ * Pixel parado: no último mês fechado a unidade investiu no Meta e não registrou nenhuma venda online pelo pixel,
+ * mas nos 12 meses anteriores teve um mês com `pixelMinVendasAntes` vendas ou mais (o pixel saiu do checkout ou as campanhas de venda pararam).
+ * historico = { [AAAA-MM]: { unidades: { nome: { investimento, compras } } } } (meses lidos do Meta).
+ */
+export function alertasDoPixel(historico, hoje, limites = LIMITES_META) {
+  if (!historico || !hoje) return [];
+  const fechado = antes(hoje.slice(0, 7));
+  const mes = historico[fechado]?.unidades;
+  if (!mes) return [];
+  const out = [];
+  for (const [nome, v] of Object.entries(mes)) {
+    if (nome === CHAVE_INSTITUCIONAL || !(v.investimento > 0) || (v.compras ?? 0) > 0) continue;
+    let ultimo = null;
+    for (let i = 1; i <= 12 && !ultimo; i++) {
+      const ym = antes(fechado, i);
+      if ((historico[ym]?.unidades?.[nome]?.compras ?? 0) >= limites.pixelMinVendasAntes) ultimo = ym;
+    }
+    if (!ultimo) continue;
+    const n = historico[ultimo].unidades[nome].compras;
+    out.push({
+      quem: nome, gravidade: "atencao", titulo: "Pixel sem vendas online",
+      fato: `Nenhuma venda online marcada pelo pixel do Meta em ${nomeMes(fechado)}, com ${reais(v.investimento)} investidos; em ${nomeMes(ultimo)} foram ${n} vendas.`,
+      acao: "Conferir se o pixel do Meta continua instalado no site e no checkout da unidade e se o evento de compra dispara; sem ele não dá para medir o custo por venda online.",
+    });
+  }
+  return out;
+}
+
+/** Todos os alertas do Meta: campanhas (foto do dia) + unidades (mês corrente contra o anterior) + pixel parado (com o histórico). */
+export function alertasMeta({ campanhas = [], metaMes, metaAnterior, evoMes, evoAnterior, hoje, limites = LIMITES_META, historico }) {
+  return [
+    ...alertasDeCampanhas(campanhas, { hoje, limites }),
+    ...alertasDeUnidades({ metaMes, metaAnterior, evoMes, evoAnterior, campanhas, limites }),
+    ...alertasDoPixel(historico, hoje, limites),
+  ];
 }

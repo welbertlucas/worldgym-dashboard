@@ -93,15 +93,18 @@ export async function evoBuffer(path, tries = TENTATIVAS) {
   throw new Error(`EVO ${last} em ${path}`);
 }
 
-export async function fetchAll(path) {
+/** Todas as páginas de uma rota. `take` maior = menos chamadas (só para rotas que aceitam: /receivables aceita 1.000). */
+export async function fetchAll(path, take = PAGE) {
   const out = [];
-  for (let skip = 0; skip < 100000; skip += PAGE) {
-    const rows = await evoGet(`${path}&take=${PAGE}&skip=${skip}`);
+  for (let skip = 0; skip < 100000; skip += take) {
+    const rows = await evoGet(`${path}&take=${take}&skip=${skip}`);
     out.push(...rows);
-    if (rows.length < PAGE) break;
+    if (rows.length < take) break;
   }
   return out;
 }
+/** Títulos: a rota aceita páginas de 1.000 (a carga mensal faz 10x menos chamadas que com 100). */
+const PAGINA_TITULOS = 1000;
 
 export async function listBranches() {
   const all = await evoGet("/configuration");
@@ -126,8 +129,8 @@ const dia = (iso) => String(iso ?? "").slice(0, 10);
 export async function unitMonth(idBranch, ym, hoje = hojeBR()) {
   const [a, b] = monthRange(ym);
   const [dueAll, paidAll] = await Promise.all([
-    fetchAll(`/receivables?idBranch=${idBranch}&dueDateStart=${a}&dueDateEnd=${b}`),
-    fetchAll(`/receivables?idBranch=${idBranch}&chargeDateStart=${a}&chargeDateEnd=${b}`),
+    fetchAll(`/receivables?idBranch=${idBranch}&dueDateStart=${a}&dueDateEnd=${b}`, PAGINA_TITULOS),
+    fetchAll(`/receivables?idBranch=${idBranch}&chargeDateStart=${a}&chargeDateEnd=${b}`, PAGINA_TITULOS),
   ]);
   const due = dueAll.filter(live);
   const paid = paidAll.filter(live);

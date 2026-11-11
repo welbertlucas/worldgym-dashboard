@@ -75,3 +75,20 @@ describe("alertas do tráfego pago: quem vê o quê", () => {
     expect(renderToString(createElement(AlertasMeta, { unit: null }))).toContain("Alertas do tráfego pago");
   });
 });
+
+describe("pixel sem vendas online", () => {
+  it("avisa quem investiu no mês fechado sem venda pelo pixel e já vendeu antes; ignora quem nunca vendeu e a Institucional", async () => {
+    const { alertasDoPixel } = await import("../../../server/alertasMeta.js");
+    const u = (investimento: number, compras?: number) => ({ investimento, leads: 0, conversas: 0, ...(compras === undefined ? {} : { compras }) });
+    const historico = {
+      "2025-12": { unidades: { Gama: u(500, 9), Itapoã: u(300, 2) } },
+      "2026-09": { unidades: { Gama: u(400, 0), Ceilândia: u(400, 12) } },
+      "2026-10": { unidades: { Gama: u(651, 0), Itapoã: u(300, 0), Ceilândia: u(500, 4), "Asa Norte": u(0, 0), Rede: u(100, 0) } },
+    };
+    const r = alertasDoPixel(historico, "2026-11-11");
+    expect(r.map((a: { quem: string }) => a.quem)).toEqual(["Gama"]);
+    expect(r[0].fato).toContain("outubro de 2026");
+    expect(r[0].fato).toContain("dezembro de 2025 foram 9 vendas");
+    expect(alertasDoPixel(undefined, "2026-11-11")).toEqual([]);
+  });
+});

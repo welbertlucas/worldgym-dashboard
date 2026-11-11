@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error módulos JS do servidor
 import { parseMetas, situacaoMeta } from "../../../server/metas.js";
 // @ts-expect-error módulos JS do servidor
-import { valoresDoDia, montarResumo, renderizarEmail, totalizar, unidadesDoUsuario, alertasDe, mesmoDiaMesAnterior, diaAnterior, dadosDeHoje, fotoDe, assunto, textoPrevia, enviarEmail, chaveDoEnvio, enviarSmtp, envioConfigurado, remetente, anexosSmtp } from "../../../server/resumo.js";
+import { valoresDoDia, montarResumo, renderizarEmail, totalizar, unidadesDoUsuario, alertasDe, mesmoDiaMesAnterior, diaAnterior, dadosDeHoje, fotoDe, assunto, textoPrevia, enviarEmail, chaveDoEnvio, enviarSmtp, envioConfigurado, remetente, anexosSmtp, gruposDeAlertas } from "../../../server/resumo.js";
 
 const un = (name: string, o: any = {}) => ({ name, faturamento: 1000, recebimento: 800, vendasOnline: 600, diarias: 100, personal: 50, pagantes: 100, adimplentes: 90, inadimplentes: 10, oportunidades: 50, conversoes: 10, ativosIni: 110, contratosVendidos: [["Anual", 6, 3000], ["Mensal", 9, 1800], ["Semestral", 2, 1600], ["Trimestral", 1, 400]], ativosFim: 120, aVencer: 10, naoRenovados: 2, cancelados: 3, novosContratos: 7, npsPromotores: 8, npsDetratores: 2, npsRespostas: 10, ...o });
 const agora = "2026-11-10T04:00:00.000Z";
@@ -275,5 +275,22 @@ describe("resumo diário", () => {
     const h2 = renderizarEmail(semAlerta, { papel: "unidades" });
     expect(h2).toContain(">Abrir o Atlas<");
     expect(h2).toContain("mailto:lucas.lima@worldgymbrasil.com.br"); // sem configuração, vale o contato padrão
+  });
+});
+
+describe("alertas listados no e-mail", () => {
+  it("agrupa por título, críticos primeiro, com as unidades", () => {
+    const a = (titulo: string, quem: string, gravidade = "atencao") => ({ titulo, quem, gravidade, fato: "", acao: "" });
+    const g = gruposDeAlertas([a("Pixel sem vendas online", "Gama"), a("Inadimplência alta", "Itapoã", "critico"), a("Pixel sem vendas online", "Itapoã"), a("Pixel sem vendas online", "Gama")]);
+    expect(g).toEqual([
+      { titulo: "Inadimplência alta", gravidade: "critico", quem: ["Itapoã"] },
+      { titulo: "Pixel sem vendas online", gravidade: "atencao", quem: ["Gama", "Itapoã"] },
+    ]);
+  });
+
+  it("o e-mail mostra o título e as unidades de cada alerta", () => {
+    const r = montarResumo(meses, { nome: "Ana", email: "a@b.c", papel: "dono", unidades: [] }, "2026-11-10", null, null, null, [{ quem: "Gama", gravidade: "atencao", titulo: "Pixel sem vendas online", fato: "", acao: "" }]);
+    const html = renderizarEmail(r, { nome: "Ana" });
+    expect(html).toContain("pixel sem vendas online</strong> em Gama.");
   });
 });

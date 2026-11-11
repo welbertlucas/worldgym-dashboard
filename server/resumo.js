@@ -311,6 +311,19 @@ function blocoAssinatura(img = ASSINATURA.imagens) {
 </td></tr></table>`;
 }
 
+/** Alertas agrupados pelo título (na ordem em que já vêm: críticos primeiro), com as unidades de cada um. */
+export function gruposDeAlertas(alertas) {
+  const grupos = new Map();
+  for (const a of alertas ?? []) {
+    const g = grupos.get(a.titulo) ?? { titulo: a.titulo, gravidade: a.gravidade, quem: [] };
+    if (a.gravidade === "critico") g.gravidade = "critico";
+    if (a.quem && !g.quem.includes(a.quem)) g.quem.push(a.quem);
+    grupos.set(a.titulo, g);
+  }
+  return [...grupos.values()].sort((x, y) => (x.gravidade === y.gravidade ? 0 : x.gravidade === "critico" ? -1 : 1));
+}
+const juntar = (xs) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs[xs.length - 1]}`);
+
 export function renderizarEmail(r, usuario, { url = "https://atlas.worldgymacademia.com.br", banner = "banner-resumo.png", assinatura = ASSINATURA.imagens, urlWehelp = "https://app.wehelpsoftware.com", contato = CONTATO_PADRAO } = {}) {
   const t = r.total, f = r.totalRef, d = r.dia;
   const primeiro = esc(String(usuario.nome ?? "").trim().split(/\s+/)[0] || "");
@@ -369,9 +382,19 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
   const nps = t.nps === null ? "" : secao("Satisfação", "⭐", `
 <p style="${P}">O NPS do mês está em ${b(String(t.nps))}${entre(vn)}.${d && d.nps !== null ? ` A nota de ontem foi ${b(String(d.nps))}.` : ""} No mês, ${b(`${int(t.npsRespostas)} pesquisas`)} foram respondidas: ${int(t.npsPromotores)} promotores, ${int(neutros)} neutros e ${int(t.npsDetratores)} detratores. <a href="${esc(urlWehelp)}" style="color:${TEXTO};text-decoration:underline">Ver as pesquisas no WeHelp</a>.</p>`);
 
-  // ---- Alertas
+  // ---- Alertas: a contagem e quais são, no mesmo parágrafo (título e onde); o detalhe e a ação ficam no Atlas.
+  const quaisAlertas = gruposDeAlertas(r.alertas).map((g, i, todos) => {
+    const geral = g.quem.filter((q) => q === "A rede" || q === "Suas unidades");
+    const unidades = g.quem.filter((q) => !geral.includes(q));
+    const onde = [
+      ...geral.map((q) => (q === "A rede" ? "na rede" : "nas suas unidades")),
+      ...(unidades.length ? [`em ${unidades.length <= 4 ? juntar(unidades) : `${unidades.slice(0, 3).join(", ")} e mais ${unidades.length - 3} unidades`}`] : []),
+    ];
+    const titulo = g.titulo.charAt(0).toLowerCase() + g.titulo.slice(1);
+    return `${i > 0 && i === todos.length - 1 ? "e " : ""}${b(titulo)}${onde.length ? ` ${esc(juntar(onde))}` : ""}`;
+  });
   const alertas = n
-    ? secao("Alertas", "🚨", `<p style="${P}">Você tem ${b(`${n} ${n === 1 ? "alerta" : "alertas"}`)} pedindo atenção${crit ? (crit === n ? (n === 1 ? ", e ele é crítico" : ", todos críticos") : `, ${crit} ${crit === 1 ? "crítico" : "críticos"}`) : ""}. Os detalhes e as ações sugeridas estão no Atlas.</p>`)
+    ? secao("Alertas", "🚨", `<p style="${P}">Você tem ${b(`${n} ${n === 1 ? "alerta" : "alertas"}`)} pedindo atenção${crit ? (crit === n ? (n === 1 ? ", e ele é crítico" : ", todos críticos") : `, ${crit} ${crit === 1 ? "crítico" : "críticos"}`) : ""}: ${quaisAlertas.join("; ")}. Os detalhes e as ações sugeridas estão no Atlas.</p>`)
     : secao("Alertas", "✅", `<p style="${P}">Nenhum alerta hoje: os indicadores estão dentro do esperado.</p>`);
 
   // Dono de unidade e gestor (papel "unidades"): o aviso aparece para todos; master e dono da rede já recebem a rede inteira.

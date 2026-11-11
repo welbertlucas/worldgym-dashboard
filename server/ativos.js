@@ -76,9 +76,9 @@ export function fluxoDoMes(alunos, ym, hoje) {
   };
 }
 
-/** Baixa os alunos de uma unidade e calcula o movimento de cada mês pedido. */
-export async function ativosDaUnidade(idBranch, meses, hoje) {
-  const alunos = (await fetchAll(`/members?idBranch=${idBranch}`)).map(resumoAluno);
+/** Baixa os alunos de uma unidade (ou usa `membros` já baixados) e calcula o movimento de cada mês pedido. */
+export async function ativosDaUnidade(idBranch, meses, hoje, membros = null) {
+  const alunos = (membros ?? (await fetchAll(`/members?idBranch=${idBranch}`))).map(resumoAluno);
   return Object.fromEntries(meses.map((ym) => [ym, { ...movimentoDoMes(alunos, ym, hoje), ...fluxoDoMes(alunos, ym, hoje) }]));
 }
 

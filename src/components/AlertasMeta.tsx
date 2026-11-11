@@ -21,6 +21,7 @@ const REGRAS = [
   `Menos de ${Math.round(L.conversaoBaixa * 100)}% dos contatos do mês virando aluno (a partir de ${L.conversaoMinContatos} contatos).`,
   `Origem não marcada no EVO: ${Math.round(L.semOrigemAlta * 100)}% ou mais dos cadastros do mês sem origem.`,
   "Unidade que anunciou no mês passado e está sem campanha no ar.",
+  `Pixel sem vendas online: no último mês fechado a unidade investiu e não registrou venda pelo pixel, mas teve ${L.pixelMinVendasAntes} vendas ou mais num dos 12 meses anteriores.`,
 ];
 
 /** Alertas de melhoria do tráfego pago: campanhas (foto de hoje) e unidades (mês corrente contra o anterior, com os alunos do EVO). */
@@ -31,7 +32,7 @@ export function AlertasMeta({ unit }: { unit: string | null }) {
     if (!foto?.geradoEm) return [];
     const hoje = hojeBrasilia();
     const ym = hoje.slice(0, 7), ant = mesAnterior(ym);
-    const todos = alertasMeta({ campanhas: foto.campanhas, metaMes: foto.meses?.[ym], metaAnterior: foto.meses?.[ant], evoMes: getDataByMonth(ym), evoAnterior: getDataByMonth(ant), hoje });
+    const todos = alertasMeta({ campanhas: foto.campanhas, metaMes: foto.meses?.[ym], metaAnterior: foto.meses?.[ant], evoMes: getDataByMonth(ym), evoAnterior: getDataByMonth(ant), hoje, historico: foto.meses });
     return alertasDaEscolha(todos, unit).sort((a, b) => (a.gravidade === b.gravidade ? a.quem.localeCompare(b.quem, "pt-BR") : a.gravidade === "critico" ? -1 : 1));
   }, [foto, unit]);
   const titulo = "Alertas do tráfego pago";
