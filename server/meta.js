@@ -195,21 +195,33 @@ export async function calorDaConta(conta, token, hoje = hojeBrasilia()) {
   return calor;
 }
 
-/** Calor de todas as contas, somando as contas da mesma unidade. A Institucional fica em "Rede". */
+/** Total de contatos da conta nos mesmos 28 dias, sem separar por hora: mostra quanto do total o Meta informou com horário. */
+export async function contatosDoPeriodo(conta, token, hoje = hojeBrasilia()) {
+  const periodo = encodeURIComponent(JSON.stringify({ since: diasAtras(hoje, 28), until: diasAtras(hoje, 1) }));
+  const r = await graph(`https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=account&fields=actions&time_range=${periodo}`, token);
+  const i = r.data?.[0] ?? {};
+  return leadsDe(i.actions) + soma(i.actions, CONVERSA);
+}
+
+/** Calor de todas as contas, somando as contas da mesma unidade, e o total de contatos do período. A Institucional fica em "Rede". */
 export async function calorDaRede(tokens, contas = CONTAS, pausaMs = 300, hoje = hojeBrasilia()) {
   const unidades = {};
+  const totais = {};
   const erros = [];
   for (const conta of contas) {
     const token = tokens[conta.token];
     if (!token) continue;
     try {
       const c = await calorDaConta(conta, token, hoje);
-      const alvo = (unidades[conta.unidade ?? "Rede"] ??= Array(168).fill(0));
+      const total = await contatosDoPeriodo(conta, token, hoje);
+      const chave = conta.unidade ?? "Rede";
+      const alvo = (unidades[chave] ??= Array(168).fill(0));
       c.forEach((n, k) => { alvo[k] += n; });
+      totais[chave] = (totais[chave] ?? 0) + total;
     } catch (e) { erros.push({ conta: conta.conta, erro: e.message }); }
     await new Promise((r) => setTimeout(r, pausaMs));
   }
-  return { de: diasAtras(hoje, 28), ate: diasAtras(hoje, 1), unidades, erros };
+  return { de: diasAtras(hoje, 28), ate: diasAtras(hoje, 1), unidades, totais, erros };
 }
 
 /** Último dia de um mês "AAAA-MM" (ISO). */

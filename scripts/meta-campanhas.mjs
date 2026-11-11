@@ -32,7 +32,9 @@ try {
   calor = await calorDaRede(tokens);
   for (const e of calor.erros) console.log(`ERRO horários ${e.conta}: ${e.erro}`);
   const total = Object.values(calor.unidades).reduce((s, c) => s + c.reduce((a, b) => a + b, 0), 0);
-  console.log(`horários dos contatos: ${total} contatos de ${calor.de} a ${calor.ate} em ${Object.keys(calor.unidades).length} unidades`);
+  const geral = Object.values(calor.totais).reduce((s, n) => s + n, 0);
+  console.log(`horários dos contatos: ${total} de ${geral} contatos com horário (${geral ? Math.round((total / geral) * 100) : 0}%), de ${calor.de} a ${calor.ate}, em ${Object.keys(calor.unidades).length} unidades`);
+  for (const [u, c] of Object.entries(calor.unidades)) { const t = calor.totais[u] ?? 0; const h = c.reduce((s, n) => s + n, 0); console.log(`  ${u}: ${h} de ${t}`); }
   delete calor.erros;
 } catch (e) { console.log(`horários indisponíveis: ${e.message}`); }
 await saveCampanhas({ geradoEm: new Date().toISOString(), campanhas, erros, ...(anuncios ? { anuncios } : {}), ...(calor ? { calor } : {}) });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import { horarioDePico } from "@/components/clientes/MapaCalorEntradas";
-import { calorDaEscolha, carregarCampanhas, type FotoCampanhas } from "@/data/campanhas";
+import { calorDaEscolha, carregarCampanhas, totalDaEscolha, type FotoCampanhas } from "@/data/campanhas";
 
 const DIAS = [
   { sem: 1, nome: "Seg" }, { sem: 2, nome: "Ter" }, { sem: 3, nome: "Qua" }, { sem: 4, nome: "Qui" },
@@ -24,6 +24,8 @@ export function ContatosPorHorario({ unit }: { unit: string | null }) {
   if (foto === undefined) return <ChartCard title={titulo} subtitle={subtitle}><ChartEmpty>Carregando…</ChartEmpty></ChartCard>;
   if (!foto?.calor) return <ChartCard title={titulo} subtitle={subtitle}><ChartEmpty>Os horários aparecem depois da próxima leitura diária do Meta.</ChartEmpty></ChartCard>;
   const total = calor ? calor.reduce((s, n) => s + n, 0) : 0;
+  const totalPeriodo = totalDaEscolha(foto?.calor, unit);
+  const cobertura = totalPeriodo ? Math.min(100, Math.round((total / totalPeriodo) * 100)) : null;
   if (!calor || total === 0) return <ChartCard title={titulo} subtitle={subtitle}><ChartEmpty>Nenhum contato do Meta nas últimas 4 semanas{unit ? ` para ${unit}` : ""}.</ChartEmpty></ChartCard>;
 
   const media = calor.map((n) => n / SEMANAS);
@@ -39,8 +41,8 @@ export function ContatosPorHorario({ unit }: { unit: string | null }) {
       subtitle={subtitle}
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
-          <HeadlineStat label="Contatos em 4 semanas" value={int(total)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
-          <HeadlineStat label="Média por dia" value={dec(total / 28)} swatch={<span className="h-2 w-2 rounded-full bg-foreground/50" />} />
+          <HeadlineStat label="Contatos em 4 semanas" value={int(totalPeriodo ?? total)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
+          <HeadlineStat label="Média por dia" value={dec((totalPeriodo ?? total) / 28)} swatch={<span className="h-2 w-2 rounded-full bg-foreground/50" />} />
           {pico && <HeadlineStat label="Horário de pico" value={`${DIAS.find((d) => d.sem === pico.sem)?.nome} ${pico.hora}h`} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />}
           <HeadlineStat label="Dia com mais contatos" value={NOME_LONGO[melhorDia.sem].replace(/^./, (c) => c.toUpperCase())} swatch={<span className="h-2 w-2 rounded-full bg-primary/60" />} />
         </div>
@@ -90,6 +92,11 @@ export function ContatosPorHorario({ unit }: { unit: string | null }) {
         <span className="h-2 w-24 rounded-full" style={{ background: "linear-gradient(to right, hsl(217 91% 55% / 0.08), hsl(217 91% 55% / 0.9))" }} />
         <span>mais contatos</span>
       </div>
+      {cobertura !== null && (
+        <p className={`mt-3 text-xs ${cobertura < 80 ? "text-warning" : "text-muted-foreground"}`}>
+          {cobertura}% dos contatos do período ({int(total)} de {int(totalPeriodo!)}) têm horário informado pelo Meta{cobertura < 80 ? ": o desenho dos horários vale, mas os números ficam menores que o total" : ""}.
+        </p>
+      )}
       <p className="mt-4 text-xs text-muted-foreground">
         Leads e conversas iniciadas pelos anúncios do Meta, pelo horário em que o Meta registrou o contato (fuso da conta de anúncio). Cada quadrado é a média de contatos naquela hora num dia daquele tipo, nas últimas 4 semanas completas. Use para ter alguém respondendo o WhatsApp e o Direct nos horários mais fortes.
       </p>

@@ -46,7 +46,7 @@ export interface Anuncio {
   imagem: string | null;
 }
 /** Contatos por dia da semana × hora (168 posições, domingo = 0) nos últimos 28 dias; a chave "Rede" é a Institucional. */
-export interface CalorContatos { de: string; ate: string; unidades: Record<string, number[]> }
+export interface CalorContatos { de: string; ate: string; unidades: Record<string, number[]>; /** Total de contatos do período, sem separar por hora. */ totais?: Record<string, number> }
 export interface FotoCampanhas { geradoEm: string | null; campanhas: Campanha[]; erros: { conta: string; erro: string }[]; meses?: Record<string, MesMeta>; anuncios?: Anuncio[]; calor?: CalorContatos }
 
 let pedido: Promise<FotoCampanhas | null> | null = null;
@@ -163,4 +163,11 @@ export function calorDaEscolha(calor: CalorContatos | undefined, unidade: string
   const us = Object.entries(calor.unidades).filter(([k]) => k !== CHAVE_INSTITUCIONAL).map(([, v]) => v);
   if (!us.length) return null;
   return Array.from({ length: 168 }, (_, k) => us.reduce((s, v) => s + (v[k] ?? 0), 0));
+}
+
+/** Total de contatos do período (sem separar por hora) da escolha; null quando a leitura não trouxe o total. */
+export function totalDaEscolha(calor: CalorContatos | undefined, unidade: string | null): number | null {
+  if (!calor?.totais) return null;
+  if (unidade) return calor.totais[unidade === INSTITUCIONAL ? CHAVE_INSTITUCIONAL : unidade] ?? null;
+  return Object.entries(calor.totais).filter(([k]) => k !== CHAVE_INSTITUCIONAL).reduce((s, [, n]) => s + n, 0);
 }

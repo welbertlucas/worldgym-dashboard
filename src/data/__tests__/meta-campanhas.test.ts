@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 // @ts-expect-error módulo JS do servidor
-import { anunciosDaConta, calorDaConta, campanhaDoMeta, campanhasDaRede, CONTAS, estaNoAr, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
+import { anunciosDaConta, calorDaConta, calorDaRede, campanhaDoMeta, campanhasDaRede, CONTAS, estaNoAr, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
 
 const conta = { id: "1", conta: "WG 3 - Asa Norte", unidade: "Asa Norte", token: "DFGO" };
 
@@ -209,5 +209,21 @@ describe("horários dos contatos", () => {
     expect(calorDaEscolha(calor, INSTITUCIONAL)?.[10]).toBe(50);
     expect(calorDaEscolha(calor, "Sobradinho")).toBeNull();
     expect(calorDaEscolha(undefined, null)).toBeNull();
+  });
+});
+
+describe("cobertura dos horários", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("guarda o total do período ao lado do calor, por unidade", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (url.includes("breakdowns=")
+      ? { ok: true, status: 200, json: async () => ({ data: [{ date_start: "2026-11-09", hourly_stats_aggregated_by_advertiser_time_zone: "10:00:00 - 10:59:59", actions: [{ action_type: "lead", value: "4" }] }] }) }
+      : { ok: true, status: 200, json: async () => ({ data: [{ actions: [{ action_type: "lead", value: "5" }, { action_type: "onsite_conversion.messaging_conversation_started_7d", value: "5" }] }] }) })));
+    const r = await calorDaRede({ DFGO: "tk" }, [conta], 0, "2026-11-11");
+    expect(r.totais).toEqual({ "Asa Norte": 10 });
+    expect(r.unidades["Asa Norte"].reduce((s: number, n: number) => s + n, 0)).toBe(4);
+    const { totalDaEscolha } = await import("@/data/campanhas");
+    expect(totalDaEscolha(r, "Asa Norte")).toBe(10);
+    expect(totalDaEscolha(r, null)).toBe(10);
+    expect(totalDaEscolha({ de: "", ate: "", unidades: {} }, null)).toBeNull();
   });
 });
