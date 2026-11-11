@@ -27,7 +27,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month }: { initialUnit
           <div className="min-w-0 lg:w-72">
             <ChipUnidade id="trafego-unidade" value={unit} units={units} onChange={setUnit} extras={veInstitucional && <option value={INSTITUCIONAL}>Institucional (conta da rede)</option>} />
           </div>
-          <div className="min-w-0 lg:w-72">
+          <div className="min-w-0 lg:w-80">
             <ChipMes id="trafego-mes" rotulo="Mês do investimento" value={mes} months={meses} onChange={setMes} />
           </div>
         </div>

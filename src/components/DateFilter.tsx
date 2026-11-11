@@ -38,7 +38,7 @@ export function Chip({ id, rotulo, valor, icone, ativo, children, value, onChang
       <div className="relative flex min-w-0 flex-1 items-center gap-2.5 px-3">
         <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", ativo ? "bg-primary/10 text-primary-ink" : "bg-secondary text-muted-foreground")} aria-hidden>{icone}</span>
         <span className="min-w-0 flex-1 leading-tight">
-          <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{rotulo}</span>
+          <span className="block truncate whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-muted-foreground" title={rotulo}>{rotulo}</span>
           <span className="block truncate text-sm font-semibold text-foreground">{valor}</span>
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-y-px" aria-hidden />
