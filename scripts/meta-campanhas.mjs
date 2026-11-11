@@ -34,6 +34,8 @@ const porMes = await mesesDaRede(tokens, meses);
 for (const [ym, m] of Object.entries(porMes)) {
   const inv = Object.values(m.unidades).reduce((s, u) => s + u.investimento, 0);
   console.log(`${ym}: R$ ${inv.toFixed(2)} investidos em ${Object.keys(m.unidades).length} unidades; ${m.erros.length} contas com erro`);
+  const comCompra = Object.entries(m.unidades).filter(([, u]) => u.compras > 0);
+  console.log(`  compras pelo pixel: ${comCompra.length ? comCompra.map(([n, u]) => `${n} ${u.compras} (R$ ${u.valorCompras.toFixed(2)})`).join("; ") : "nenhuma conta registrou compra"}`);
 }
 if (Object.values(porMes).some((m) => Object.keys(m.unidades).length)) {
   await saveMetaMeses(Object.fromEntries(Object.entries(porMes).filter(([, m]) => Object.keys(m.unidades).length)));

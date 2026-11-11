@@ -21,7 +21,11 @@ export interface Campanha {
   conversas7d: number;
 }
 /** Investimento e resultados do Meta de uma unidade num mês (todas as campanhas, inclusive as pausadas). */
-export interface ResultadoMeta { investimento: number; impressoes: number; cliques: number; leads: number; conversas: number }
+export interface ResultadoMeta {
+  investimento: number; impressoes: number; cliques: number; leads: number; conversas: number;
+  /** Compras marcadas pelo pixel do Meta no site/checkout e o valor delas (meses lidos antes de 11/2026 não têm). */
+  compras?: number; valorCompras?: number;
+}
 /** Unidades do mês; a chave "Rede" é a conta Institucional (anúncio da rede toda). */
 export interface MesMeta { geradoEm: string; unidades: Record<string, ResultadoMeta>; erros: { conta: string; erro: string }[] }
 /** Anúncio com gasto nos últimos 30 dias (ranking). `imagem` = miniatura do criativo no Meta (o link vence em alguns dias; a foto diária renova). */
@@ -36,6 +40,7 @@ export interface Anuncio {
   cliques30d: number;
   leads30d: number;
   conversas30d: number;
+  compras30d?: number;
   imagem: string | null;
 }
 export interface FotoCampanhas { geradoEm: string | null; campanhas: Campanha[]; erros: { conta: string; erro: string }[]; meses?: Record<string, MesMeta>; anuncios?: Anuncio[] }
@@ -88,8 +93,8 @@ export function investimentoDoMes(mes: MesMeta | undefined, unidade: string | nu
   const chave = unidade === INSTITUCIONAL ? CHAVE_INSTITUCIONAL : unidade;
   const us = chave ? [mes.unidades[chave]].filter(Boolean) : Object.entries(mes.unidades).filter(([k]) => k !== CHAVE_INSTITUCIONAL).map(([, v]) => v);
   if (!us.length) return null;
-  const out: ResultadoMeta = { investimento: 0, impressoes: 0, cliques: 0, leads: 0, conversas: 0 };
-  for (const u of us) for (const k of Object.keys(out) as (keyof ResultadoMeta)[]) out[k] += u[k];
+  const out: Required<ResultadoMeta> = { investimento: 0, impressoes: 0, cliques: 0, leads: 0, conversas: 0, compras: 0, valorCompras: 0 };
+  for (const u of us) for (const k of Object.keys(out) as (keyof ResultadoMeta)[]) out[k] += u[k] ?? 0;
   return out;
 }
 

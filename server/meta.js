@@ -32,7 +32,12 @@ const LEAD = new Set(["lead", "onsite_conversion.lead_grouped", "offsite_convers
 const CONVERSA = new Set(["onsite_conversion.messaging_conversation_started_7d"]);
 const soma = (acoes, tipos) => (acoes || []).filter((a) => tipos.has(a.action_type)).reduce((s, a) => s + Number(a.value || 0), 0);
 // "lead" já é o total de leads; os outros tipos são partes dele. Pega o maior para não contar o mesmo lead duas vezes.
-const leadsDe = (acoes) => Math.max(0, ...(acoes || []).filter((a) => LEAD.has(a.action_type)).map((a) => Number(a.value || 0)));
+const maiorDe = (tipos) => (acoes) => Math.max(0, ...(acoes || []).filter((a) => tipos.has(a.action_type)).map((a) => Number(a.value || 0)));
+const leadsDe = maiorDe(LEAD);
+// Compras marcadas pelo pixel (site/checkout). Mesma ideia: "purchase"/"omni_purchase" já somam os outros tipos.
+const COMPRA = new Set(["purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase", "onsite_web_purchase"]);
+/** Compras pelo pixel (quantidade) e valor delas (R$), a partir de actions e action_values. */
+export const comprasDe = (acoes, valores) => ({ compras: maiorDe(COMPRA)(acoes), valorCompras: Math.round(maiorDe(COMPRA)(valores) * 100) / 100 });
 
 /** Campanha do Graph API -> linha do painel (valores em R$ e contagens dos últimos 7 dias). */
 export function campanhaDoMeta(c, conta) {
@@ -114,6 +119,7 @@ export function anuncioDoMeta(i, conta) {
     cliques30d: Number(i.clicks || 0),
     leads30d: leadsDe(i.actions),
     conversas30d: soma(i.actions, CONVERSA),
+    compras30d: comprasDe(i.actions, i.action_values).compras,
     imagem: null,
   };
 }
@@ -134,7 +140,7 @@ async function miniaturas(ids, token) {
 /** Anúncios que gastaram nos últimos 30 dias numa conta (todas as campanhas, inclusive as já pausadas). */
 export async function anunciosDaConta(conta, token, hoje = hojeBrasilia()) {
   const periodo = encodeURIComponent(JSON.stringify({ since: diasAtras(hoje, 29), until: hoje }));
-  let url = `https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=ad&fields=ad_id,ad_name,campaign_name,spend,impressions,clicks,actions&time_range=${periodo}&limit=200`;
+  let url = `https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=ad&fields=ad_id,ad_name,campaign_name,spend,impressions,clicks,actions,action_values&time_range=${periodo}&limit=200`;
   const lista = [];
   for (let pagina = 0; url && pagina < 5; pagina++) {
     const r = await graph(url, token);
@@ -168,13 +174,13 @@ export const hojeBrasilia = () => new Date(Date.now() - 3 * 3600 * 1000).toISOSt
 export async function mesDaConta(conta, token, ym, hoje = hojeBrasilia()) {
   const fim = fimDoMes(ym);
   const periodo = encodeURIComponent(JSON.stringify({ since: `${ym}-01`, until: fim < hoje ? fim : hoje }));
-  const r = await graph(`https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=account&fields=spend,impressions,clicks,actions&time_range=${periodo}`, token);
+  const r = await graph(`https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=account&fields=spend,impressions,clicks,actions,action_values&time_range=${periodo}`, token);
   const i = r.data?.[0] ?? {};
-  return { investimento: Number(i.spend || 0), impressoes: Number(i.impressions || 0), cliques: Number(i.clicks || 0), leads: leadsDe(i.actions), conversas: soma(i.actions, CONVERSA) };
+  return { investimento: Number(i.spend || 0), impressoes: Number(i.impressions || 0), cliques: Number(i.clicks || 0), leads: leadsDe(i.actions), conversas: soma(i.actions, CONVERSA), ...comprasDe(i.actions, i.action_values) };
 }
 
 const REDE = "Rede";
-const CAMPOS_MES = ["investimento", "impressoes", "cliques", "leads", "conversas"];
+const CAMPOS_MES = ["investimento", "impressoes", "cliques", "leads", "conversas", "compras", "valorCompras"];
 
 /**
  * Meses fechados (ou o mês corrente até hoje) da rede: { [AAAA-MM]: { geradoEm, unidades: { [unidade | "Rede"]: {...} }, erros } }.

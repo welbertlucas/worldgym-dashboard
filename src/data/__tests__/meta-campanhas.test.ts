@@ -45,7 +45,7 @@ describe("investimento do mês por unidade (Meta)", () => {
     const contas = [{ ...conta, id: "1" }, { ...conta, id: "2" }, { ...conta, id: "3", unidade: null }];
     const r = await mesesDaRede({ DFGO: "x" }, ["2026-11", "2026-12"], contas, 0, "2026-11-10");
     expect(Object.keys(r)).toEqual(["2026-11"]);
-    expect(r["2026-11"].unidades["Asa Norte"]).toEqual({ investimento: 201, impressoes: 20, cliques: 4, leads: 6, conversas: 0 });
+    expect(r["2026-11"].unidades["Asa Norte"]).toEqual({ investimento: 201, impressoes: 20, cliques: 4, leads: 6, conversas: 0, compras: 0, valorCompras: 0 });
     expect(r["2026-11"].unidades.Rede.investimento).toBe(100.5);
     // mês corrente vai só até hoje; todas as campanhas da conta (nível conta), não só as ativas
     expect(decodeURIComponent(urls[0])).toContain('"since":"2026-11-01","until":"2026-11-10"');
@@ -134,5 +134,25 @@ describe("anúncios do Meta (servidor)", () => {
       ? { ok: true, status: 200, json: async () => ({ data: [{ ad_id: "a1", spend: "10" }] }) }
       : { ok: false, status: 500, json: async () => ({}) })));
     expect((await anunciosDaConta(conta, "tk", "2026-11-10"))[0]).toMatchObject({ id: "a1", imagem: null });
+  });
+});
+
+describe("compras pelo pixel", () => {
+  it("não conta a mesma compra duas vezes e lê o valor", async () => {
+    // @ts-expect-error módulo JS do servidor
+    const { comprasDe } = await import("../../../server/meta.js");
+    const acoes = [{ action_type: "purchase", value: "4" }, { action_type: "offsite_conversion.fb_pixel_purchase", value: "4" }, { action_type: "lead", value: "9" }];
+    const valores = [{ action_type: "purchase", value: "519.6" }, { action_type: "omni_purchase", value: "519.6" }];
+    expect(comprasDe(acoes, valores)).toEqual({ compras: 4, valorCompras: 519.6 });
+    expect(comprasDe(undefined, undefined)).toEqual({ compras: 0, valorCompras: 0 });
+  });
+
+  it("soma as compras na rede e aceita meses antigos sem compras", async () => {
+    const { investimentoDoMes } = await import("@/data/campanhas");
+    const mes = { geradoEm: "", erros: [], unidades: {
+      Gama: { investimento: 100, impressoes: 1, cliques: 1, leads: 1, conversas: 1, compras: 2, valorCompras: 200 },
+      Itapoã: { investimento: 50, impressoes: 1, cliques: 1, leads: 1, conversas: 1 },
+    } };
+    expect(investimentoDoMes(mes, null)).toMatchObject({ investimento: 150, compras: 2, valorCompras: 200 });
   });
 });

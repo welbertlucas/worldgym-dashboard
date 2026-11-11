@@ -22,11 +22,13 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
   if (!mes || !inv) return <ChartCard title={titulo} subtitle={subtitle}><ChartEmpty>{mes ? `Sem investimento do Meta lido para ${unit === INSTITUCIONAL ? "a conta Institucional" : unit ?? "a rede"} neste mês${unit && mes.erros.length ? " (a conta de anúncio pode estar sem permissão de leitura)" : ""}.` : "O investimento do Meta deste mês ainda não foi lido."}</ChartEmpty></ChartCard>;
 
   const contatos = inv.leads + inv.conversas;
+  const compras = inv.compras ?? 0, valorCompras = inv.valorCompras ?? 0;
   const porUnidade = unit ? [] : Object.entries(mes.unidades)
     .filter(([n, v]) => n !== "Rede" && v.investimento > 0)
-    .map(([nome, v]) => ({ nome, investimento: v.investimento, contatos: v.leads + v.conversas }))
+    .map(([nome, v]) => ({ nome, investimento: v.investimento, contatos: v.leads + v.conversas, compras: v.compras ?? 0 }))
     .sort((a, b) => b.investimento - a.investimento);
   const institucional = investimentoInstitucional(mes);
+  const comCompras = porUnidade.some((u) => u.compras > 0);
 
   return (
     <ChartCard
@@ -49,10 +51,23 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
         <div><dt className="text-xs text-muted-foreground">CPM (custo de mil exibições)</dt><dd className="tabular-nums text-foreground">{cpm(inv.investimento, inv.impressoes) === null ? "—" : reais2(cpm(inv.investimento, inv.impressoes)!)}</dd></div>
       </dl>
 
+      {compras > 0 && (
+        <div className="mt-5 rounded-lg bg-secondary/50 px-4 py-3">
+          <p className="text-xs font-medium text-muted-foreground">Vendas online marcadas pelo pixel do Meta</p>
+          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+            <div><dt className="text-xs text-muted-foreground">Vendas online</dt><dd className="tabular-nums font-semibold text-foreground">{int(compras)}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Valor das vendas</dt><dd className="tabular-nums text-foreground">{valorCompras > 0 ? reais(valorCompras) : "—"}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Custo por venda online</dt><dd className="tabular-nums font-semibold text-foreground">{reais2(inv.investimento / compras)}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Retorno por R$ 1 investido</dt><dd className="tabular-nums text-foreground">{valorCompras > 0 && inv.investimento > 0 ? reais2(valorCompras / inv.investimento) : "—"}</dd></div>
+          </dl>
+          <p className="mt-2 text-xs text-muted-foreground">Só conta quem comprou no site depois de ver ou clicar num anúncio (até 7 dias do clique ou 1 dia da visualização, regra do Meta). Matrícula fechada na recepção ou pelo WhatsApp não entra, e bloqueios de rastreamento do celular e do navegador fazem o número sair menor que o real.</p>
+        </div>
+      )}
+
       {porUnidade.length > 0 && (
         <div className="mt-5 overflow-x-auto">
           <table className="w-full min-w-[440px] text-sm" aria-label="Investimento do Meta por unidade, da que mais investiu para a que menos investiu">
-            <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-1.5 font-medium">Unidade</th><th className="py-1.5 text-right font-medium">Investido</th><th className="py-1.5 text-right font-medium">Contatos</th><th className="py-1.5 text-right font-medium">Custo por contato</th></tr></thead>
+            <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-1.5 font-medium">Unidade</th><th className="py-1.5 text-right font-medium">Investido</th><th className="py-1.5 text-right font-medium">Contatos</th><th className="py-1.5 text-right font-medium">Custo por contato</th>{comCompras && <th className="py-1.5 text-right font-medium">Vendas online</th>}</tr></thead>
             <tbody>
               {porUnidade.map((u) => (
                 <tr key={u.nome} className="border-t border-border">
@@ -60,6 +75,7 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
                   <td className="py-1.5 text-right tabular-nums">{reais(u.investimento)}</td>
                   <td className="py-1.5 text-right tabular-nums">{int(u.contatos)}</td>
                   <td className="py-1.5 text-right tabular-nums">{u.contatos > 0 ? reais2(u.investimento / u.contatos) : "—"}</td>
+                  {comCompras && <td className="py-1.5 text-right tabular-nums">{u.compras > 0 ? int(u.compras) : "—"}</td>}
                 </tr>
               ))}
             </tbody>
