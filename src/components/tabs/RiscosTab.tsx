@@ -4,13 +4,14 @@ import { buildRecommendations, ALERT_LABELS } from "@/data/recommendations";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
 import { UnitLink } from "@/components/UnitLink";
 import { agruparPorUnidade } from "@/data/riscosGrupos";
-import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { SectionTitle } from "@/components/SectionTitle";
-import { Select } from "@/components/ui/select";
+import { Chip, ChipUnidade, Segmentos } from "@/components/DateFilter";
 import { formatMonthLong } from "@/data/periods";
 import { dashboardData } from "@/data/dashboardData";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
+
+const SEVERIDADES = [["all", "Todas"], ["critical", "Crítico"], ["attention", "Atenção"], ["info", "Informativo"]] as const;
 
 export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: string | null }) {
   const [sev, setSev] = useState<"all" | Severity>("all");
@@ -44,39 +45,26 @@ export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: s
           })}
         </div>
       </div>
-      <div role="group" aria-label="Filtros de alertas" className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-2xl border border-border bg-secondary/50 p-3 sm:p-4">
-        <div className="flex flex-col gap-1 flex-1 min-w-[11rem] sm:flex-none">
-          <label htmlFor="filtro-severidade" className="text-xs font-medium text-muted-foreground">Severidade</label>
-          <Select id="filtro-severidade" value={sev} onChange={(e) => setSev(e.target.value as "all" | Severity)} className="sm:w-52">
-            <option value="all">Todas as severidades</option>
-            <option value="critical">Crítico</option>
-            <option value="attention">Atenção</option>
-            <option value="info">Informativo</option>
-          </Select>
+      <div role="group" aria-label="Filtros de alertas" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-3">
+        <div className="min-w-0 lg:w-60">
+          <Chip
+            id="filtro-severidade"
+            rotulo="Severidade"
+            valor={SEVERIDADES.find(([v]) => v === sev)?.[1] ?? "Todas"}
+            icone={<SlidersHorizontal className="h-4 w-4" />}
+            ativo={sev !== "all"}
+            value={sev}
+            onChange={(v) => setSev(v as "all" | Severity)}
+            aoLimpar={sev !== "all" ? () => setSev("all") : undefined}
+            rotuloLimpar="Mostrar todas as severidades"
+          >
+            {SEVERIDADES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </Chip>
         </div>
-        <div className="flex flex-col gap-1 flex-1 min-w-[11rem] sm:flex-none">
-          <label htmlFor="filtro-unidade-risco" className="text-xs font-medium text-muted-foreground">Unidade</label>
-          <Select id="filtro-unidade-risco" value={unit} onChange={(e) => setUnit(e.target.value)} className="sm:w-52">
-            <option value="">Todas as unidades</option>
-            {units.map((u) => <option key={u} value={u}>{u}</option>)}
-          </Select>
+        <div className="min-w-0 lg:w-64">
+          <ChipUnidade id="filtro-unidade-risco" value={unit || null} units={units} onChange={(u) => setUnit(u ?? "")} rotuloRede="Todas as unidades" />
         </div>
-        <div role="group" aria-label="Forma de exibir" className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">Exibir</span>
-          <div className="inline-flex overflow-hidden rounded-lg border border-border">
-            {([["unidade", "Por unidade"], ["lista", "Lista completa"]] as const).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={modo === id}
-                onClick={() => setModo(id)}
-                className={cn("h-9 px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", modo === id ? "bg-foreground text-background" : "bg-white text-foreground hover:bg-secondary")}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Segmentos rotulo="Forma de exibir" opcoes={[["unidade", "Por unidade"], ["lista", "Lista completa"]] as const} valor={modo} onChange={setModo} />
         <p className="text-sm text-muted-foreground sm:ml-auto" aria-live="polite">{shown.length} de {recs.length} itens</p>
       </div>
       {shown.length === 0 ? (

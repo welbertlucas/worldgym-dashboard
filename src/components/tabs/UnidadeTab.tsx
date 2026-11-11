@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Select } from "@/components/ui/select";
+import { Chip, Segmentos } from "@/components/DateFilter";
+import { GitCompareArrows } from "lucide-react";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { TrendCard } from "@/components/unidades/TrendCard";
@@ -15,7 +16,6 @@ import { viewFor } from "@/data/kpiView";
 import { sameMonthLastYear } from "@/data/alerts";
 import { META_INDICATORS, TIER_LABEL, actualFor, getMeta, nextTier, tierReached, formatMetaValue, type Meta, type MetaKey } from "@/data/metas";
 import { formatMonthLong, getLastClosedMonth, isPartialMonth } from "@/data/periods";
-import { cn } from "@/lib/utils";
 
 interface Props {
   unit: string;
@@ -125,21 +125,26 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
         descricao={<>{mesesGrafico.length ? `${formatMonthLong(mesesGrafico[0])} a ${formatMonthLong(mesesGrafico[mesesGrafico.length - 1])}, só meses fechados. ` : ""}Linha vermelha: {unit}.{nomeComp ? <> Linha tracejada: {nomeComp}.</> : " Sem linha de comparação."}</>}
         acoes={
           <>
-            <div role="group" aria-label="Período dos gráficos" className="inline-flex overflow-hidden rounded-lg border border-border">
-              {PERIODOS.map((p) => (
-                <button key={p.n} type="button" aria-pressed={periodo === p.n} onClick={() => setPeriodo(p.n)} className={cn("h-9 px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", periodo === p.n ? "bg-foreground text-background" : "bg-white text-foreground hover:bg-secondary")}>{p.label}</button>
-              ))}
-            </div>
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Linha de comparação
-              <Select value={comparar} onChange={(e) => setComparar(e.target.value)} className="h-9 w-56 text-sm font-normal text-foreground">
+            <Segmentos rotulo="Período dos gráficos" opcoes={PERIODOS.map((p) => [p.n, p.label] as const)} valor={periodo} onChange={setPeriodo} />
+            <div className="w-full min-w-0 sm:w-64">
+              <Chip
+                id="ud-comparar"
+                rotulo="Linha de comparação"
+                valor={comparar === REDE ? "Média da rede" : comparar || "Nenhuma"}
+                icone={<GitCompareArrows className="h-4 w-4" />}
+                ativo={!!comparar}
+                value={comparar}
+                onChange={setComparar}
+                aoLimpar={comparar ? () => setComparar("") : undefined}
+                rotuloLimpar="Tirar a linha de comparação"
+              >
                 <option value="">Nenhuma</option>
                 <option value={REDE}>Média da rede</option>
                 <optgroup label="Outra unidade">
                   {units.filter((u) => u !== unit).map((u) => <option key={u} value={u}>{u}</option>)}
                 </optgroup>
-              </Select>
-            </label>
+              </Chip>
+            </div>
           </>
         }
       >

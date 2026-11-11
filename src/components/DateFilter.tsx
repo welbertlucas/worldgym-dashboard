@@ -101,6 +101,25 @@ export function ChipUnidade({ id, value, units, onChange, extras, rotuloRede = "
   );
 }
 
+/** Botões lado a lado (ex.: "Por unidade | Lista completa") na mesma altura e borda dos chips. */
+export function Segmentos<T extends string | number>({ rotulo, opcoes, valor, onChange }: { rotulo: string; opcoes: readonly (readonly [T, string])[]; valor: T; onChange: (v: T) => void }) {
+  return (
+    <div role="group" aria-label={rotulo} className="inline-flex h-12 shrink-0 items-center gap-1 rounded-2xl border border-border bg-card p-1 shadow-sm">
+      {opcoes.map(([v, label]) => (
+        <button
+          key={String(v)}
+          type="button"
+          aria-pressed={valor === v}
+          onClick={() => onChange(v)}
+          className={cn("h-full rounded-xl px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", valor === v ? "bg-foreground text-background" : "text-muted-foreground hover:bg-secondary hover:text-foreground")}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthChange, onCompareMonthChange, onUnitChange, hideUnit, hideCompare }: DateFilterProps) {
   const months = getAvailableMonths();
   const units = getAvailableUnits();

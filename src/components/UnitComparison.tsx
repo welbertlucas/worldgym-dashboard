@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Check, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Building2, Check, Minus } from "lucide-react";
 import { getDataByMonth, getLatestData, getAvailableMonths, type UnitData } from "@/data/dashboardData";
 import {
   CATEGORY_LABEL, INDICATORS, compareIndicator, formatDelta, formatIndicator, formatRelative, isPercentIndicator, reviewReason, summarizeComparison,
   type Category, type Comparison, type Indicator,
 } from "@/data/unitIndicators";
-import { Select } from "@/components/ui/select";
+import { Chip, ChipMes } from "@/components/DateFilter";
 import { isPartialMonth } from "@/data/periods";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +17,6 @@ interface UnitComparisonProps {
 }
 
 const CATEGORIES = Object.keys(CATEGORY_LABEL) as Category[];
-
-function formatMonth(m: string) {
-  const [y, mo] = m.split("-").map(Number);
-  return new Date(y, (mo || 1) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-}
 
 /** Diferença da primeira sobre a segunda unidade, como chip (verde = favorável à primeira, vermelho = favorável à segunda). */
 function DiffChip({ ind, c }: { ind: Indicator; c: Comparison }) {
@@ -66,10 +61,9 @@ function Tile({ ind, ua, ub, partial }: { ind: Indicator; ua: UnitData; ub: Unit
 function UnitPanel({ label, value, onChange, units, wins, id }: { label: string; value: string; onChange: (v: string) => void; units: string[]; wins: number | null; id: string }) {
   return (
     <div className="rounded-2xl bg-secondary/50 p-4 sm:p-5">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
-      <Select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="mt-1">
+      <Chip id={id} rotulo={label} valor={value || "Escolha uma unidade"} icone={<Building2 className="h-4 w-4" />} value={value} onChange={onChange}>
         {units.map((u) => <option key={u} value={u}>{u}</option>)}
-      </Select>
+      </Chip>
       {wins !== null && (
         <p className="mt-4 flex items-baseline gap-2">
           <span className="font-display text-[2.25rem] leading-none font-semibold tracking-tight tabular-nums text-foreground">{wins}</span>
@@ -107,11 +101,8 @@ export function UnitComparison({ selectedMonth, inicialA, inicialB }: UnitCompar
           <h3 id="comparativo-titulo" className="text-base font-semibold text-foreground">Comparativo de unidades</h3>
           <p className="text-sm text-muted-foreground">Compare duas unidades no mesmo mês, indicador a indicador.</p>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="comparativo-mes" className="text-xs font-medium text-muted-foreground">Mês de referência</label>
-          <Select id="comparativo-mes" value={refMonth} onChange={(e) => setRefMonth(e.target.value)} className="w-48">
-            {months.map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
-          </Select>
+        <div className="w-full min-w-0 sm:w-72">
+          <ChipMes id="comparativo-mes" rotulo="Mês de referência" value={refMonth} months={months} onChange={setRefMonth} />
         </div>
       </div>
 
