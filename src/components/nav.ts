@@ -14,7 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "benchmark", label: "Benchmark", icon: BarChart3, group: 1 },
   { id: "mapa", label: "Mapa dos alunos", icon: MapIcon, group: 1 },
   { id: "campanhas", label: "Tráfego pago", icon: Megaphone, group: 1 },
-  { id: "riscos", label: "Riscos e Recomendações", icon: ShieldAlert, group: 2 },
+  { id: "riscos", label: "Alertas", icon: ShieldAlert, group: 2 },
 ];
 
 /** Itens do menu para quem está logado: a tela de acessos só aparece para o dono. */

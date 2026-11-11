@@ -8,7 +8,7 @@ import wgLogo from "@/assets/wg-logo.png";
 interface NavProps {
   active: string;
   onChange: (id: string) => void;
-  /** Alertas críticos, exibido junto de "Riscos e Recomendações". */
+  /** Alertas críticos, exibido junto de "Alertas". */
   criticalCount: number;
 }
 
