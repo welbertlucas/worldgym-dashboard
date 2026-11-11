@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
-import { movimentoDoMes, ativoNoDia, fluxoDoMes } from "../../../server/ativos.js";
+import { movimentoDoMes, ativoNoDia, fluxoDoMes, contarSuspensos, resumoAluno } from "../../../server/ativos.js";
 // @ts-expect-error módulo JS do servidor
 import { resumirVendas, categoriaAvulsa, faixaDuracao } from "../../../server/vendas.js";
 // @ts-expect-error módulo JS do servidor
@@ -396,5 +396,52 @@ describe("unidade fora do EVO e ticket parcial", () => {
     const ym = new Date().toISOString().slice(0, 7);
     const out = mergeEvo2([], [{ month: ym, units: [{ name: "Gama", faturamento: 50000, recebimento: 30000, ativosFim: 1000 }] }] as never);
     expect(out[0].units[0].ticketMedio).toBe(30);
+  });
+});
+
+describe("suspensos (contrato trancado)", () => {
+  const membro = (freezes: unknown[], extra: Record<string, unknown> = {}) => resumoAluno({
+    idMember: 1,
+    memberships: [{ startDate: "2026-01-10T00:00:00", endDate: "2026-12-31T00:00:00", cancelDate: null, membershipStatus: "suspended", valueNextMonth: 0, freezes, ...extra }],
+  });
+  const tranca = (ini: string, fim: string, desbloqueio: string | null = null) => ({ startSuspend: `${ini}T00:00:00`, endSuspend: `${fim}T00:00:00`, unlockDate: desbloqueio });
+
+  it("conta quem está ativo e com trancamento cobrindo o dia", () => {
+    const alunos = [membro([tranca("2026-10-19", "2026-12-18")]), membro([]), membro([tranca("2026-03-01", "2026-03-31")])];
+    expect(contarSuspensos(alunos, "2026-10-31")).toBe(1);
+    expect(contarSuspensos(alunos, "2026-03-31")).toBe(1);
+    expect(contarSuspensos(alunos, "2026-04-30")).toBe(0);
+  });
+
+  it("desbloqueio antecipado encerra o trancamento", () => {
+    expect(contarSuspensos([membro([tranca("2026-10-01", "2026-12-31", "2026-10-20T00:00:00")])], "2026-10-31")).toBe(0);
+    expect(contarSuspensos([membro([tranca("2026-10-01", "2026-12-31", "2026-10-20T00:00:00")])], "2026-10-15")).toBe(1);
+  });
+
+  it("contrato cancelado não conta, mesmo com trancamento", () => {
+    expect(contarSuspensos([membro([tranca("2026-10-01", "2026-12-31")], { cancelDate: "2026-10-10T00:00:00" })], "2026-10-31")).toBe(0);
+  });
+
+  it("chega ao total da rede somando as unidades", () => {
+    const m = month("2026-10", [unit("A"), unit("B")]);
+    const r = mergeEvo([m], [{ month: "2026-10", units: [
+      { name: "A", faturamento: 1, recebimento: 1, ativosFim: 100, suspensosFim: 2 },
+      { name: "B", faturamento: 1, recebimento: 1, ativosFim: 50, suspensosFim: 3 },
+    ] }]);
+    expect(r[0].units.find((u) => u.name === "A")?.suspensosFim).toBe(2);
+    expect(r[0].total.suspensosFim).toBe(5);
+  });
+});
+
+import { clientesSpecs } from "@/components/kpi/tabSpecs";
+describe("cartão Alunos Ativos", () => {
+  const spec = clientesSpecs.find((s) => s.title === "Alunos Ativos")!;
+  const extra = (total: Record<string, number>) => (typeof spec.extra === "function" ? spec.extra({ total } as never) : []);
+  it("mostra os suspensos e a fatia dos ativos", () => {
+    expect(extra({ ativosFim: 2000, suspensosFim: 10 })[0].text).toBe("10 suspensos (contrato trancado) · 0,5%");
+    expect(extra({ ativosFim: 1000, suspensosFim: 1 })[0].text).toContain("1 suspenso ");
+  });
+  it("meses sem o dado não mostram nada", () => {
+    expect(extra({ ativosFim: 2000 })).toEqual([]);
   });
 });

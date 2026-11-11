@@ -1,0 +1,52 @@
+name: Histórico de suspensos (EVO)
+
+# Só à mão: grava os suspensos (contrato trancado) no fim de cada mês informado, sem recalcular mais nada,
+# e consolida para o painel. Usa a mesma fila do evo-sync para nunca gravar os meses ao mesmo tempo que ele.
+
+on:
+  workflow_dispatch:
+    inputs:
+      months:
+        description: "Meses AAAA-MM separados por vírgula, ou um intervalo AAAA-MM..AAAA-MM"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evo-sync
+  cancel-in-progress: false
+
+jobs:
+  suspensos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Meses
+        env:
+          MONTHS: ${{ github.event.inputs.months }}
+        run: |
+          if [[ "$MONTHS" == *..* ]]; then
+            ini="${MONTHS%%..*}"; fim="${MONTHS##*..}"; lista=""; m="$ini"
+            while [[ "$m" < "$fim" || "$m" == "$fim" ]]; do lista="$lista $m"; m="$(date -u -d "$m-01 +1 month" +%Y-%m)"; done
+            MONTHS="$lista"
+          else
+            MONTHS="${MONTHS//,/ }"
+          fi
+          echo "Meses:$MONTHS"
+          echo "MONTHS_DONE=$MONTHS" >> "$GITHUB_ENV"
+      - name: Suspensos no fim de cada mês
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-suspensos.mjs $MONTHS_DONE
+      - name: Consolidar os meses num arquivo só (o painel lê só este)
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-consolidar.mjs

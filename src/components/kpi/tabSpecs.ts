@@ -59,7 +59,15 @@ const sinal = (v: number) => `${v > 0 ? "+" : ""}${Math.round(v).toLocaleString(
 
 /** Clientes: base de alunos ativos, saldo do mês, permanência média e LTV (tudo do EVO). */
 export const clientesSpecs: KpiSpec[] = [
-  { title: "Alunos Ativos", kind: "level", noDataIfZero: true, pick: (v) => v.total.ativosFim ?? 0, fmt: int },
+  {
+    title: "Alunos Ativos", kind: "level", noDataIfZero: true, pick: (v) => v.total.ativosFim ?? 0, fmt: int,
+    // Suspensos (contrato trancado) seguem nos ativos; o número sai à parte, como no EVO Insights.
+    extra: (v) => {
+      const s = v.total.suspensosFim, a = v.total.ativosFim;
+      if (s === undefined || !a) return [];
+      return [{ text: `${int(s)} ${s === 1 ? "suspenso" : "suspensos"} (contrato trancado) · ${pct((s / a) * 100)}`, tone: "neutral" }];
+    },
+  },
   { title: "Saldo de Alunos", kind: "flow", noDataIfZero: true, pick: (v) => saldoAlunos(v.total) ?? 0, fmt: sinal },
   { title: "Permanência Média", kind: "level", noDataIfZero: true, pick: (v) => v.total.permanenciaMeses ?? 0, fmt: meses },
   { title: "LTV", kind: "flow", noDataIfZero: true, pick: (v) => ltv(v.total), fmt: brl },

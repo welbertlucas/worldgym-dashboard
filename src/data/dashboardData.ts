@@ -38,6 +38,8 @@ export interface UnitData {
   inadimplenciaEvo?: boolean;
   /** Alunos ativos no fim do mês (reconstruídos do histórico de contratos do EVO). Base de ticket médio e adimplentes. */
   ativosFim?: number;
+  /** Dos ativos no fim do mês, quantos estavam com o contrato trancado (suspenso) — EVO, campo freezes. */
+  suspensosFim?: number;
   /** Alunos ativos no início do mês (base do churn). */
   ativosIni?: number;
   /** Conversão de cadastros calculada pelo EVO (cadastrados no mês que viraram cliente no mesmo mês). */
@@ -404,7 +406,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -655,6 +657,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.ativosFim !== undefined && e.ativosFim > 0) {
         unit.ativosFim = e.ativosFim;
         unit.ativosEvo = true;
+        if (e.suspensosFim !== undefined) unit.suspensosFim = e.suspensosFim;
         unit.adimplentes = Math.max(0, e.ativosFim - unit.inadimplentes);
         // No mês em andamento o recebimento é parcial, e o ticket também (o card mostra quanto do mês anterior já foi alcançado).
         unit.ticketMedio = Math.round((unit.recebimento / e.ativosFim) * 100) / 100;
@@ -830,6 +833,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
               adimplentes: md.units.reduce((s, u) => s + u.adimplentes, 0),
               ativosFim: ativos,
               ativosEvo: true,
+              ...(comAtivos.some((u) => u.suspensosFim !== undefined) ? { suspensosFim: comAtivos.reduce((s, u) => s + (u.suspensosFim ?? 0), 0) } : {}),
               ...(ativos ? { ticketMedio: Math.round((rec / ativos) * 100) / 100 } : {}),
             };
           })()

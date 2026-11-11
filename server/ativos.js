@@ -1,6 +1,7 @@
 // Alunos ativos no fim de um mês, reconstruídos do histórico de contratos do EVO.
 // Ativo no dia D = tem contrato que já começou até D, não foi cancelado até D e ainda não terminou em D.
-// Contratos aqui são tuplas [início, fim, cancelamento, status, recorrente, ...] (datas AAAA-MM-DD ou null).
+// Contratos aqui são tuplas [início, fim, cancelamento, status, recorrente, trancamentos] (datas AAAA-MM-DD ou null);
+// trancamentos = [[início, fim, desbloqueio antecipado]] (campo freezes do EVO).
 import { fetchAll } from "./evo.js";
 import { UNIT_NAMES } from "./units.js";
 
@@ -9,10 +10,26 @@ export const ativoNoDia = (contratos, dia) =>
 
 export const contarAtivos = (alunos, dia) => alunos.reduce((n, a) => n + (ativoNoDia(a.c, dia) ? 1 : 0), 0);
 
+const dia10 = (x) => (x ? String(x).slice(0, 10) : null);
+
 export const resumoAluno = (m) => ({
   id: m.idMember,
-  c: (m.memberships || []).map((c) => [c.startDate?.slice(0, 10) ?? null, c.endDate?.slice(0, 10) ?? null, c.cancelDate?.slice(0, 10) ?? null, c.membershipStatus, Boolean(c.valueNextMonth)]),
+  c: (m.memberships || []).map((c) => [
+    dia10(c.startDate), dia10(c.endDate), dia10(c.cancelDate), c.membershipStatus, Boolean(c.valueNextMonth),
+    (c.freezes || []).map((z) => [dia10(z.startSuspend), dia10(z.endSuspend), dia10(z.unlockDate)]),
+  ]),
 });
+
+const trancadoNoDia = (trancamentos, dia) =>
+  (trancamentos ?? []).some(([ini, fim, desbloqueio]) => ini && ini <= dia && fim && fim >= dia && !(desbloqueio && desbloqueio <= dia));
+
+/**
+ * Suspensos (contrato trancado) no dia D: alunos ativos em D cujo contrato vigente tem um trancamento cobrindo D.
+ * Continuam contando nos ativos (o contrato segue valendo); o número sai à parte, como no EVO Insights.
+ * Conferido com o status "suspended" do próprio EVO em 11/11/2026: Goiânia 2 × 2, Arniqueira 10 × 10.
+ */
+export const contarSuspensos = (alunos, dia) =>
+  alunos.reduce((n, a) => n + (a.c.some(([ini, fim, cancel, , , tr]) => ini && ini <= dia && !(cancel && cancel <= dia) && fim && fim >= dia && trancadoNoDia(tr, dia)) ? 1 : 0), 0);
 
 /** Último dia a considerar no mês: o último dia dele, ou hoje se o mês ainda está em andamento. */
 export function diaDeCorte(ym, hoje) {
@@ -79,7 +96,7 @@ export function fluxoDoMes(alunos, ym, hoje) {
 /** Baixa os alunos de uma unidade (ou usa `membros` já baixados) e calcula o movimento de cada mês pedido. */
 export async function ativosDaUnidade(idBranch, meses, hoje, membros = null) {
   const alunos = (membros ?? (await fetchAll(`/members?idBranch=${idBranch}`))).map(resumoAluno);
-  return Object.fromEntries(meses.map((ym) => [ym, { ...movimentoDoMes(alunos, ym, hoje), ...fluxoDoMes(alunos, ym, hoje) }]));
+  return Object.fromEntries(meses.map((ym) => [ym, { ...movimentoDoMes(alunos, ym, hoje), ...fluxoDoMes(alunos, ym, hoje), suspensosFim: contarSuspensos(alunos, diaDeCorte(ym, hoje)) }]));
 }
 
 export const UNIDADES = UNIT_NAMES;
