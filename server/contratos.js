@@ -24,9 +24,14 @@ export const alcance = (plano, unidadePro = false) => {
 /** Unidade Pro: o nome da unidade no dashboard tem "Pro" (Águas Claras Pro, Goiânia Pro-GO, Salvador Pro-BA). */
 export const ehUnidadePro = (nomeDaUnidade) => /\bPro\b/.test(nomeDaUnidade ?? "");
 
-export async function contratosUnidade(idBranch) {
+/**
+ * `membros`: a lista completa de alunos já baixada (a leitura única de evo-alunos.mjs); dela ficam só os ativos,
+ * pelo campo status = "Active", que bate exatamente com o filtro status=1 da rota (Goiânia, 11/11/2026: 1.063 × 1.063).
+ * Sem ela, baixa só os ativos.
+ */
+export async function contratosUnidade(idBranch, membros) {
   const plans = Object.fromEntries((await fetchAll(`/membership?idBranch=${idBranch}`)).map((p) => [p.idMembership, p]));
-  const members = await fetchAll(`/members?idBranch=${idBranch}&status=1`);
+  const members = membros ? membros.filter((m) => m.status === "Active") : await fetchAll(`/members?idBranch=${idBranch}&status=1`);
   const pro = ehUnidadePro(UNIT_NAMES[idBranch]);
   const r = { alunosAtivos: members.length, contratosAtivos: 0, contratosEspeciais: 0, contratosPersonal: 0, contratosLocal: 0, contratosRede: 0 };
   for (const m of members) {

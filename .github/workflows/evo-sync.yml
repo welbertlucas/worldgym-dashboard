@@ -143,13 +143,6 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-formas-pagamento.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
-        name: Contratos ativos, especiais/VIP e personal (mês corrente)
-        env:
-          EVO_DNS: ${{ secrets.EVO_DNS }}
-          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-        run: node scripts/evo-contratos.mjs
-      - if: ${{ !cancelled() }}
         name: Consolidar os meses num arquivo só (o painel lê só este)
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
