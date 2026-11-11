@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { AUTH_REQUIRED_EVENT, logout, precisaDeLogin, type Papel } from "@/lib/auth";
 import {
   atualizarAcesso, criarAcesso, criarDono, listarAcessos, lerRegistro, redefinirSenha,
-  type EntradaRegistro, type UsuarioApi,
+  type EmailDeAcesso, type EntradaRegistro, type UsuarioApi,
 } from "@/lib/usuarios";
 
 const NIVEL: Record<Papel, string> = { dono: "Dono", master: "Master", unidades: "Unidades" };
@@ -20,7 +20,7 @@ export function AcessosTab() {
   const [dados, setDados] = useState<{ usuarios: UsuarioApi[]; unidades: string[]; legado: boolean } | null>(null);
   const [registro, setRegistro] = useState<EntradaRegistro[]>([]);
   const [erro, setErro] = useState("");
-  const [senhaNova, setSenhaNova] = useState<{ nome: string; senha: string } | null>(null);
+  const [senhaNova, setSenhaNova] = useState<{ nome: string; senha: string; email?: EmailDeAcesso } | null>(null);
   const [editando, setEditando] = useState<UsuarioApi | null>(null);
 
   const carregar = useCallback(async () => {
@@ -42,7 +42,7 @@ export function AcessosTab() {
   if (!dados) return <div><SectionTitle level="page">Acessos</SectionTitle><p className="text-sm text-muted-foreground">Carregando...</p></div>;
   if (dados.legado) return <PrimeiroDono />;
 
-  const mostrarSenha = (nome: string, senha: string) => setSenhaNova({ nome, senha });
+  const mostrarSenha = (nome: string, senha: string, email?: EmailDeAcesso) => setSenhaNova({ nome, senha, email });
 
   return (
     <div className="space-y-8">
@@ -50,13 +50,20 @@ export function AcessosTab() {
 
       {senhaNova && (
         <div role="status" className="card-surface border-primary/40 p-5 space-y-3">
-          <p className="text-sm text-foreground">Senha provisória de <b>{senhaNova.nome}</b>. Ela aparece só agora: copie e envie para a pessoa por um canal seguro.</p>
+          {senhaNova.email?.enviado ? (
+            <p className="text-sm text-foreground">Enviamos a senha provisória de <b>{senhaNova.nome}</b> para <b>{senhaNova.email.para}</b>. Se não chegar em alguns minutos, confira se o e-mail está certo e peça para olhar o spam. A senha aparece só agora, caso precise mandar por outro canal.</p>
+          ) : (
+            <p className="text-sm text-foreground">
+              Senha provisória de <b>{senhaNova.nome}</b>. Ela aparece só agora: copie e envie para a pessoa por um canal seguro.
+              {senhaNova.email && <span className="block mt-1 text-destructive">O e-mail para {senhaNova.email.para} não saiu{senhaNova.email.erro ? ` (${senhaNova.email.erro})` : ""}.</span>}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <code className="rounded-lg bg-secondary px-3 py-2 text-base font-semibold tracking-wider select-all">{senhaNova.senha}</code>
             <Button variant="outline" size="sm" onClick={async () => { try { await navigator.clipboard.writeText(senhaNova.senha); toast({ title: "Senha copiada" }); } catch { toast({ title: "Não consegui copiar", description: "Selecione a senha e copie à mão.", variant: "destructive" }); } }}>
               <Copy className="w-4 h-4" aria-hidden /> Copiar
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setSenhaNova(null)}>Já enviei</Button>
+            <Button variant="ghost" size="sm" onClick={() => setSenhaNova(null)}>{senhaNova.email?.enviado ? "Fechar" : "Já enviei"}</Button>
           </div>
         </div>
       )}
@@ -80,9 +87,9 @@ export function AcessosTab() {
                       <span className="flex flex-wrap justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => setEditando(u)}>Editar</Button>
                         <Button variant="outline" size="sm" onClick={async () => {
-                          if (!window.confirm(`Gerar uma nova senha para ${u.nome}? A senha atual deixa de valer.`)) return;
+                          if (!window.confirm(`Gerar uma nova senha para ${u.nome}? A senha atual deixa de valer e a nova vai para ${u.email}.`)) return;
                           const r = await redefinirSenha(u.id);
-                          if (r.ok) mostrarSenha(u.nome, r.dados.senhaProvisoria); else toast({ title: "Não consegui redefinir", description: r.erro, variant: "destructive" });
+                          if (r.ok) mostrarSenha(u.nome, r.dados.senhaProvisoria, r.dados.email); else toast({ title: "Não consegui redefinir", description: r.erro, variant: "destructive" });
                         }}><KeyRound className="w-3.5 h-3.5" aria-hidden /> Nova senha</Button>
                         <Button variant="ghost" size="sm" onClick={async () => {
                           if (u.ativo && !window.confirm(`Desativar o acesso de ${u.nome}? A pessoa perde o acesso em até 1 minuto.`)) return;
@@ -115,7 +122,7 @@ export function AcessosTab() {
             } else {
               const r = await criarAcesso(v);
               if (!r.ok) return r.erro;
-              mostrarSenha(r.dados.usuario.nome, r.dados.senhaProvisoria);
+              mostrarSenha(r.dados.usuario.nome, r.dados.senhaProvisoria, r.dados.email);
             }
             void carregar();
             return null;
@@ -199,7 +206,7 @@ function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
         <Button type="submit" disabled={enviando}><ShieldCheck className="w-4 h-4" aria-hidden />{enviando ? "Salvando..." : inicial ? "Salvar alterações" : "Criar acesso"}</Button>
         {onCancelar && <Button type="button" variant="ghost" onClick={onCancelar}>Cancelar</Button>}
       </div>
-      {!inicial && <p className="text-xs text-muted-foreground">O sistema gera uma senha provisória e mostra uma vez. Se a pessoa esquecer, você gera outra em "Nova senha".</p>}
+      {!inicial && <p className="text-xs text-muted-foreground">O sistema gera uma senha provisória, manda para o e-mail da pessoa e mostra uma vez aqui. Se ela esquecer, você gera outra em "Nova senha" (sai um e-mail novo).</p>}
     </form>
   );
 }

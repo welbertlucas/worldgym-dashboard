@@ -2,10 +2,12 @@
 // GET  /api/usuarios            -> { usuarios, unidades, legado }   (legado: true = ainda sem nenhum usuário, só a senha única)
 // GET  /api/usuarios?registro=1 -> { registro: [...] }              (entradas e tentativas erradas, mais novas primeiro)
 // POST /api/usuarios { acao: "primeiro-dono" | "criar" | "atualizar" | "redefinir", ... }
+//   criar/redefinir -> { usuario, senhaProvisoria, email: { enviado, para, erro? } }
 import { cors, exigirLogin } from "./_auth.js";
 import {
   listarUsuarios, criarDono, criarUsuario, atualizarUsuario, redefinirSenha, lerRegistro, publico, UNIDADES_DA_REDE, ErroAcesso,
 } from "../server/acesso.js";
+import { enviarAcesso } from "../server/boasVindas.js";
 
 const doCorpo = (req) => (typeof req.body === "string" ? safeJson(req.body) : req.body ?? {});
 
@@ -30,8 +32,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ usuario: await criarDono(campos) });
     }
     if (sessao.legado) return res.status(409).json({ error: "Crie primeiro a sua conta de dono." });
-    if (acao === "criar") return res.status(200).json(await criarUsuario(campos));
-    if (acao === "redefinir") return res.status(200).json(await redefinirSenha(campos.id));
+    // Criar e "Nova senha" também mandam a senha por e-mail (Zoho). Se o e-mail falhar, a senha continua na tela.
+    if (acao === "criar" || acao === "redefinir") {
+      const r = acao === "criar" ? await criarUsuario(campos) : await redefinirSenha(campos.id);
+      const email = await enviarAcesso(r.usuario, r.senhaProvisoria, { novo: acao === "criar" });
+      return res.status(200).json({ ...r, email });
+    }
     if (acao === "atualizar") {
       const { id, ...resto } = campos;
       return res.status(200).json({ usuario: await atualizarUsuario(id, resto) });

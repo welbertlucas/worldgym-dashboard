@@ -20,6 +20,10 @@ const enviar = <T>(corpo: object) => chamar<T>(`${API_BASE}/usuarios`, { method:
 export const listarAcessos = () => chamar<{ usuarios: UsuarioApi[]; unidades: string[]; legado: boolean }>(`${API_BASE}/usuarios`);
 export const lerRegistro = () => chamar<{ registro: EntradaRegistro[] }>(`${API_BASE}/usuarios?registro=1`);
 export const criarDono = (c: { nome: string; email: string; senha: string }) => enviar<{ usuario: UsuarioApi }>({ acao: "primeiro-dono", ...c });
-export const criarAcesso = (c: { nome: string; email: string; papel: Papel; unidades: string[] }) => enviar<{ usuario: UsuarioApi; senhaProvisoria: string }>({ acao: "criar", ...c });
+/** Resultado do e-mail com a senha (Zoho). `enviado: false` = a senha só está na tela. */
+export type EmailDeAcesso = { enviado: boolean; para: string; erro?: string };
+type ComSenha = { usuario: UsuarioApi; senhaProvisoria: string; email?: EmailDeAcesso };
+
+export const criarAcesso = (c: { nome: string; email: string; papel: Papel; unidades: string[] }) => enviar<ComSenha>({ acao: "criar", ...c });
 export const atualizarAcesso = (id: string, c: Partial<Pick<UsuarioApi, "nome" | "email" | "papel" | "unidades" | "ativo">>) => enviar<{ usuario: UsuarioApi }>({ acao: "atualizar", id, ...c });
-export const redefinirSenha = (id: string) => enviar<{ usuario: UsuarioApi; senhaProvisoria: string }>({ acao: "redefinir", id });
+export const redefinirSenha = (id: string) => enviar<ComSenha>({ acao: "redefinir", id });
