@@ -294,6 +294,13 @@ describe("alertas listados no e-mail", () => {
     const html = renderizarEmail(r, { nome: "Ana" });
     expect(html).toContain("pixel sem vendas online</strong> em Gama.");
   });
+
+  it("siglas no título do alerta continuam em maiúsculas", () => {
+    const r = montarResumo(meses, { nome: "Ana", email: "a@b.c", papel: "dono", unidades: [] }, "2026-11-10", null, null, null, [{ quem: "Gama", gravidade: "atencao", titulo: "NPS baixo", fato: "", acao: "" }]);
+    const html = renderizarEmail(r, { nome: "Ana" });
+    expect(html).toContain("NPS baixo</strong>");
+    expect(html).not.toContain("nPS");
+  });
 });
 
 describe("tráfego pago no e-mail", () => {

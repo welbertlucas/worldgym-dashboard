@@ -416,7 +416,8 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
       ...geral.map((q) => (q === "A rede" ? "na rede" : "nas suas unidades")),
       ...(unidades.length ? [`em ${unidades.length <= 4 ? juntar(unidades) : `${unidades.slice(0, 3).join(", ")} e mais ${unidades.length - 3} unidades`}`] : []),
     ];
-    const titulo = g.titulo.charAt(0).toLowerCase() + g.titulo.slice(1);
+    // Siglas (NPS, CAC) ficam como estão: só baixa a inicial quando a segunda letra não é maiúscula
+    const titulo = /^\p{Lu}\p{Lu}/u.test(g.titulo) ? g.titulo : g.titulo.charAt(0).toLowerCase() + g.titulo.slice(1);
     return `${i > 0 && i === todos.length - 1 ? "e " : ""}${b(titulo)}${onde.length ? ` ${esc(juntar(onde))}` : ""}`;
   });
   const alertas = n
