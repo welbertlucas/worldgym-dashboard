@@ -12,7 +12,16 @@ export const alertasDaEscolha = (lista: AlertaMeta[], unit: string | null) =>
   lista.filter((a) => (unit === INSTITUCIONAL ? a.quem === INSTITUCIONAL : unit ? a.quem === unit : a.quem !== INSTITUCIONAL));
 
 const L = LIMITES_META;
-const RODAPE = `Limites: campanha que gastou R$ ${L.gastoSemContato} em 7 dias sem contato; custo por contato ${Math.round((L.custoAltoFator - 1) * 100)}% acima da mediana da rede; mesma pessoa vendo o anúncio ${L.frequenciaAlta} vezes ou mais na semana; campanha terminando em até ${L.terminaEmDias} dias; menos de ${Math.round(L.conversaoBaixa * 100)}% dos contatos do mês virando aluno (com ${L.conversaoMinContatos} contatos ou mais), ou origem não marcada no EVO (${Math.round(L.semOrigemAlta * 100)}% ou mais dos cadastros sem origem); unidade que anunciou no mês passado e está sem campanha no ar.`;
+/** As regras que disparam os alertas (iguais para todas as unidades). Ficam recolhidas no fim do cartão. */
+const REGRAS = [
+  `Campanha que gastou R$ ${L.gastoSemContato} em 7 dias sem trazer nenhum contato.`,
+  `Custo por contato ${Math.round((L.custoAltoFator - 1) * 100)}% acima da mediana das campanhas da rede.`,
+  `A mesma pessoa vendo o anúncio ${L.frequenciaAlta} vezes ou mais na semana.`,
+  `Campanha terminando em até ${L.terminaEmDias} dias.`,
+  `Menos de ${Math.round(L.conversaoBaixa * 100)}% dos contatos do mês virando aluno (a partir de ${L.conversaoMinContatos} contatos).`,
+  `Origem não marcada no EVO: ${Math.round(L.semOrigemAlta * 100)}% ou mais dos cadastros do mês sem origem.`,
+  "Unidade que anunciou no mês passado e está sem campanha no ar.",
+];
 
 /** Alertas de melhoria do tráfego pago: campanhas (foto de hoje) e unidades (mês corrente contra o anterior, com os alunos do EVO). */
 export function AlertasMeta({ unit }: { unit: string | null }) {
@@ -48,7 +57,13 @@ export function AlertasMeta({ unit }: { unit: string | null }) {
           ))}
         </ul>
       )}
-      <p className="mt-3 text-xs text-muted-foreground">{RODAPE} Os alertas só leem o Meta; nada é alterado nas campanhas.</p>
+      <details className="mt-3 text-xs text-muted-foreground">
+        <summary className="cursor-pointer select-none hover:text-foreground">Como os alertas são calculados</summary>
+        <ul className="mt-2 list-disc space-y-0.5 pl-4">
+          {REGRAS.map((r) => <li key={r}>{r}</li>)}
+        </ul>
+        <p className="mt-2">As regras são as mesmas para todas as unidades. Os alertas só leem o Meta; nada é alterado nas campanhas.</p>
+      </details>
     </ChartCard>
   );
 }

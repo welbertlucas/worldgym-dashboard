@@ -18,7 +18,7 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
 
   if (foto === undefined) return <ChartCard title={titulo} subtitle={subtitle}><ChartEmpty>Carregando…</ChartEmpty></ChartCard>;
   const inv = investimentoDoMes(mes, unit);
-  if (!mes || !inv) return <ChartCard title={titulo} subtitle={subtitle}><ChartEmpty>{mes ? `Sem investimento do Meta lido para ${unit === INSTITUCIONAL ? "a conta Institucional" : unit ?? "a rede"} neste mês.` : "O investimento do Meta deste mês ainda não foi lido."}</ChartEmpty></ChartCard>;
+  if (!mes || !inv) return <ChartCard title={titulo} subtitle={subtitle}><ChartEmpty>{mes ? `Sem investimento do Meta lido para ${unit === INSTITUCIONAL ? "a conta Institucional" : unit ?? "a rede"} neste mês${unit && mes.erros.length ? " (a conta de anúncio pode estar sem permissão de leitura)" : ""}.` : "O investimento do Meta deste mês ainda não foi lido."}</ChartEmpty></ChartCard>;
 
   const contatos = inv.leads + inv.conversas;
   const porUnidade = unit ? [] : Object.entries(mes.unidades)
@@ -64,7 +64,7 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
         </div>
       )}
 
-      {mes.erros.length ? <p className="mt-3 text-xs text-warning">{mes.erros.length} {mes.erros.length === 1 ? "conta de anúncio não pôde ser lida" : "contas de anúncio não puderam ser lidas"} neste mês; o investimento delas não entra.</p> : null}
+      {!unit && mes.erros.length ? <p className="mt-3 text-xs text-warning">{mes.erros.length} {mes.erros.length === 1 ? "conta de anúncio não pôde ser lida" : "contas de anúncio não puderam ser lidas"} neste mês; o investimento delas não entra.</p> : null}
       <p className="mt-3 text-xs text-muted-foreground">
         Investimento = todas as campanhas do mês no Meta, inclusive as já pausadas. Contato = lead ou conversa iniciada.
         {unit === INSTITUCIONAL ? " A conta Institucional anuncia para a rede toda e fica separada das unidades." : !unit && institucional > 0 ? ` A rede soma só as unidades; a conta Institucional (${reais(institucional)} no mês) fica separada: escolha "Institucional" para vê-la.` : ""}

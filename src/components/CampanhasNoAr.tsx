@@ -46,7 +46,7 @@ export function CampanhasNoAr({ unit }: { unit: string | null }) {
       <ul className="space-y-2" aria-label="Campanhas no ar, das que mais gastam para as que menos gastam">
         {lista.map((c) => <Linha key={c.id} c={c} mostrarUnidade={!unit} />)}
       </ul>
-      {foto.erros.length > 0 && <p className="mt-3 text-xs text-warning">{foto.erros.length} {foto.erros.length === 1 ? "conta não pôde" : "contas não puderam"} ser lida{foto.erros.length === 1 ? "" : "s"} na última atualização; as campanhas dela{foto.erros.length === 1 ? "" : "s"} podem faltar.</p>}
+      {!unit && foto.erros.length > 0 && <p className="mt-3 text-xs text-warning">{foto.erros.length} {foto.erros.length === 1 ? "conta não pôde" : "contas não puderam"} ser lida{foto.erros.length === 1 ? "" : "s"} na última atualização; as campanhas dela{foto.erros.length === 1 ? "" : "s"} podem faltar.</p>}
       <p className="mt-3 text-xs text-muted-foreground">Campanhas veiculando no Meta (Facebook e Instagram): ativas, não encerradas e com entrega nos últimos 7 dias (ou começadas nesta semana). Campanhas antigas que o Meta ainda marca como ativas ficam de fora. Contato = lead ou conversa iniciada. A unidade vem da conta de anúncio; a conta Institucional aparece só quando escolhida, separada das unidades.</p>
     </ChartCard>
   );
