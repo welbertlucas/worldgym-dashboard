@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
-import { carregarCampanhas, INSTITUCIONAL, investimentoDoMes, investimentoInstitucional, type FotoCampanhas } from "@/data/campanhas";
+import { carregarCampanhas, cpm, ctr, INSTITUCIONAL, investimentoDoMes, investimentoInstitucional, type FotoCampanhas } from "@/data/campanhas";
 import { isPartialMonth } from "@/data/periods";
 
 const reais = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const reais2 = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const int = (n: number) => n.toLocaleString("pt-BR");
+const pct = (n: number | null) => (n === null ? "—" : `${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`);
 const nomeDoMes = (ym: string) => { const [a, m] = ym.split("-").map(Number); return new Date(a, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }); };
 
 /** Investimento do Meta no mês (todas as campanhas, inclusive as pausadas), contatos e custo por contato. */
@@ -39,11 +40,13 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
         </div>
       }
     >
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
         <div><dt className="text-xs text-muted-foreground">Leads</dt><dd className="tabular-nums text-foreground">{int(inv.leads)}</dd></div>
         <div><dt className="text-xs text-muted-foreground">Conversas iniciadas</dt><dd className="tabular-nums text-foreground">{int(inv.conversas)}</dd></div>
         <div><dt className="text-xs text-muted-foreground">Impressões</dt><dd className="tabular-nums text-foreground">{int(inv.impressoes)}</dd></div>
         <div><dt className="text-xs text-muted-foreground">Cliques</dt><dd className="tabular-nums text-foreground">{int(inv.cliques)}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">CTR (cliques a cada 100 exibições)</dt><dd className="tabular-nums text-foreground">{pct(ctr(inv.cliques, inv.impressoes))}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">CPM (custo de mil exibições)</dt><dd className="tabular-nums text-foreground">{cpm(inv.investimento, inv.impressoes) === null ? "—" : reais2(cpm(inv.investimento, inv.impressoes)!)}</dd></div>
       </dl>
 
       {porUnidade.length > 0 && (

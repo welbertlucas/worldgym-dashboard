@@ -24,7 +24,21 @@ export interface Campanha {
 export interface ResultadoMeta { investimento: number; impressoes: number; cliques: number; leads: number; conversas: number }
 /** Unidades do mês; a chave "Rede" é a conta Institucional (anúncio da rede toda). */
 export interface MesMeta { geradoEm: string; unidades: Record<string, ResultadoMeta>; erros: { conta: string; erro: string }[] }
-export interface FotoCampanhas { geradoEm: string | null; campanhas: Campanha[]; erros: { conta: string; erro: string }[]; meses?: Record<string, MesMeta> }
+/** Anúncio com gasto nos últimos 30 dias (ranking). `imagem` = miniatura do criativo no Meta (o link vence em alguns dias; a foto diária renova). */
+export interface Anuncio {
+  id: string;
+  unidade: string | null;
+  conta: string;
+  nome: string;
+  campanha: string;
+  gasto30d: number;
+  impressoes30d: number;
+  cliques30d: number;
+  leads30d: number;
+  conversas30d: number;
+  imagem: string | null;
+}
+export interface FotoCampanhas { geradoEm: string | null; campanhas: Campanha[]; erros: { conta: string; erro: string }[]; meses?: Record<string, MesMeta>; anuncios?: Anuncio[] }
 
 let pedido: Promise<FotoCampanhas | null> | null = null;
 
@@ -81,3 +95,37 @@ export function investimentoDoMes(mes: MesMeta | undefined, unidade: string | nu
 
 /** Investimento da conta Institucional no mês (0 se não houver). */
 export const investimentoInstitucional = (mes: MesMeta | undefined) => mes?.unidades[CHAVE_INSTITUCIONAL]?.investimento ?? 0;
+
+/** CTR: em quantas de cada 100 exibições alguém clicou (%); null sem exibição. */
+export const ctr = (cliques: number, impressoes: number): number | null => (impressoes > 0 ? (cliques / impressoes) * 100 : null);
+/** CPM: custo de mil exibições (R$); null sem exibição. */
+export const cpm = (gasto: number, impressoes: number): number | null => (impressoes > 0 ? (gasto / impressoes) * 1000 : null);
+
+/** Mês a mês do Meta para a escolha (unidade, Institucional ou rede sem a Institucional), do mais antigo ao mais novo. */
+export interface PontoMeta { ym: string; investimento: number; contatos: number; custo: number | null; impressoes: number; cliques: number }
+export function serieMensal(meses: Record<string, MesMeta> | undefined, unidade: string | null): PontoMeta[] {
+  return Object.keys(meses ?? {}).sort().flatMap((ym) => {
+    const r = investimentoDoMes(meses![ym], unidade);
+    if (!r) return [];
+    const contatos = r.leads + r.conversas;
+    return [{ ym, investimento: r.investimento, contatos, custo: contatos > 0 ? r.investimento / contatos : null, impressoes: r.impressoes, cliques: r.cliques }];
+  });
+}
+
+/** Mês anterior e mesmo mês do ano anterior ("AAAA-MM"). */
+export const mesAnterior = (ym: string) => { const [a, m] = ym.split("-").map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`; };
+export const mesAnoAnterior = (ym: string) => `${Number(ym.slice(0, 4)) - 1}${ym.slice(4)}`;
+
+export const contatosDoAnuncio = (a: Anuncio) => a.leads30d + a.conversas30d;
+/** Só os anúncios da escolha (mesma regra das campanhas). */
+export function anunciosDaUnidade(lista: Anuncio[] | undefined, unidade: string | null): Anuncio[] {
+  return (lista ?? []).filter((a) => (unidade === INSTITUCIONAL ? a.unidade === null : unidade ? a.unidade === unidade : a.unidade !== null));
+}
+/** Ranking: os mais baratos por contato (com pelo menos `minContatos`, para não premiar acaso) e os que gastaram sem trazer contato. */
+export function rankingDeAnuncios(lista: Anuncio[], { minContatos = 5, gastoSemContato = 100, limite = 5 } = {}) {
+  const comContato = lista.filter((a) => contatosDoAnuncio(a) >= minContatos)
+    .map((a) => ({ ...a, custo: a.gasto30d / contatosDoAnuncio(a) }))
+    .sort((a, b) => a.custo - b.custo);
+  const semContato = lista.filter((a) => contatosDoAnuncio(a) === 0 && a.gasto30d >= gastoSemContato).sort((a, b) => b.gasto30d - a.gasto30d);
+  return { melhores: comContato.slice(0, limite), semContato: semContato.slice(0, 3), avaliados: comContato.length, total: lista.length };
+}

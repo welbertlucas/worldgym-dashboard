@@ -101,6 +101,64 @@ export async function campanhasDaRede(tokens, contas = CONTAS, pausaMs = 300) {
   return { campanhas, erros };
 }
 
+/** Anúncio (nível do Graph "ad") -> linha do ranking: gasto e resultados dos últimos 30 dias. Miniatura entra depois. */
+export function anuncioDoMeta(i, conta) {
+  return {
+    id: i.ad_id,
+    unidade: conta.unidade,
+    conta: conta.conta,
+    nome: i.ad_name ?? "",
+    campanha: i.campaign_name ?? "",
+    gasto30d: Number(i.spend || 0),
+    impressoes30d: Number(i.impressions || 0),
+    cliques30d: Number(i.clicks || 0),
+    leads30d: leadsDe(i.actions),
+    conversas30d: soma(i.actions, CONVERSA),
+    imagem: null,
+  };
+}
+
+/** Miniaturas dos criativos, de 50 em 50 anúncios. Sem miniatura o anúncio continua no ranking (falha aqui não derruba nada). */
+async function miniaturas(ids, token) {
+  const out = {};
+  for (let i = 0; i < ids.length; i += 50) {
+    const lote = ids.slice(i, i + 50);
+    try {
+      const r = await graph(`https://graph.facebook.com/${VERSAO}/?ids=${lote.join(",")}&fields=${encodeURIComponent("creative{thumbnail_url,image_url}")}`, token);
+      for (const id of lote) { const c = r[id]?.creative; if (c) out[id] = c.image_url || c.thumbnail_url || null; }
+    } catch { /* segue sem miniatura */ }
+  }
+  return out;
+}
+
+/** Anúncios que gastaram nos últimos 30 dias numa conta (todas as campanhas, inclusive as já pausadas). */
+export async function anunciosDaConta(conta, token, hoje = hojeBrasilia()) {
+  const periodo = encodeURIComponent(JSON.stringify({ since: diasAtras(hoje, 29), until: hoje }));
+  let url = `https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=ad&fields=ad_id,ad_name,campaign_name,spend,impressions,clicks,actions&time_range=${periodo}&limit=200`;
+  const lista = [];
+  for (let pagina = 0; url && pagina < 5; pagina++) {
+    const r = await graph(url, token);
+    for (const i of r.data ?? []) { const a = anuncioDoMeta(i, conta); if (a.id && a.gasto30d > 0) lista.push(a); }
+    url = r.paging?.next ?? null;
+  }
+  const fotos = await miniaturas(lista.map((a) => a.id), token);
+  for (const a of lista) a.imagem = fotos[a.id] ?? null;
+  return lista;
+}
+
+/** Anúncios de todas as contas com token. Conta que falha não derruba as outras. */
+export async function anunciosDaRede(tokens, contas = CONTAS, pausaMs = 300, hoje = hojeBrasilia()) {
+  const anuncios = [];
+  const erros = [];
+  for (const conta of contas) {
+    const token = tokens[conta.token];
+    if (!token) continue; // a falta de token já aparece nos erros das campanhas
+    try { anuncios.push(...(await anunciosDaConta(conta, token, hoje))); } catch (e) { erros.push({ conta: conta.conta, erro: e.message }); }
+    await new Promise((r) => setTimeout(r, pausaMs));
+  }
+  return { anuncios, erros };
+}
+
 /** Último dia de um mês "AAAA-MM" (ISO). */
 const fimDoMes = (ym) => { const [a, m] = ym.split("-").map(Number); return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10); };
 /** Hoje em Brasília (ISO). */

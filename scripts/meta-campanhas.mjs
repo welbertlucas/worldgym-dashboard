@@ -3,7 +3,7 @@
 // que o painel mostra por mês e os alertas usam. Por padrão refaz o mês anterior e o corrente;
 // META_MESES="2025-01..2026-11" refaz outros meses (carga histórica).
 // Uso: META_TOKEN_DFGO=... node --env-file=.env.local scripts/meta-campanhas.mjs
-import { campanhasDaRede, listaDeMeses, mesesDaRede, mesesDaRotina } from "../server/meta.js";
+import { anunciosDaRede, campanhasDaRede, listaDeMeses, mesesDaRede, mesesDaRotina } from "../server/meta.js";
 import { saveCampanhas, saveMetaMeses } from "../server/store.js";
 
 const tokens = { DFGO: process.env.META_TOKEN_DFGO, BR01: process.env.META_TOKEN_BR01 };
@@ -18,7 +18,15 @@ for (const e of erros) console.log(`ERRO ${e.conta}: ${e.erro}`);
 const contasLidas = new Set(campanhas.map((c) => c.conta)).size;
 console.log(`${campanhas.length} campanhas ativas em ${contasLidas} contas; ${erros.length} contas com erro`);
 if (!campanhas.length && erros.length) throw new Error("Nada foi lido; a foto anterior foi mantida.");
-await saveCampanhas({ geradoEm: new Date().toISOString(), campanhas, erros });
+// Ranking dos anúncios (últimos 30 dias). Se falhar, a foto sai sem ele e o painel avisa.
+let anuncios = null;
+try {
+  const r = await anunciosDaRede(tokens);
+  for (const e of r.erros) console.log(`ERRO anúncios ${e.conta}: ${e.erro}`);
+  anuncios = r.anuncios;
+  console.log(`${anuncios.length} anúncios com gasto nos últimos 30 dias (${anuncios.filter((a) => a.imagem).length} com miniatura)`);
+} catch (e) { console.log(`anúncios indisponíveis: ${e.message}`); }
+await saveCampanhas({ geradoEm: new Date().toISOString(), campanhas, erros, ...(anuncios ? { anuncios } : {}) });
 console.log("Gravado: campanhas/atual.json");
 
 const meses = process.env.META_MESES ? listaDeMeses(process.env.META_MESES) : mesesDaRotina();

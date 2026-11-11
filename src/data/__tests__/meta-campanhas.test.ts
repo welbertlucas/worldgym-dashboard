@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 // @ts-expect-error módulo JS do servidor
-import { campanhaDoMeta, campanhasDaRede, CONTAS, estaNoAr, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
+import { anunciosDaConta, campanhaDoMeta, campanhasDaRede, CONTAS, estaNoAr, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
 
 const conta = { id: "1", conta: "WG 3 - Asa Norte", unidade: "Asa Norte", token: "DFGO" };
 
@@ -71,5 +71,68 @@ describe("campanha no ar (o Meta deixa 'ativa' campanha que já acabou)", () => 
     expect(estaNoAr({ ...base, gasto7d: 0.5 }, "2026-11-10")).toBe(true);
     expect(estaNoAr({ ...base, impressoes7d: 10, fim: "2026-11-30" }, "2026-11-10")).toBe(true);
     expect(estaNoAr({ ...base, inicio: "2026-11-09" }, "2026-11-10")).toBe(true);
+  });
+});
+
+describe("indicadores novos do Meta", () => {
+  it("CTR e CPM", async () => {
+    const { ctr, cpm } = await import("@/data/campanhas");
+    expect(ctr(50, 10000)).toBeCloseTo(0.5);
+    expect(cpm(30, 10000)).toBeCloseTo(3);
+    expect(ctr(1, 0)).toBeNull();
+    expect(cpm(1, 0)).toBeNull();
+  });
+
+  it("série mensal da unidade, da Institucional e da rede sem a Institucional", async () => {
+    const { serieMensal, INSTITUCIONAL, mesAnterior, mesAnoAnterior } = await import("@/data/campanhas");
+    const r = (investimento: number, leads: number, conversas = 0) => ({ investimento, impressoes: 1000, cliques: 10, leads, conversas });
+    const meses = {
+      "2026-10": { geradoEm: "", erros: [], unidades: { Gama: r(600, 100), Itapoã: r(400, 0), Rede: r(1000, 10) } },
+      "2026-09": { geradoEm: "", erros: [], unidades: { Gama: r(300, 0, 50) } },
+    };
+    expect(serieMensal(meses, "Gama").map((p) => [p.ym, p.investimento, p.custo])).toEqual([["2026-09", 300, 6], ["2026-10", 600, 6]]);
+    expect(serieMensal(meses, null).at(-1)).toMatchObject({ investimento: 1000, contatos: 100 });
+    expect(serieMensal(meses, INSTITUCIONAL)).toHaveLength(1);
+    expect(serieMensal(meses, "Itapoã")[0].custo).toBeNull();
+    expect(mesAnterior("2026-01")).toBe("2025-12");
+    expect(mesAnoAnterior("2026-10")).toBe("2025-10");
+  });
+
+  it("ranking: mais baratos com contatos suficientes, e os que gastaram sem contato", async () => {
+    const { rankingDeAnuncios, anunciosDaUnidade, INSTITUCIONAL } = await import("@/data/campanhas");
+    const a = (id: string, unidade: string | null, gasto30d: number, leads30d: number) => ({ id, unidade, conta: "", nome: id, campanha: "", gasto30d, impressoes30d: 1000, cliques30d: 10, leads30d, conversas30d: 0, imagem: null });
+    const lista = [a("caro", "Gama", 500, 10), a("barato", "Gama", 50, 10), a("acaso", "Gama", 2, 1), a("zero", "Gama", 150, 0), a("pouco", "Gama", 20, 0), a("inst", null, 10, 50)];
+    const r = rankingDeAnuncios(anunciosDaUnidade(lista, "Gama"));
+    expect(r.melhores.map((x) => x.id)).toEqual(["barato", "caro"]);
+    expect(r.semContato.map((x) => x.id)).toEqual(["zero"]);
+    expect(r.total).toBe(5);
+    expect(anunciosDaUnidade(lista, null).some((x) => x.id === "inst")).toBe(false);
+    expect(anunciosDaUnidade(lista, INSTITUCIONAL).map((x) => x.id)).toEqual(["inst"]);
+  });
+});
+
+describe("anúncios do Meta (servidor)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("lê os anúncios com gasto nos últimos 30 dias e põe a miniatura", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      urls.push(url);
+      if (url.includes("/insights")) return { ok: true, status: 200, json: async () => ({ data: [
+        { ad_id: "a1", ad_name: "Vídeo treino", campaign_name: "Captação", spend: "80", impressions: "4000", clicks: "40", actions: [{ action_type: "onsite_conversion.messaging_conversation_started_7d", value: "16" }] },
+        { ad_id: "a2", ad_name: "Parado", campaign_name: "X", spend: "0" },
+      ] }) };
+      return { ok: true, status: 200, json: async () => ({ a1: { creative: { thumbnail_url: "https://img/a1.jpg" } } }) };
+    }));
+    const lista = await anunciosDaConta(conta, "tk", "2026-11-10");
+    expect(lista).toEqual([expect.objectContaining({ id: "a1", unidade: "Asa Norte", gasto30d: 80, conversas30d: 16, imagem: "https://img/a1.jpg" })]);
+    expect(decodeURIComponent(urls[0])).toContain('"since":"2026-10-12"');
+    expect(urls[1]).toContain("ids=a1");
+  });
+
+  it("sem miniatura o anúncio continua", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (url.includes("/insights")
+      ? { ok: true, status: 200, json: async () => ({ data: [{ ad_id: "a1", spend: "10" }] }) }
+      : { ok: false, status: 500, json: async () => ({}) })));
+    expect((await anunciosDaConta(conta, "tk", "2026-11-10"))[0]).toMatchObject({ id: "a1", imagem: null });
   });
 });

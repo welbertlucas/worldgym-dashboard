@@ -86,5 +86,6 @@ export function filtrarCampanhas(foto, sessao) {
   const meses = Object.fromEntries(Object.entries(foto.meses ?? {}).map(([ym, m]) => [ym, {
     ...m, erros: [], unidades: Object.fromEntries(Object.entries(m.unidades ?? {}).filter(([u]) => propria(sessao, u))),
   }]));
-  return { ...foto, campanhas: (foto.campanhas ?? []).filter((c) => c.unidade && propria(sessao, c.unidade)), erros: [], meses };
+  const sua = (c) => c.unidade && propria(sessao, c.unidade);
+  return { ...foto, campanhas: (foto.campanhas ?? []).filter(sua), ...(foto.anuncios ? { anuncios: foto.anuncios.filter(sua) } : {}), erros: [], meses };
 }

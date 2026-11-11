@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
-import { campanhasDaUnidade, carregarCampanhas, custoPorContato, nomeDoObjetivo, type Campanha, type FotoCampanhas } from "@/data/campanhas";
+import { campanhasDaUnidade, carregarCampanhas, ctr, custoPorContato, nomeDoObjetivo, type Campanha, type FotoCampanhas } from "@/data/campanhas";
 
 const reais = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const reais2 = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -9,13 +9,14 @@ const dia = (iso: string | null) => (iso ? iso.split("-").reverse().slice(0, 2).
 function Linha({ c, mostrarUnidade }: { c: Campanha; mostrarUnidade: boolean }) {
   const contatos = c.leads7d + c.conversas7d;
   const custo = custoPorContato(c);
+  const taxa = ctr(c.cliques7d, c.impressoes7d);
   const periodo = c.fim ? `${dia(c.inicio) ?? "?"} a ${dia(c.fim)}` : c.inicio ? `desde ${dia(c.inicio)}` : "sem data";
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-0.5 rounded-lg border border-border bg-card px-3 py-2.5">
       <span className="truncate text-sm font-medium text-foreground" title={c.nome}>{c.nome}</span>
       <span className="text-sm font-semibold tabular-nums text-foreground">{reais(c.gasto7d)} <span className="font-normal text-muted-foreground">em 7 dias</span></span>
       <span className="truncate text-xs text-muted-foreground">{mostrarUnidade && <>{c.unidade ?? "Institucional"} · </>}{nomeDoObjetivo(c.objetivo)} · {periodo}{c.orcamentoDiario ? ` · ${reais(c.orcamentoDiario)}/dia` : ""}</span>
-      <span className="text-xs tabular-nums text-muted-foreground">{contatos > 0 ? <>{contatos.toLocaleString("pt-BR")} contatos{custo !== null && <> · {reais2(custo)} cada</>}</> : "sem contatos ainda"}</span>
+      <span className="text-xs tabular-nums text-muted-foreground">{contatos > 0 ? <>{contatos.toLocaleString("pt-BR")} contatos{custo !== null && <> · {reais2(custo)} cada</>}</> : "sem contatos ainda"}{taxa !== null && <> · CTR {taxa.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</>}</span>
     </li>
   );
 }
@@ -47,7 +48,7 @@ export function CampanhasNoAr({ unit }: { unit: string | null }) {
         {lista.map((c) => <Linha key={c.id} c={c} mostrarUnidade={!unit} />)}
       </ul>
       {!unit && foto.erros.length > 0 && <p className="mt-3 text-xs text-warning">{foto.erros.length} {foto.erros.length === 1 ? "conta não pôde" : "contas não puderam"} ser lida{foto.erros.length === 1 ? "" : "s"} na última atualização; as campanhas dela{foto.erros.length === 1 ? "" : "s"} podem faltar.</p>}
-      <p className="mt-3 text-xs text-muted-foreground">Campanhas veiculando no Meta (Facebook e Instagram): ativas, não encerradas e com entrega nos últimos 7 dias (ou começadas nesta semana). Campanhas antigas que o Meta ainda marca como ativas ficam de fora. Contato = lead ou conversa iniciada. A unidade vem da conta de anúncio; a conta Institucional aparece só quando escolhida, separada das unidades.</p>
+      <p className="mt-3 text-xs text-muted-foreground">Campanhas veiculando no Meta (Facebook e Instagram): ativas, não encerradas e com entrega nos últimos 7 dias (ou começadas nesta semana). Campanhas antigas que o Meta ainda marca como ativas ficam de fora. Contato = lead ou conversa iniciada. CTR = cliques a cada 100 exibições. A unidade vem da conta de anúncio; a conta Institucional aparece só quando escolhida, separada das unidades.</p>
     </ChartCard>
   );
 }
