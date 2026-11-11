@@ -132,7 +132,7 @@ export function AcessosTab() {
 
       <section aria-labelledby="ac-reg" className="card-surface p-5">
         <h3 id="ac-reg" className="text-base font-semibold text-foreground">Entradas recentes</h3>
-        <p className="text-sm text-muted-foreground mt-1">Cada vez que alguém digita a senha (como o acesso vale 30 dias, quem já entrou não aparece de novo todo dia). Mostra também senhas erradas de e-mails cadastrados.</p>
+        <p className="text-sm text-muted-foreground mt-1">Cada vez que alguém digita a senha (o login cai depois de 12 horas sem uso; quem usa todo dia não precisa entrar de novo). Mostra também senhas erradas de e-mails cadastrados.</p>
         {registro.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">Ninguém entrou ainda.</p> : (
           <ul className="mt-4 divide-y divide-border text-sm">
             {registro.slice(0, 50).map((e, i) => (

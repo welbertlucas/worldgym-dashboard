@@ -38,11 +38,64 @@ export function sair() {
   window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
 }
 
+// Login por inatividade: o token vence 12 horas depois do último uso. O servidor manda um token novo neste cabeçalho
+// (no máximo a cada 5 minutos) e o navegador troca o seu.
+const CABECALHO_TOKEN = "X-Atlas-Token";
+/** Troca o token pelo renovado, se veio um (e se a pessoa não saiu enquanto o pedido estava no ar). */
+function guardarRenovado(res: Response) {
+  const novo = res.headers?.get?.(CABECALHO_TOKEN);
+  if (novo && getToken()) setToken(novo);
+}
+
+/** Quando o token vence (ms), ou null se não há token legível. */
+export function vencimentoDoToken(t = getToken()): number | null {
+  if (!t) return null;
+  const p = t.split(".");
+  try {
+    const exp = p[0] === "v2" ? JSON.parse(atob(p[1].replace(/-/g, "+").replace(/_/g, "/"))).e : p[0];
+    return Number(exp) || null;
+  } catch {
+    return null;
+  }
+}
+
+const RENOVAR_POR_USO_MS = 10 * 60 * 1000;
+/**
+ * Enquanto o Atlas está aberto: mexer na tela (clique, tecla, rolagem) renova o login no servidor, no máximo a cada
+ * 10 minutos; e, se o token vencer (12 horas sem uso), volta sozinho para a tela de login, mesmo sem nenhum clique.
+ * Devolve a função que desliga a vigia.
+ */
+export function vigiarSessao(agora: () => number = Date.now): () => void {
+  let ultima = agora();
+  const venceu = () => {
+    const v = vencimentoDoToken();
+    if (v === null || v > agora()) return false;
+    sair();
+    return true;
+  };
+  const uso = () => {
+    if (!getToken() || venceu() || agora() - ultima < RENOVAR_POR_USO_MS) return;
+    ultima = agora();
+    authFetch(`${API}/login`).catch(() => { /* sem rede: tenta no próximo uso */ });
+  };
+  const aoVoltar = () => { if (document.visibilityState === "visible") uso(); };
+  const eventos = ["pointerdown", "keydown", "wheel", "touchmove"] as const;
+  for (const e of eventos) window.addEventListener(e, uso, { passive: true });
+  document.addEventListener("visibilitychange", aoVoltar);
+  const relogio = setInterval(venceu, 60 * 1000);
+  return () => {
+    for (const e of eventos) window.removeEventListener(e, uso);
+    document.removeEventListener("visibilitychange", aoVoltar);
+    clearInterval(relogio);
+  };
+}
+
 /** fetch com o token; se o servidor recusar (senha trocada ou token vencido), pede o login de novo. */
 export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
   const token = getToken();
   const headers = { ...(init?.headers as Record<string, string> | undefined), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
   const res = await fetch(url, init || token ? { ...init, headers } : undefined);
+  guardarRenovado(res);
   if (res.status === 401) {
     logout();
     window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
@@ -56,6 +109,7 @@ export async function precisaDeLogin(): Promise<boolean> {
     const token = getToken();
     const res = await fetch(`${API}/login`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
     if (!res.ok) return false; // API fora do ar: deixa abrir; os dados é que não vão carregar
+    guardarRenovado(res);
     const j = (await res.json()) as { protegido: boolean; logado: boolean; comEmail?: boolean; usuario?: Usuario | null };
     comEmail = Boolean(j.comEmail);
     usuario = j.logado ? j.usuario ?? null : null;

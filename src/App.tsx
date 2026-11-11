@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Login } from "@/components/Login";
 import { Abertura } from "@/components/Abertura";
 import Index from "@/pages/Index";
-import { AUTH_REQUIRED_EVENT, precisaDeLogin } from "@/lib/auth";
+import { AUTH_REQUIRED_EVENT, precisaDeLogin, vigiarSessao } from "@/lib/auth";
 
 type Estado = "verificando" | "login" | "pronto";
 
@@ -16,6 +16,9 @@ export default function App() {
     window.addEventListener(AUTH_REQUIRED_EVENT, pedir);
     return () => window.removeEventListener(AUTH_REQUIRED_EVENT, pedir);
   }, []);
+
+  // Logado: 12 horas sem mexer no Atlas e ele volta para a tela de login.
+  useEffect(() => (estado === "pronto" ? vigiarSessao() : undefined), [estado]);
 
   if (estado === "verificando") return <Abertura />;
   if (estado === "login") return <Login onEntrou={() => setEstado("pronto")} />;

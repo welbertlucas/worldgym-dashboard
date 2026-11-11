@@ -4,7 +4,7 @@ import { definirArmazem } from "../../../server/armazem.js";
 // @ts-expect-error módulos JS do servidor
 import * as acesso from "../../../server/acesso.js";
 // @ts-expect-error módulos JS do servidor
-import { criarToken, criarTokenUsuario, lerToken, exigirLogin } from "../../../api/_auth.js";
+import { criarToken, criarTokenUsuario, lerToken, exigirLogin, sessaoDaRequisicao, INATIVIDADE_MS } from "../../../api/_auth.js";
 // @ts-expect-error módulos JS do servidor
 import login from "../../../api/login.js";
 // @ts-expect-error módulos JS do servidor
@@ -101,6 +101,33 @@ describe("acessos, níveis e registro", () => {
     await expect(acesso.criarUsuario({ nome: "Ana", email: "ana@exemplo.com", papel: "unidades", unidades: [] })).rejects.toThrow(/ao menos uma unidade/);
     await expect(acesso.criarUsuario({ nome: "Ana", email: "ana@exemplo.com", papel: "unidades", unidades: ["Lugar Nenhum"] })).rejects.toThrow(/desconhecida/);
     await expect(acesso.criarUsuario({ nome: "Ana", email: "sem-arroba", papel: "master" })).rejects.toThrow(/E-mail/);
+  });
+
+  it("login cai após 12 horas sem uso e se renova a cada uso", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const h = 3600 * 1000, t0 = Date.parse("2026-11-10T08:00:00Z");
+    const token = criarTokenUsuario(dono.id, t0).token;
+    expect(INATIVIDADE_MS).toBe(12 * h);
+    expect(lerToken(token, t0 + 12 * h - 1)).toBeTruthy();
+    expect(lerToken(token, t0 + 12 * h)).toBeNull();
+
+    // Uso logo depois de entrar: não gera token novo.
+    const r1 = res();
+    expect(await sessaoDaRequisicao(com(token), r1, t0 + 60 * 1000)).toBeTruthy();
+    expect(r1.headers["X-Atlas-Token"]).toBeUndefined();
+
+    // Uso 11 horas depois: token novo, que vale 12 horas a partir daí.
+    const r2 = res();
+    expect(await sessaoDaRequisicao(com(token), r2, t0 + 11 * h)).toBeTruthy();
+    const renovado = r2.headers["X-Atlas-Token"];
+    expect(lerToken(renovado, t0 + 22 * h)).toBeTruthy();
+    expect(lerToken(renovado, t0 + 23 * h)).toBeNull();
+
+    // Token antigo de 30 dias vira de 12 horas no primeiro uso.
+    const r3 = res();
+    const longo = criarTokenUsuario(dono.id, t0 + 30 * 24 * h - 12 * h).token; // vence 30 dias depois de t0
+    expect(await sessaoDaRequisicao(com(longo), r3, t0)).toBeTruthy();
+    expect(lerToken(r3.headers["X-Atlas-Token"], t0 + 12 * h)).toBeNull();
   });
 
   it("desativar vale na hora; reativar e redefinir senha funcionam; a senha provisória antiga morre", async () => {

@@ -1,7 +1,8 @@
 // Autenticação do dashboard. O prefixo "_" faz a Vercel NÃO expor este arquivo como rota.
 //
-// Como funciona: quem entra em /api/login (e-mail + senha) recebe um token assinado (HMAC) que vale por 30 dias e só
-// diz QUEM é a pessoa. O nível e as unidades vêm da lista de usuários a cada pedido, então desativar um acesso ou
+// Como funciona: quem entra em /api/login (e-mail + senha) recebe um token assinado (HMAC) que só diz QUEM é a pessoa
+// e vence após 12 horas SEM USO: cada pedido aceito devolve um token novo no cabeçalho X-Atlas-Token (no máximo a cada
+// 5 minutos), e o navegador troca o seu. Quem fica 12 horas sem mexer no Atlas precisa entrar de novo. O nível e as unidades vêm da lista de usuários a cada pedido, então desativar um acesso ou
 // trocar o nível vale na hora (até 1 minuto por instância, por causa do cache).
 //
 // Transição: enquanto NÃO existe nenhum usuário, continua valendo a senha única (DASHBOARD_PASSWORD) e os tokens
@@ -12,7 +13,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { listarUsuarios } from "../server/acesso.js";
 
-const DIAS = 30;
+/** Tempo sem uso até o login cair. */
+export const INATIVIDADE_MS = 12 * 3600 * 1000;
+/** Só troca o token se o atual tiver mais que isto (evita gerar um token a cada pedido). */
+const RENOVAR_APOS_MS = 5 * 60 * 1000;
+export const CABECALHO_TOKEN = "X-Atlas-Token";
 
 export const protegido = () => Boolean(process.env.DASHBOARD_PASSWORD);
 const segredo = () => process.env.SESSAO_SEGREDO || process.env.DASHBOARD_PASSWORD || "";
@@ -33,19 +38,19 @@ export const senhaCorreta = (senha) => protegido() && typeof senha === "string" 
 
 /** Token da senha única (transição). */
 export function criarToken(agora = Date.now()) {
-  const exp = agora + DIAS * 24 * 3600 * 1000;
+  const exp = agora + INATIVIDADE_MS;
   const corpo = String(exp);
   return { token: `${corpo}.${assinar(chaveLegado(), corpo)}`, expiraEm: exp };
 }
 
 /** Token de uma pessoa: só guarda quem é (id) e quando vence. */
 export function criarTokenUsuario(usuarioId, agora = Date.now()) {
-  const exp = agora + DIAS * 24 * 3600 * 1000;
+  const exp = agora + INATIVIDADE_MS;
   const corpo = Buffer.from(JSON.stringify({ u: usuarioId, e: exp })).toString("base64url");
   return { token: `v2.${corpo}.${assinar(chaveUsuario(), corpo)}`, expiraEm: exp };
 }
 
-/** { tipo: "legado" } | { tipo: "usuario", uid } | null (assinatura errada, vencido ou lixo). */
+/** { tipo: "legado" } | { tipo: "usuario", uid, exp } | null (assinatura errada, vencido ou lixo). */
 export function lerToken(token, agora = Date.now()) {
   if (typeof token !== "string") return null;
   const partes = token.split(".");
@@ -54,7 +59,7 @@ export function lerToken(token, agora = Date.now()) {
     if (!corpo || !assinatura || !segredo() || !iguais(assinatura, assinar(chaveUsuario(), corpo))) return null;
     try {
       const { u, e } = JSON.parse(Buffer.from(corpo, "base64url").toString());
-      return u && Number(e) > agora ? { tipo: "usuario", uid: u } : null;
+      return u && Number(e) > agora ? { tipo: "usuario", uid: u, exp: Number(e) } : null;
     } catch {
       return null;
     }
@@ -73,14 +78,19 @@ const SESSAO_ABERTA = Object.freeze({ id: "aberto", nome: "Sem proteção", emai
 
 export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], legado: false });
 
-/** Quem está fazendo o pedido, ou null. Confere o usuário na lista a cada vez (desativado = fora). */
-export async function sessaoDaRequisicao(req) {
-  const t = lerToken(tokenDaRequisicao(req));
+/** Quem está fazendo o pedido, ou null. Confere o usuário na lista a cada vez (desativado = fora).
+ *  Com `res`, renova o login (mais 12 horas a partir de agora) mandando o token novo no cabeçalho X-Atlas-Token. */
+export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
+  const t = lerToken(tokenDaRequisicao(req), agora);
   if (!t) return null;
   const lista = await listarUsuarios();
   if (t.tipo === "legado") return lista.length === 0 ? SESSAO_LEGADO : null;
   const u = lista.find((x) => x.id === t.uid && x.ativo !== false);
-  return u ? sessaoDe(u) : null;
+  if (!u) return null;
+  // Renova quando o token tem mais de 5 minutos. Tokens antigos de 30 dias (resta mais que 12 horas) viram de 12 horas no primeiro uso.
+  const resta = t.exp - agora;
+  if (res && (resta <= INATIVIDADE_MS - RENOVAR_APOS_MS || resta > INATIVIDADE_MS)) res.setHeader(CABECALHO_TOKEN, criarTokenUsuario(u.id, agora).token);
+  return sessaoDe(u);
 }
 
 /**
@@ -97,7 +107,7 @@ export async function exigirLogin(req, res, { papeis } = {}) {
       }
       return SESSAO_ABERTA;
     }
-    const sessao = await sessaoDaRequisicao(req);
+    const sessao = await sessaoDaRequisicao(req, res);
     if (!sessao) {
       res.setHeader("Cache-Control", "no-store");
       res.status(401).json({ error: "login necessário" });
@@ -123,4 +133,5 @@ export function cors(req, res) {
   res.setHeader("Vary", "Origin, Authorization");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res.setHeader("Access-Control-Expose-Headers", CABECALHO_TOKEN);
 }

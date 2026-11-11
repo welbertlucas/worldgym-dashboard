@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { createElement } from "react";
 import { Login } from "@/components/Login";
-import { authFetch, entrar, getToken, precisaDeLogin } from "@/lib/auth";
+import { authFetch, entrar, getToken, precisaDeLogin, vencimentoDoToken } from "@/lib/auth";
 
 const store: Record<string, string> = {};
 vi.stubGlobal("localStorage", {
@@ -29,6 +29,21 @@ describe("senha no navegador", () => {
     vi.stubGlobal("fetch", f);
     await authFetch("https://x/api/indicadores");
     expect(f).toHaveBeenCalledWith("https://x/api/indicadores", { headers: { Authorization: "Bearer t.s" } });
+  });
+
+  it("guarda o token renovado que o servidor manda", async () => {
+    store["wg-dashboard-token"] = "velho";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 200, headers: { "X-Atlas-Token": "novo" } })));
+    await authFetch("https://x/api/indicadores");
+    expect(getToken()).toBe("novo");
+  });
+
+  it("lê quando o token vence", () => {
+    const corpo = Buffer.from(JSON.stringify({ u: "id", e: 1234567890000 })).toString("base64url");
+    expect(vencimentoDoToken(`v2.${corpo}.assinatura`)).toBe(1234567890000);
+    expect(vencimentoDoToken("1700000000000.assinatura")).toBe(1700000000000);
+    expect(vencimentoDoToken("")).toBeNull();
+    expect(vencimentoDoToken("v2.lixo.x")).toBeNull();
   });
 
   it("401 em dados apaga o token e pede o login de novo", async () => {
