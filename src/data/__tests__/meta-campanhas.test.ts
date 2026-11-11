@@ -121,25 +121,21 @@ describe("anúncios do Meta (servidor)", () => {
         { ad_id: "a1", ad_name: "Vídeo treino", campaign_name: "Captação", spend: "80", impressions: "4000", clicks: "40", actions: [{ action_type: "onsite_conversion.messaging_conversation_started_7d", value: "16" }] },
         { ad_id: "a2", ad_name: "Parado", campaign_name: "X", spend: "0" },
       ] }) };
-      return { ok: true, status: 200, json: async () => ({ a1: { creative: { thumbnail_url: "https://img/a1.jpg" } } }) };
+      return { ok: true, status: 200, json: async () => ({ data: [{ id: "a1", creative: { thumbnail_url: "https://img/a1.jpg" } }] }) };
     }));
     const lista = await anunciosDaConta(conta, "tk", "2026-11-10");
     expect(lista).toEqual([expect.objectContaining({ id: "a1", unidade: "Asa Norte", gasto30d: 80, conversas30d: 16, imagem: "https://img/a1.jpg" })]);
     expect(decodeURIComponent(urls[0])).toContain('"since":"2026-10-12"');
-    expect(urls[1]).toContain("ids=a1");
+    expect(urls[1]).toContain("act_1/ads?");
+    expect(decodeURIComponent(urls[1])).toContain('"value":["a1"]');
   });
 
-  it("lote recusado pelos ids: busca as miniaturas pela lista de anúncios da conta", async () => {
-    const urls: string[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      urls.push(url);
-      if (url.includes("/insights")) return { ok: true, status: 200, json: async () => ({ data: [{ ad_id: "a1", spend: "10" }, { ad_id: "apagado", spend: "5" }] }) };
-      if (url.includes("?ids=")) return { ok: false, status: 400, json: async () => ({ error: { message: "Some of the aliases you requested do not exist" } }) };
-      return { ok: true, status: 200, json: async () => ({ data: [{ id: "a1", creative: { image_url: "https://img/a1-grande.jpg", thumbnail_url: "https://img/a1.jpg" } }] }) };
-    }));
+  it("anúncio apagado fica sem miniatura e continua no ranking", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (url.includes("/insights")
+      ? { ok: true, status: 200, json: async () => ({ data: [{ ad_id: "a1", spend: "10" }, { ad_id: "apagado", spend: "5" }] }) }
+      : { ok: true, status: 200, json: async () => ({ data: [{ id: "a1", creative: { image_url: "https://img/a1-grande.jpg", thumbnail_url: "https://img/a1.jpg" } }] }) })));
     const lista = await anunciosDaConta(conta, "tk", "2026-11-10");
     expect(lista.map((a: { id: string; imagem: string | null }) => [a.id, a.imagem])).toEqual([["a1", "https://img/a1-grande.jpg"], ["apagado", null]]);
-    expect(urls[2]).toContain("act_1/ads?");
   });
 
   it("sem miniatura o anúncio continua", async () => {
