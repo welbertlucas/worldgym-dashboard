@@ -306,7 +306,7 @@ const Index = () => {
 
         {/* Aviso de unidade filtrada: nos menus temáticos o filtro vale para a tela toda e segue ao trocar de menu. */}
         {/* Quem tem uma unidade só não vê a faixa: para essa pessoa não existe outra visão. */}
-        {selectedUnit && !(soAsProprias?.length === 1) && ["comercial", "metas", "financeiro", "alunos", "retencao"].includes(activeTab) && (
+        {selectedUnit && !(soAsProprias?.length === 1) && ["comercial", "metas", "financeiro", "alunos", "retencao", "riscos"].includes(activeTab) && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
             <span className="text-foreground">Mostrando só <b>{selectedUnit}</b>. Os números desta tela são desta unidade, não {soAsProprias ? "da soma das suas unidades" : "da rede"}.</span>
             <span className="flex flex-wrap gap-2">
@@ -436,7 +436,7 @@ const Index = () => {
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 
-        {activeTab === "riscos" && <RiscosTab alerts={alerts} evalMonth={evalMonth} />}
+        {activeTab === "riscos" && <RiscosTab alerts={alerts} evalMonth={evalMonth} unit={selectedUnit} />}
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
         </main>

@@ -6,20 +6,23 @@ import { UnitLink } from "@/components/UnitLink";
 import { agruparPorUnidade } from "@/data/riscosGrupos";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { SectionTitle } from "@/components/SectionTitle";
-import { Chip, ChipUnidade, Segmentos } from "@/components/DateFilter";
+import { Chip, Segmentos } from "@/components/DateFilter";
 import { formatMonthLong } from "@/data/periods";
 import { dashboardData } from "@/data/dashboardData";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 
 const SEVERIDADES = [["all", "Todas"], ["critical", "Crítico"], ["attention", "Atenção"], ["info", "Informativo"]] as const;
 
-export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: string | null }) {
+/**
+ * `unit`: a unidade do filtro do topo (o mesmo de todas as telas). Com uma unidade escolhida,
+ * os contadores e a lista ficam só com os alertas dela (os da rede saem).
+ */
+export function RiscosTab({ alerts: todos, evalMonth, unit = null }: { alerts: Alert[]; evalMonth: string | null; unit?: string | null }) {
   const [sev, setSev] = useState<"all" | Severity>("all");
-  const [unit, setUnit] = useState("");
   const [modo, setModo] = useState<"unidade" | "lista">("unidade");
+  const alerts = unit ? todos.filter((a) => a.unit === unit) : todos;
   const recs = buildRecommendations(alerts, dashboardData);
-  const units = Array.from(new Set(recs.map((r) => r.unit))).sort();
-  const shown = recs.filter((r) => (sev === "all" || r.severity === sev) && (!unit || r.unit === unit));
+  const shown = recs.filter((r) => sev === "all" || r.severity === sev);
   const count = (s: Severity) => alerts.filter((a) => a.severity === s).length;
 
   return (
@@ -61,14 +64,13 @@ export function RiscosTab({ alerts, evalMonth }: { alerts: Alert[]; evalMonth: s
             {SEVERIDADES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Chip>
         </div>
-        <div className="min-w-0 lg:w-64">
-          <ChipUnidade id="filtro-unidade-risco" value={unit || null} units={units} onChange={(u) => setUnit(u ?? "")} rotuloRede="Todas as unidades" />
-        </div>
         <Segmentos rotulo="Forma de exibir" opcoes={[["unidade", "Por unidade"], ["lista", "Lista completa"]] as const} valor={modo} onChange={setModo} />
         <p className="text-sm text-muted-foreground sm:ml-auto" aria-live="polite">{shown.length} de {recs.length} itens</p>
       </div>
       {shown.length === 0 ? (
-        <p className="card-surface p-6 text-sm text-muted-foreground">Nenhum alerta com os filtros atuais.</p>
+        <p className="card-surface p-6 text-sm text-muted-foreground">
+          {unit && !alerts.length ? <><b className="text-foreground">{unit}</b> não tem alertas{evalMonth ? ` em ${formatMonthLong(evalMonth)}` : ""}.</> : "Nenhum alerta com os filtros atuais."}
+        </p>
       ) : (
         modo === "lista" ? (
           <div className="space-y-2">{shown.map((r, i) => <RecommendationCard key={r.id} rec={r} evalMonth={evalMonth} defaultOpen={i === 0 && r.severity === "critical"} />)}</div>

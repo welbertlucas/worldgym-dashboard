@@ -58,4 +58,18 @@ describe("tela de riscos em meias-luas", () => {
   it("sem alertas não quebra (0%)", () => {
     expect(renderToString(<RiscosTab alerts={[]} evalMonth={null} />)).toContain("0% de 0 itens");
   });
+  it("segue a unidade do filtro do topo: contadores e lista só com os alertas dela", () => {
+    const outra = (id: string): Alert => ({ ...mk(id, "critical"), unit: "Itapoã" });
+    const rede = (id: string): Alert => ({ ...mk(id, "attention"), unit: "Rede" });
+    const lista = [mk("a", "critical"), mk("b", "attention"), outra("c"), rede("d")];
+    const html = renderToString(<RiscosTab alerts={lista} evalMonth="2026-09" unit="Gama" />).replace(/<!-- -->/g, "");
+    expect(html).toContain("50% de 2 itens");
+    expect(html).not.toContain("Itapoã");
+    expect(html).not.toContain("filtro-unidade-risco"); // um filtro de unidade só, o do topo
+  });
+  it("unidade sem alertas diz isso com o nome dela", () => {
+    const html = renderToString(<RiscosTab alerts={[mk("a", "critical")]} evalMonth="2026-09" unit="Itapoã" />).replace(/<!-- -->/g, "");
+    expect(html).toContain("não tem alertas em");
+    expect(html).toContain("Itapoã");
+  });
 });
