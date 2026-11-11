@@ -18,6 +18,7 @@ import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
 import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
 import { UnitNavProvider } from "@/components/UnitLink";
+import { NAV_ITEMS } from "@/components/nav";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
@@ -50,6 +51,17 @@ import { toast } from "@/hooks/use-toast";
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 const NOME_DO_NIVEL = { dono: "Dono", master: "Master", unidades: "Unidades" } as const;
 
+/** Aba guardada no endereço (#id), se for uma aba que existe. "acessos" só abre para o dono (a tela confere de novo). */
+const ABAS = new Set([...NAV_ITEMS.map((n) => n.id), "acessos"]);
+function abaDoEndereco(): string | null {
+  try {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    return ABAS.has(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 const Index = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [compareMonth, setCompareMonth] = useState<string | null>(null);
@@ -59,7 +71,13 @@ const Index = () => {
   const [unidadeDaAba, setUnidadeDaAba] = useState<string | null>(null);
   const ABAS_COM_SELETOR = ["mapa", "campanhas"];
   const [syncing, setSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState("executiva");
+  // A aba fica no endereço (#campanhas, #financeiro...): recarregar a página volta para ela, o link leva direto e o "voltar" do navegador funciona.
+  const [activeTab, setActiveTab] = useState(() => abaDoEndereco() ?? "executiva");
+  useEffect(() => {
+    const aoVoltar = () => setActiveTab(abaDoEndereco() ?? "executiva");
+    window.addEventListener("popstate", aoVoltar);
+    return () => window.removeEventListener("popstate", aoVoltar);
+  }, []);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
@@ -75,6 +93,7 @@ const Index = () => {
     // O detalhe da unidade compara períodos: no mês em andamento quase tudo está parcial ou sem dado,
     // então ao entrar nele o mês passa para o último mês fechado (dá para voltar pelo filtro).
     setActiveTab(id);
+    try { if (window.location.hash !== `#${id}`) window.history.pushState(null, "", `#${id}`); } catch { /* navegador sem histórico: segue sem guardar */ }
     mainRef.current?.scrollIntoView({ block: "start" });
   };
   // Abrir uma unidade compara períodos: no mês em andamento quase tudo está parcial ou sem dado,
