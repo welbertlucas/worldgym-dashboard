@@ -294,3 +294,21 @@ describe("alertas listados no e-mail", () => {
     expect(html).toContain("pixel sem vendas online</strong> em Gama.");
   });
 });
+
+describe("tráfego pago no e-mail", () => {
+  const metaMeses = { "2026-11": { unidades: { Gama: { investimento: 300, leads: 10, conversas: 20, compras: 3 }, Itapoã: { investimento: 0, leads: 0, conversas: 0 }, Rede: { investimento: 999, leads: 0, conversas: 0 } } } };
+  it("soma só as unidades da pessoa, sem a Institucional, e cita contatos e vendas pelo pixel", () => {
+    const r = montarResumo(meses, { nome: "Ana", email: "a@b.c", papel: "dono", unidades: [] }, "2026-11-10", null, null, null, [], metaMeses);
+    expect(r.meta).toMatchObject({ investimento: 300, contatos: 30, compras: 3 });
+    expect(r.meta.pctFaturamento).toBeCloseTo((300 / 900) * 100);
+    const html = renderizarEmail(r, { nome: "Ana" });
+    expect(html).toContain("Tráfego pago");
+    expect(html).toContain("30 contatos");
+    expect(html).toContain("3 vendas online");
+  });
+  it("sem investimento lido, o e-mail não tem a seção", () => {
+    const r = montarResumo(meses, { nome: "Ana", email: "a@b.c", papel: "dono", unidades: [] }, "2026-11-10");
+    expect(r.meta).toBeNull();
+    expect(renderizarEmail(r, { nome: "Ana" })).not.toContain("Tráfego pago");
+  });
+});

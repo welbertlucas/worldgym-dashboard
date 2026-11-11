@@ -134,3 +134,20 @@ export function rankingDeAnuncios(lista: Anuncio[], { minContatos = 5, gastoSemC
   const semContato = lista.filter((a) => contatosDoAnuncio(a) === 0 && a.gasto30d >= gastoSemContato).sort((a, b) => b.gasto30d - a.gasto30d);
   return { melhores: comContato.slice(0, limite), semContato: semContato.slice(0, 3), avaliados: comContato.length, total: lista.length };
 }
+
+/**
+ * Quanto do faturamento foi para o Meta (%): investido ÷ faturamento do mês no EVO.
+ * Unidade: a dela. Rede: só as unidades com investimento lido (as sem conta lida não entram na conta). Institucional: null.
+ */
+export function pctDoFaturamento(mes: MesMeta | undefined, unidade: string | null, faturamentoDe: (nome: string) => number | undefined): number | null {
+  if (!mes || unidade === INSTITUCIONAL) return null;
+  const nomes = unidade ? [unidade] : Object.keys(mes.unidades).filter((k) => k !== CHAVE_INSTITUCIONAL && mes.unidades[k].investimento > 0);
+  let inv = 0, fat = 0;
+  for (const n of nomes) {
+    const f = faturamentoDe(n);
+    if (!mes.unidades[n] || !f) continue;
+    inv += mes.unidades[n].investimento;
+    fat += f;
+  }
+  return fat > 0 ? (inv / fat) * 100 : null;
+}

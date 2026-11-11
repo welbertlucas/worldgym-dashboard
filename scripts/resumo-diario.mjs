@@ -40,8 +40,10 @@ try { metas = await lerMetasPlanilha(); console.log(`metas lidas: ${metas.length
 
 // Alertas do tráfego pago (Meta): campanhas da foto do dia e unidades no mês, cruzadas com os alunos do EVO.
 let alertasDoMeta = [];
+let metaMesesDoResumo = null; // investimento, contatos e vendas pelo pixel do mês (parágrafo "Tráfego pago")
 try {
   const [foto, metaMeses] = await Promise.all([loadCampanhas(), loadMetaMeses()]);
+  metaMesesDoResumo = metaMeses;
   const ym = ateDia.slice(0, 7), [a, m] = ym.split("-").map(Number), ant = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`;
   alertasDoMeta = alertasMeta({ campanhas: foto?.campanhas ?? [], metaMes: metaMeses?.[ym], metaAnterior: metaMeses?.[ant], evoMes: mes, evoAnterior: meses.find((x) => x.month === ant), hoje, historico: metaMeses ?? undefined });
   console.log(`alertas do Meta: ${alertasDoMeta.length}`);
@@ -70,7 +72,7 @@ try {
   for (const u of usuarios) {
     const email = String(u.email).toLowerCase();
     if (enviados.has(email)) { ja++; console.log(`já enviado hoje: ${u.email}`); continue; }
-    const r = montarResumo(meses, u, hoje, ref, metas, ontem, alertasDoMeta);
+    const r = montarResumo(meses, u, hoje, ref, metas, ontem, alertasDoMeta, metaMesesDoResumo);
     if (!r) { sem++; console.log(`sem dados: ${u.email}`); continue; }
     const html = renderizarEmail(r, u, { url: process.env.ATLAS_URL || undefined, urlWehelp: process.env.WEHELP_URL || undefined, contato: process.env.RESUMO_CONTATO || undefined, banner: previa ? "banner-resumo.png" : `${IMAGENS}/banner-resumo.png`, assinatura: previa ? undefined : { logo: `${IMAGENS}/assinatura-logo.png`, selo: `${IMAGENS}/assinatura-selo.png` } });
     try {

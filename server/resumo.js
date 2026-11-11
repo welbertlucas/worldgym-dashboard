@@ -153,9 +153,29 @@ export function resumirMetas(metas, ym, usuario, total, atuais) {
 
 // ---------- o resumo de cada usuário ----------
 /** `ref` = foto do mesmo dia do mês passado (ou null). */
+/**
+ * Meta (Facebook e Instagram) no mês para as unidades da pessoa: investimento, contatos, vendas online pelo pixel e
+ * quanto do faturamento foi para o Meta. null sem investimento lido. A conta Institucional ("Rede") não entra.
+ */
+export function resumoDoMeta(metaMes, nomes, atuais) {
+  if (!metaMes?.unidades) return null;
+  let investimento = 0, contatos = 0, compras = 0, valorCompras = 0, faturamento = 0;
+  for (const n of nomes) {
+    const v = metaMes.unidades[n];
+    if (!v || !(v.investimento > 0)) continue;
+    investimento += v.investimento;
+    contatos += (v.leads || 0) + (v.conversas || 0);
+    compras += v.compras || 0;
+    valorCompras += v.valorCompras || 0;
+    faturamento += atuais.find((a) => a.nome === n)?.faturamento || 0;
+  }
+  if (!investimento) return null;
+  return { investimento, contatos, compras, valorCompras, pctFaturamento: faturamento > 0 ? (investimento / faturamento) * 100 : null };
+}
+
 /** `alertasMeta`: alertas do tráfego pago (server/alertasMeta.js) da rede toda; cada pessoa recebe só os das unidades dela
  *  (e os da conta Institucional, se for dono ou master). */
-export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas = null, ontem = null, alertasMeta = []) {
+export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas = null, ontem = null, alertasMeta = [], metaMeses = null) {
   const ateDia = diaAnterior(hoje);
   const ym = ateDia.slice(0, 7); // no dia 1º, o resumo é o fechamento do mês que acabou
   const mes = meses.find((x) => x.month === ym);
@@ -183,7 +203,7 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   const base = ateDia.endsWith("-01") ? { ...totalizar([]), zero: true } : ontemDoUsuario.length ? totalizar(ontemDoUsuario) : null;
   const dia = valoresDoDia(total, base);
   const metasDoMes = resumirMetas(metas, ym, usuario, total, atuais);
-  return { mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef };
+  return { mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
 }
 
 // ---------- e-mail ----------
@@ -382,6 +402,13 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
   const nps = t.nps === null ? "" : secao("Satisfação", "⭐", `
 <p style="${P}">O NPS do mês está em ${b(String(t.nps))}${entre(vn)}.${d && d.nps !== null ? ` A nota de ontem foi ${b(String(d.nps))}.` : ""} No mês, ${b(`${int(t.npsRespostas)} pesquisas`)} foram respondidas: ${int(t.npsPromotores)} promotores, ${int(neutros)} neutros e ${int(t.npsDetratores)} detratores. <a href="${esc(urlWehelp)}" style="color:${TEXTO};text-decoration:underline">Ver as pesquisas no WeHelp</a>.</p>`);
 
+  // ---- Tráfego pago (Meta)
+  const mt = r.meta;
+  const reais2 = (x) => `R$ ${x.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const pct1 = (x) => `${x.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  const trafego = !mt ? "" : secao("Tráfego pago", "📣", `
+<p style="${P}">${r.unidade ? "A unidade investiu" : "As unidades investiram"} ${b(brl(mt.investimento))} no Meta no mês${mt.pctFaturamento !== null ? `, ${b(`${pct1(mt.pctFaturamento)} do faturamento`)},` : ""} e ${r.unidade ? "recebeu" : "receberam"} ${b(`${int(mt.contatos)} ${mt.contatos === 1 ? "contato" : "contatos"}`)}${mt.contatos > 0 ? `, a ${reais2(mt.investimento / mt.contatos)} por contato` : ""}.${mt.compras > 0 ? ` O pixel do site marcou ${b(`${int(mt.compras)} ${mt.compras === 1 ? "venda online" : "vendas online"}`)}, a ${reais2(mt.investimento / mt.compras)} por venda.` : ""}</p>`);
+
   // ---- Alertas: a contagem e quais são, no mesmo parágrafo (título e onde); o detalhe e a ação ficam no Atlas.
   const quaisAlertas = gruposDeAlertas(r.alertas).map((g, i, todos) => {
     const geral = g.quem.filter((q) => q === "A rede" || q === "Suas unidades");
@@ -416,6 +443,7 @@ ${vendas}
 ${retencao}
 ${topo}
 ${nps}
+${trafego}
 ${alertas}
 <p style="margin:36px 0 0" align="center"><a href="${esc(url)}" style="display:inline-block;background:${VERMELHO};color:#ffffff;text-decoration:none;font-family:${sans};font-size:15px;font-weight:600;padding:14px 34px;border-radius:10px">${n ? "Ver alertas no Atlas" : "Abrir o Atlas"}</a></p>
 ${maisUnidades}

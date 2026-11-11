@@ -165,3 +165,17 @@ describe("compras pelo pixel", () => {
     expect(investimentoDoMes(mes, null)).toMatchObject({ investimento: 150, compras: 2, valorCompras: 200 });
   });
 });
+
+describe("investimento como parte do faturamento", () => {
+  it("unidade, rede (só quem tem investimento lido) e Institucional", async () => {
+    const { pctDoFaturamento, INSTITUCIONAL } = await import("@/data/campanhas");
+    const r = (investimento: number) => ({ investimento, impressoes: 0, cliques: 0, leads: 0, conversas: 0 });
+    const mes = { geradoEm: "", erros: [], unidades: { Gama: r(1000), Itapoã: r(500), Rede: r(9999), Ceilândia: r(0) } };
+    const fat: Record<string, number> = { Gama: 100000, Itapoã: 50000, Ceilândia: 80000, Sobradinho: 200000 };
+    const de = (n: string) => fat[n];
+    expect(pctDoFaturamento(mes, "Gama", de)).toBeCloseTo(1);
+    expect(pctDoFaturamento(mes, null, de)).toBeCloseTo(1); // 1.500 / 150.000 (Ceilândia sem investimento e Sobradinho sem conta não entram)
+    expect(pctDoFaturamento(mes, INSTITUCIONAL, de)).toBeNull();
+    expect(pctDoFaturamento(mes, "Sobradinho", de)).toBeNull();
+  });
+});
