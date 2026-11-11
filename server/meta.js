@@ -25,6 +25,8 @@ export const CONTAS = [
   { id: "1328519795654729", conta: "WG - Taguatinga Norte", unidade: "Taguatinga", token: "DFGO" },
   { id: "1478514526365139", conta: "WG 14 - Águas Claras II", unidade: "Águas Claras Metrópole", token: "DFGO" },
   { id: "1330879015199093", conta: "[CA03] WG Santa Maria", unidade: "Santa Maria", token: "DFGO" },
+  // Do portfólio BR 01, compartilhada com o DF&GO só com "Ver desempenho" (11/11/2026)
+  { id: "763313349769288", conta: "[CA01] WG Salvador", unidade: "Salvador Pro-BA", token: "DFGO" },
   { id: "911817731179169", conta: "[CA00] Institucional", unidade: null, token: "DFGO" },
 ];
 
