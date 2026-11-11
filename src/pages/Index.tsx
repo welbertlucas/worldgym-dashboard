@@ -65,7 +65,8 @@ function abaDoEndereco(): string | null {
 const Index = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [compareMonth, setCompareMonth] = useState<string | null>(null);
-  const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
+  // Perfil de uma unidade só: a unidade já vem escolhida (não existe "rede" para essa pessoa).
+  const [selectedUnit, setSelectedUnit] = useState<string | null>(() => { const p = unidadesProprias(); return p?.length === 1 ? p[0] : null; });
   /** Unidade aberta pelos links de nome; a página de detalhe começa nela. */
   // Abas com seletor de unidade próprio (Unidades, Mapa, Tráfego pago) avisam a unidade escolhida, para o cabeçalho acompanhar.
   const [unidadeDaAba, setUnidadeDaAba] = useState<string | null>(null);
@@ -249,7 +250,7 @@ const Index = () => {
                   Dashboard de resultados
                 </h1>
                 <p className="text-muted-foreground text-xs sm:text-sm sm:truncate first-letter:uppercase">
-                  {(ABAS_COM_SELETOR.includes(activeTab) ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? "Rede"} • {formatDate(fullMonthData.month)}
+                  {(ABAS_COM_SELETOR.includes(activeTab) ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? (soAsProprias && activeTab !== "benchmark" ? (soAsProprias.length === 1 ? soAsProprias[0] : "Suas unidades") : "Rede")} • {formatDate(fullMonthData.month)}
                   {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
               </div>
@@ -304,12 +305,13 @@ const Index = () => {
         />}
 
         {/* Aviso de unidade filtrada: nos menus temáticos o filtro vale para a tela toda e segue ao trocar de menu. */}
-        {selectedUnit && ["comercial", "metas", "financeiro", "alunos", "retencao"].includes(activeTab) && (
+        {/* Quem tem uma unidade só não vê a faixa: para essa pessoa não existe outra visão. */}
+        {selectedUnit && !(soAsProprias?.length === 1) && ["comercial", "metas", "financeiro", "alunos", "retencao"].includes(activeTab) && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
-            <span className="text-foreground">Mostrando só <b>{selectedUnit}</b>. Os números desta tela são desta unidade, não da rede.</span>
+            <span className="text-foreground">Mostrando só <b>{selectedUnit}</b>. Os números desta tela são desta unidade, não {soAsProprias ? "da soma das suas unidades" : "da rede"}.</span>
             <span className="flex flex-wrap gap-2">
               <button type="button" onClick={() => changeTab("unidades")} className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Ver retrato de {selectedUnit}</button>
-              <button type="button" onClick={() => setSelectedUnit(null)} className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/90">Voltar para a rede</button>
+              <button type="button" onClick={() => setSelectedUnit(null)} className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/90">{soAsProprias ? "Ver todas as suas unidades" : "Voltar para a rede"}</button>
             </span>
           </div>
         )}

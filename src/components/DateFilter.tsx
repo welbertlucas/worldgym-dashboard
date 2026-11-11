@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, GitCompareArrows, X } from "lucide-react";
 import { getAvailableMonths, getAvailableUnits } from "@/data/dashboardData";
 import { cn } from "@/lib/utils";
+import { unidadesProprias } from "@/lib/auth";
 
 interface DateFilterProps {
   selectedMonth: string;
@@ -80,8 +81,21 @@ export function ChipMes({ id, rotulo, value, months, onChange }: { id: string; r
   );
 }
 
-/** Chip de unidade: "Toda a rede" + as unidades; `extras` entra logo depois da rede (ex.: Institucional). */
+/**
+ * Chip de unidade: "Toda a rede" + as unidades; `extras` entra logo depois da rede (ex.: Institucional).
+ * Perfil de unidades: não existe "rede". Com uma unidade só, o chip mostra só ela; com várias, "Todas as suas unidades".
+ */
 export function ChipUnidade({ id, value, units, onChange, extras, rotuloRede = "Toda a rede" }: { id: string; value: string | null; units: string[]; onChange: (u: string | null) => void; extras?: ReactNode; rotuloRede?: string }) {
+  const proprias = unidadesProprias();
+  if (proprias?.length === 1) {
+    const u = proprias[0];
+    return (
+      <Chip id={id} rotulo="Unidade" valor={u} icone={<Building2 className="h-4 w-4" />} ativo value={u} onChange={() => {}}>
+        <option value={u}>{u}</option>
+      </Chip>
+    );
+  }
+  if (proprias) { rotuloRede = "Todas as suas unidades"; extras = null; }
   return (
     <Chip
       id={id}

@@ -9,7 +9,7 @@ import { UnitsRanking } from "@/components/unidades/UnitsRanking";
 import { AtalhosSecoes, Secao } from "@/components/unidades/Secao";
 import { UnitComparison } from "@/components/UnitComparison";
 import { contratosView } from "@/data/contratosAtivos";
-import { dashboardData, getAvailableUnits } from "@/data/dashboardData";
+import { dashboardData, dashboardDataRede, getAvailableUnits } from "@/data/dashboardData";
 import { INDICATOR_BY_KEY } from "@/data/unitIndicators";
 import { PERIODOS, mesesNoIntervalo, serieDaRede, seriesPorMeses } from "@/data/unitSeries";
 import { viewFor } from "@/data/kpiView";
@@ -65,7 +65,8 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
 
   // Posição na rede: no último mês fechado (o mês em andamento é parcial e distorceria o ranking).
   const rankMonth = partial ? getLastClosedMonth(months) : selectedMonth;
-  const rankUnits = dashboardData.find((d) => d.month === rankMonth)?.units ?? [];
+  // Rede inteira: para o perfil de unidades, as outras vêm com o nome escondido ("Unidade 07"), como no Benchmark.
+  const rankUnits = dashboardDataRede.find((d) => d.month === rankMonth)?.units ?? [];
   const unitNow = dashboardData.find((d) => d.month === selectedMonth)?.units.find((u) => u.name === unit);
   const mesAtual = dashboardData.find((d) => d.month === selectedMonth);
   const metasDaUnidade = (Object.keys(META_INDICATORS) as MetaKey[]).flatMap((key) => {
@@ -151,7 +152,7 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {TREND_KEYS.map((k) => {
             const ind = INDICATOR_BY_KEY[k];
-            const comp = comparar === REDE ? { label: ind.format === "percent" ? "Rede" : "Média da rede", rows: serieDaRede(dashboardData, ind, mesesGrafico) }
+            const comp = comparar === REDE ? { label: ind.format === "percent" ? "Rede" : "Média da rede", rows: serieDaRede(dashboardDataRede, ind, mesesGrafico) }
               : outra ? { label: outra, rows: seriesPorMeses(dashboardData, outra, ind, mesesGrafico) } : undefined;
             return <TrendCard key={k} ind={ind} rows={seriesPorMeses(dashboardData, unit, ind, mesesGrafico)} unitLabel={unit} comp={comp} />;
           })}
