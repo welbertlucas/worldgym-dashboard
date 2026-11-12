@@ -85,7 +85,7 @@ export function ContratosAtivos({ units }: { units: UnitData[] }) {
         <h3 id="contratos-titulo" className="pr-32 text-base font-semibold text-foreground">Contratos ativos: especiais, personal e plano local ou rede</h3>
         <p className="hidden text-xs text-muted-foreground print:block">World Gym · emitido em {new Date().toLocaleDateString("pt-BR")}</p>
         <p className="text-sm text-muted-foreground">
-          Foto de hoje, direto do EVO. Percentuais sobre o total de contratos ativos ({n(rede.total)}). Plano local libera até 9 unidades; plano rede, 10 ou mais (nas unidades Pro, todos são rede). Local e rede somam 100%; especiais/VIP e personal são recortes dentro deles.
+          Foto de hoje, direto do EVO. Percentuais sobre o total de contratos ativos ({n(rede.total)}).
         </p>
       </div>
 

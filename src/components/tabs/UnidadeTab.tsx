@@ -178,7 +178,7 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
       )}
 
       {contratosDaUnidade && (
-        <Secao id="ud-contratos" titulo="Contratos ativos hoje" descricao={<>Foto do EVO, sobre {contratosDaUnidade.total.toLocaleString("pt-BR")} contratos. Plano local libera até 9 unidades; plano rede, 10 ou mais (nas unidades Pro, todos são rede). Especiais/VIP e personal são recortes dentro deles.</>}>
+        <Secao id="ud-contratos" titulo="Contratos ativos hoje" descricao={<>Foto do EVO, sobre {contratosDaUnidade.total.toLocaleString("pt-BR")} contratos.</>}>
           <ContratosTiles v={contratosDaUnidade} />
         </Secao>
       )}
