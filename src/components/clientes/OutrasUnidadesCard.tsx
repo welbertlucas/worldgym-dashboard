@@ -19,17 +19,20 @@ function Lista({ titulo, fluxo, rotulo }: { titulo: string; fluxo: FluxoUnidades
     <div>
       <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{titulo}</h4>
       {fluxo.unidades.length === 0 ? <p className="text-sm text-muted-foreground">Ninguém neste mês.</p> : (
-        <ol className="space-y-2" aria-label={titulo}>
-          {fluxo.unidades.slice(0, 8).map(([nome, p, e]) => (
-            <li key={nome} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_9rem] items-center gap-3 text-sm">
+        <ol className="space-y-1.5" aria-label={titulo}>
+          <li aria-hidden className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_3.5rem_4.5rem] gap-3 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <span /><span /><span className="text-right">{rotulo}</span><span className="text-right">Entradas</span>
+          </li>
+          {fluxo.unidades.map(([nome, p, e]) => (
+            <li key={nome} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_3.5rem_4.5rem] items-center gap-3 text-sm">
               <span className="truncate"><UnitLink name={nome} /></span>
               <span className="h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
                 <span className="block h-full rounded-full bg-foreground/60" style={{ width: `${(p / maior) * 100}%` }} />
               </span>
-              <span className="text-right tabular-nums text-muted-foreground"><span className="font-semibold text-foreground">{int(p)}</span> {rotulo} · {int(e)} entradas</span>
+              <span className="text-right font-semibold tabular-nums text-foreground" aria-label={`${int(p)} ${rotulo}`}>{int(p)}</span>
+              <span className="text-right tabular-nums text-muted-foreground" aria-label={`${int(e)} entradas`}>{int(e)}</span>
             </li>
           ))}
-          {fluxo.unidades.length > 8 && <li className="text-xs text-muted-foreground">e mais {fluxo.unidades.length - 8} unidades</li>}
         </ol>
       )}
     </div>

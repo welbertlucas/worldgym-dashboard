@@ -306,6 +306,11 @@ describe("card de quem treina em outra unidade", () => {
     const h = limpo(renderToString(<OutrasUnidadesCard total={total} month="2026-10" monthLabel="Outubro de 2026" partial={false} unit="Itapoã" />));
     expect(h).toContain("Alunos daqui que treinaram em outra · 3,0% dos ativos");
     expect(h).toContain("Para onde foram os alunos de Itapoã");
+    // Todas as unidades na lista, sem "e mais N".
+    const muitas = Array.from({ length: 12 }, (_, i) => [`Unidade ${i + 1}`, 12 - i, 30] as [string, number, number]);
+    const h2 = limpo(renderToString(<OutrasUnidadesCard total={{ ...total, outrasUnidades: { foram: fx(muitas), vieram: fx([]) } } as UnitData} month="2026-10" monthLabel="Outubro de 2026" partial={false} unit="Itapoã" />));
+    expect(h2).toContain("Unidade 12");
+    expect(h2).not.toContain("e mais");
     expect(fluxosDaRede([{ name: "Gama", outrasUnidades: { foram: fx([]), vieram: fx([["Asa Norte", 5, 9], ["Itapoã", 8, 10]]) } }, { name: "Itapoã", outrasUnidades: { foram: fx([]), vieram: fx([["Gama", 30, 90]]) } }] as unknown as UnitData[]))
       .toEqual([["Gama", "Itapoã", 30, 90], ["Itapoã", "Gama", 8, 10], ["Asa Norte", "Gama", 5, 9]]);
   });
