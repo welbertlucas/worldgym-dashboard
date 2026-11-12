@@ -24,7 +24,7 @@ interface Props {
   evalMonth: string | null;
   deltas: UnitDelta[];
   metas: Meta[];
-  onOpenRiscos: () => void;
+  onOpenPlano: () => void;
   onOpenUnidades: () => void;
   onOpenMetas?: () => void;
   /** Meses usados no gráfico e no mesmo mês do ano anterior: a rede, ou só as unidades da pessoa. */
@@ -35,7 +35,7 @@ interface Props {
 
 const pctText = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
 
-export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMonth, deltas, metas, onOpenRiscos, onOpenUnidades, onOpenMetas, serie = dashboardDataRede, unidades = null }: Props) {
+export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMonth, deltas, metas, onOpenPlano, onOpenUnidades, onOpenMetas, serie = dashboardDataRede, unidades = null }: Props) {
   const umaUnidade = unidades?.length === 1 ? unidades[0] : null;
   const escopo = !unidades ? "da rede" : umaUnidade ? "da unidade" : "das suas unidades";
   // Meta de um indicador no mês: a da rede (linha TOTAL), a da unidade, ou a soma das metas das unidades da pessoa
@@ -129,13 +129,13 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
       <section aria-labelledby="prioridades-titulo" className="card-surface overflow-hidden">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 sm:p-6">
           <div className="flex-1 min-w-[14rem]">
-            <h3 id="prioridades-titulo" className="text-base font-semibold text-foreground">{unidades ? "Prioridades" : "Prioridades da diretoria"}</h3>
-            <p className="text-sm text-muted-foreground">Até cinco itens de maior prioridade no último mês fechado</p>
+            <h3 id="prioridades-titulo" className="text-base font-semibold text-foreground">Plano de ação</h3>
+            <p className="text-sm text-muted-foreground">Os cinco itens mais urgentes do último mês fechado</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded-full bg-destructive/10 text-destructive font-semibold px-3 py-1">{critical} críticos</span>
             <span className="rounded-full bg-warning/10 text-warning font-semibold px-3 py-1">{attention} em atenção</span>
-            <button type="button" onClick={onOpenRiscos} className="rounded-lg text-primary-ink font-semibold underline underline-offset-4 hover:text-primary-ink/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver todos os riscos e recomendações</button>
+            <button type="button" onClick={onOpenPlano} className="rounded-lg text-primary-ink font-semibold underline underline-offset-4 hover:text-primary-ink/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver o plano completo</button>
           </div>
         </div>
         {recs.length ? (

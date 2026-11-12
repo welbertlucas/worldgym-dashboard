@@ -21,6 +21,7 @@ import { RetencaoTab } from "@/components/tabs/RetencaoTab";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
 import { CatracaTab } from "@/components/tabs/CatracaTab";
+import { PlanoAcaoTab } from "@/components/tabs/PlanoAcaoTab";
 import { UnitNavProvider } from "@/components/UnitLink";
 import { enderecoAtual, NAV_ITEMS, SUBMENUS } from "@/components/nav";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -322,7 +323,7 @@ const Index = () => {
 
         {/* Aviso de unidade filtrada: nos menus temáticos o filtro vale para a tela toda e segue ao trocar de menu. */}
         {/* Quem tem uma unidade só não vê a faixa: para essa pessoa não existe outra visão. */}
-        {selectedUnit && !(soAsProprias?.length === 1) && (["comercial", "metas", "financeiro", "alunos", "catraca", "retencao", "riscos"].includes(activeTab) || (activeTab === "campanhas" && !seletorProprio)) && (
+        {selectedUnit && !(soAsProprias?.length === 1) && (["comercial", "metas", "financeiro", "alunos", "catraca", "retencao", "plano", "riscos"].includes(activeTab) || (activeTab === "campanhas" && !seletorProprio)) && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
             <span className="text-foreground">Mostrando só <b>{selectedUnit}</b>. Os números desta tela são desta unidade, não {soAsProprias ? "da soma das suas unidades" : "da rede"}.</span>
             <span className="flex flex-wrap gap-2">
@@ -362,7 +363,7 @@ const Index = () => {
               : { month: redeMonthData, prev: compareMonth ? getDataByMonthRede(compareMonth) ?? redePrevMonthData : redePrevMonthData, evalMonth: evalMonthRede, deltas: unitDeltasRede, metas: metasRede, serie: dashboardDataRede })}
             comparaMesEscolhido={!!compareMonth}
             alerts={alerts}
-            onOpenRiscos={() => changeTab("riscos")}
+            onOpenPlano={() => changeTab("plano")}
             onOpenUnidades={() => changeTab("benchmark")}
             onOpenMetas={() => changeTab("metas")}
           />
@@ -496,6 +497,8 @@ const Index = () => {
         )}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
+
+        {activeTab === "plano" && <PlanoAcaoTab alerts={alerts} evalMonth={evalMonth} deltas={unitDeltas} unit={selectedUnit} onOpenAlertas={() => changeTab("riscos")} />}
 
         {activeTab === "riscos" && <RiscosTab alerts={alerts} evalMonth={evalMonth} unit={selectedUnit} />}
 

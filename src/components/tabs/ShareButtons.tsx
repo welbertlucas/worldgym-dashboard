@@ -58,3 +58,23 @@ export function ShareButtons({ rec, evalMonth, className }: { rec: Recommendatio
     </div>
   );
 }
+
+/** Botão com texto ("Copiar plano") que copia um texto pronto para o WhatsApp. `texto` só é montado no clique. */
+export function BotaoCopiar({ texto, rotulo, className }: { texto: () => string; rotulo: string; className?: string }) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  useEffect(() => {
+    if (state === "idle") return;
+    const t = setTimeout(() => setState("idle"), 2500);
+    return () => clearTimeout(t);
+  }, [state]);
+  return (
+    <button
+      type="button"
+      onClick={async () => setState((await copyText(texto())) ? "copied" : "failed")}
+      className={`no-print inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className ?? ""}`}
+    >
+      {state === "copied" ? <Check className="h-3.5 w-3.5 text-success" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+      <span aria-live="polite">{state === "copied" ? "Copiado" : state === "failed" ? "Não foi possível copiar" : rotulo}</span>
+    </button>
+  );
+}

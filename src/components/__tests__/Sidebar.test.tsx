@@ -7,8 +7,8 @@ const noop = () => {};
 
 describe("navegação", () => {
   it("menu em grupos: painel, áreas, unidades (os ids antigos continuam, o mapa virou aba de Alunos)", () => {
-    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "metas", "riscos", "comercial", "financeiro", "alunos", "catraca", "retencao", "campanhas", "unidades", "benchmark"]);
-    expect(NAV_ITEMS.map((i) => i.group)).toEqual([0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2]);
+    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "plano", "metas", "riscos", "comercial", "financeiro", "alunos", "catraca", "retencao", "campanhas", "unidades", "benchmark"]);
+    expect(NAV_ITEMS.map((i) => i.group)).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2]);
   });
 
   it("endereços antigos levam para o lugar novo", () => {

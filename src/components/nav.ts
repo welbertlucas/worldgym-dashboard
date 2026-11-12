@@ -1,4 +1,4 @@
-import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, Building2, BarChart3, DoorOpen, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
+import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, Building2, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
@@ -11,6 +11,7 @@ export const GRUPOS_DO_MENU = ["Painel", "Áreas", "Unidades", "Administração"
 // Os ids ficam como eram (o endereço #id não muda); só os nomes e a ordem mudaram.
 export const NAV_ITEMS: NavItem[] = [
   { id: "executiva", label: "Overview", icon: LayoutDashboard, group: 0 },
+  { id: "plano", label: "Plano de ação", icon: ListChecks, group: 0 },
   { id: "metas", label: "Metas", icon: Target, group: 0 },
   { id: "riscos", label: "Alertas", icon: ShieldAlert, group: 0 },
   { id: "comercial", label: "Comercial", icon: TrendingUp, group: 1 },
@@ -52,6 +53,7 @@ const PALAVRAS: Record<string, string> = {
   "comercial/resumo": "novos contratos cancelamentos vendas online conversao saldo de clientes",
   "comercial/vendas": "vendas por dia projecao fechamento calendario contratos mais vendidos planos",
   "comercial/complementares": "diarias personal brinquedoteca kids wg plus pro+ camisetas coqueteleiras produtos",
+  plano: "plano de acao o que fazer bussola gestor tarefas copiar whatsapp equipe socios prioridades",
   metas: "meta bronze prata ouro atingimento",
   "financeiro/resumo": "faturamento recebimento receita inadimplencia adimplentes ticket medio",
   "financeiro/recebimento": "formas de pagamento pix cartao credito debito bandeiras gateways adquirente multas taxas ajustes",

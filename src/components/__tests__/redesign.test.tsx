@@ -66,9 +66,9 @@ describe("Visão Executiva", () => {
     carregar(...months);
     const cur = months[3];
     const html = renderToString(
-      <ExecutivaTab month={cur} prev={months[2]} alerts={[]} evalMonth="2026-09" deltas={[]} metas={[]} onOpenRiscos={() => {}} onOpenUnidades={() => {}} />,
+      <ExecutivaTab month={cur} prev={months[2]} alerts={[]} evalMonth="2026-09" deltas={[]} metas={[]} onOpenPlano={() => {}} onOpenUnidades={() => {}} />,
     ).replace(/<!-- -->/g, "");
-    for (const s of ["Overview", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede", "Faturamento da rede", "Maiores faturamentos", "Prioridades da diretoria"]) expect(html).toContain(s);
+    for (const s of ["Overview", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede", "Faturamento da rede", "Maiores faturamentos", "Plano de ação", "Ver o plano completo"]) expect(html).toContain(s);
     expect(html).toContain("vs. set. de 2025"); // comparativo anual quando o mês do ano anterior existe
     expect(html).toContain("vs. ago. de 2026"); // mês fechado: compara com o mês anterior, citando o mês
     expect(html).toContain("Nenhum alerta crítico");
@@ -87,7 +87,7 @@ describe("mês em andamento", () => {
     const months = [month(monthKey(prevDate), [unit("A")]), month(cur, [unit("A")])];
     carregar(...months);
     const html = renderToString(
-      <ExecutivaTab month={months[1]} prev={months[0]} alerts={[]} evalMonth={null} deltas={[]} metas={[]} onOpenRiscos={() => {}} onOpenUnidades={() => {}} />,
+      <ExecutivaTab month={months[1]} prev={months[0]} alerts={[]} evalMonth={null} deltas={[]} metas={[]} onOpenPlano={() => {}} onOpenUnidades={() => {}} />,
     ).replace(/<!-- -->/g, "");
     expect(html).toContain("em andamento");
     expect(html).toContain("Em andamento");
