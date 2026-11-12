@@ -4,6 +4,7 @@ import { retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { ChurnChart } from "@/components/ChurnChart";
 import { RenovacoesChart } from "@/components/RenovacoesChart";
 import { MotivosCancelamento } from "@/components/clientes/MotivosCancelamento";
+import { CancelPerfilCard } from "@/components/clientes/CancelPerfilCard";
 import { NaoRenovados } from "@/components/clientes/NaoRenovados";
 import { AtalhosSecoes, Secao } from "@/components/unidades/Secao";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
@@ -25,11 +26,12 @@ export function RetencaoTab({ ctx, month, unit }: Props) {
         <AtalhosSecoes itens={[{ id: "rt-cancelamentos", rotulo: "Cancelamentos" }, { id: "rt-renovacao", rotulo: "Renovação" }, { id: "rt-satisfacao", rotulo: "Satisfação" }]} />
       </div>
 
-      <Secao id="rt-cancelamentos" titulo="Cancelamentos" descricao="Quanto da base cancelou no mês (churn), a evolução nos últimos meses, os motivos informados e quais contratos foram cancelados.">
+      <Secao id="rt-cancelamentos" titulo="Cancelamentos" descricao="Quanto da base cancelou no mês (churn), a evolução nos últimos meses, quem cancela (gênero e idade), os motivos informados e quais contratos foram cancelados.">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
           <KpiGrid ctx={ctx} specs={so(["Churn"], false)} columns="sm:grid-cols-1" />
           <ChurnChart selectedUnit={unit} />
         </div>
+        <CancelPerfilCard total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
         <MotivosCancelamento total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} porTipo={!unit} />
       </Secao>
 

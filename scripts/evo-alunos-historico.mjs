@@ -1,7 +1,8 @@
-// Grava só `suspensosFim` (alunos ativos com contrato trancado no fim do mês) nos meses já calculados.
-// Serve para carregar o histórico sem recalcular mais nada; a rotina diária já grava o número em evo-alunos.mjs.
-// Uso: node --env-file=.env.local scripts/evo-suspensos.mjs 2025-01 2025-02 ...
-import { contarSuspensos, diaDeCorte, resumoAluno, UNIDADES } from "../server/ativos.js";
+// Grava só `suspensosFim` (alunos ativos com contrato trancado no fim do mês) e `cancelPerfil` (cancelamentos por
+// gênero e faixa de idade) nos meses já calculados. Serve para carregar o histórico sem recalcular mais nada;
+// a rotina diária já grava os dois em evo-alunos.mjs.
+// Uso: node --env-file=.env.local scripts/evo-alunos-historico.mjs 2025-01 2025-02 ...
+import { cancelamentosPorPerfil, contarSuspensos, diaDeCorte, resumoAluno, UNIDADES } from "../server/ativos.js";
 import { fetchAll, hojeBR } from "../server/evo.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 
@@ -20,6 +21,7 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
     const u = blobs[ym].units.find((x) => x.name === nome);
     if (!u) continue;
     u.suspensosFim = por[ym] = contarSuspensos(alunos, diaDeCorte(ym, hoje));
+    u.cancelPerfil = cancelamentosPorPerfil(alunos, ym, hoje);
   }
   console.log(nome, JSON.stringify(por));
 }

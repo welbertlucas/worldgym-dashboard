@@ -1,11 +1,18 @@
-name: Histórico de suspensos (EVO)
+name: Recarga do histórico (EVO)
 
-# Só à mão: grava os suspensos (contrato trancado) no fim de cada mês informado, sem recalcular mais nada,
-# e consolida para o painel. Usa a mesma fila do evo-sync para nunca gravar os meses ao mesmo tempo que ele.
+# Só à mão: regrava UMA informação nos meses informados, sem recalcular mais nada, e consolida para o painel.
+#   alunos    -> suspensos (contrato trancado) no fim de cada mês e cancelamentos por gênero e faixa de idade
+#   entradas  -> entradas na catraca (mapa de calor) e liberações manuais com o motivo do bloqueio
+# Usa a mesma fila do evo-sync para nunca gravar os meses ao mesmo tempo que ele.
 
 on:
   workflow_dispatch:
     inputs:
+      etapa:
+        description: "O que recarregar"
+        type: choice
+        options: [alunos, entradas]
+        default: alunos
       months:
         description: "Meses AAAA-MM separados por vírgula, ou um intervalo AAAA-MM..AAAA-MM"
         required: true
@@ -18,9 +25,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  suspensos:
+  historico:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 340
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,13 +47,22 @@ jobs:
           fi
           echo "Meses:$MONTHS"
           echo "MONTHS_DONE=$MONTHS" >> "$GITHUB_ENV"
-      - name: Suspensos no fim de cada mês
+      - name: Suspensos e cancelamentos por perfil
+        if: ${{ github.event.inputs.etapa == 'alunos' }}
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-        run: node scripts/evo-suspensos.mjs $MONTHS_DONE
+        run: node scripts/evo-alunos-historico.mjs $MONTHS_DONE
+      - name: Entradas na catraca e liberações manuais
+        if: ${{ github.event.inputs.etapa == 'entradas' }}
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-entradas.mjs $MONTHS_DONE
       - name: Consolidar os meses num arquivo só (o painel lê só este)
+        if: ${{ !cancelled() }}
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-consolidar.mjs

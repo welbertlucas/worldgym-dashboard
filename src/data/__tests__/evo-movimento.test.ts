@@ -445,3 +445,56 @@ describe("cartão Alunos Ativos", () => {
     expect(extra({ ativosFim: 2000 })).toEqual([]);
   });
 });
+
+// @ts-expect-error módulo JS do servidor
+import { cancelamentosPorPerfil } from "../../../server/ativos.js";
+import { renderToString } from "react-dom/server";
+import { createElement } from "react";
+import { CancelPerfilCard, maiorTaxa } from "@/components/clientes/CancelPerfilCard";
+import type { UnitData } from "@/data/dashboardData";
+describe("cancelamentos por gênero e idade", () => {
+  const aluno = (gender: string, birthDate: string | null, cancelDate: string | null, startDate = "2026-01-01") => resumoAluno({
+    idMember: 1, gender, birthDate,
+    memberships: [{ startDate: `${startDate}T00:00:00`, endDate: "2026-12-31T00:00:00", cancelDate: cancelDate && `${cancelDate}T00:00:00`, membershipStatus: "active", valueNextMonth: 1, freezes: [] }],
+  });
+  it("conta ativos no início e cancelados do mês por grupo, com as mesmas regras do churn", () => {
+    const alunos = [
+      aluno("F", "2000-10-15", "2026-10-20"), // 25 anos em 01/10 -> 25–34; cancelou
+      aluno("F", "2000-10-02", null), // ainda 25 em 01/10 -> 25–34
+      aluno("M", "1980-05-05", "2026-10-03"), // 46 -> 45–54; cancelou
+      aluno("M", null, null), // sem data
+      aluno("X", "1990-01-01", "2026-09-10"), // cancelou antes: não está no início nem cancela no mês
+      aluno("M", "1999-01-01", "2026-10-25", "2026-10-05"), // entrou e cancelou no mês: conta só no cancelado
+    ];
+    const r = cancelamentosPorPerfil(alunos, "2026-10", "2026-11-12");
+    const m = movimentoDoMes(alunos, "2026-10", "2026-11-12");
+    expect(r.g).toEqual([[2, 1], [2, 2], [0, 0]]);
+    expect(r.i[2]).toEqual([2, 2]); // 25–34: as duas mulheres + o rapaz de 27 que entrou e saiu
+    expect(r.i[4]).toEqual([1, 1]);
+    expect(r.i[7]).toEqual([1, 0]);
+    // as somas batem com o churn do painel
+    expect(r.g.reduce((s: number, [b]: number[]) => s + b, 0)).toBe(m.ativosIni);
+    expect(r.g.reduce((s: number, [, c]: number[]) => s + c, 0)).toBe(m.cancelados);
+  });
+  it("rede soma o perfil das unidades", () => {
+    const cp = (a: number) => ({ g: [[10 * a, a], [20, 2], [0, 0]] as [number, number][], i: Array.from({ length: 8 }, () => [a, 0] as [number, number]) });
+    const r = mergeEvo([month("2026-10", [unit("A"), unit("B")])], [{ month: "2026-10", units: [
+      { name: "A", faturamento: 1, recebimento: 1, ativosIni: 30, cancelados: 3, cancelPerfil: cp(1) },
+      { name: "B", faturamento: 1, recebimento: 1, ativosIni: 40, cancelados: 4, cancelPerfil: cp(2) },
+    ] }]);
+    expect(r[0].total.cancelPerfil?.g[0]).toEqual([30, 3]);
+    expect(r[0].total.cancelPerfil?.i[3]).toEqual([3, 0]);
+  });
+  it("card: taxa por grupo, destaque só com base suficiente", () => {
+    expect(maiorTaxa([{ rotulo: "Até 17", base: 10, canc: 5, t: 50 }, { rotulo: "18–24", base: 300, canc: 30, t: 10 }])?.rotulo).toBe("18–24");
+    const total = { cancelPerfil: { g: [[600, 60], [400, 20], [0, 0]], i: [[10, 5], [300, 30], [400, 30], [200, 10], [50, 3], [20, 1], [10, 0], [10, 1]] } } as unknown as UnitData;
+    const h = renderToString(createElement(CancelPerfilCard, { total, monthLabel: "Outubro de 2026", partial: false, unitLabel: "Rede" })).replace(/<!-- -->/g, "");
+    expect(h).toContain("8,0%"); // churn geral 80/1000
+    expect(h).toContain("Faixa que mais cancela: 18–24");
+    expect(h).toContain("feminino"); // 10% × 5%: diferença grande
+    const parecido = { cancelPerfil: { g: [[1605, 81], [1554, 73], [27, 2]], i: Array.from({ length: 8 }, () => [100, 5]) } } as unknown as UnitData;
+    const h2 = renderToString(createElement(CancelPerfilCard, { total: parecido, monthLabel: "x", partial: false, unitLabel: "A" })).replace(/<!-- -->/g, "");
+    expect(h2).toContain("Sem diferença"); // 5,0% × 4,7%
+    expect(renderToString(createElement(CancelPerfilCard, { total: {} as UnitData, monthLabel: "x", partial: false, unitLabel: "Rede" }))).toContain("ainda não foi carregado");
+  });
+});

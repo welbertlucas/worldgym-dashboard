@@ -4,6 +4,7 @@
 // trancamentos = [[início, fim, desbloqueio antecipado]] (campo freezes do EVO).
 import { fetchAll } from "./evo.js";
 import { UNIT_NAMES } from "./units.js";
+import { FAIXAS_IDADE, faixaDeIdade, generoDe } from "./perfil.js";
 
 export const ativoNoDia = (contratos, dia) =>
   contratos.some(([ini, fim, cancel]) => ini && ini <= dia && !(cancel && cancel <= dia) && fim && fim >= dia);
@@ -12,8 +13,11 @@ export const contarAtivos = (alunos, dia) => alunos.reduce((n, a) => n + (ativoN
 
 const dia10 = (x) => (x ? String(x).slice(0, 10) : null);
 
+// g = gênero (0 fem, 1 masc, 2 outros) e n = nascimento: só em memória, para o perfil dos cancelamentos (nunca gravados).
 export const resumoAluno = (m) => ({
   id: m.idMember,
+  g: generoDe(m.gender),
+  n: dia10(m.birthDate),
   c: (m.memberships || []).map((c) => [
     dia10(c.startDate), dia10(c.endDate), dia10(c.cancelDate), c.membershipStatus, Boolean(c.valueNextMonth),
     (c.freezes || []).map((z) => [dia10(z.startSuspend), dia10(z.endSuspend), dia10(z.unlockDate)]),
@@ -93,10 +97,30 @@ export function fluxoDoMes(alunos, ym, hoje) {
   };
 }
 
+/**
+ * Perfil dos cancelamentos do mês: por gênero e por faixa de idade (no dia 1º do mês), [ativos no início, cancelados no mês].
+ * Mesmas regras do churn do painel (cancelados ÷ ativos no início), então as somas batem com ativosIni e cancelados.
+ */
+export function cancelamentosPorPerfil(alunos, ym, hoje) {
+  const fim = diaDeCorte(ym, hoje);
+  const ini = `${ym}-01`;
+  const antes = diaAnterior(ini);
+  const g = [0, 1, 2].map(() => [0, 0]), i = Array.from({ length: FAIXAS_IDADE }, () => [0, 0]);
+  for (const a of alunos) {
+    const noInicio = ativoNoDia(a.c, antes);
+    const cancelou = a.c.some(([, , cancel]) => cancel && cancel >= ini && cancel <= fim);
+    if (!noInicio && !cancelou) continue;
+    const gi = a.g ?? 2, ii = faixaDeIdade(a.n, ini);
+    if (noInicio) { g[gi][0]++; i[ii][0]++; }
+    if (cancelou) { g[gi][1]++; i[ii][1]++; }
+  }
+  return { g, i };
+}
+
 /** Baixa os alunos de uma unidade (ou usa `membros` já baixados) e calcula o movimento de cada mês pedido. */
 export async function ativosDaUnidade(idBranch, meses, hoje, membros = null) {
   const alunos = (membros ?? (await fetchAll(`/members?idBranch=${idBranch}`))).map(resumoAluno);
-  return Object.fromEntries(meses.map((ym) => [ym, { ...movimentoDoMes(alunos, ym, hoje), ...fluxoDoMes(alunos, ym, hoje), suspensosFim: contarSuspensos(alunos, diaDeCorte(ym, hoje)) }]));
+  return Object.fromEntries(meses.map((ym) => [ym, { ...movimentoDoMes(alunos, ym, hoje), ...fluxoDoMes(alunos, ym, hoje), suspensosFim: contarSuspensos(alunos, diaDeCorte(ym, hoje)), cancelPerfil: cancelamentosPorPerfil(alunos, ym, hoje) }]));
 }
 
 export const UNIDADES = UNIT_NAMES;
