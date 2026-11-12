@@ -166,24 +166,25 @@ export function Segmentos<T extends string | number>({ rotulo, opcoes, valor, on
 }
 
 /**
- * Campo sublinhado (estilo do seletor de data): o valor, o ícone à direita e a linha embaixo, sem caixa. O select
- * nativo fica invisível por cima, então o clique abre a lista do próprio sistema.
+ * Botão em pílula, no mesmo formato do botão de unidade do cabeçalho: ícone, valor e seta. Ativo fica no tom vermelho
+ * claro. O select nativo fica invisível por cima, então o clique abre a lista do próprio sistema.
  */
-function CampoSublinhado({ id, rotulo, valor, vazio, icone, value, onChange, aoLimpar, rotuloLimpar, children }: {
-  id: string; rotulo: string; valor: string; vazio?: boolean; icone: ReactNode; value: string; onChange: (v: string) => void;
+function BotaoPilula({ id, rotulo, valor, ativo, icone, value, onChange, aoLimpar, rotuloLimpar, children }: {
+  id: string; rotulo: string; valor: string; ativo: boolean; icone: ReactNode; value: string; onChange: (v: string) => void;
   aoLimpar?: () => void; rotuloLimpar?: string; children: ReactNode;
 }) {
   return (
-    <div className="group relative flex h-11 min-w-0 items-center gap-2 border-b border-foreground/35 transition-colors hover:border-foreground/70 focus-within:border-primary" title={rotulo}>
-      <span className={cn("min-w-0 flex-1 truncate text-base tabular-nums", vazio ? "text-muted-foreground" : "text-foreground")}>{valor}</span>
-      {aoLimpar && (
-        <button type="button" onClick={aoLimpar} title={rotuloLimpar} aria-label={rotuloLimpar} className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <X className="h-4 w-4" aria-hidden />
-        </button>
-      )}
-      <span className="shrink-0 text-muted-foreground group-hover:text-foreground" aria-hidden>{icone}</span>
+    <div
+      className={cn("relative flex h-9 min-w-0 items-center gap-2 rounded-full border px-3 text-sm shadow-sm transition-colors focus-within:ring-2 focus-within:ring-ring", ativo ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:border-foreground/25")}
+      title={rotulo}
+    >
+      <span className={cn("shrink-0", ativo ? "text-primary-ink" : "text-muted-foreground")} aria-hidden>{icone}</span>
+      <span className={cn("min-w-0 flex-1 truncate font-medium", ativo ? "text-foreground" : "text-muted-foreground")}>{valor}</span>
+      {aoLimpar
+        ? <button type="button" onClick={aoLimpar} title={rotuloLimpar} aria-label={rotuloLimpar} className="relative z-10 -mr-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-3.5 w-3.5" aria-hidden /></button>
+        : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
       <label htmlFor={id} className="sr-only">{rotulo}</label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer rounded-full opacity-0">
         {children}
       </select>
     </div>
@@ -194,30 +195,26 @@ function CampoSublinhado({ id, rotulo, valor, vazio, icone, value, onChange, aoL
 export function DateFilter({ selectedMonth, compareMonth, onMonthChange, onCompareMonthChange, hideCompare }: DateFilterProps) {
   const months = getAvailableMonths();
   return (
-    <div role="group" aria-label="Filtros do dashboard" className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-8">
-      <div className="min-w-0 sm:w-56">
-        <CampoSublinhado id="filtro-mes" rotulo="Mês de referência" valor={formatMonth(selectedMonth)} icone={<CalendarDays className="h-5 w-5" />} value={selectedMonth} onChange={onMonthChange}>
-          {[...months].reverse().map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
-        </CampoSublinhado>
-      </div>
+    <div role="group" aria-label="Filtros do dashboard" className="flex flex-wrap items-center gap-2">
+      <BotaoPilula id="filtro-mes" rotulo="Mês de referência" valor={formatMonth(selectedMonth)} ativo icone={<CalendarDays className="h-4 w-4" />} value={selectedMonth} onChange={onMonthChange}>
+        {[...months].reverse().map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
+      </BotaoPilula>
 
       {!hideCompare && (
-        <div className="min-w-0 sm:w-56">
-          <CampoSublinhado
-            id="filtro-comparar"
-            rotulo="Comparar com"
-            valor={compareMonth ? `x ${formatMonth(compareMonth)}` : "Comparar com…"}
-            vazio={!compareMonth}
-            icone={<GitCompareArrows className="h-5 w-5" />}
-            value={compareMonth ?? ""}
-            onChange={(v) => onCompareMonthChange(v || null)}
-            aoLimpar={compareMonth ? () => onCompareMonthChange(null) : undefined}
-            rotuloLimpar="Remover comparação"
-          >
-            <option value="">Sem comparação</option>
-            {[...months].reverse().filter((m) => m !== selectedMonth).map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
-          </CampoSublinhado>
-        </div>
+        <BotaoPilula
+          id="filtro-comparar"
+          rotulo="Comparar com"
+          valor={compareMonth ? `x ${formatMonth(compareMonth)}` : "Comparar com…"}
+          ativo={!!compareMonth}
+          icone={<GitCompareArrows className="h-4 w-4" />}
+          value={compareMonth ?? ""}
+          onChange={(v) => onCompareMonthChange(v || null)}
+          aoLimpar={compareMonth ? () => onCompareMonthChange(null) : undefined}
+          rotuloLimpar="Remover comparação"
+        >
+          <option value="">Sem comparação</option>
+          {[...months].reverse().filter((m) => m !== selectedMonth).map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
+        </BotaoPilula>
       )}
     </div>
   );
