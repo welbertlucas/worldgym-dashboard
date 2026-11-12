@@ -13,6 +13,15 @@ describe("contratos ativos em fatias", () => {
     expect(v.local.pct + v.rede.pct).toBe(100);
   });
 
+  it("parcial que sobrou de foto antiga não entra quando local + rede já fecham o total", () => {
+    // Sobradinho, nov/2026: 3.633 contratos, local 3.633, rede 0 e 1.024 de "2 a 9 unidades" de uma foto antiga.
+    const sobradinho = { contratosAtivos: 3633, contratosLocal: 3633, contratosParcial: 1024, contratosRede: 0 };
+    expect(contratosView(sobradinho)!.local).toEqual({ n: 3633, pct: 100 });
+    const r = somaContratos([sobradinho, gama])!;
+    expect(r.local.n).toBe(3633 + 1500);
+    expect(r.local.pct + r.rede.pct).toBeCloseTo(100);
+  });
+
   it("sem contagem (mês sem foto do EVO) não há visão", () => {
     expect(contratosView({})).toBeNull();
     expect(somaContratos([{}, {}])).toBeNull();

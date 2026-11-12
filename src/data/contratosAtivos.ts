@@ -12,6 +12,16 @@ type Campos = Pick<UnitData, "contratosAtivos" | "contratosEspeciais" | "contrat
 
 const fatia = (n: number | undefined, total: number): Fatia => ({ n: n ?? 0, pct: total ? ((n ?? 0) / total) * 100 : 0 });
 
+/**
+ * Plano local da unidade. Fotos antigas separavam "2 a 9 unidades" (contratosParcial), e aí local + parcial + rede
+ * fecham o total. Nas fotos novas isso já está no local, mas o campo antigo pode ter ficado gravado no mês: se
+ * local + rede já fecham o total, o parcial é sobra da foto antiga e não entra (senão o local passa de 100%).
+ */
+const localDe = (u: Campos) => {
+  const local = u.contratosLocal ?? 0, parcial = u.contratosParcial ?? 0;
+  return parcial && local + parcial + (u.contratosRede ?? 0) === (u.contratosAtivos ?? 0) ? local + parcial : local;
+};
+
 export function contratosView(u: Campos): ContratosView | null {
   const total = u.contratosAtivos ?? 0;
   if (!total) return null;
@@ -19,8 +29,7 @@ export function contratosView(u: Campos): ContratosView | null {
     total,
     especiais: fatia(u.contratosEspeciais, total),
     personal: fatia(u.contratosPersonal, total),
-    // Fotos antigas separavam "2 a 9 unidades"; agora isso também é plano local.
-    local: fatia((u.contratosLocal ?? 0) + (u.contratosParcial ?? 0), total),
+    local: fatia(localDe(u), total),
     rede: fatia(u.contratosRede, total),
   };
 }
@@ -31,7 +40,7 @@ export function somaContratos(units: Campos[]): ContratosView | null {
   const soma = (k: keyof Campos) => com.reduce((s, u) => s + (u[k] ?? 0), 0);
   return contratosView({
     contratosAtivos: soma("contratosAtivos"), contratosEspeciais: soma("contratosEspeciais"), contratosPersonal: soma("contratosPersonal"),
-    contratosLocal: soma("contratosLocal"), contratosParcial: soma("contratosParcial"), contratosRede: soma("contratosRede"),
+    contratosLocal: com.reduce((s, u) => s + localDe(u), 0), contratosRede: soma("contratosRede"),
   });
 }
 

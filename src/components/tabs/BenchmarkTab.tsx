@@ -72,7 +72,7 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
       {aba === "posicao" && <>{!foco && destaques}{ranking}{foco && destaques}</>}
 
       {aba === "contratos" && <Secao id="bm-contratos" titulo="Contratos ativos" descricao="Foto de hoje do EVO: especiais/VIP, personal e plano local ou rede, por unidade.">
-        <ContratosAtivos units={units} />
+        <ContratosAtivos units={units} foco={foco} />
         {!units.some((u) => u.contratosAtivos !== undefined) && <p className="text-sm text-muted-foreground">A foto de contratos só existe no mês em andamento. Escolha o mês atual no topo para ver.</p>}
       </Secao>}
 

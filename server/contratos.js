@@ -33,7 +33,7 @@ export async function contratosUnidade(idBranch, membros) {
   const plans = Object.fromEntries((await fetchAll(`/membership?idBranch=${idBranch}`)).map((p) => [p.idMembership, p]));
   const members = membros ? membros.filter((m) => m.status === "Active") : await fetchAll(`/members?idBranch=${idBranch}&status=1`);
   const pro = ehUnidadePro(UNIT_NAMES[idBranch]);
-  const r = { alunosAtivos: members.length, contratosAtivos: 0, contratosEspeciais: 0, contratosPersonal: 0, contratosLocal: 0, contratosRede: 0 };
+  const r = { alunosAtivos: members.length, contratosAtivos: 0, contratosEspeciais: 0, contratosPersonal: 0, contratosLocal: 0, contratosRede: 0, contratosParcial: 0 }; // parcial: campo antigo, zerado para não sobrar de fotos velhas
   for (const m of members) {
     for (const c of m.memberships || []) {
       if (c.membershipStatus !== "active") continue;

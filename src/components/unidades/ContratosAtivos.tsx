@@ -38,8 +38,11 @@ function BarraAlcance({ v }: { v: ContratosView }) {
   );
 }
 
-/** Contratos ativos hoje: totais da rede e um cartão por unidade. Só aparece quando o EVO trouxe a foto do dia. */
-export function ContratosAtivos({ units }: { units: UnitData[] }) {
+/**
+ * Contratos ativos hoje: totais da rede (ou da unidade em `foco`, com o percentual da rede ao lado) e um cartão por
+ * unidade, com a do foco destacada. Só aparece quando o EVO trouxe a foto do dia.
+ */
+export function ContratosAtivos({ units, foco = null }: { units: UnitData[]; foco?: string | null }) {
   const [ordem, setOrdem] = useState<Ordem>("especiais");
   // Exporta só esta seção: durante a impressão, tudo fora dela vira display:none (visibility deixaria páginas em branco) e a página fica em retrato.
   useEffect(() => {
@@ -71,6 +74,9 @@ export function ContratosAtivos({ units }: { units: UnitData[] }) {
     .map((u) => ({ u, v: contratosView(u) }))
     .filter((x): x is { u: UnitData; v: ContratosView } => x.v !== null)
     .sort((a, b) => b.v[ordem].n - a.v[ordem].n);
+  const daUnidade = foco ? lista.find((x) => x.u.name === foco) ?? null : null;
+  const posicao = daUnidade ? lista.indexOf(daUnidade) + 1 : 0;
+  const rotuloOrdem = ORDENS.find((o) => o.id === ordem)!.label;
 
   return (
     <section id="contratos-ativos" aria-labelledby="contratos-titulo" className="space-y-4">
@@ -85,14 +91,19 @@ export function ContratosAtivos({ units }: { units: UnitData[] }) {
         <h3 id="contratos-titulo" className="pr-32 text-base font-semibold text-foreground">Contratos ativos: especiais, personal e plano local ou rede</h3>
         <p className="hidden text-xs text-muted-foreground print:block">World Gym · emitido em {new Date().toLocaleDateString("pt-BR")}</p>
         <p className="text-sm text-muted-foreground">
-          Foto de hoje, direto do EVO. Percentuais sobre o total de contratos ativos ({n(rede.total)}).
+          {daUnidade
+            ? <>Foto de hoje de <b className="font-semibold text-foreground">{foco}</b>, direto do EVO. Percentuais sobre os contratos ativos da unidade ({n(daUnidade.v.total)}); embaixo de cada número, o percentual da rede.</>
+            : <>Foto de hoje, direto do EVO. Percentuais sobre o total de contratos ativos ({n(rede.total)}).</>}
         </p>
       </div>
 
-      <ContratosTiles v={rede} />
+      {daUnidade ? <ContratosTiles v={daUnidade.v} comparar={{ rotulo: "Rede", v: rede }} /> : <ContratosTiles v={rede} />}
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-        <h4 className="text-sm font-semibold text-foreground">Por unidade</h4>
+        <h4 className="text-sm font-semibold text-foreground">
+          Por unidade
+          {daUnidade && <span className="ml-2 font-normal text-muted-foreground">{foco} é a {posicao}ª de {lista.length} em {rotuloOrdem}</span>}
+        </h4>
         <div role="group" aria-label="Ordenar por" className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           Ordenar por
           {ORDENS.map((o) => (
@@ -111,7 +122,7 @@ export function ContratosAtivos({ units }: { units: UnitData[] }) {
 
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {lista.map(({ u, v }) => (
-          <li key={u.name} className="card-surface p-4">
+          <li key={u.name} className={cn("card-surface p-4", u.name === foco && "ring-2 ring-primary")} aria-current={u.name === foco ? "true" : undefined}>
             <div className="flex items-baseline justify-between gap-2">
               <h5 className="truncate text-sm font-semibold text-foreground"><UnitLink name={u.name} /></h5>
               <span className="text-xs tabular-nums text-muted-foreground">{n(v.total)} contratos</span>
