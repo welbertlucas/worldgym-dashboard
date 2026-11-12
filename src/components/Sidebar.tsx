@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
-import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { itensDoMenu } from "@/components/nav";
+import { buscarNoMenu, itensDeBusca, itensDoMenu } from "@/components/nav";
 import { podeGerirAcessos } from "@/lib/auth";
 import wgLogo from "@/assets/wg-logo.png";
 
@@ -12,9 +12,63 @@ interface NavProps {
   criticalCount: number;
 }
 
+/**
+ * Busca no topo do menu (como na Naya): encontra menus e abas pelo nome ou pelo que tem nos cards ("nota", "saldo",
+ * "catraca", "churn"...). Setas escolhem, Enter abre, Esc limpa. O nome do menu aparece embaixo de cada aba.
+ */
+function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
+  const [consulta, setConsulta] = useState("");
+  const [sel, setSel] = useState(0);
+  const campo = useRef<HTMLInputElement>(null);
+  const resultados = buscarNoMenu(itensDeBusca(itensDoMenu(podeGerirAcessos())), consulta);
+  const abrir = (destino: string) => { setConsulta(""); campo.current?.blur(); onChange(destino); };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, resultados.length - 1)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); setSel((i) => Math.max(i - 1, 0)); }
+    if (e.key === "Enter" && resultados[sel]) { e.preventDefault(); abrir(resultados[sel].destino); }
+    if (e.key === "Escape") { setConsulta(""); campo.current?.blur(); }
+  };
+  return (
+    <div className="px-3 pt-1 pb-2">
+      <label className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-2.5 py-2 text-muted-foreground focus-within:border-foreground/30 focus-within:text-foreground">
+        <Search className="h-4 w-4 shrink-0" aria-hidden />
+        <input
+          ref={campo}
+          value={consulta}
+          onChange={(e) => { setConsulta(e.target.value); setSel(0); }}
+          onKeyDown={onKeyDown}
+          placeholder="Buscar"
+          aria-label="Buscar nos menus"
+          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+        />
+      </label>
+      {consulta.trim() && (
+        <ul className="mt-1 flex flex-col gap-0.5 text-sm" role="listbox" aria-label="Resultados da busca">
+          {resultados.map((r, i) => (
+            <li key={r.destino} role="option" aria-selected={i === sel}>
+              <button
+                type="button"
+                onMouseEnter={() => setSel(i)}
+                onClick={() => abrir(r.destino)}
+                className={cn("flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left", i === sel ? "bg-foreground/[0.07] text-foreground" : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground")}
+              >
+                <span>{r.rotulo}</span>
+                {r.menu !== r.rotulo && <span className="text-[11px] text-muted-foreground">{r.menu}</span>}
+              </button>
+            </li>
+          ))}
+          {resultados.length === 0 && <li className="px-2.5 py-1.5 text-muted-foreground">Nada encontrado.</li>}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function NavList({ active, onChange, criticalCount, collapsed = false }: NavProps & { collapsed?: boolean }) {
   const itens = itensDoMenu(podeGerirAcessos());
   return (
+    <>
+    {!collapsed && <BuscaMenu onChange={onChange} />}
     <nav aria-label="Seções do dashboard" className="flex-1 overflow-y-auto px-3 py-2">
       <ul className="space-y-0.5">
         {itens.map((item, i) => {
@@ -55,6 +109,7 @@ function NavList({ active, onChange, criticalCount, collapsed = false }: NavProp
         })}
       </ul>
     </nav>
+    </>
   );
 }
 

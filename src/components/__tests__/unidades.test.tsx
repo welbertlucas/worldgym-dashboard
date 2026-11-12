@@ -256,3 +256,29 @@ describe("Posição na rede no retrato da unidade", () => {
     expect(html).not.toContain("Inverter ordem");
   });
 });
+
+import { abaAtiva } from "@/components/Abas";
+describe("abas (submenus)", () => {
+  it("abre a aba pedida no endereço se existir; senão a primeira", () => {
+    const abas = [{ id: "resumo", rotulo: "Resumo" }, { id: "notas", rotulo: "Notas fiscais" }];
+    expect(abaAtiva(abas, "notas")).toBe("notas");
+    expect(abaAtiva(abas, "inexistente")).toBe("resumo");
+    expect(abaAtiva(abas, null)).toBe("resumo");
+  });
+});
+
+import { buscarNoMenu, itensDeBusca, NAV_ITEMS } from "@/components/nav";
+describe("busca do menu", () => {
+  const itens = itensDeBusca(NAV_ITEMS);
+  const busca = (q: string) => buscarNoMenu(itens, q).map((r) => r.destino);
+  it("acha abas pelo nome e pelo que tem nos cards, sem acento", () => {
+    expect(busca("nota")[0]).toBe("financeiro/notas");
+    expect(busca("catraca")).toContain("alunos/frequencia");
+    expect(busca("saldo devedor")).toEqual(["financeiro/cobranca"]);
+    expect(busca("renovacao")[0]).toBe("retencao/renovacao");
+    expect(busca("Retenção")[0]).toBe("retencao");
+    expect(busca("xyz")).toEqual([]);
+    expect(busca("")).toEqual([]);
+    expect(itens.some((i) => i.destino === "acessos")).toBe(false); // acessos só entra para o dono
+  });
+});

@@ -126,7 +126,7 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
         id="ud-vendidos"
         titulo="Contratos mais vendidos"
         descricao={`Os planos que ${unit} mais vendeu em ${formatMonthLong(selectedMonth)}${partial ? " (até hoje)" : ""} a alunos novos e a quem voltou, quem comprou e a duração dos planos.`}
-        acoes={onOpenTab ? <button type="button" onClick={() => onOpenTab("comercial")} className="no-print rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Ver o Comercial de {unit}</button> : undefined}
+        acoes={onOpenTab ? <button type="button" onClick={() => onOpenTab("comercial/vendas")} className="no-print rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Ver o Comercial de {unit}</button> : undefined}
       >
         {unitNow ? <ContratosVendidos total={unitNow} monthLabel={formatMonthLong(selectedMonth)} partial={partial} unitLabel={unit} /> : <p className="text-sm text-muted-foreground">{unit} não tem dados em {formatMonthLong(selectedMonth)}.</p>}
       </Secao>
