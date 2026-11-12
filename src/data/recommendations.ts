@@ -99,6 +99,18 @@ const TEMPLATES: Record<AlertKind, Template> = {
     correct: ["Retomar divulgação do canal online e acompanhar semanalmente"],
     followUp: "Vendas online vs. mesmo mês do ano anterior no próximo mês fechado",
   },
+  notasFalta: {
+    hypotheses: ["Emissão automática de nota desligada ou falhando para alguma forma de pagamento", "Notas negadas pela prefeitura e não reenviadas", "Recebimentos lançados manualmente (balcão, Pix) sem emissão de nota"],
+    investigate: ["Abrir Financeiro → Notas fiscais com a unidade escolhida e ver a cobertura mês a mês", "No EVO, listar os recebimentos do mês sem nota e as notas negadas"],
+    correct: ["Emitir as notas que faltam e corrigir a configuração de emissão da unidade no EVO"],
+    followUp: "Parte do recebido com nota no próximo mês fechado",
+  },
+  semNota: {
+    hypotheses: ["A unidade emite as notas em outro sistema", "Emissão de nota não configurada no EVO para a unidade"],
+    investigate: ["Confirmar com a unidade onde as notas fiscais são emitidas"],
+    correct: ["Se a unidade não emite, regularizar a emissão; se emite fora do EVO, ligar a emissão no EVO para o acompanhamento entrar no Atlas"],
+    followUp: "Notas emitidas pelo EVO no próximo mês",
+  },
   dado: {
     hypotheses: ["Unidade ainda não lançada no mês", "Unidade encerrada/renomeada"],
     investigate: ["Conferir a planilha: a linha da unidade foi lançada?"],
@@ -189,6 +201,8 @@ export const ALERT_LABELS: Record<AlertKind, string> = {
   recebimento: "Recebimento baixo",
   meta: "Desvio de meta",
   dado: "Dado ausente",
+  notasFalta: "Notas fiscais em falta",
+  semNota: "Sem nota fiscal pelo EVO",
   yoyFaturamento: "Faturamento abaixo do ano anterior",
   yoyChurn: "Churn acima do ano anterior",
   yoyInadimplencia: "Inadimplência acima do ano anterior",

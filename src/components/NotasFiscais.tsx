@@ -2,6 +2,7 @@ import { UnitLink } from "@/components/UnitLink";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import { dashboardData, getDataByMonth, getUnitData, type NotasMes, type UnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
+import { ALERT_CONFIG } from "@/data/alertConfig";
 
 /** Mês seguinte a AAAA-MM. */
 export const mesSeguinte = (ym: string) => {
@@ -13,8 +14,8 @@ const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", curren
 const int = (n: number) => Math.round(n).toLocaleString("pt-BR");
 const pct1 = (x: number) => `${x.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
-/** Abaixo disso, a cobertura do recebido por nota fica em destaque. */
-export const COBERTURA_MINIMA = 95;
+/** Abaixo disso, a cobertura do recebido por nota fica em destaque (o mesmo limite dos alertas). */
+export const COBERTURA_MINIMA = ALERT_CONFIG.notas.minCobertura;
 
 /** Parte do recebido no mês que ganhou nota (0 a 100), ou null sem recebimento. */
 export const cobertura = (n: NotasMes) => (n.cobertura[1] > 0 ? (n.cobertura[0] / n.cobertura[1]) * 100 : null);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeAlerts } from "@/data/alerts";
 import { buildRecommendations } from "@/data/recommendations";
+import type { NotasMes } from "@/data/dashboardData";
 import { month, unit } from "./helpers";
 
 const now = new Date(2026, 9, 14);
@@ -180,5 +181,26 @@ describe("comparativo anual — refinamentos", () => {
     expect(al).toHaveLength(1);
     expect(al[0].kind).toBe("vendasOnline");
     expect(al[0].yoy?.reading).toBe("confirmed");
+  });
+});
+
+describe("alertas de notas fiscais (mesmas regras do e-mail)", () => {
+  const nf = (recebido: number, comNota: number, emitidas = comNota ? 10 : 0): NotasMes => ({ emitidas: [emitidas, comNota], iss: 0, canceladas: 0, negadas: 0, outrosMeses: [0, 0], cobertura: [comNota, recebido] });
+  it("falta de nota olha o mês anterior ao avaliado; sem emissão olha o avaliado e o seguinte", () => {
+    // Avaliado = set/2026 (now = 14/10). Falta de nota: agosto (o seguinte, setembro, já fechou).
+    const data = [
+      ...history.slice(0, 2),
+      month("2026-08", [unit("A", { notas: nf(1000, 800) }), unit("B", { notas: nf(1000, 990) })]),
+      month("2026-09", [unit("A", { notas: nf(1000, 100) }), unit("B", { notas: nf(1000, 0) })]),
+      month("2026-10", [unit("A"), unit("B", { notas: nf(500, 0) })]),
+    ];
+    const al = computeAlerts(data, [], now);
+    const falta = al.filter((a) => a.kind === "notasFalta");
+    expect(falta.map((a) => a.unit)).toEqual(["A"]); // A fechou agosto com 80%; os 10% de setembro de A ainda podem subir
+    expect(falta[0].fact).toContain("80,0%");
+    expect(falta[0].fact).toContain("agosto");
+    expect(al.filter((a) => a.kind === "semNota").map((a) => a.unit)).toEqual(["B"]);
+    const recs = buildRecommendations(al);
+    expect(recs.find((r) => r.kind === "notasFalta")?.investigate.join(" ")).toContain("Notas fiscais");
   });
 });

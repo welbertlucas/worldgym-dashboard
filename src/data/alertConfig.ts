@@ -21,6 +21,9 @@ export const ALERT_CONFIG = {
   churn: { deltaPp: 1.5, criticalLevel: 8 },
   inadimplencia: { deltaPp: 1.5, criticalLevel: 8 },
   recebimento: { minRatio: 0.9 },
+  // Notas fiscais (mesma regra do resumo por e-mail): mês já fechado de vez (o seguinte também acabou) com menos
+  // deste percentual do recebido com nota; e unidade que recebeu sem emitir nota nenhuma pelo EVO.
+  notas: { minCobertura: 95 },
   // Abaixo do nível mais baixo cadastrado (em geral o bronze) = atenção; crítico se tiver menos de criticalPct dele.
   meta: { criticalPct: 75 },
   // Comparativo com o MESMO mês do ano anterior. A unidade precisa ter pelo menos

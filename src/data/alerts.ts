@@ -4,7 +4,7 @@ import { getLastClosedMonth, formatMonthLong } from "@/data/periods";
 import { META_INDICATORS, TIER_LABEL, attainment, actualFor, formatMetaValue, isSingleGoal, lowestTier, tierReached, type Meta } from "@/data/metas";
 
 export type AlertKind =
-  | "faturamento" | "vendasOnline" | "churn" | "inadimplencia" | "recebimento" | "meta" | "dado"
+  | "faturamento" | "vendasOnline" | "churn" | "inadimplencia" | "recebimento" | "meta" | "dado" | "notasFalta" | "semNota"
   | "yoyFaturamento" | "yoyChurn" | "yoyInadimplencia" | "yoyRenovacao" | "yoyNovosContratos" | "yoyVendasOnline";
 
 /** Leitura combinada com o mesmo mês do ano anterior (hipótese de interpretação, não causa confirmada). */
@@ -127,6 +127,29 @@ export function computeAlerts(data: MonthData[], metas: Meta[] = [], now: Date =
         rule: `recebimento < ${C.recebimento.minRatio * 100}% do faturamento`,
         fact: `Recebimento equivale a ${pct((u.recebimento / u.faturamento) * 100)} do faturamento (${fmtBRL(u.recebimento)} de ${fmtBRL(u.faturamento)}).` });
     }
+  }
+
+  // Notas fiscais. As notas de um mês ainda podem sair no mês seguinte; por isso a falta de nota olha o mês anterior
+  // ao avaliado (o seguinte dele, o mês avaliado, já fechou). Mesmas regras do resumo por e-mail (server/resumo.js).
+  const next = data[idx + 1];
+  const semNota = new Set<string>();
+  for (const u of cur.units) {
+    const n = u.notas;
+    if (!n || !(n.cobertura[1] > 0) || n.emitidas[0] > 0 || n.cobertura[0] > 0) continue;
+    const depois = unitIn(next, u.name)?.notas;
+    if (depois && depois.emitidas[0] > 0) continue;
+    semNota.add(u.name);
+    push({ unit: u.name, kind: "semNota", severity: "attention", weight: u.faturamento / totalFat, rule: "recebeu no mês sem emitir nota fiscal pelo EVO",
+      fact: `Recebeu ${fmtBRL(n.cobertura[1])} em ${formatMonthLong(evalMonth)} sem emitir nota fiscal pelo EVO${next ? " (e segue sem emitir no mês seguinte)" : ""}.` });
+  }
+  for (const p of prev?.units ?? []) {
+    const n = p.notas;
+    if (!n || !(n.cobertura[1] > 0) || semNota.has(p.name)) continue;
+    const c = (n.cobertura[0] / n.cobertura[1]) * 100;
+    if (c >= C.notas.minCobertura) continue;
+    push({ unit: p.name, kind: "notasFalta", severity: "attention", weight: (unitIn(cur, p.name)?.faturamento ?? 0) / totalFat,
+      rule: `menos de ${C.notas.minCobertura}% do recebido com nota, contando as notas emitidas até o fim do mês seguinte`,
+      fact: `Do que recebeu em ${formatMonthLong(prev!.month)}, ${pct(c)} tem nota fiscal; faltam notas para ${fmtBRL(n.cobertura[1] - n.cobertura[0])}.` });
   }
 
   applyYearOverYear(data, idx, cur, alerts);
