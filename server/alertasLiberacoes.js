@@ -2,15 +2,15 @@
 // ou plano sem acesso àquela catraca). Módulo compartilhado: o resumo diário (server/resumo.js) e a tela Alertas do
 // painel (src/data/alerts.ts) usam a mesma regra, sempre sobre um mês já fechado.
 //
-// Calibrado com nov/2025–out/2026 (23 unidades): a rede fica entre 0 e 0,4 liberação de receita a cada 100 entradas.
+// Pelo total do mês (as unidades têm de 15 a 37 mil entradas; o que muda as liberações é o hábito da recepção, não o tamanho).
+// Calibrado com nov/2025–out/2026 (23 unidades): de 1 a 4 alertas por mês na rede.
 
 /** Motivos de bloqueio em que a liberação deixa entrar quem não está em dia com a academia (receita em jogo). */
 export const MOTIVOS_DE_RECEITA = ["Saldo devedor", "Aluno inativo", "Catraca fora do plano"];
 
 export const LIMITES_LIBERACOES = {
-  /** Nível: a cada 100 entradas, a partir disto (com pelo menos `minNivel` liberações no mês). */
-  por100: 0.5,
-  minNivel: 50,
+  /** Nível: liberações de quem não está em dia no mês, a partir disto. */
+  minNivel: 120,
   /** Alta: o mês com pelo menos `vezes` a média dos `baseMeses` meses anteriores (e pelo menos `minAlta` liberações). */
   vezes: 2,
   baseMeses: 3,
@@ -38,26 +38,22 @@ const anterior = (ym, n) => {
 export function alertasLiberacoes(meses, ym, nomes = null, L = LIMITES_LIBERACOES) {
   const mes = doMes(meses, ym);
   if (!mes) return [];
-  const todas = (mes.units ?? []).filter((u) => liberacoesDeReceita(u) !== null && u.entradas > 0);
-  const redeRec = todas.reduce((s, u) => s + liberacoesDeReceita(u), 0), redeEnt = todas.reduce((s, u) => s + u.entradas, 0);
-  const rede = redeEnt ? (redeRec / redeEnt) * 100 : 0;
   const out = [];
-  for (const u of todas) {
-    if (nomes && !nomes.has(u.name)) continue;
-    const q = liberacoesDeReceita(u), taxa = (q / u.entradas) * 100;
+  for (const u of mes.units ?? []) {
+    const q = liberacoesDeReceita(u);
+    if (q === null || (nomes && !nomes.has(u.name))) continue;
     const base = Array.from({ length: L.baseMeses }, (_, i) => liberacoesDeReceita(doMes(meses, anterior(ym, i + 1))?.units?.find((x) => x.name === u.name))).filter((x) => x !== null);
     const media = base.length === L.baseMeses ? base.reduce((s, x) => s + x, 0) / base.length : null;
-    const nivel = taxa >= L.por100 && q >= L.minNivel;
+    const nivel = q >= L.minNivel;
     const alta = media !== null && q >= L.minAlta && q >= L.vezes * Math.max(media, 1);
     if (!nivel && !alta) continue;
-    const partes = [`${q} liberações manuais em ${nomeMes(ym)} de quem a catraca tinha barrado por saldo devedor, aluno inativo ou plano sem acesso`];
-    partes.push(`${virg1(taxa)} a cada 100 entradas, contra ${virg1(rede)} na rede`);
-    if (alta) partes.push(`${virg1(q / Math.max(media, 1))} vezes a média de ${Math.round(media)} nos ${L.baseMeses} meses anteriores`);
+    const extra = [`de ${u.liberacoes} liberações manuais no mês`];
+    if (alta) extra.push(`${virg1(q / Math.max(media, 1))} vezes a média de ${Math.round(media)} nos ${L.baseMeses} meses anteriores`);
     out.push({
       quem: u.name, gravidade: "atencao", titulo: "Liberações de quem não está em dia",
-      fato: `${partes[0]} (${partes.slice(1).join("; ")}).`,
+      fato: `${q} liberações manuais em ${nomeMes(ym)} de quem a catraca tinha barrado por saldo devedor, aluno inativo ou plano sem acesso (${extra.join("; ")}).`,
       acao: "Conferir no EVO (Controle de entradas, ação “Entrada manual”) quem liberou e orientar a recepção a cobrar ou regularizar antes de liberar.",
-      taxa, rede, quantidade: q, alta, nivel,
+      quantidade: q, total: u.liberacoes, media, alta, nivel,
     });
   }
   return out;

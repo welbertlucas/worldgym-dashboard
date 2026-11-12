@@ -89,11 +89,12 @@ describe("entradas na catraca", () => {
     expect(somarEntradas([a, b])).toMatchObject({ liberacoes: 5, liberacoesMotivos: [["PAR-Q pendente", 3], ["Saldo devedor", 2]] });
     expect(somarEntradas([{ ...a, liberacoes: undefined, liberacoesMotivos: undefined }])).not.toHaveProperty("liberacoes");
   });
-  it("card das liberações: taxa por 100 entradas, parte de receita e aviso sem dado", () => {
+  it("card das liberações: total, parte de quem não estava em dia e aviso sem dado", () => {
     const total = { entradas: 2000, liberacoes: 40, liberacoesMotivos: [["PAR-Q pendente", 20], ["Saldo devedor", 10], ["Sem bloqueio antes", 8], ["Aluno inativo", 2]] } as unknown as UnitData;
     const h = limpo(renderToString(<LiberacoesCard total={total} month="2026-11" monthLabel="Novembro de 2026" partial={false} unit="Asa Norte" />));
-    expect(h).toContain("2,0"); // a cada 100 entradas
-    expect(h).toContain("30,0%"); // saldo devedor + inativo
+    expect(h).toContain("40"); // total no mês
+    expect(h).toContain("De quem não estava em dia · 30%"); // saldo devedor + inativo = 12 de 40
+    expect(h).not.toContain("a cada 100 entradas");
     expect(h).toContain("PAR-Q pendente");
     expect(h).toContain("Quem liberou não sai pela API");
     const vazio = limpo(renderToString(<LiberacoesCard total={{} as UnitData} month="2026-11" monthLabel="Novembro de 2026" partial={false} unit={null} />));

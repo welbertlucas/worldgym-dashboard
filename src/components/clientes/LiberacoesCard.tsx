@@ -1,21 +1,24 @@
 import { UnitLink } from "@/components/UnitLink";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
-import { getDataByMonth, type UnitData } from "@/data/dashboardData";
-import { MOTIVOS_DE_RECEITA as MOTIVOS } from "../../../server/alertasLiberacoes.js";
+import { dashboardData, getDataByMonth, type UnitData } from "@/data/dashboardData";
+import { isPartialMonth } from "@/data/periods";
+import { MOTIVOS_DE_RECEITA as MOTIVOS, alertasLiberacoes, liberacoesDeReceita } from "../../../server/alertasLiberacoes.js";
 
 const int = (n: number) => Math.round(n).toLocaleString("pt-BR");
 const dec = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const pct = (n: number, d: number) => (d > 0 ? `${dec((n / d) * 100)}%` : "—");
+const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : "—");
 
 /** Motivos em que a liberação deixa entrar quem não está em dia com a academia (receita em jogo); a lista mora no módulo do alerta. */
 export const MOTIVOS_DE_RECEITA = new Set(MOTIVOS);
 
-/** Liberações a cada 100 entradas. */
-export const porCemEntradas = (u: Pick<UnitData, "liberacoes" | "entradas">) => (u.entradas ? ((u.liberacoes ?? 0) / u.entradas) * 100 : 0);
+/** Por que a unidade está no alerta de liberações (mesma regra da tela Alertas e do e-mail), em poucas palavras. */
+const porque = (a: { nivel: boolean; alta: boolean; quantidade: number; media: number | null }) =>
+  [a.nivel && "120 ou mais no mês", a.alta && a.media !== null && `${dec(a.quantidade / Math.max(a.media, 1))}× a média dos 3 meses anteriores`].filter(Boolean).join(" e ");
 
 /**
  * Liberações manuais na catraca: a catraca barrou e a recepção liberou. O motivo é o do bloqueio que a mesma pessoa
- * levou até 30 min antes. Quem liberou não sai pela API do EVO.
+ * levou até 30 min antes. Quem liberou não sai pela API do EVO. Num mês fechado, marca as unidades no alerta
+ * "Liberações de quem não está em dia" (server/alertasLiberacoes.js).
  */
 export function LiberacoesCard({ total, month, monthLabel, partial, unit }: { total: UnitData; month: string; monthLabel: string; partial: boolean; unit: string | null }) {
   const subtitle = <>{unit ?? "Rede"} • {monthLabel}{partial && " (mês em andamento: até hoje)"}</>;
@@ -26,11 +29,13 @@ export function LiberacoesCard({ total, month, monthLabel, partial, unit }: { to
   const n = total.liberacoes;
   const motivos = total.liberacoesMotivos ?? [];
   const maior = Math.max(...motivos.map(([, q]) => q), 1);
-  const comBloqueio = motivos.filter(([m]) => m !== "Sem bloqueio antes");
-  const lider = comBloqueio[0];
-  const deReceita = motivos.filter(([m]) => MOTIVOS_DE_RECEITA.has(m)).reduce((s, [, q]) => s + q, 0);
-  const unidades = unit ? [] : (getDataByMonth(month)?.units ?? []).filter((u) => (u.liberacoes ?? 0) > 0).sort((a, b) => porCemEntradas(b) - porCemEntradas(a));
-  const maiorTaxa = Math.max(...unidades.map(porCemEntradas), 0.01);
+  const lider = motivos.filter(([m]) => m !== "Sem bloqueio antes")[0];
+  const deReceita = liberacoesDeReceita(total) ?? 0;
+  // Alerta só vale para mês fechado (é o que a tela Alertas e o e-mail avaliam).
+  const emAlerta = new Map(isPartialMonth(month) ? [] : alertasLiberacoes(dashboardData, month).map((a) => [a.quem, a] as const));
+  const unidades = unit ? [] : (getDataByMonth(month)?.units ?? []).filter((u) => (u.liberacoes ?? 0) > 0).sort((a, b) => (b.liberacoes ?? 0) - (a.liberacoes ?? 0));
+  const maiorUnid = Math.max(...unidades.map((u) => u.liberacoes ?? 0), 1);
+  const alertaDaUnidade = unit ? emAlerta.get(unit) : undefined;
 
   return (
     <ChartCard
@@ -39,12 +44,16 @@ export function LiberacoesCard({ total, month, monthLabel, partial, unit }: { to
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
           <HeadlineStat label="Liberações no mês" value={int(n)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
-          {total.entradas ? <HeadlineStat label="A cada 100 entradas" value={dec(porCemEntradas(total))} swatch={<span className="h-2 w-2 rounded-full bg-foreground/50" />} /> : null}
-          <HeadlineStat label="Saldo devedor, inativo ou catraca fora do plano" value={pct(deReceita, n)} swatch={<span className="h-2 w-2 rounded-full bg-destructive" />} />
+          <HeadlineStat label={`De quem não estava em dia · ${pct(deReceita, n)}`} value={int(deReceita)} swatch={<span className="h-2 w-2 rounded-full bg-destructive" />} />
           {lider && <HeadlineStat label="Bloqueio mais liberado" value={lider[0]} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />}
         </div>
       }
     >
+      {alertaDaUnidade && (
+        <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-foreground">
+          <span className="font-semibold">Em alerta:</span> {int(alertaDaUnidade.quantidade)} liberações de quem não estava em dia ({porque(alertaDaUnidade)}).
+        </p>
+      )}
       <div className={unidades.length ? "grid grid-cols-1 gap-8 xl:grid-cols-2" : ""}>
         <div>
           <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Por que a catraca tinha barrado</h4>
@@ -62,17 +71,24 @@ export function LiberacoesCard({ total, month, monthLabel, partial, unit }: { to
         </div>
         {unidades.length > 0 && (
           <div>
-            <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Unidades: liberações a cada 100 entradas</h4>
-            <ol className="space-y-2" aria-label="Unidades por liberações a cada 100 entradas">
-              {unidades.map((u) => (
-                <li key={u.name} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_6.5rem] items-center gap-3 text-sm">
-                  <span className="truncate"><UnitLink name={u.name} /></span>
-                  <span className="h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
-                    <span className="block h-full rounded-full bg-foreground/65" style={{ width: `${(porCemEntradas(u) / maiorTaxa) * 100}%` }} />
-                  </span>
-                  <span className="text-right tabular-nums text-muted-foreground"><span className="font-semibold text-foreground">{dec(porCemEntradas(u))}</span> · {int(u.liberacoes ?? 0)}</span>
-                </li>
-              ))}
+            <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Unidades: liberações no mês</h4>
+            <ol className="space-y-2" aria-label="Unidades pelo total de liberações manuais">
+              {unidades.map((u) => {
+                const tot = u.liberacoes ?? 0, rec = liberacoesDeReceita(u) ?? 0, a = emAlerta.get(u.name);
+                return (
+                  <li key={u.name} className="text-sm">
+                    <div className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_9rem] items-center gap-3">
+                      <span className="truncate"><UnitLink name={u.name} /></span>
+                      <span className="flex h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
+                        <span className={`block h-full ${a ? "bg-destructive" : "bg-destructive/60"}`} style={{ width: `${(rec / maiorUnid) * 100}%` }} />
+                        <span className="block h-full bg-foreground/40" style={{ width: `${((tot - rec) / maiorUnid) * 100}%` }} />
+                      </span>
+                      <span className="text-right tabular-nums text-muted-foreground"><span className="font-semibold text-foreground">{int(tot)}</span> · {int(rec)} irregulares</span>
+                    </div>
+                    {a && <p className="mt-0.5 text-xs font-medium text-destructive">Em alerta: {porque(a)}</p>}
+                  </li>
+                );
+              })}
             </ol>
           </div>
         )}
@@ -80,7 +96,8 @@ export function LiberacoesCard({ total, month, monthLabel, partial, unit }: { to
       <p className="mt-4 text-xs text-muted-foreground">
         Liberação manual: a recepção liberou a entrada no sistema. O motivo é o do bloqueio que a mesma pessoa levou na catraca da unidade até 30 minutos antes;
         “Sem bloqueio antes” é quando foi liberada sem a catraca ter barrado (por exemplo, sem tentar o reconhecimento facial).
-        Em vermelho, os casos em que entrou quem não estava em dia (saldo devedor, aluno inativo ou plano que não dá acesso àquela catraca).
+        Em vermelho, quem não estava em dia (saldo devedor, aluno inativo ou plano que não dá acesso àquela catraca); “irregulares” na lista das unidades é essa parte.
+        Num mês fechado, entra no alerta “Liberações de quem não está em dia” a unidade com 120 ou mais dessas liberações, ou com o dobro da média dos 3 meses anteriores (mínimo de 30).
         Quem liberou não sai pela API do EVO; para ver o colaborador, use no EVO Gerencial → Controle de entradas → Entradas e saídas, com a ação “Entrada manual”.
       </p>
     </ChartCard>

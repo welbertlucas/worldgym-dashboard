@@ -358,14 +358,17 @@ describe("liberações de quem não está em dia (e-mail e tela Alertas)", () =>
     { month: "2026-09", units: [u("A", 30000, 220), u("B", 20000, 30), u("C", 20000, 25)] },
     { month: "2026-10", units: [u("A", 30000, 230), u("B", 20000, 64), u("C", 20000, 30)] },
   ];
-  it("nível (≥0,5 a cada 100 entradas e ≥50) e alta (≥2× a média dos 3 meses anteriores)", () => {
+  it("nível (≥120 no mês) e alta (≥2× a média dos 3 meses anteriores e ≥30)", () => {
     const al = alertasLiberacoes(meses, "2026-10");
     expect(al.map((a: { quem: string }) => a.quem)).toEqual(["A", "B"]);
-    expect(al[0]).toMatchObject({ nivel: true, alta: false });
+    expect(al[0]).toMatchObject({ nivel: true, alta: false, quantidade: 230, total: 240 });
     expect(al[1]).toMatchObject({ nivel: false, alta: true }); // 64 contra média 28,3
-    expect(al[0].fato).toContain("0,8 a cada 100 entradas");
+    expect(al[0].fato).toContain("230 liberações manuais em outubro");
+    expect(al[0].fato).toContain("de 240 liberações manuais no mês");
+    expect(al[0].fato).not.toContain("a cada 100");
+    expect(al[1].fato).toContain("2,3 vezes a média de 28");
     expect(alertasLiberacoes(meses, "2026-10", new Set(["B"])).map((a: { quem: string }) => a.quem)).toEqual(["B"]);
-    expect(LIMITES_LIBERACOES.por100).toBe(0.5);
+    expect(LIMITES_LIBERACOES.minNivel).toBe(120);
   });
   it("entra nos alertas do resumo, sobre o último mês fechado", () => {
     const user = { nome: "G", papel: "unidades", unidades: ["A"] };

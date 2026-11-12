@@ -156,7 +156,7 @@ export function computeAlerts(data: MonthData[], metas: Meta[] = [], now: Date =
   // Liberações manuais de quem não está em dia (mesma regra do resumo por e-mail: server/alertasLiberacoes.js).
   for (const a of alertasLiberacoes(data, evalMonth)) {
     push({ unit: a.quem, kind: "liberacoes", severity: "attention", weight: (unitIn(cur, a.quem)?.faturamento ?? 0) / totalFat,
-      rule: [a.nivel && `≥ ${String(LL.por100).replace(".", ",")} a cada 100 entradas e ≥ ${LL.minNivel} no mês`, a.alta && `≥ ${LL.vezes}× a média dos ${LL.baseMeses} meses anteriores`].filter(Boolean).join(" e "),
+      rule: [a.nivel && `≥ ${LL.minNivel} no mês`, a.alta && `≥ ${LL.vezes}× a média dos ${LL.baseMeses} meses anteriores`].filter(Boolean).join(" e "),
       fact: a.fato });
   }
 
