@@ -1,5 +1,5 @@
 // Grava nos meses já calculados: novosContratos, vendasOnline, diarias, camisetas, coqueteleiras, personal,
-// contratos mais vendidos, tipo de venda (novo/rematrícula/renovação) e duração dos planos vendidos (vindos das vendas do EVO).
+// contratos mais vendidos, tipo de venda (novo/rematrícula/renovação), duração dos planos vendidos e novos contratos por dia do mês (vindos das vendas do EVO).
 // Uso: node --env-file=.env.local scripts/evo-vendas.mjs 2026-10 2026-11
 import { catalogoDePlanos, vendasDoMes } from "../server/vendas.js";
 import { loadMonth, saveMonth } from "../server/store.js";

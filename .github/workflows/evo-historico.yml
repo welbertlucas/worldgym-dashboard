@@ -3,6 +3,7 @@ name: Recarga do histórico (EVO)
 # Só à mão: regrava UMA informação nos meses informados, sem recalcular mais nada, e consolida para o painel.
 #   alunos    -> suspensos (contrato trancado) no fim de cada mês e cancelamentos por gênero e faixa de idade
 #   entradas  -> entradas na catraca (mapa de calor) e liberações manuais com o motivo do bloqueio
+#   vendas    -> tudo o que vem das vendas (novos contratos, avulsas, planos mais vendidos) e as vendas por dia do mês
 # Usa a mesma fila do evo-sync para nunca gravar os meses ao mesmo tempo que ele.
 
 on:
@@ -11,7 +12,7 @@ on:
       etapa:
         description: "O que recarregar"
         type: choice
-        options: [alunos, entradas]
+        options: [alunos, entradas, vendas]
         default: alunos
       months:
         description: "Meses AAAA-MM separados por vírgula, ou um intervalo AAAA-MM..AAAA-MM"
@@ -61,6 +62,13 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-entradas.mjs $MONTHS_DONE
+      - name: Vendas do mês e vendas por dia
+        if: ${{ github.event.inputs.etapa == 'vendas' }}
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-vendas.mjs $MONTHS_DONE
       - name: Consolidar os meses num arquivo só (o painel lê só este)
         if: ${{ !cancelled() }}
         env:

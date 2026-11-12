@@ -119,12 +119,17 @@ function grupoProduto(i, cat) {
   return null;
 }
 
-export function resumirVendas(vendas, planos = new Map()) {
+/**
+ * Resume as vendas do mês por unidade. `dias` = tamanho do mês, para `vendasDia` (novos contratos em cada dia do mês,
+ * pelo dia da venda; o horário do EVO não é confiável, muitas vendas vêm às 00:00, então fica só o dia).
+ */
+export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   const por = {};
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0] });
+    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0) });
+    const dia = Number(String(s.saleDate ?? "").slice(8, 10));
     for (const i of s.saleItens || []) {
       // Produtos e serviços avulsos (camiseta, coqueteleira, diária, avaliação...): ranking pelo valor vendido.
       const grupo = grupoProduto(i, categoriaItem(i));
@@ -155,7 +160,10 @@ export function resumirVendas(vendas, planos = new Map()) {
       }
       const cat = categoriaItem(i);
       // Diária vendida como contrato conta como diária, não como contrato novo.
-      if (i.idMembership && !i.idMembershipRenewed && cat !== "diarias") u.novosContratos += 1;
+      if (i.idMembership && !i.idMembershipRenewed && cat !== "diarias") {
+        u.novosContratos += 1;
+        if (dia >= 1 && dia <= dias) u.vendasDia[dia - 1] += 1;
+      }
       if (s.saleSource === ONLINE) u.vendasOnline += i.saleValue || 0;
       if (i.idMembership && /PERSONAL/.test(upper(i))) u.personal += i.saleValue || 0;
       if (cat) u[cat] += i.saleValue || 0;
@@ -195,5 +203,5 @@ export async function vendasDoMes(ym, planos) {
   const [y, m] = ym.split("-").map(Number);
   const ultimo = new Date(Date.UTC(y, m, 0)).getUTCDate();
   // idBranch é obrigatório na rota, mas ignorado: traz todas as unidades.
-  return resumirVendas(await fetchAll(`/sales?idBranch=5&dateSaleStart=${ym}-01&dateSaleEnd=${ym}-${String(ultimo).padStart(2, "0")}`), planos);
+  return resumirVendas(await fetchAll(`/sales?idBranch=5&dateSaleStart=${ym}-01&dateSaleEnd=${ym}-${String(ultimo).padStart(2, "0")}`), planos, ultimo);
 }

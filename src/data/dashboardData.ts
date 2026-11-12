@@ -145,6 +145,8 @@ export interface UnitData {
   /** Liberações manuais na catraca no mês (a recepção libera quem a catraca barrou) e quantas por motivo do bloqueio anterior: [motivo, quantidade]. */
   liberacoes?: number;
   liberacoesMotivos?: [string, number][];
+  /** Novos contratos em cada dia do mês (índice 0 = dia 1), pelo dia da venda no EVO. */
+  vendasDia?: number[];
   /** Recebido no mês por forma de pagamento (nome → valor), pela data do pagamento. */
   formasPagamento?: Record<string, number>;
   /** Recebido no mês em cartão (crédito e débito) por bandeira (Visa → valor). */
@@ -411,7 +413,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "vendasDia" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -529,6 +531,14 @@ export function somarTipoVenda(us: Pick<UnitData, "tipoVenda">[]): TipoVenda {
   const out: TipoVenda = { novo: [0, 0], remat: [0, 0], renov: [0, 0] };
   for (const u of us) if (u.tipoVenda) for (const k of ["novo", "remat", "renov"] as const) { out[k][0] += u.tipoVenda[k][0]; out[k][1] += u.tipoVenda[k][1]; }
   return out;
+}
+
+/** Soma dia a dia as vendas por dia de várias unidades (só as que têm o dado; sem nenhuma, undefined). */
+export function somarVendasDia(us: Pick<UnitData, "vendasDia">[]): number[] | undefined {
+  const com = us.filter((u) => u.vendasDia?.length);
+  if (!com.length) return undefined;
+  const n = Math.max(...com.map((u) => u.vendasDia!.length));
+  return Array.from({ length: n }, (_, d) => com.reduce((s, u) => s + (u.vendasDia![d] ?? 0), 0));
 }
 
 /** Soma o perfil dos cancelamentos de várias unidades (só as que têm o dado; sem nenhuma, undefined). */
@@ -748,6 +758,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         if (e.plus !== undefined) unit.plus = e.plus;
         if (e.proMais !== undefined) unit.proMais = e.proMais;
         if (e.personal !== undefined) { unit.personal = e.personal; unit.personalEvo = true; }
+        if (e.vendasDia !== undefined) unit.vendasDia = e.vendasDia;
       }
       if (e.alunosAtivos !== undefined) {
         unit.alunosAtivos = e.alunosAtivos;
@@ -840,7 +851,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(evo.units.some((e) => e.novosContratos !== undefined)
         ? (() => {
             const t = buildTotal(evo.month, md.units);
-            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, kids: md.units.reduce((n, u) => n + (u.kids ?? 0), 0), plus: md.units.reduce((n, u) => n + (u.plus ?? 0), 0), proMais: md.units.reduce((n, u) => n + (u.proMais ?? 0), 0), vendasEvo: true, ...(md.units.some((u) => u.personalEvo) ? { personal: t.personal, personalEvo: true } : {}) };
+            const vd = somarVendasDia(md.units);
+            return { novosContratos: t.novosContratos, vendasOnline: t.vendasOnline, diarias: t.diarias, camisetas: t.camisetas, coqueteleiras: t.coqueteleiras, kids: md.units.reduce((n, u) => n + (u.kids ?? 0), 0), plus: md.units.reduce((n, u) => n + (u.plus ?? 0), 0), proMais: md.units.reduce((n, u) => n + (u.proMais ?? 0), 0), vendasEvo: true, ...(md.units.some((u) => u.personalEvo) ? { personal: t.personal, personalEvo: true } : {}), ...(vd ? { vendasDia: vd } : {}) };
           })()
         : {}),
       ...(evo.units.some((e) => e.ativosFim)
