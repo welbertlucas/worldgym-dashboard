@@ -370,12 +370,20 @@ describe("liberações de quem não está em dia (e-mail e tela Alertas)", () =>
     expect(alertasLiberacoes(meses, "2026-10", new Set(["B"])).map((a: { quem: string }) => a.quem)).toEqual(["B"]);
     expect(LIMITES_LIBERACOES.minNivel).toBe(120);
   });
+  it("com os grupos, soma aluno que não estava em dia e visitante sem venda", () => {
+    const g = (devendo: number, visitante: number) => ({ name: "V", entradas: 20000, liberacoes: devendo + visitante + 50, liberacoesMotivos: [["Saldo devedor", devendo]] as [string, number][], liberacoesGrupos: [50, devendo, 0, visitante] as [number, number, number, number] });
+    const ms = [{ month: "2026-07", units: [g(40, 10)] }, { month: "2026-08", units: [g(40, 10)] }, { month: "2026-09", units: [g(40, 10)] }, { month: "2026-10", units: [g(90, 40)] }];
+    const [a] = alertasLiberacoes(ms, "2026-10");
+    expect(a).toMatchObject({ quantidade: 130, devendo: 90, visitante: 40, nivel: true });
+    expect(a.fato).toContain("90 de alunos que não estavam em dia");
+    expect(a.fato).toContain("40 de visitantes sem venda no dia");
+  });
   it("entra nos alertas do resumo, sobre o último mês fechado", () => {
     const user = { nome: "G", papel: "unidades", unidades: ["A"] };
     const r = montarResumo(meses.map((m) => ({ ...m, units: m.units.map((x) => ({ ...x, faturamento: 100, recebimento: 100 })) })), user, "2026-11-12");
     // novembro não tem dado: o resumo é null; no dia 1º de novembro, o fechado é outubro
     expect(r).toBeNull();
     const r1 = montarResumo(meses.map((m) => ({ ...m, units: m.units.map((x) => ({ ...x, faturamento: 100, recebimento: 100 })) })), user, "2026-11-01")!;
-    expect(r1.alertas.some((a: { titulo: string }) => a.titulo === "Liberações de quem não está em dia")).toBe(true);
+    expect(r1.alertas.some((a: { titulo: string }) => a.titulo === "Liberações sem pagamento registrado")).toBe(true);
   });
 });

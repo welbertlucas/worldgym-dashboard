@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { ContratosVendidos, fatiasPorTipo } from "@/components/ContratosVendidos";
 import { somarContratosVendidos, somarEntradas, somarTipoVenda, type TipoVenda, type UnitData } from "@/data/dashboardData";
 import { LiberacoesCard } from "@/components/clientes/LiberacoesCard";
+import { fluxosDaRede, OutrasUnidadesCard } from "@/components/clientes/OutrasUnidadesCard";
 
 const limpo = (h: string) => h.replace(/<!-- -->/g, "");
 
@@ -74,6 +75,26 @@ describe("entradas na catraca", () => {
     expect(u.entradas).toBe(3); // a liberação manual também é entrada
     expect(u.liberacoesMotivos).toEqual([["Sem bloqueio antes", 2], ["Saldo devedor", 1]]);
     expect(u._motivos).toBeUndefined();
+    expect(u.liberacoesGrupos).toEqual([2, 1, 0, 0]); // 1 aluno devendo (saldo devedor); 2 alunos com pendência ou sem bloqueio
+  });
+  it("liberação manual por grupo: visitante com e sem venda no dia", () => {
+    const e = (o: Record<string, unknown>) => ({ idBranch: 5, date: "2026-11-11T18:00:00", entryType: "Controle de acesso", entryAction: "Manual Entry", ...o });
+    const u = fecharEntradas(acumularEntradas({}, [
+      e({ idProspect: 10 }), // comprou a diária no dia
+      e({ idProspect: 11 }), // sem venda
+      e({ idMember: 7 }), // aluno sem bloqueio antes
+    ], 30, new Set(["p10"])))["Asa Norte"];
+    expect(u.liberacoesGrupos).toEqual([1, 0, 1, 1]);
+  });
+  it("quem treina em outra unidade: cruza a entrada com a unidade do cadastro", () => {
+    // 5 = Asa Norte, 6 = Gama
+    const e = (idMember: number, idBranch: number, hora = "10") => ({ idBranch, idMember, date: `2026-11-11T${hora}:00:00`, entryType: "Controle de acesso", entryAction: "entry" });
+    const origem = new Map([[1, 5], [2, 5], [3, 6]]);
+    const por = fecharEntradas(acumularEntradas({}, [e(1, 6), e(1, 6, "18"), e(2, 6), e(2, 5), e(3, 6), e(9, 6)], 30, new Set(), origem), true);
+    expect(por["Gama"].outrasUnidades.vieram).toEqual({ pessoas: 2, entradas: 3, unidades: [["Asa Norte", 2, 3]] });
+    expect(por["Asa Norte"].outrasUnidades.foram).toEqual({ pessoas: 2, entradas: 3, unidades: [["Gama", 2, 3]] });
+    expect(por["Gama"].outrasUnidades.foram.pessoas).toBe(0); // o 3 é de Gama e treinou em Gama; o 9 não está no mapa
+    expect(fecharEntradas(acumularEntradas({}, [e(1, 6)], 30))["Gama"]).not.toHaveProperty("outrasUnidades"); // sem mapa
   });
   it("motivos do EVO em poucas palavras", () => {
     expect(motivoDoBloqueio("PARQ pendente atestado")).toBe("PAR-Q pendente");
@@ -88,12 +109,19 @@ describe("entradas na catraca", () => {
     const b = { ...a, liberacoes: 2, liberacoesMotivos: [["PAR-Q pendente", 2]] as [string, number][] };
     expect(somarEntradas([a, b])).toMatchObject({ liberacoes: 5, liberacoesMotivos: [["PAR-Q pendente", 3], ["Saldo devedor", 2]] });
     expect(somarEntradas([{ ...a, liberacoes: undefined, liberacoesMotivos: undefined }])).not.toHaveProperty("liberacoes");
+    const ga = { ...a, liberacoesGrupos: [1, 2, 0, 0] as [number, number, number, number] }, gb = { ...b, liberacoesGrupos: [1, 0, 0, 1] as [number, number, number, number] };
+    expect(somarEntradas([ga, gb]).liberacoesGrupos).toEqual([2, 2, 0, 1]);
+    expect(somarEntradas([ga, b])).not.toHaveProperty("liberacoesGrupos"); // uma unidade sem os grupos: a rede fica sem
   });
   it("card das liberações: total, parte de quem não estava em dia e aviso sem dado", () => {
     const total = { entradas: 2000, liberacoes: 40, liberacoesMotivos: [["PAR-Q pendente", 20], ["Saldo devedor", 10], ["Sem bloqueio antes", 8], ["Aluno inativo", 2]] } as unknown as UnitData;
     const h = limpo(renderToString(<LiberacoesCard total={total} month="2026-11" monthLabel="Novembro de 2026" partial={false} unit="Asa Norte" />));
     expect(h).toContain("40"); // total no mês
-    expect(h).toContain("De quem não estava em dia · 30%"); // saldo devedor + inativo = 12 de 40
+    expect(h).toContain("Sem pagamento registrado · 30%"); // saldo devedor + inativo = 12 de 40 (mês sem grupos)
+    expect(h).toContain("ainda não separa os visitantes");
+    const comGrupos = limpo(renderToString(<LiberacoesCard total={{ ...total, liberacoesGrupos: [26, 12, 1, 1] } as UnitData} month="2026-11" monthLabel="Novembro de 2026" partial={false} unit="Asa Norte" />));
+    expect(comGrupos).toContain("Visitante sem venda no dia");
+    expect(comGrupos).toContain("Sem pagamento registrado · 33%"); // 12 + 1 de 40
     expect(h).not.toContain("a cada 100 entradas");
     expect(h).toContain("PAR-Q pendente");
     expect(h).toContain("Quem liberou não sai pela API");
@@ -268,5 +296,17 @@ describe("planos por família e taxas fora dos produtos", () => {
     const h = limpo(renderToString(<TaxasCobradas total={{ taxasCobradas: [["MULTA X", 2, 619.8]], taxasResumo: [669.8, 2, 619.8] } as unknown as UnitData} monthLabel="Out" partial={false} unitLabel="Rede" />));
     expect(h).toContain("Multas, taxas e ajustes");
     expect(h).toContain("670");
+  });
+});
+
+describe("card de quem treina em outra unidade", () => {
+  it("unidade: para onde foram e de onde vieram; rede: maiores fluxos", () => {
+    const fx = (unidades: [string, number, number][]) => ({ pessoas: unidades.reduce((s, x) => s + x[1], 0), entradas: unidades.reduce((s, x) => s + x[2], 0), unidades });
+    const total = { ativosFim: 1000, frequentadores: 800, outrasUnidades: { foram: fx([["Gama", 30, 90]]), vieram: fx([["Asa Norte", 12, 20]]) } } as unknown as UnitData;
+    const h = limpo(renderToString(<OutrasUnidadesCard total={total} month="2026-10" monthLabel="Outubro de 2026" partial={false} unit="Itapoã" />));
+    expect(h).toContain("Alunos daqui que treinaram em outra · 3,0% dos ativos");
+    expect(h).toContain("Para onde foram os alunos de Itapoã");
+    expect(fluxosDaRede([{ name: "Gama", outrasUnidades: { foram: fx([]), vieram: fx([["Asa Norte", 5, 9], ["Itapoã", 8, 10]]) } }, { name: "Itapoã", outrasUnidades: { foram: fx([]), vieram: fx([["Gama", 30, 90]]) } }] as unknown as UnitData[]))
+      .toEqual([["Gama", "Itapoã", 30, 90], ["Itapoã", "Gama", 8, 10], ["Asa Norte", "Gama", 5, 9]]);
   });
 });

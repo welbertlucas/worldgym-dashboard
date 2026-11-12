@@ -2,7 +2,8 @@ name: Recarga do histórico (EVO)
 
 # Só à mão: regrava UMA informação nos meses informados, sem recalcular mais nada, e consolida para o painel.
 #   alunos    -> suspensos (contrato trancado), cancelamentos por gênero e faixa de idade e saldo devedor no fim de cada mês
-#   entradas  -> entradas na catraca (mapa de calor) e liberações manuais com o motivo do bloqueio
+#   entradas  -> entradas na catraca (mapa de calor), liberações manuais (motivo e grupo) e quem treina em outra unidade
+#                (lê antes os alunos de todas as unidades para o mapa de origem: cerca de 1 hora a mais)
 #   pagamentos -> formas de pagamento, bandeiras e gateways do cartão e as notas fiscais (com a cobertura do recebido)
 #   vendas    -> tudo o que vem das vendas (novos contratos, avulsas, planos mais vendidos) e as vendas por dia do mês
 # Usa a mesma fila do evo-sync para nunca gravar os meses ao mesmo tempo que ele.
@@ -56,13 +57,16 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-alunos-historico.mjs $MONTHS_DONE
-      - name: Entradas na catraca e liberações manuais
+      - name: Entradas na catraca, liberações manuais e quem treina em outra unidade
         if: ${{ github.event.inputs.etapa == 'entradas' }}
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-        run: node scripts/evo-entradas.mjs $MONTHS_DONE
+          MAPA_ORIGEM: ${{ runner.temp }}/origem-alunos.json
+        run: |
+          node scripts/evo-origem.mjs
+          node scripts/evo-entradas.mjs $MONTHS_DONE
       - name: Vendas do mês e vendas por dia
         if: ${{ github.event.inputs.etapa == 'vendas' }}
         env:

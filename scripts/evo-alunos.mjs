@@ -2,12 +2,14 @@
 //  - os ativos de cada mês (ativosFim, ativosIni, cancelados, fluxo, permanência) e a renovação (como evo-ativos.mjs);
 //  - a foto de hoje: bairros, quem saiu, último acesso e perfil (como evo-bairros.mjs);
 //  - os contratos ativos de hoje: especiais/VIP, personal, local × rede (como evo-contratos.mjs);
-//  - o saldo devedor em aberto no fim de cada mês (títulos "Balance due", cruzados com quem é aluno ativo).
+//  - o saldo devedor em aberto no fim de cada mês (títulos "Balance due", cruzados com quem é aluno ativo);
+//  - o mapa temporário "aluno → unidade de origem" para a etapa das entradas (server/origem.js; não vai para o painel).
 // Antes eram duas varreduras completas dos alunos (cerca de 75 minutos cada).
 // Uso: node --env-file=.env.local scripts/evo-alunos.mjs 2026-10 2026-11
 import { fetchAll, hojeBR, listBranches } from "../server/evo.js";
 import { ativosDaUnidade, UNIDADES } from "../server/ativos.js";
 import { titulosDeSaldo } from "../server/saldo.js";
+import { anotarOrigem, salvarMapa } from "../server/origem.js";
 import { aplicarBairros, fotoDosAlunos } from "../server/bairros.js";
 import { contratosUnidade } from "../server/contratos.js";
 import { relatorioNaoRenovados } from "../server/renovacao.js";
@@ -26,8 +28,10 @@ const naoRenov = Object.fromEntries(await Promise.all(meses.map(async (ym) => [y
 const geo = await loadGeo();
 const locais = new Map((await listBranches()).map((b) => [b.idBranch, [b.latitude, b.longitude]]));
 
+const mapaOrigem = {};
 for (const [id, nome] of Object.entries(UNIDADES)) {
   const membros = await fetchAll(`/members?idBranch=${id}`);
+  anotarOrigem(mapaOrigem, membros, id);
   // Saldo devedor: se a leitura falhar, os ativos seguem sem ele (a próxima noite tenta de novo).
   const titulos = await titulosDeSaldo(Number(id)).catch((e) => { console.log(nome, `saldo devedor com erro: ${e.message}`); return null; });
 
@@ -56,6 +60,8 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
     console.log(nome, `bairros com erro: ${e.message}`); // não derruba os ativos
   }
 }
+
+salvarMapa(mapaOrigem);
 
 const agora = new Date().toISOString();
 for (const ym of meses) blobs[ym].ativosEm = agora;

@@ -11,7 +11,17 @@
 // que a mesma pessoa levou na mesma unidade até 30 min antes (a catraca barra e a recepção libera; em 09/11/2026 a
 // liberação veio 23 s depois do bloqueio na mediana e no máximo ~18 min). Quem liberou e o motivo digitado na
 // liberação NÃO saem pela API (o EVO confirmou em 11/11/2026: só na tela Controle de entradas).
-import { evoGet } from "./evo.js";
+// Cada liberação também cai num de 4 grupos (liberacoesGrupos), para separar o que tem pagamento registrado:
+//   0 aluno com pendência administrativa (PAR-Q, contrato sem assinatura, facial, sem bloqueio antes...);
+//   1 aluno que não estava em dia (saldo devedor, inativo ou plano sem acesso àquela catraca);
+//   2 visitante (sem cadastro de aluno) com venda no mesmo dia (diária, plano);
+//   3 visitante sem venda no dia (aula experimental ou acesso sem pagamento registrado).
+// Em 11/11/2026: 143 liberações, 121 de alunos e 22 de visitantes (14 com venda no dia); nenhuma sem cadastro.
+//
+// Com o mapa "aluno → unidade de origem" (server/origem.js), conta também quem treinou em outra unidade: em cada unidade,
+// os alunos de outras unidades que entraram nela (vieram) e os alunos dela que entraram em outras (foram). Só contagens.
+import { evoGet, fetchAll } from "./evo.js";
+import { MOTIVOS_DE_RECEITA } from "./alertasLiberacoes.js";
 import { UNIT_NAMES } from "./units.js";
 
 const PAGE = 10000;
@@ -19,7 +29,22 @@ const PAGE = 10000;
 export const ehEntrada = (e) => e.entryType === "Controle de acesso" && (e.entryAction === "entry" || e.entryAction === "Manual Entry");
 
 /** Acumulador vazio de uma unidade para um mês de `dias` dias. */
-const novo = (dias) => ({ calor: Array(7 * 24).fill(0), entradasDia: Array(dias).fill(0), _pessoas: new Set(), liberacoes: 0, _motivos: {} });
+const novo = (dias) => ({ calor: Array(7 * 24).fill(0), entradasDia: Array(dias).fill(0), _pessoas: new Set(), liberacoes: 0, _motivos: {}, grupos: [0, 0, 0, 0], _vieram: new Map(), _foram: new Map() });
+
+/** Soma uma entrada de `quem` no fluxo `mapa` (unidade → { pessoas, entradas }). */
+const anotarFluxo = (mapa, unidade, quem) => {
+  const f = mapa.get(unidade) ?? { p: new Set(), e: 0 };
+  f.p.add(quem);
+  f.e += 1;
+  mapa.set(unidade, f);
+};
+
+/** Grupo da liberação manual (ver o topo do arquivo). `compradores` = quem teve venda no dia ("m<id>"/"p<id>"). */
+export function grupoDaLiberacao(e, motivo, compradores) {
+  if (e.idMember) return MOTIVOS_DE_RECEITA.includes(motivo) ? 1 : 0;
+  const quem = quemEntrou(e);
+  return quem && compradores.has(quem) ? 2 : 3;
+}
 
 export const SEM_BLOQUEIO = "Sem bloqueio antes";
 const JANELA_MS = 30 * 60 * 1000;
@@ -48,7 +73,7 @@ const instante = (e) => Date.parse(`${String(e.date ?? "").slice(0, 19)}Z`);
  * ("2026-11-06T18:42:10"): dia da semana (0 = domingo) e hora saem do próprio texto, sem fuso.
  * Passe os registros de um dia inteiro de uma vez: o motivo de cada liberação manual é procurado nos bloqueios da lista.
  */
-export function acumularEntradas(por, registros, dias) {
+export function acumularEntradas(por, registros, dias, compradores = new Set(), origem = null) {
   // Bloqueios por unidade + pessoa, para achar o que veio antes de cada liberação manual.
   const bloqueios = new Map();
   for (const e of registros) {
@@ -72,6 +97,11 @@ export function acumularEntradas(por, registros, dias) {
     if (dd <= u.entradasDia.length) u.entradasDia[dd - 1] += 1;
     const quem = quemEntrou(e);
     if (quem) u._pessoas.add(quem);
+    const casa = origem && e.idMember ? UNIT_NAMES[origem.get(e.idMember)] : null;
+    if (casa && casa !== nome) {
+      anotarFluxo(u._vieram, casa, quem);
+      anotarFluxo((por[casa] ??= novo(dias))._foram, nome, quem);
+    }
     if (e.entryAction === "Manual Entry") {
       const t = instante(e);
       let antes = null;
@@ -79,25 +109,37 @@ export function acumularEntradas(por, registros, dias) {
       const motivo = antes ? motivoDoBloqueio(antes[1]) : SEM_BLOQUEIO;
       u.liberacoes += 1;
       u._motivos[motivo] = (u._motivos[motivo] ?? 0) + 1;
+      u.grupos[grupoDaLiberacao(e, motivo, compradores)] += 1;
     }
   }
   return por;
 }
 
 /** Fecha o acumulador: total de entradas e pessoas diferentes (sem guardar quem). */
-export function fecharEntradas(por) {
+const fluxo = (mapa) => {
+  const lista = [...mapa].map(([n, f]) => [n, f.p.size, f.e]).sort((a, b) => b[1] - a[1] || b[2] - a[2]);
+  const pessoas = new Set([...mapa.values()].flatMap((f) => [...f.p])).size;
+  return { pessoas, entradas: lista.reduce((s, x) => s + x[2], 0), unidades: lista };
+};
+
+/**
+ * Fecha o acumulador: total de entradas e pessoas diferentes (sem guardar quem). Com `comOrigem`, grava também
+ * `outrasUnidades` = { vieram, foram }: { pessoas, entradas, unidades: [[unidade, pessoas, entradas]] }.
+ */
+export function fecharEntradas(por, comOrigem = false) {
   const out = {};
   for (const [nome, u] of Object.entries(por)) {
     out[nome] = {
       calor: u.calor, entradasDia: u.entradasDia, entradas: u.calor.reduce((s, n) => s + n, 0), frequentadores: u._pessoas.size,
-      liberacoes: u.liberacoes, liberacoesMotivos: Object.entries(u._motivos).sort((a, b) => b[1] - a[1]),
+      liberacoes: u.liberacoes, liberacoesMotivos: Object.entries(u._motivos).sort((a, b) => b[1] - a[1]), liberacoesGrupos: u.grupos,
+      ...(comOrigem ? { outrasUnidades: { vieram: fluxo(u._vieram), foram: fluxo(u._foram) } } : {}),
     };
   }
   return out;
 }
 
 /** Entradas de um mês, do dia 1 até `ate` (AAAA-MM-DD; no mês corrente, hoje). Lê dia a dia. */
-export async function entradasDoMes(ym, ate) {
+export async function entradasDoMes(ym, ate, origem = null) {
   const [y, m] = ym.split("-").map(Number);
   const ultimo = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const fim = ate && ate.slice(0, 7) === ym ? Number(ate.slice(8, 10)) : ultimo;
@@ -110,7 +152,10 @@ export async function entradasDoMes(ym, ate) {
       for (const r of rows) doDia.push(r);
       if (rows.length < PAGE) break;
     }
-    acumularEntradas(por, doDia, fim);
+    // Quem comprou algo no dia (venda não removida): separa o visitante que pagou a diária do que entrou sem venda.
+    const vendas = doDia.some((r) => r.entryAction === "Manual Entry" && !r.idMember) ? await fetchAll(`/sales?idBranch=5&dateSaleStart=${dia}&dateSaleEnd=${dia}`) : [];
+    const compradores = new Set(vendas.filter((s) => !s.removed).flatMap((s) => [s.idMember && `m${s.idMember}`, s.idProspect && `p${s.idProspect}`].filter(Boolean)));
+    acumularEntradas(por, doDia, fim, compradores, origem);
   }
-  return fecharEntradas(por);
+  return fecharEntradas(por, !!origem);
 }

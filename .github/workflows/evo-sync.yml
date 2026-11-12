@@ -83,6 +83,8 @@ jobs:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          # Mapa temporário aluno → unidade de origem (só no runner; a etapa das entradas lê).
+          MAPA_ORIGEM: ${{ runner.temp }}/origem-alunos.json
         run: node scripts/evo-alunos.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
         name: NPS por unidade (WeHelp)
@@ -129,11 +131,12 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-vendas.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
-        name: Entradas na catraca (mapa de calor dia × hora e liberações manuais)
+        name: Entradas na catraca (mapa de calor, liberações manuais e quem treina em outra unidade)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          MAPA_ORIGEM: ${{ runner.temp }}/origem-alunos.json
         run: node scripts/evo-entradas.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
         name: Recebimento por forma de pagamento e notas fiscais

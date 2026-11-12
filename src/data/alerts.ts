@@ -153,7 +153,7 @@ export function computeAlerts(data: MonthData[], metas: Meta[] = [], now: Date =
       fact: `Do que recebeu em ${formatMonthLong(prev!.month)}, ${pct(c)} tem nota fiscal; faltam notas para ${fmtBRL(n.cobertura[1] - n.cobertura[0])}.` });
   }
 
-  // Liberações manuais de quem não está em dia (mesma regra do resumo por e-mail: server/alertasLiberacoes.js).
+  // Liberações manuais sem pagamento registrado (mesma regra do resumo por e-mail: server/alertasLiberacoes.js).
   for (const a of alertasLiberacoes(data, evalMonth)) {
     push({ unit: a.quem, kind: "liberacoes", severity: "attention", weight: (unitIn(cur, a.quem)?.faturamento ?? 0) / totalFat,
       rule: [a.nivel && `≥ ${LL.minNivel} no mês`, a.alta && `≥ ${LL.vezes}× a média dos ${LL.baseMeses} meses anteriores`].filter(Boolean).join(" e "),
