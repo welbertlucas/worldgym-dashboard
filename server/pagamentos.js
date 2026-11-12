@@ -46,10 +46,10 @@ function somarCartaoPor(titulos, campo) {
   return out;
 }
 
-/** Formas de pagamento, bandeiras e gateways do cartão do mês, com uma só leitura dos recebimentos. */
+/** Formas de pagamento, bandeiras e gateways do cartão do mês, com uma só leitura dos recebimentos (devolvidos em `titulos`). */
 export async function pagamentosDoMes(idBranch, ym) {
   const todos = await titulosDoMes(idBranch, ym);
-  return { formas: somarFormas(todos), bandeiras: somarBandeiras(todos), gateways: somarGateways(todos) };
+  return { formas: somarFormas(todos), bandeiras: somarBandeiras(todos), gateways: somarGateways(todos), titulos: todos };
 }
 
 export async function formasDoMes(idBranch, ym) {

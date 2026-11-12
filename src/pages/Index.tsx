@@ -3,6 +3,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
 import { VendasPorDia } from "@/components/VendasPorDia";
 import { SaldoDevedorCard } from "@/components/SaldoDevedor";
+import { NotasFiscaisCard } from "@/components/NotasFiscais";
 import NovosContratosChart from "@/components/NovosContratosChart";
 import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
@@ -404,6 +405,7 @@ const Index = () => {
                 <GatewaysCartao total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
                 <TaxasCobradas total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} />
               </div>
+              <NotasFiscaisCard total={kpiCtx.cur.total} month={fullMonthData.month} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unit={selectedUnit} />
               <CobrancasRecusa total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} />
             </div>
           </section>

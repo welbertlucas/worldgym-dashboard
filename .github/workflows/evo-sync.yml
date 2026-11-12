@@ -136,7 +136,7 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-entradas.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
-        name: Recebimento por forma de pagamento
+        name: Recebimento por forma de pagamento e notas fiscais
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
