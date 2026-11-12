@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { UnitHighlights } from "@/components/UnitHighlights";
 import { UnitDeltaChart } from "@/components/UnitDeltaChart";
@@ -15,19 +16,53 @@ interface Props {
   evalMonth: string | null;
   prevEvalMonth: string | null;
   deltas: UnitDelta[];
+  /** Unidade do filtro do topo: o ranking abre nela (posições + vizinhas), com a opção de ver todas. */
+  unit?: string | null;
 }
 
-/** Benchmark: as unidades comparadas entre si (sempre todas; o filtro de unidade não se aplica aqui). */
-export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas }: Props) {
+/** Benchmark: as unidades comparadas entre si (sempre todas). Com uma unidade no filtro, o ranking abre centrado nela. */
+export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, unit = null }: Props) {
+  const [verTodas, setVerTodas] = useState<string | null>(null); // unidade para a qual o usuário pediu "ver todas"
   const partial = isPartialMonth(selectedMonth);
   const units = getDataByMonthRede(selectedMonth)?.units ?? [];
+  const foco = unit && units.some((u) => u.name === unit) ? unit : null;
+  const todas = !foco || verTodas === foco;
   const hasDeltas = deltas.length > 0 && !!evalMonth && !!prevEvalMonth;
+  const atalhoDestaques = hasDeltas ? [{ id: "bm-destaques", rotulo: "Quem melhorou e quem piorou" }] : [];
+  const atalhoRanking = { id: "bm-ranking", rotulo: foco ? `Posição de ${foco}` : "Ranking" };
+  // Com uma unidade no filtro, a posição dela vem primeiro.
   const secoes = [
-    ...(hasDeltas ? [{ id: "bm-destaques", rotulo: "Quem melhorou e quem piorou" }] : []),
-    { id: "bm-ranking", rotulo: "Ranking" },
+    ...(foco ? [atalhoRanking, ...atalhoDestaques] : [...atalhoDestaques, atalhoRanking]),
     { id: "bm-contratos", rotulo: "Contratos ativos" },
     { id: "bm-tabela", rotulo: "Tabela completa" },
   ];
+  const destaques = hasDeltas && (
+      <Secao id="bm-destaques" titulo="Quem melhorou e quem piorou" descricao={<>Variação de {formatMonthLong(evalMonth!)} em relação a {formatMonthLong(prevEvalMonth!)} (último mês fechado contra o anterior).</>}>
+        <UnitHighlights deltas={deltas} />
+      </Secao>
+  );
+  const ranking = (
+    <Secao
+      id="bm-ranking"
+      titulo={foco ? `Posição de ${foco} na rede` : "Ranking"}
+      descricao={foco
+        ? <>Onde {foco} fica em cada indicador (clique numa posição para trocar) e, abaixo, {todas ? "todas as unidades, com ela destacada" : "ela com as duas unidades acima e as duas abaixo, e o 1º lugar como referência"}. Para comparar sem destaque, tire a unidade no filtro do topo.</>
+        : "Posição de cada unidade no indicador escolhido. Em “Variação”, quanto cada uma mudou do penúltimo para o último mês fechado."}
+    >
+      <UnitsRanking
+        key={foco ?? "rede"}
+        units={units}
+        monthLabel={formatMonthLong(selectedMonth)}
+        partial={partial}
+        variationView={hasDeltas ? <UnitDeltaChart deltas={deltas} curMonth={evalMonth!} prevMonth={prevEvalMonth!} /> : undefined}
+        destaque={foco ?? undefined}
+        compacto={!todas}
+        onVerCompleto={foco ? () => setVerTodas(todas ? null : foco) : undefined}
+        rotuloVerCompleto={todas ? `Mostrar só as unidades perto de ${foco}` : "Ver todas as unidades"}
+      />
+    </Secao>
+  );
+
   return (
     <div className="space-y-10">
       <div className="space-y-3">
@@ -35,15 +70,9 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas }
         <AtalhosSecoes itens={secoes} />
       </div>
 
-      {hasDeltas && (
-        <Secao id="bm-destaques" titulo="Quem melhorou e quem piorou" descricao={<>Variação de {formatMonthLong(evalMonth!)} em relação a {formatMonthLong(prevEvalMonth!)} (último mês fechado contra o anterior).</>}>
-          <UnitHighlights deltas={deltas} />
-        </Secao>
-      )}
-
-      <Secao id="bm-ranking" titulo="Ranking" descricao="Posição de cada unidade no indicador escolhido. Em “Variação”, quanto cada uma mudou do penúltimo para o último mês fechado.">
-        <UnitsRanking units={units} monthLabel={formatMonthLong(selectedMonth)} partial={partial} variationView={hasDeltas ? <UnitDeltaChart deltas={deltas} curMonth={evalMonth!} prevMonth={prevEvalMonth!} /> : undefined} />
-      </Secao>
+      {!foco && destaques}
+      {ranking}
+      {foco && destaques}
 
       <Secao id="bm-contratos" titulo="Contratos ativos" descricao="Foto de hoje do EVO: especiais/VIP, personal e plano local ou rede, por unidade.">
         <ContratosAtivos units={units} />

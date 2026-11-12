@@ -138,11 +138,11 @@ const Index = () => {
   const unitData = selectedUnit ? getUnitData(fullMonthData.month, selectedUnit) : null;
 
 
-  // Visão Executiva e Benchmark não têm filtro de unidade. A Executiva é da rede para quem vê tudo e,
-  // no perfil de unidades, só a soma das unidades da pessoa (nada da rede).
+  // A Visão Executiva não tem filtro de unidade: é da rede para quem vê tudo e, no perfil de unidades, só a soma das
+  // unidades da pessoa (nada da rede). O Benchmark mostra sempre todas; a unidade do filtro só fica destacada nele.
   const soAsProprias = unidadesProprias();
-  const semFiltroDeUnidade = activeTab === "executiva" || activeTab === "benchmark";
-  const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade ? null : selectedUnit) : null;
+  const semFiltroDeUnidade = activeTab === "executiva";
+  const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
   const months = dashboardData.map((d) => d.month);
   const evalMonth = getLastClosedMonth(months);
@@ -250,7 +250,7 @@ const Index = () => {
                   Dashboard de resultados
                 </h1>
                 <p className="text-muted-foreground text-xs sm:text-sm sm:truncate first-letter:uppercase">
-                  {(ABAS_COM_SELETOR.includes(activeTab) ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? (soAsProprias && activeTab !== "benchmark" ? (soAsProprias.length === 1 ? soAsProprias[0] : "Suas unidades") : "Rede")} • {formatDate(fullMonthData.month)}
+                  {activeTab === "benchmark" ? (selectedUnit ? `${selectedUnit} na rede` : "Rede") : (ABAS_COM_SELETOR.includes(activeTab) ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? (soAsProprias ? (soAsProprias.length === 1 ? soAsProprias[0] : "Suas unidades") : "Rede")} • {formatDate(fullMonthData.month)}
                   {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
               </div>
@@ -427,6 +427,7 @@ const Index = () => {
             evalMonth={evalMonthRede}
             prevEvalMonth={evalIdxRede > 0 ? dashboardDataRede[evalIdxRede - 1].month : null}
             deltas={unitDeltasRede}
+            unit={selectedUnit}
           />
         )}
 

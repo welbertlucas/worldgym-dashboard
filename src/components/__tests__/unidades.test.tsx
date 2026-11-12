@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { UnitHighlights } from "@/components/UnitHighlights";
-import { UnitsRanking } from "@/components/unidades/UnitsRanking";
+import { PosicoesNaRede, UnitsRanking } from "@/components/unidades/UnitsRanking";
+import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
+import { dashboardDataRede } from "@/data/dashboardData";
 import { UnitComparison } from "@/components/UnitComparison";
 import { dashboardData } from "@/data/dashboardData";
 import { computeUnitDeltas } from "@/data/unitMetrics";
@@ -48,8 +50,41 @@ describe("UnitsRanking", () => {
     expect(html).toContain('aria-haspopup="listbox"');
   });
 
+  it("com destaque: compacto mostra só as vizinhas; compacto={false} mostra todas com ela destacada", () => {
+    const muitas = ["A", "B", "C", "D", "E", "F", "G", "H"].map((n, k) => unit(n, { faturamento: 1000 - k * 100 }));
+    const compacto = renderToString(<UnitsRanking units={muitas} monthLabel="x" partial={false} destaque="F" />);
+    expect(compacto).not.toContain(">B<");
+    expect(compacto).toContain(">H<");
+    const todas = renderToString(<UnitsRanking units={muitas} monthLabel="x" partial={false} destaque="F" compacto={false} onVerCompleto={() => {}} rotuloVerCompleto="Mostrar só as unidades perto de F" />);
+    expect(todas).toContain(">B<");
+    expect(todas).toContain('aria-current="true"');
+    expect(todas).toContain("Mostrar só as unidades perto de F");
+  });
+
+  it("posições na rede (retrato): só os cartões de posição, sem a lista", () => {
+    const html = renderToString(<PosicoesNaRede units={units} unidade="A" monthLabel="setembro de 2026" onVerNoBenchmark={() => {}} />);
+    expect(html).toContain("Posição de A na rede");
+    expect(html.replace(/<!-- -->/g, "")).toContain("2º");
+    expect(html).toContain("Ver no Benchmark");
+    expect(html).not.toContain(`aria-label="Unidades por`);
+  });
+
   it("sem visão de variação, não oferece a alternância", () => {
     expect(renderToString(<UnitsRanking units={units} monthLabel="x" partial={false} />)).not.toContain("Variação");
+  });
+});
+
+describe("BenchmarkTab", () => {
+  afterEach(() => { dashboardDataRede.length = 0; });
+  it("com unidade no filtro, abre centrado nela; sem unidade, o ranking da rede", () => {
+    dashboardDataRede.push(month("2026-09", ["A", "B", "C", "D", "E", "F", "G"].map((n, k) => unit(n, { faturamento: 1000 - k * 100 }))));
+    const comUnidade = renderToString(<BenchmarkTab selectedMonth="2026-09" evalMonth={null} prevEvalMonth={null} deltas={[]} unit="F" />);
+    expect(comUnidade).toContain("Posição de F na rede");
+    expect(comUnidade).toContain("Ver todas as unidades");
+    expect(comUnidade).not.toContain(">B<");
+    const rede = renderToString(<BenchmarkTab selectedMonth="2026-09" evalMonth={null} prevEvalMonth={null} deltas={[]} />);
+    expect(rede).toContain("Desempenho por unidade");
+    expect(rede).toContain(">B<");
   });
 });
 

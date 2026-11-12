@@ -18,8 +18,11 @@ interface Props {
   variationView?: React.ReactNode;
   /** Unidade em foco: a linha dela fica destacada e aparece a posição dela em cada indicador (clicar troca o indicador). */
   destaque?: string;
-  /** Com `destaque`: link para o ranking completo (no Benchmark). */
+  /** Com `destaque`: só a unidade, as 2 de cima, as 2 de baixo e o 1º (padrão). false mostra todas, com ela destacada. */
+  compacto?: boolean;
+  /** Com `destaque`: botão abaixo da lista (no retrato, abre o Benchmark; no Benchmark, alterna entre vizinhas e todas). */
   onVerCompleto?: () => void;
+  rotuloVerCompleto?: string;
 }
 
 /** Recorte do ranking em volta da unidade em foco: o 1º lugar e até 2 acima e 2 abaixo dela (índices em `ordem`). */
@@ -40,6 +43,35 @@ export function posicaoEntre(units: UnitData[], nome: string, ind: Indicator): {
   const eu = vals.find((r) => r.name === nome);
   if (!eu) return null;
   return { posicao: vals.filter((r) => (ind.direction === "higher" ? r.v > eu.v : r.v < eu.v)).length + 1, de: vals.length };
+}
+
+/** Só as posições da unidade nos indicadores principais (o retrato da unidade); o ranking fica no Benchmark. */
+export function PosicoesNaRede({ units, unidade, monthLabel, onVerNoBenchmark }: { units: UnitData[]; unidade: string; monthLabel: string; onVerNoBenchmark?: () => void }) {
+  return (
+    <section className="card-surface p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Posição de {unidade} na rede</h3>
+          <p className="text-sm text-muted-foreground"><span className="first-letter:uppercase">{monthLabel}</span> · 1º = melhor resultado</p>
+        </div>
+        {onVerNoBenchmark && (
+          <button type="button" onClick={onVerNoBenchmark} className="no-print rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver no Benchmark</button>
+        )}
+      </div>
+      <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7" aria-label={`Posição de ${unidade} na rede`}>
+        {RESUMO_POSICAO.map((k) => {
+          const i = INDICATORS.find((x) => x.key === k)!;
+          const p = posicaoEntre(units, unidade, i);
+          return (
+            <li key={k} className="rounded-xl border border-border bg-white px-3 py-2">
+              <span className="block truncate text-xs text-muted-foreground">{i.label}</span>
+              <span className="font-display text-lg font-semibold tabular-nums text-foreground">{p ? `${p.posicao}º` : "—"}</span> <span className="text-xs text-muted-foreground">{p ? `de ${p.de}` : "sem dado"}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 /** Botão que abre a lista de indicadores, agrupada por categoria (no lugar de uma fileira de botões por indicador). */
@@ -102,7 +134,7 @@ function IndicadorMenu({ value, onChange, semDado }: { value: string; onChange: 
   );
 }
 
-export function UnitsRanking({ units, monthLabel, partial, variationView, destaque, onVerCompleto }: Props) {
+export function UnitsRanking({ units, monthLabel, partial, variationView, destaque, compacto: compactoProp, onVerCompleto, rotuloVerCompleto }: Props) {
   const [key, setKey] = useState("faturamento");
   const [mode, setMode] = useState<"values" | "variation">("values");
   const [reversed, setReversed] = useState(false);
@@ -114,7 +146,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
   const lowerFirst = ind.direction === "lower";
   const bestFirst = [...withData].sort((a, b) => (lowerFirst ? a.v - b.v : b.v - a.v));
   const position = new Map(bestFirst.map((r, i) => [r.name, i + 1])); // posição real, mesmo com a ordem invertida
-  const compacto = !!destaque;
+  const compacto = !!destaque && compactoProp !== false;
   const rowsTodas = reversed && !compacto ? [...bestFirst].reverse() : bestFirst;
   const recorte = compacto ? recorteEmVolta(bestFirst.length, bestFirst.findIndex((r) => r.name === destaque)) : null;
   const rows = recorte ? recorte.map((k) => bestFirst[k]) : rowsTodas;
@@ -248,8 +280,8 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
             </>
           )}
 
-          {compacto && onVerCompleto && (
-            <button type="button" onClick={onVerCompleto} className="no-print mt-4 text-sm font-semibold text-primary-ink underline underline-offset-4 hover:text-primary-ink/80">Ver ranking completo no Benchmark</button>
+          {destaque && onVerCompleto && (
+            <button type="button" onClick={onVerCompleto} className="no-print mt-4 text-sm font-semibold text-primary-ink underline underline-offset-4 hover:text-primary-ink/80">{rotuloVerCompleto ?? "Ver ranking completo no Benchmark"}</button>
           )}
           {!compacto && noData.length > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">Sem dado neste mês: {noData.join(", ")}.</p>

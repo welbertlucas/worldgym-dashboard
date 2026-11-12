@@ -5,7 +5,8 @@ import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid
 import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { TrendCard } from "@/components/unidades/TrendCard";
 import { ContratosTiles } from "@/components/unidades/ContratosTiles";
-import { UnitsRanking } from "@/components/unidades/UnitsRanking";
+import { PosicoesNaRede } from "@/components/unidades/UnitsRanking";
+import { ContratosVendidos } from "@/components/ContratosVendidos";
 import { AtalhosSecoes, Secao } from "@/components/unidades/Secao";
 import { UnitComparison } from "@/components/UnitComparison";
 import { contratosView } from "@/data/contratosAtivos";
@@ -44,7 +45,7 @@ const unitSpecs: KpiSpec[] = [
 ];
 const REDE = "__rede__";
 
-/** Uma unidade: indicadores do mês, posição na rede (ranking com ela em destaque), metas, contratos e evolução contra a rede ou outra unidade. */
+/** Uma unidade: indicadores do mês, posição na rede (o ranking fica no Benchmark), metas, contratos e evolução contra a rede ou outra unidade. */
 export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpenMetas, onOpenTab }: Props) {
   const units = useMemo(() => getAvailableUnits(), []);
   const fechados = useMemo(() => dashboardData.filter((d) => !isPartialMonth(d.month)).map((d) => d.month), []);
@@ -89,6 +90,7 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
   const secoes = [
     { id: "ud-mes", rotulo: "Resultado do mês" },
     { id: "ud-posicao", rotulo: "Posição na rede" },
+    { id: "ud-vendidos", rotulo: "Contratos mais vendidos" },
     { id: "ud-evolucao", rotulo: "Evolução" },
     ...(outra ? [{ id: "ud-comparacao", rotulo: `Comparação com ${outra}` }] : []),
     ...(contratosDaUnidade ? [{ id: "ud-contratos", rotulo: "Contratos ativos" }] : []),
@@ -116,8 +118,17 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
         </div>
       </Secao>
 
-      <Secao id="ud-posicao" titulo="Posição na rede" descricao={<>Onde {unit} fica entre as unidades em {rankMonth ? formatMonthLong(rankMonth) : "—"}{partial ? " (último mês fechado)" : ""}. 1º = melhor resultado. Clique numa posição para trocar o indicador. Abaixo, {unit} com as duas unidades acima e as duas abaixo, e o 1º lugar como referência.</>}>
-        <UnitsRanking units={rankUnits} monthLabel={rankMonth ? formatMonthLong(rankMonth) : ""} partial={false} destaque={unit} onVerCompleto={onOpenTab ? () => onOpenTab("benchmark") : undefined} />
+      <Secao id="ud-posicao" titulo="Posição na rede" descricao={<>Onde {unit} fica entre as unidades em {rankMonth ? formatMonthLong(rankMonth) : "—"}{partial ? " (último mês fechado)" : ""}. Para ver quem está acima e abaixo em cada indicador, abra o Benchmark: ele já vem centrado em {unit}.</>}>
+        <PosicoesNaRede units={rankUnits} unidade={unit} monthLabel={rankMonth ? formatMonthLong(rankMonth) : ""} onVerNoBenchmark={onOpenTab ? () => onOpenTab("benchmark") : undefined} />
+      </Secao>
+
+      <Secao
+        id="ud-vendidos"
+        titulo="Contratos mais vendidos"
+        descricao={`Os planos que ${unit} mais vendeu em ${formatMonthLong(selectedMonth)}${partial ? " (até hoje)" : ""} a alunos novos e a quem voltou, quem comprou e a duração dos planos.`}
+        acoes={onOpenTab ? <button type="button" onClick={() => onOpenTab("comercial")} className="no-print rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Ver o Comercial de {unit}</button> : undefined}
+      >
+        {unitNow ? <ContratosVendidos total={unitNow} monthLabel={formatMonthLong(selectedMonth)} partial={partial} unitLabel={unit} /> : <p className="text-sm text-muted-foreground">{unit} não tem dados em {formatMonthLong(selectedMonth)}.</p>}
       </Secao>
 
       <Secao
