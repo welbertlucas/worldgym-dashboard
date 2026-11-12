@@ -129,7 +129,7 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-vendas.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
-        name: Entradas na catraca (mapa de calor dia × hora)
+        name: Entradas na catraca (mapa de calor dia × hora e liberações manuais)
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}

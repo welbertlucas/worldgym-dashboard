@@ -1,4 +1,4 @@
-// Grava nos meses já calculados as entradas na catraca por unidade: mapa de calor (dia da semana × hora),
+// Grava nos meses já calculados as entradas na catraca por unidade: mapa de calor (dia da semana × hora), liberações manuais,
 // entradas por dia e pessoas diferentes que vieram. Só contagens.
 // Uso: node --env-file=.env.local scripts/evo-entradas.mjs 2026-10 2026-11
 import { hojeBR } from "../server/evo.js";

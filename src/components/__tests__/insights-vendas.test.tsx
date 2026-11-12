@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { ContratosVendidos, fatiasPorTipo } from "@/components/ContratosVendidos";
-import { somarContratosVendidos, somarTipoVenda, type TipoVenda, type UnitData } from "@/data/dashboardData";
+import { somarContratosVendidos, somarEntradas, somarTipoVenda, type TipoVenda, type UnitData } from "@/data/dashboardData";
+import { LiberacoesCard } from "@/components/clientes/LiberacoesCard";
 
 const limpo = (h: string) => h.replace(/<!-- -->/g, "");
 
@@ -35,7 +36,7 @@ describe("contratos mais vendidos", () => {
 
 import { MapaCalorEntradas, horarioDePico, mediaPorHora, ocorrenciasDaSemana } from "@/components/clientes/MapaCalorEntradas";
 // @ts-expect-error módulo JS do servidor
-import { acumularEntradas, fecharEntradas } from "../../../server/entradas.js";
+import { acumularEntradas, fecharEntradas, motivoDoBloqueio } from "../../../server/entradas.js";
 
 describe("entradas na catraca", () => {
   it("conta só entradas liberadas, por dia da semana e hora, e pessoas diferentes sem guardar quem", () => {
@@ -53,6 +54,50 @@ describe("entradas na catraca", () => {
     expect(u.calor[6 * 24 + 7]).toBe(1); // sábado 7h
     expect(u.entradasDia[5]).toBe(3);
     expect(u._pessoas).toBeUndefined();
+  });
+  it("liberação manual: conta à parte, com o motivo do bloqueio da mesma pessoa até 30 min antes", () => {
+    const e = (date: string, o: Record<string, unknown> = {}) => ({ idBranch: 5, date, entryType: "Controle de acesso", entryAction: "entry", idMember: 1, ...o });
+    const u = fecharEntradas(acumularEntradas({}, [
+      // pessoa 1: barrada 2x (o mais recente vale), liberada na mão
+      e("2026-11-09T19:33:07", { entryAction: "Blocked", blockReason: "PARQ sem preenchimento" }),
+      e("2026-11-09T19:33:46", { entryAction: "Blocked", blockReason: "Saldo devedor" }),
+      e("2026-11-09T19:34:37", { entryAction: "Manual Entry" }),
+      // pessoa 2: o bloqueio foi há mais de 30 min, ou em outra unidade -> sem bloqueio antes
+      e("2026-11-09T10:00:00", { idMember: 2, entryAction: "Blocked", blockReason: "Aluno inativo" }),
+      e("2026-11-09T11:00:00", { idMember: 2, idBranch: 8, entryAction: "Blocked", blockReason: "Aluno inativo" }),
+      e("2026-11-09T11:00:30", { idMember: 2, entryAction: "Manual Entry" }),
+      // pessoa 3: barrada DEPOIS da liberação não conta
+      e("2026-11-09T12:00:00", { idMember: 3, entryAction: "Manual Entry" }),
+      e("2026-11-09T12:00:10", { idMember: 3, entryAction: "Blocked", blockReason: "Duplo acesso. aguarde. " }),
+    ], 30))["Asa Norte"];
+    expect(u.liberacoes).toBe(3);
+    expect(u.entradas).toBe(3); // a liberação manual também é entrada
+    expect(u.liberacoesMotivos).toEqual([["Sem bloqueio antes", 2], ["Saldo devedor", 1]]);
+    expect(u._motivos).toBeUndefined();
+  });
+  it("motivos do EVO em poucas palavras", () => {
+    expect(motivoDoBloqueio("PARQ pendente atestado")).toBe("PAR-Q pendente");
+    expect(motivoDoBloqueio("Duplo acesso. aguarde. ")).toBe("Duplo acesso");
+    expect(motivoDoBloqueio("O contrato do cliente não permite acesso a esta catraca")).toBe("Catraca fora do plano");
+    expect(motivoDoBloqueio("Nenhum check-in encontrado para este aluno Wellhub")).toBe("Agregador sem check-in");
+    expect(motivoDoBloqueio("Personal com o CREF vencido ou sem data de validade.")).toBe("Personal irregular");
+    expect(motivoDoBloqueio("Algo novo")).toBe("Outros");
+  });
+  it("rede soma as liberações e junta os motivos; mês sem a carga fica sem o campo", () => {
+    const a = { calor: Array(168).fill(0), entradasDia: [], entradas: 100, frequentadores: 10, liberacoes: 3, liberacoesMotivos: [["Saldo devedor", 2], ["PAR-Q pendente", 1]] as [string, number][] };
+    const b = { ...a, liberacoes: 2, liberacoesMotivos: [["PAR-Q pendente", 2]] as [string, number][] };
+    expect(somarEntradas([a, b])).toMatchObject({ liberacoes: 5, liberacoesMotivos: [["PAR-Q pendente", 3], ["Saldo devedor", 2]] });
+    expect(somarEntradas([{ ...a, liberacoes: undefined, liberacoesMotivos: undefined }])).not.toHaveProperty("liberacoes");
+  });
+  it("card das liberações: taxa por 100 entradas, parte de receita e aviso sem dado", () => {
+    const total = { entradas: 2000, liberacoes: 40, liberacoesMotivos: [["PAR-Q pendente", 20], ["Saldo devedor", 10], ["Sem bloqueio antes", 8], ["Aluno inativo", 2]] } as unknown as UnitData;
+    const h = limpo(renderToString(<LiberacoesCard total={total} month="2026-11" monthLabel="Novembro de 2026" partial={false} unit="Asa Norte" />));
+    expect(h).toContain("2,0"); // a cada 100 entradas
+    expect(h).toContain("30,0%"); // saldo devedor + inativo
+    expect(h).toContain("PAR-Q pendente");
+    expect(h).toContain("Quem liberou não sai pela API");
+    const vazio = limpo(renderToString(<LiberacoesCard total={{} as UnitData} month="2026-11" monthLabel="Novembro de 2026" partial={false} unit={null} />));
+    expect(vazio).toContain("ainda não foram carregadas");
   });
   it("média por hora divide pelo número de dias daquele tipo no mês", () => {
     const oc = ocorrenciasDaSemana("2026-11", 30); // nov/2026 começa num domingo: 5 domingos e 5 segundas
