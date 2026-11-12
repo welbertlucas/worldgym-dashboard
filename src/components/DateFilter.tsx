@@ -7,12 +7,8 @@ import { unidadesProprias } from "@/lib/auth";
 interface DateFilterProps {
   selectedMonth: string;
   compareMonth: string | null;
-  selectedUnit: string | null;
   onMonthChange: (month: string) => void;
   onCompareMonthChange: (month: string | null) => void;
-  onUnitChange: (unit: string | null) => void;
-  /** Páginas que têm filtro próprio de unidade e de comparação escondem os do topo. */
-  hideUnit?: boolean;
   hideCompare?: boolean;
 }
 
@@ -115,6 +111,41 @@ export function ChipUnidade({ id, value, units, onChange, extras, rotuloRede = "
   );
 }
 
+/**
+ * Botão de unidade do cabeçalho (canto superior direito): mostra a unidade escolhida ou a rede e, ao clicar, abre a
+ * lista do próprio sistema (select nativo invisível por cima). Vale para todas as telas que filtram por unidade.
+ * Quem tem uma unidade só vê o nome dela, sem lista.
+ */
+export function BotaoUnidade({ id, value, onChange, className }: { id: string; value: string | null; onChange: (u: string | null) => void; className?: string }) {
+  const proprias = unidadesProprias();
+  const caixa = "relative flex h-9 min-w-0 max-w-[11rem] sm:max-w-[16rem] items-center gap-2 rounded-full border px-3 text-sm shadow-sm";
+  if (proprias?.length === 1) {
+    return (
+      <span className={cn(caixa, "border-border bg-card", className)} title={proprias[0]}>
+        <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="truncate font-medium text-foreground">{proprias[0]}</span>
+      </span>
+    );
+  }
+  const rotuloRede = proprias ? "Todas as suas unidades" : "Toda a rede";
+  const units = getAvailableUnits().filter((u) => !proprias || proprias.includes(u));
+  return (
+    <div
+      className={cn(caixa, "transition-colors focus-within:ring-2 focus-within:ring-ring", value ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:border-foreground/25", className)}
+      title="Escolher a unidade ou a rede"
+    >
+      <Building2 className={cn("h-4 w-4 shrink-0", value ? "text-primary-ink" : "text-muted-foreground")} aria-hidden />
+      <span className="min-w-0 flex-1 truncate font-medium text-foreground">{value ?? rotuloRede}</span>
+      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <label htmlFor={id} className="sr-only">Unidade</label>
+      <select id={id} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} className="absolute inset-0 h-full w-full cursor-pointer rounded-full opacity-0">
+        <option value="">{rotuloRede}</option>
+        {units.map((u) => <option key={u} value={u}>{u}</option>)}
+      </select>
+    </div>
+  );
+}
+
 /** Botões lado a lado (ex.: "Por unidade | Lista completa") na mesma altura e borda dos chips. */
 export function Segmentos<T extends string | number>({ rotulo, opcoes, valor, onChange }: { rotulo: string; opcoes: readonly (readonly [T, string])[]; valor: T; onChange: (v: T) => void }) {
   return (
@@ -134,23 +165,50 @@ export function Segmentos<T extends string | number>({ rotulo, opcoes, valor, on
   );
 }
 
-export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthChange, onCompareMonthChange, onUnitChange, hideUnit, hideCompare }: DateFilterProps) {
-  const months = getAvailableMonths();
-  const units = getAvailableUnits();
+/**
+ * Campo sublinhado (estilo do seletor de data): o valor, o ícone à direita e a linha embaixo, sem caixa. O select
+ * nativo fica invisível por cima, então o clique abre a lista do próprio sistema.
+ */
+function CampoSublinhado({ id, rotulo, valor, vazio, icone, value, onChange, aoLimpar, rotuloLimpar, children }: {
+  id: string; rotulo: string; valor: string; vazio?: boolean; icone: ReactNode; value: string; onChange: (v: string) => void;
+  aoLimpar?: () => void; rotuloLimpar?: string; children: ReactNode;
+}) {
   return (
-    <div role="group" aria-label="Filtros do dashboard" className="grid grid-cols-1 gap-2.5 border-b border-border pb-4 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-3">
-      <div className="min-w-0 lg:w-72">
-        <ChipMes id="filtro-mes" rotulo="Mês de referência" value={selectedMonth} months={months} onChange={onMonthChange} />
+    <div className="group relative flex h-11 min-w-0 items-center gap-2 border-b border-foreground/35 transition-colors hover:border-foreground/70 focus-within:border-primary" title={rotulo}>
+      <span className={cn("min-w-0 flex-1 truncate text-base tabular-nums", vazio ? "text-muted-foreground" : "text-foreground")}>{valor}</span>
+      {aoLimpar && (
+        <button type="button" onClick={aoLimpar} title={rotuloLimpar} aria-label={rotuloLimpar} className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      )}
+      <span className="shrink-0 text-muted-foreground group-hover:text-foreground" aria-hidden>{icone}</span>
+      <label htmlFor={id} className="sr-only">{rotulo}</label>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
+        {children}
+      </select>
+    </div>
+  );
+}
+
+/** Mês e comparação no topo do conteúdo; a unidade fica no botão do cabeçalho (BotaoUnidade). */
+export function DateFilter({ selectedMonth, compareMonth, onMonthChange, onCompareMonthChange, hideCompare }: DateFilterProps) {
+  const months = getAvailableMonths();
+  return (
+    <div role="group" aria-label="Filtros do dashboard" className="grid grid-cols-2 gap-x-6 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-8">
+      <div className="min-w-0 sm:w-56">
+        <CampoSublinhado id="filtro-mes" rotulo="Mês de referência" valor={formatMonth(selectedMonth)} icone={<CalendarDays className="h-5 w-5" />} value={selectedMonth} onChange={onMonthChange}>
+          {[...months].reverse().map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
+        </CampoSublinhado>
       </div>
 
       {!hideCompare && (
-        <div className="min-w-0 lg:w-64">
-          <Chip
+        <div className="min-w-0 sm:w-56">
+          <CampoSublinhado
             id="filtro-comparar"
             rotulo="Comparar com"
-            valor={compareMonth ? formatMonth(compareMonth) : "Sem comparação"}
-            icone={<GitCompareArrows className="h-4 w-4" />}
-            ativo={!!compareMonth}
+            valor={compareMonth ? `x ${formatMonth(compareMonth)}` : "Comparar com…"}
+            vazio={!compareMonth}
+            icone={<GitCompareArrows className="h-5 w-5" />}
             value={compareMonth ?? ""}
             onChange={(v) => onCompareMonthChange(v || null)}
             aoLimpar={compareMonth ? () => onCompareMonthChange(null) : undefined}
@@ -158,13 +216,7 @@ export function DateFilter({ selectedMonth, compareMonth, selectedUnit, onMonthC
           >
             <option value="">Sem comparação</option>
             {[...months].reverse().filter((m) => m !== selectedMonth).map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
-          </Chip>
-        </div>
-      )}
-
-      {!hideUnit && (
-        <div className="min-w-0 sm:col-span-2 lg:w-64">
-          <ChipUnidade id="filtro-unidade" value={selectedUnit} units={units} onChange={onUnitChange} />
+          </CampoSublinhado>
         </div>
       )}
     </div>

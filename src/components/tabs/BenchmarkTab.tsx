@@ -45,7 +45,7 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
       id="bm-ranking"
       titulo={foco ? `Posição de ${foco} na rede` : "Ranking"}
       descricao={foco
-        ? <>Onde {foco} fica em cada indicador (clique numa posição para trocar) e, abaixo, {todas ? "todas as unidades, com ela destacada" : "ela com as duas unidades acima e as duas abaixo, e o 1º lugar como referência"}. Para comparar sem destaque, tire a unidade no filtro do topo.</>
+        ? <>Onde {foco} fica em cada indicador (clique numa posição para trocar) e, abaixo, {todas ? "todas as unidades, com ela destacada" : "ela com as duas unidades acima e as duas abaixo, e o 1º lugar como referência"}. Para comparar sem destaque, escolha "Toda a rede" no botão de unidade, no alto à direita.</>
         : "Posição de cada unidade no indicador escolhido. Em “Variação”, quanto cada uma mudou do penúltimo para o último mês fechado."}
     >
       <UnitsRanking

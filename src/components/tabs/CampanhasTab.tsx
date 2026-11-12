@@ -34,7 +34,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month, aba: pedida = n
   const dicas: Record<string, string> = {
     campanhas: "Alertas de melhoria das campanhas, quanto se investiu no Meta no mês e a evolução mês a mês. A conta Institucional fica separada das unidades",
     anuncios: "Os anúncios que trazem contato mais barato, os horários dos contatos e as campanhas que estão veiculando. A conta Institucional fica separada das unidades",
-    leads: "De onde vêm os leads (oportunidades cadastradas no EVO) e o perfil deles, no mês e na unidade do filtro do topo",
+    leads: "De onde vêm os leads (oportunidades cadastradas no EVO) e o perfil deles, no mês do filtro e na unidade escolhida no alto à direita",
   };
   return (
     <div className="space-y-6">

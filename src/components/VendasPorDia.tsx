@@ -27,10 +27,12 @@ export function mesesDeReferencia(month: string, unit: string | null, n = 3): [s
   return out.reverse();
 }
 
-const curto = (ym: string) => {
+const nomeDoMes = (ym: string, month: "short" | "long") => {
   const [y, m] = ym.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month }).replace(".", "");
 };
+const curto = (ym: string) => nomeDoMes(ym, "short");
+const maiusc = (t: string) => `${t[0].toUpperCase()}${t.slice(1)}`;
 
 /**
  * Novos contratos por dia do mês num calendário (mapa de calor), a média por dia da semana nos 3 meses anteriores
@@ -50,10 +52,16 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
   const n = diasNoMes(month);
   const hist = mesesDeReferencia(month, unit);
   const media = mediaPorDiaDaSemana(hist);
-  const melhorSem = hist.length ? media.indexOf(Math.max(...media)) : null;
-  const maiorMedia = Math.max(...media, 0.1);
+  const melhorRef = hist.length ? media.indexOf(Math.max(...media)) : null;
   const realizado = v.reduce((a, b) => a + b, 0);
   const visiveis = v.slice(0, partial ? dias : n);
+  // O próprio mês por dia da semana (média por ocorrência do dia), só quando todos os dias da semana já apareceram.
+  const temSemana = visiveis.length >= 7;
+  const mediaMes = temSemana ? mediaPorDiaDaSemana([[month, visiveis]]) : null;
+  const melhorMes = mediaMes ? mediaMes.indexOf(Math.max(...mediaMes)) : null;
+  const maiorMedia = Math.max(...media, ...(mediaMes ?? []), 0.1);
+  const mesNome = nomeDoMes(month, "long");
+  const refNome = hist.length ? `${curto(hist[0][0])}–${curto(hist[hist.length - 1][0])}` : "";
   const maior = Math.max(...visiveis, 1);
   const melhorDia = visiveis.indexOf(Math.max(...visiveis));
   const proj = partial ? projetarMes(v, month, dias, hist) : null;
@@ -82,7 +90,9 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
           <HeadlineStat label={partial ? "Novos contratos até agora" : "Novos contratos no mês"} value={int(realizado)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
           {proj && <HeadlineStat label="Projeção para o fechamento" value={`≈ ${int(proj.valor)}`} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />}
           {nivel && <HeadlineStat label="No ritmo, a meta fecha em" value={TIER_LABEL[nivel]} swatch={<span className={`h-2 w-2 rounded-full ${nivel === "abaixo" ? "bg-destructive" : "bg-primary/60"}`} />} />}
-          {melhorSem !== null && <HeadlineStat label={`Dia que mais vende (${curto(hist[0][0])}–${curto(hist[hist.length - 1][0])})`} value={`${NOME_LONGO[melhorSem][0].toUpperCase()}${NOME_LONGO[melhorSem].slice(1)}`} swatch={<span className="h-2 w-2 rounded-full bg-foreground/40" />} />}
+          {melhorMes !== null
+            ? <HeadlineStat label={`Dia que mais vendeu em ${mesNome}${partial ? " (até agora)" : ""}`} value={maiusc(NOME_LONGO[melhorMes])} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
+            : melhorRef !== null && <HeadlineStat label={`Dia que mais vendia antes (${refNome})`} value={maiusc(NOME_LONGO[melhorRef])} swatch={<span className="h-2 w-2 rounded-full bg-foreground/40" />} />}
         </div>
       }
     >
@@ -107,7 +117,7 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_16rem]">
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div>
           <table className="w-full table-fixed border-separate border-spacing-1 text-xs" aria-label={`Novos contratos por dia em ${monthLabel}`}>
             <thead>
@@ -145,20 +155,35 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
           </p>
         </div>
 
-        {hist.length > 0 && (
+        {(mediaMes || hist.length > 0) && (
           <div>
-            <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Média por dia da semana ({curto(hist[0][0])}–{curto(hist[hist.length - 1][0])})</h4>
-            <ul className="space-y-2" aria-label="Média de novos contratos por dia da semana">
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Média por dia da semana</h4>
+            <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {mediaMes && <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-primary" />{maiusc(mesNome)}{partial && " (até agora)"}</span>}
+              {hist.length > 0 && <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-foreground/30" />Média {refNome}</span>}
+            </div>
+            <ul className="space-y-2.5" aria-label="Média de novos contratos por dia da semana">
               {SEMANA.map((d) => (
-                <li key={d.sem} className="grid grid-cols-[2.5rem_minmax(0,1fr)_3rem] items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">{d.nome}</span>
-                  <span className="h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
-                    <span className={`block h-full rounded-full ${d.sem === melhorSem ? "bg-primary" : "bg-foreground/55"}`} style={{ width: `${(media[d.sem] / maiorMedia) * 100}%` }} />
+                <li key={d.sem} className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.75rem] items-center gap-2 text-sm">
+                  <span className={d.sem === melhorMes ? "font-semibold text-foreground" : "text-muted-foreground"}>{d.nome}</span>
+                  <span className="space-y-1" aria-hidden>
+                    {mediaMes && <span className="block h-2 overflow-hidden rounded-full bg-secondary"><span className="block h-full rounded-full bg-primary" style={{ width: `${(mediaMes[d.sem] / maiorMedia) * 100}%` }} /></span>}
+                    {hist.length > 0 && <span className="block h-2 overflow-hidden rounded-full bg-secondary"><span className="block h-full rounded-full bg-foreground/30" style={{ width: `${(media[d.sem] / maiorMedia) * 100}%` }} /></span>}
                   </span>
-                  <span className="text-right font-semibold tabular-nums">{dec(media[d.sem])}</span>
+                  <span className="text-right text-xs leading-tight tabular-nums">
+                    {mediaMes && <span className="block font-semibold text-foreground">{dec(mediaMes[d.sem])}</span>}
+                    {hist.length > 0 && <span className="block text-muted-foreground">{dec(media[d.sem])}</span>}
+                  </span>
                 </li>
               ))}
             </ul>
+            {mediaMes && melhorRef !== null && melhorMes !== null && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {melhorMes === melhorRef
+                  ? <>{maiusc(NOME_LONGO[melhorMes])} segue como o melhor dia, como em {refNome}.</>
+                  : <>Em {mesNome}, {NOME_LONGO[melhorMes]} vendeu mais; em {refNome} era {NOME_LONGO[melhorRef]} ({dec(media[melhorRef])} por dia, contra {dec(mediaMes[melhorRef])} em {mesNome}).</>}
+              </p>
+            )}
           </div>
         )}
       </div>

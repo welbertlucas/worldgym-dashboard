@@ -8,7 +8,7 @@ import { NotasFiscaisCard } from "@/components/NotasFiscais";
 import NovosContratosChart from "@/components/NovosContratosChart";
 import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
-import { DateFilter } from "@/components/DateFilter";
+import { BotaoUnidade, DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
@@ -54,7 +54,6 @@ import { toast } from "@/hooks/use-toast";
 
 /** Intervalo da atualização automática dos dados (planilha e metas). */
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
-const NOME_DO_NIVEL = { dono: "Dono", master: "Master", unidades: "Unidades" } as const;
 
 /** Aba guardada no endereço (#id), se for uma aba que existe. "acessos" só abre para o dono (a tela confere de novo). */
 const ABAS = new Set([...NAV_ITEMS.map((n) => n.id), "acessos"]);
@@ -159,6 +158,7 @@ const Index = () => {
   // unidades da pessoa (nada da rede). O Benchmark mostra sempre todas; a unidade do filtro só fica destacada nele.
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = activeTab === "executiva";
+  const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && activeTab !== "acessos";
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
   const months = dashboardData.map((d) => d.month);
@@ -272,7 +272,7 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {loadedAt && (
               <p
                 className="hidden xl:block text-xs text-muted-foreground tabular-nums"
@@ -282,9 +282,11 @@ const Index = () => {
                 {evoAtualizadoEm && <> · EVO atualizado em {new Date(evoAtualizadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</>}
               </p>
             )}
+            {/* Unidade ou rede: um botão só, no canto do cabeçalho, para todas as telas que filtram por unidade. */}
+            {comBotaoDeUnidade && <BotaoUnidade id="filtro-unidade" className="hidden sm:flex" value={selectedUnit} onChange={setSelectedUnit} />}
             {getUsuario() && !getUsuario()!.legado && (
               <p className="hidden md:block text-xs text-muted-foreground truncate max-w-[14rem]" title={getUsuario()!.email}>
-                {getUsuario()!.nome} · {NOME_DO_NIVEL[getUsuario()!.papel]}
+                {getUsuario()!.nome}
               </p>
             )}
             {podeAtualizar() && (
@@ -307,6 +309,12 @@ const Index = () => {
             )}
             </div>
           </div>
+          {/* No celular o botão vai para uma linha própria, para não espremer o título. */}
+          {comBotaoDeUnidade && (
+            <div className="px-3 pb-3 sm:hidden">
+              <BotaoUnidade id="filtro-unidade-celular" className="w-full max-w-none" value={selectedUnit} onChange={setSelectedUnit} />
+            </div>
+          )}
         </header>
 
         <main ref={mainRef} className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 sm:space-y-8 max-w-[1600px] scroll-mt-20">
@@ -314,11 +322,8 @@ const Index = () => {
         {!seletorProprio && activeTab !== "acessos" && <DateFilter
           selectedMonth={fullMonthData.month}
           compareMonth={compareMonth}
-          selectedUnit={selectedUnit}
           onMonthChange={setSelectedMonth}
           onCompareMonthChange={setCompareMonth}
-          onUnitChange={setSelectedUnit}
-          hideUnit={semFiltroDeUnidade}
         />}
 
         {/* Aviso de unidade filtrada: nos menus temáticos o filtro vale para a tela toda e segue ao trocar de menu. */}

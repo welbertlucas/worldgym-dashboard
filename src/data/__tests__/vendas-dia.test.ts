@@ -63,6 +63,9 @@ describe("vendas por dia do mês", () => {
     expect(h).toContain("Novos contratos no mês");
     expect(h).toContain("340"); // 30 × 10 + 40
     expect(h).toContain("5/10"); // maior dia
+    expect(h).toContain("Dia que mais vendeu em outubro"); // o próprio mês, não os anteriores
+    expect(h).toContain("Segunda"); // 05/10/2026 é segunda
+    expect(h).not.toContain("Dia que mais vendia antes");
     expect(h).not.toContain("Projeção para o fechamento");
     expect(renderToString(createElement(VendasPorDia, { total: {} as UnitData, month: "2026-10", partial: false, unit: null, atualizadoEm: null, metas: [] }))).toContain("ainda não foram carregadas");
   });
