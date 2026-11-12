@@ -320,3 +320,31 @@ describe("tráfego pago no e-mail", () => {
     expect(renderizarEmail(r, { nome: "Ana" })).not.toContain("Tráfego pago");
   });
 });
+
+// @ts-expect-error módulo JS do servidor
+import { resumoDeNotas, alertasDeNotas } from "../../../server/resumo.js";
+describe("notas fiscais no e-mail", () => {
+  const nf = (recebido: number, comNota: number, emitido: number, outros = 0) => ({ emitidas: [1, emitido], iss: 0, canceladas: 0, negadas: 0, outrosMeses: [0, outros], cobertura: [comNota, recebido] });
+  const mes = (month: string, units: Record<string, ReturnType<typeof nf>>) => ({ month, units: Object.entries(units).map(([name, notas]) => ({ name, faturamento: 100, recebimento: notas.cobertura[1], notas })) });
+  const meses = [
+    mes("2026-09", { A: nf(1000, 990, 990), B: nf(1000, 800, 800), C: nf(500, 0, 0) }),
+    mes("2026-10", { A: nf(1000, 980, 980), B: nf(1000, 100, 900, 850), C: nf(500, 0, 0) }),
+    mes("2026-11", { A: nf(400, 390, 390), B: nf(400, 0, 0), C: nf(200, 0, 0) }),
+  ];
+  it("acompanha o mês anterior, marca quem emite com atraso e quem não emite", () => {
+    const n = resumoDeNotas(meses, "2026-11", new Set(["A", "B", "C"]));
+    expect(n.passado).toMatchObject({ mes: "2026-10", recebido: 2500, comNota: 1080 });
+    expect(n.comAtraso).toEqual(["B"]);
+    expect(n.semEmissao).toEqual(["C"]);
+    const al = alertasDeNotas(n);
+    expect(al.map((a: { quem: string; titulo: string }) => `${a.quem}: ${a.titulo}`)).toEqual(["C: Sem nota fiscal pelo EVO", "B: Notas fiscais em falta"]); // B fechou setembro com 80%
+  });
+  it("texto só com valores, sem quantidade de notas", () => {
+    const u = { nome: "Gestor", papel: "unidades", unidades: ["B"] };
+    const html = renderizarEmail(montarResumo(meses, u, "2026-11-12")!, u).replace(/&nbsp;/g, " ").replace(/<[^>]+>/g, "");
+    expect(html).toContain("Notas fiscais");
+    expect(html).toContain("costuma emitir as notas de um mês ao longo do mês seguinte");
+    expect(html).toContain("nenhuma nota emitida ainda");
+    expect(html).not.toMatch(/\d+ notas/);
+  });
+});

@@ -151,6 +151,53 @@ export function resumirMetas(metas, ym, usuario, total, atuais) {
   return por;
 }
 
+// ---------- notas fiscais ----------
+/** Abaixo disso, do recebido de um mês fechado, falta nota (vira alerta). */
+export const COBERTURA_NOTAS = 95;
+export const mesAnterior = (ym) => {
+  const [y, m] = ym.split("-").map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`;
+};
+
+/** Notas de um mês para as unidades `nomes`: R$ recebido, R$ recebido com nota, R$ emitido, R$ de notas de outros meses. */
+function notasDoMes(meses, ym, nomes) {
+  const us = (meses.find((x) => x.month === ym)?.units ?? []).filter((u) => nomes.has(u.name) && u.notas);
+  if (!us.length) return null;
+  const s = (f) => us.reduce((n, u) => n + num(f(u.notas)), 0);
+  return {
+    mes: ym, recebido: s((x) => x.cobertura[1]), comNota: s((x) => x.cobertura[0]), emitido: s((x) => x.emitidas[1]), outrosMeses: s((x) => x.outrosMeses[1]),
+    unidades: us.map((u) => ({ nome: u.name, recebido: num(u.notas.cobertura[1]), comNota: num(u.notas.cobertura[0]), emitido: num(u.notas.emitidas[1]), outrosMeses: num(u.notas.outrosMeses[1]) })),
+  };
+}
+
+/**
+ * Notas fiscais no resumo. A nota sai por pagamento recebido (não por venda) e várias unidades emitem as notas de um mês
+ * no mês seguinte; por isso o texto acompanha o recebido do MÊS ANTERIOR (que ainda ganha notas ao longo deste mês) e,
+ * no mês corrente, quanto foi recebido e emitido até ontem. O alerta olha o mês que já fechou de vez (dois meses atrás).
+ */
+export function resumoDeNotas(meses, ym, nomes) {
+  const anterior = mesAnterior(ym);
+  const atual = notasDoMes(meses, ym, nomes), passado = notasDoMes(meses, anterior, nomes), fechado = notasDoMes(meses, mesAnterior(anterior), nomes);
+  if (!atual && !passado) return null;
+  // Não emite pelo EVO: recebeu e não emitiu nota nenhuma nem no mês anterior nem neste.
+  const semEmissao = (passado?.unidades ?? []).filter((u) => u.recebido > 0 && !u.emitido && !u.comNota && !(atual?.unidades.find((a) => a.nome === u.nome)?.emitido)).map((u) => u.nome);
+  // Emite com atraso: no mês anterior, metade ou mais do valor emitido foi de pagamentos de outros meses.
+  const comAtraso = (passado?.unidades ?? []).filter((u) => u.emitido > 0 && u.outrosMeses / u.emitido >= 0.5).map((u) => u.nome);
+  return { atual, passado, fechado, semEmissao, comAtraso };
+}
+
+/** Alertas das notas: unidade sem emissão pelo EVO e unidade que fechou um mês com menos de 95% do recebido com nota. */
+export function alertasDeNotas(n) {
+  if (!n) return [];
+  const out = n.semEmissao.map((nome) => ({ quem: nome, gravidade: "atencao", titulo: "Sem nota fiscal pelo EVO", fato: "Recebeu no mês passado e neste sem emitir nota fiscal pelo EVO.", acao: "Confirmar se a unidade emite as notas em outro sistema ou ligar a emissão no EVO." }));
+  for (const u of n.fechado?.unidades ?? []) {
+    if (n.semEmissao.includes(u.nome) || !(u.recebido > 0)) continue;
+    const c = (u.comNota / u.recebido) * 100;
+    if (c < COBERTURA_NOTAS) out.push({ quem: u.nome, gravidade: "atencao", titulo: "Notas fiscais em falta", fato: `Do que recebeu em ${MESES[Number(n.fechado.mes.slice(5)) - 1]}, ${virg(Math.round(c * 10) / 10)}% tem nota; faltam notas para ${brl(u.recebido - u.comNota)}.`, acao: "Conferir no EVO os recebimentos sem nota e emitir as que faltam." });
+  }
+  return out;
+}
+
 // ---------- o resumo de cada usuário ----------
 /** `ref` = foto do mesmo dia do mês passado (ou null). */
 /**
@@ -197,13 +244,15 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   const alertas = alertasDe(total, totalRef, multi ? (usuario.papel === "unidades" ? "Suas unidades" : "A rede") : atuais[0].nome);
   if (multi) for (const u of atuais) alertas.push(...alertasDe({ ...u, renovacao: taxaRenovacao(u.aVencer, u.naoRenovados), nps: npsDe(u) }, refs.find((r) => r.nome === u.nome) ?? null, u.nome));
   alertas.push(...alertasMeta.filter((a) => nomes.has(a.quem) || (usuario.papel !== "unidades" && a.quem === "Institucional")));
+  const notas = resumoDeNotas(meses, ym, nomes);
+  alertas.push(...alertasDeNotas(notas));
   const linhas = atuais.map((x) => ({ nome: x.nome, recebimento: x.recebimento, faturamento: x.faturamento, inadimplenciaPerc: pctInad(x), ativos: x.ativos, aVencer: x.aVencer, cancelados: x.cancelados, novosContratos: x.novosContratos, nps: npsDe(x) })).sort((a, b) => b.faturamento - a.faturamento);
   // No dia 1º, o "dia" é o mês inteiro (base zero); nos outros, precisa da foto de anteontem.
   const ontemDoUsuario = ontem ? Object.entries(ontem.units ?? {}).filter(([n]) => nomes.has(n)).map(([nome, v]) => ({ nome, ...v })) : [];
   const base = ateDia.endsWith("-01") ? { ...totalizar([]), zero: true } : ontemDoUsuario.length ? totalizar(ontemDoUsuario) : null;
   const dia = valoresDoDia(total, base);
   const metasDoMes = resumirMetas(metas, ym, usuario, total, atuais);
-  return { mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
+  return { notas, mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
 }
 
 // ---------- e-mail ----------
@@ -383,6 +432,26 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
 <p style="${P}">${d ? `Ontem entraram ${vOnline ? `${b(vOnline)} em vendas online` : "nenhuma venda online"} e ${b(vContr)}. ` : ""}No mês, são ${b(`${int(t.novosContratos)} contratos vendidos`)}${entre(vari(t.novosContratos, f?.novosContratos))} e ${b(brl(t.vendasOnline))} em vendas online${entre(vari(t.vendasOnline, f?.vendasOnline))}.</p>
 <p style="${P}">As receitas complementares somaram ${d ? `${b(brl(d.complementar))} ontem e ` : ""}${b(brl(t.complementar))} no mês${entre(vari(t.complementar, f?.complementar))}. A conversão média está em ${b(`${virg(t.conversao ?? 0)}%`)}${entre(vari(t.conversao, convRef, { pp: true }))}.</p>`);
 
+  // ---- Notas fiscais (só valores): o recebido do mês anterior que já tem nota e, neste mês, recebido × emitido até ontem.
+  const nf = r.notas;
+  const nomeMes = (ym) => MESES[Number(ym.slice(5)) - 1];
+  const quemRecebeu = r.unidade ? "a unidade" : "a rede";
+  const pctNota = (x) => `${virg(Math.round((x.comNota / x.recebido) * 1000) / 10)}%`;
+  const semEmissao = nf?.semEmissao ?? [];
+  const notasP = [];
+  if (nf?.passado?.recebido > 0 && !(r.unidade && semEmissao.includes(r.unidade))) {
+    const falta = nf.passado.recebido - nf.passado.comNota;
+    const atrasa = r.unidade && nf.comAtraso?.includes(r.unidade);
+    notasP.push(atrasa
+      ? `A unidade costuma emitir as notas de um mês ao longo do mês seguinte: do que recebeu em ${nomeMes(nf.passado.mes)}, ${b(`${pctNota(nf.passado)} já tem nota fiscal`)} até agora${falta >= 1 ? `, e faltam notas para ${b(brl(falta))}` : ""}.`
+      : `Do que ${quemRecebeu} recebeu em ${nomeMes(nf.passado.mes)}, ${b(`${pctNota(nf.passado)} já tem nota fiscal`)}${falta >= 1 ? `; faltam notas para ${b(brl(falta))}` : ""}.${r.unidade ? "" : " Algumas unidades emitem as notas de um mês no mês seguinte, então esse número ainda sobe."}`);
+  }
+  if (nf?.atual?.recebido > 0 && !(r.unidade && semEmissao.includes(r.unidade))) {
+    notasP.push(`Em ${nomeMes(nf.atual.mes)}, até ontem, ${r.unidade ? "foram" : "a rede teve"} ${b(brl(nf.atual.recebido))} recebidos e ${nf.atual.emitido >= 1 ? `${b(brl(nf.atual.emitido))} em notas emitidas` : "nenhuma nota emitida ainda"}${nf.atual.outrosMeses >= 1 ? `; desse valor, ${b(brl(nf.atual.outrosMeses))} são notas de pagamentos de meses anteriores, emitidas com atraso` : ""}.`);
+  }
+  if (semEmissao.length) notasP.push(r.unidade ? `${b("A unidade não emitiu nota fiscal pelo EVO")} no mês passado nem neste.` : `${b(juntar(semEmissao))} não ${semEmissao.length === 1 ? "emitiu" : "emitiram"} nota fiscal pelo EVO no mês passado nem neste.`);
+  const notasFiscais = notasP.length ? secao("Notas fiscais", "🧾", notasP.map((x) => `<p style="${P}">${x}</p>`).join("\n")) : "";
+
   // ---- Retenção
   const canc = d ? (d.cancelados ? `Foram ${b(`${int(d.cancelados)} ${d.cancelados === 1 ? "cancelamento" : "cancelamentos"}`)} ontem.` : "Não houve cancelamentos ontem.") : "";
   const retencao = secao("Retenção", "🤝", `
@@ -440,6 +509,7 @@ ${avisos}
 <p style="margin:26px 0 0;padding:12px 0;border-top:1px solid ${TRACO};border-bottom:1px solid ${TRACO};text-align:center;font-family:${sans};font-size:14px;letter-spacing:.6px;color:${SUAVE}">${data}</p>
 ${caixa}
 ${vendas}
+${notasFiscais}
 ${retencao}
 ${topo}
 ${nps}
