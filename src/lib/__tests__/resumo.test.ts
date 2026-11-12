@@ -332,7 +332,7 @@ describe("notas fiscais no e-mail", () => {
     mes("2026-11", { A: nf(400, 390, 390), B: nf(400, 0, 0), C: nf(200, 0, 0) }),
   ];
   it("acompanha o mês anterior, marca quem emite com atraso e quem não emite", () => {
-    const n = resumoDeNotas(meses, "2026-11", new Set(["A", "B", "C"]));
+    const n = resumoDeNotas(meses, "2026-10", new Set(["A", "B", "C"])); // último mês fechado em 12/11
     expect(n.passado).toMatchObject({ mes: "2026-10", recebido: 2500, comNota: 1080 });
     expect(n.comAtraso).toEqual(["B"]);
     expect(n.semEmissao).toEqual(["C"]);
@@ -346,5 +346,33 @@ describe("notas fiscais no e-mail", () => {
     expect(html).toContain("costuma emitir as notas de um mês ao longo do mês seguinte");
     expect(html).toContain("nenhuma nota emitida ainda");
     expect(html).not.toMatch(/\d+ notas/);
+  });
+});
+
+import { alertasLiberacoes, LIMITES_LIBERACOES } from "../../../server/alertasLiberacoes.js";
+describe("liberações de quem não está em dia (e-mail e tela Alertas)", () => {
+  const u = (name: string, entradas: number, rec: number, outros = 10) => ({ name, entradas, liberacoes: rec + outros, liberacoesMotivos: [["Saldo devedor", rec], ["PAR-Q pendente", outros]] as [string, number][] });
+  const meses = [
+    { month: "2026-07", units: [u("A", 30000, 200), u("B", 20000, 25), u("C", 20000, 20)] },
+    { month: "2026-08", units: [u("A", 30000, 210), u("B", 20000, 30), u("C", 20000, 22)] },
+    { month: "2026-09", units: [u("A", 30000, 220), u("B", 20000, 30), u("C", 20000, 25)] },
+    { month: "2026-10", units: [u("A", 30000, 230), u("B", 20000, 64), u("C", 20000, 30)] },
+  ];
+  it("nível (≥0,5 a cada 100 entradas e ≥50) e alta (≥2× a média dos 3 meses anteriores)", () => {
+    const al = alertasLiberacoes(meses, "2026-10");
+    expect(al.map((a: { quem: string }) => a.quem)).toEqual(["A", "B"]);
+    expect(al[0]).toMatchObject({ nivel: true, alta: false });
+    expect(al[1]).toMatchObject({ nivel: false, alta: true }); // 64 contra média 28,3
+    expect(al[0].fato).toContain("0,8 a cada 100 entradas");
+    expect(alertasLiberacoes(meses, "2026-10", new Set(["B"])).map((a: { quem: string }) => a.quem)).toEqual(["B"]);
+    expect(LIMITES_LIBERACOES.por100).toBe(0.5);
+  });
+  it("entra nos alertas do resumo, sobre o último mês fechado", () => {
+    const user = { nome: "G", papel: "unidades", unidades: ["A"] };
+    const r = montarResumo(meses.map((m) => ({ ...m, units: m.units.map((x) => ({ ...x, faturamento: 100, recebimento: 100 })) })), user, "2026-11-12");
+    // novembro não tem dado: o resumo é null; no dia 1º de novembro, o fechado é outubro
+    expect(r).toBeNull();
+    const r1 = montarResumo(meses.map((m) => ({ ...m, units: m.units.map((x) => ({ ...x, faturamento: 100, recebimento: 100 })) })), user, "2026-11-01")!;
+    expect(r1.alertas.some((a: { titulo: string }) => a.titulo === "Liberações de quem não está em dia")).toBe(true);
   });
 });

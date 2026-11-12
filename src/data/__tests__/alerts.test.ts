@@ -204,3 +204,19 @@ describe("alertas de notas fiscais (mesmas regras do e-mail)", () => {
     expect(recs.find((r) => r.kind === "notasFalta")?.investigate.join(" ")).toContain("Notas fiscais");
   });
 });
+
+describe("alerta de liberações de quem não está em dia", () => {
+  it("aparece na tela Alertas para o mês avaliado, com a mesma regra do e-mail", () => {
+    const lib = (rec: number) => ({ entradas: 30000, liberacoes: rec + 5, liberacoesMotivos: [["Aluno inativo", rec], ["Outros", 5]] as [string, number][] });
+    const data = [
+      month("2026-06", [unit("A", lib(200)), unit("B", lib(5))]),
+      month("2026-07", [unit("A", lib(210)), unit("B", lib(5))]),
+      month("2026-08", [unit("A", lib(220)), unit("B", lib(5))]),
+      month("2026-09", [unit("A", lib(230)), unit("B", lib(5))]),
+    ];
+    const al = computeAlerts(data, [], now).filter((a) => a.kind === "liberacoes");
+    expect(al.map((a) => a.unit)).toEqual(["A"]);
+    expect(al[0].fact).toContain("setembro");
+    expect(buildRecommendations(al)[0].investigate.join(" ")).toContain("Entrada manual");
+  });
+});

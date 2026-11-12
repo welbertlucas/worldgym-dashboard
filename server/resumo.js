@@ -8,6 +8,7 @@ import { UNIDADES_DA_REDE } from "./acesso.js";
 import { hojeBR } from "./evo.js";
 import { lerJson, gravarJson } from "./armazem.js";
 import { INDICADORES_META, situacaoMeta, formatarMeta } from "./metas.js";
+import { alertasLiberacoes } from "./alertasLiberacoes.js";
 
 export const unidadesDoUsuario = (u) => (u.papel === "unidades" ? (u.unidades ?? []) : UNIDADES_DA_REDE);
 
@@ -175,9 +176,17 @@ function notasDoMes(meses, ym, nomes) {
  * no mês seguinte; por isso o texto acompanha o recebido do MÊS ANTERIOR (que ainda ganha notas ao longo deste mês) e,
  * no mês corrente, quanto foi recebido e emitido até ontem. O alerta olha o mês que já fechou de vez (dois meses atrás).
  */
-export function resumoDeNotas(meses, ym, nomes) {
-  const anterior = mesAnterior(ym);
-  const atual = notasDoMes(meses, ym, nomes), passado = notasDoMes(meses, anterior, nomes), fechado = notasDoMes(meses, mesAnterior(anterior), nomes);
+export const mesSeguinte = (ym) => {
+  const [y, m] = ym.split("-").map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`;
+};
+
+/**
+ * `ultimoFechado` = o último mês fechado (o mesmo que a tela Alertas avalia): o mês anterior ao do resumo, ou o
+ * próprio mês do resumo no dia 1º (quando o resumo é o fechamento dele).
+ */
+export function resumoDeNotas(meses, ultimoFechado, nomes) {
+  const atual = notasDoMes(meses, mesSeguinte(ultimoFechado), nomes), passado = notasDoMes(meses, ultimoFechado, nomes), fechado = notasDoMes(meses, mesAnterior(ultimoFechado), nomes);
   if (!atual && !passado) return null;
   // Não emite pelo EVO: recebeu e não emitiu nota nenhuma nem no mês anterior nem neste.
   const semEmissao = (passado?.unidades ?? []).filter((u) => u.recebido > 0 && !u.emitido && !u.comNota && !(atual?.unidades.find((a) => a.nome === u.nome)?.emitido)).map((u) => u.nome);
@@ -244,8 +253,11 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   const alertas = alertasDe(total, totalRef, multi ? (usuario.papel === "unidades" ? "Suas unidades" : "A rede") : atuais[0].nome);
   if (multi) for (const u of atuais) alertas.push(...alertasDe({ ...u, renovacao: taxaRenovacao(u.aVencer, u.naoRenovados), nps: npsDe(u) }, refs.find((r) => r.nome === u.nome) ?? null, u.nome));
   alertas.push(...alertasMeta.filter((a) => nomes.has(a.quem) || (usuario.papel !== "unidades" && a.quem === "Institucional")));
-  const notas = resumoDeNotas(meses, ym, nomes);
+  // Último mês fechado: o anterior ao do resumo, ou o próprio no dia 1º (o resumo é o fechamento dele). A tela Alertas usa o mesmo.
+  const ultimoFechado = hoje.endsWith("-01") ? ym : mesAnterior(ym);
+  const notas = resumoDeNotas(meses, ultimoFechado, nomes);
   alertas.push(...alertasDeNotas(notas));
+  alertas.push(...alertasLiberacoes(meses, ultimoFechado, nomes).map(({ quem, gravidade, titulo, fato, acao }) => ({ quem, gravidade, titulo, fato, acao })));
   const linhas = atuais.map((x) => ({ nome: x.nome, recebimento: x.recebimento, faturamento: x.faturamento, inadimplenciaPerc: pctInad(x), ativos: x.ativos, aVencer: x.aVencer, cancelados: x.cancelados, novosContratos: x.novosContratos, nps: npsDe(x) })).sort((a, b) => b.faturamento - a.faturamento);
   // No dia 1º, o "dia" é o mês inteiro (base zero); nos outros, precisa da foto de anteontem.
   const ontemDoUsuario = ontem ? Object.entries(ontem.units ?? {}).filter(([n]) => nomes.has(n)).map(([nome, v]) => ({ nome, ...v })) : [];

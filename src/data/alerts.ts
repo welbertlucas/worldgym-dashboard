@@ -1,10 +1,11 @@
 import { type MonthData, type UnitData } from "@/data/dashboardData";
 import { ALERT_CONFIG as C } from "@/data/alertConfig";
 import { getLastClosedMonth, formatMonthLong } from "@/data/periods";
+import { alertasLiberacoes, LIMITES_LIBERACOES as LL } from "../../server/alertasLiberacoes.js";
 import { META_INDICATORS, TIER_LABEL, attainment, actualFor, formatMetaValue, isSingleGoal, lowestTier, tierReached, type Meta } from "@/data/metas";
 
 export type AlertKind =
-  | "faturamento" | "vendasOnline" | "churn" | "inadimplencia" | "recebimento" | "meta" | "dado" | "notasFalta" | "semNota"
+  | "faturamento" | "vendasOnline" | "churn" | "inadimplencia" | "recebimento" | "meta" | "dado" | "notasFalta" | "semNota" | "liberacoes"
   | "yoyFaturamento" | "yoyChurn" | "yoyInadimplencia" | "yoyRenovacao" | "yoyNovosContratos" | "yoyVendasOnline";
 
 /** Leitura combinada com o mesmo mês do ano anterior (hipótese de interpretação, não causa confirmada). */
@@ -150,6 +151,13 @@ export function computeAlerts(data: MonthData[], metas: Meta[] = [], now: Date =
     push({ unit: p.name, kind: "notasFalta", severity: "attention", weight: (unitIn(cur, p.name)?.faturamento ?? 0) / totalFat,
       rule: `menos de ${C.notas.minCobertura}% do recebido com nota, contando as notas emitidas até o fim do mês seguinte`,
       fact: `Do que recebeu em ${formatMonthLong(prev!.month)}, ${pct(c)} tem nota fiscal; faltam notas para ${fmtBRL(n.cobertura[1] - n.cobertura[0])}.` });
+  }
+
+  // Liberações manuais de quem não está em dia (mesma regra do resumo por e-mail: server/alertasLiberacoes.js).
+  for (const a of alertasLiberacoes(data, evalMonth)) {
+    push({ unit: a.quem, kind: "liberacoes", severity: "attention", weight: (unitIn(cur, a.quem)?.faturamento ?? 0) / totalFat,
+      rule: [a.nivel && `≥ ${String(LL.por100).replace(".", ",")} a cada 100 entradas e ≥ ${LL.minNivel} no mês`, a.alta && `≥ ${LL.vezes}× a média dos ${LL.baseMeses} meses anteriores`].filter(Boolean).join(" e "),
+      fact: a.fato });
   }
 
   applyYearOverYear(data, idx, cur, alerts);

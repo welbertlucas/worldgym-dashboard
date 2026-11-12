@@ -1,13 +1,14 @@
 import { UnitLink } from "@/components/UnitLink";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import { getDataByMonth, type UnitData } from "@/data/dashboardData";
+import { MOTIVOS_DE_RECEITA as MOTIVOS } from "../../../server/alertasLiberacoes.js";
 
 const int = (n: number) => Math.round(n).toLocaleString("pt-BR");
 const dec = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const pct = (n: number, d: number) => (d > 0 ? `${dec((n / d) * 100)}%` : "—");
 
-/** Motivos em que a liberação deixa entrar quem não está em dia com a academia (receita em jogo). */
-export const MOTIVOS_DE_RECEITA = new Set(["Saldo devedor", "Aluno inativo", "Catraca fora do plano"]);
+/** Motivos em que a liberação deixa entrar quem não está em dia com a academia (receita em jogo); a lista mora no módulo do alerta. */
+export const MOTIVOS_DE_RECEITA = new Set(MOTIVOS);
 
 /** Liberações a cada 100 entradas. */
 export const porCemEntradas = (u: Pick<UnitData, "liberacoes" | "entradas">) => (u.entradas ? ((u.liberacoes ?? 0) / u.entradas) * 100 : 0);

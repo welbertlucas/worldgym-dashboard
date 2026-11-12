@@ -105,6 +105,12 @@ const TEMPLATES: Record<AlertKind, Template> = {
     correct: ["Emitir as notas que faltam e corrigir a configuração de emissão da unidade no EVO"],
     followUp: "Parte do recebido com nota no próximo mês fechado",
   },
+  liberacoes: {
+    hypotheses: ["Recepção liberando por hábito, sem cobrar nem regularizar", "Aluno com cobrança recusada (cartão vencido) liberado para não perder a visita", "Planos que não dão acesso à unidade sendo vendidos sem explicar a regra", "Falha de cadastro (facial, contrato) gerando bloqueio indevido"],
+    investigate: ["Abrir Base de alunos → Frequência → Liberações manuais da unidade e ver os motivos", "No EVO, Gerencial → Controle de entradas → Entradas e saídas, ação “Entrada manual”: ver quem liberou e em que horários"],
+    correct: ["Combinar com a recepção: saldo devedor e inativo só entram depois de cobrar ou regularizar; plano sem acesso, oferecer a troca de plano"],
+    followUp: "Liberações por saldo devedor, inativo ou plano sem acesso a cada 100 entradas no próximo mês fechado",
+  },
   semNota: {
     hypotheses: ["A unidade emite as notas em outro sistema", "Emissão de nota não configurada no EVO para a unidade"],
     investigate: ["Confirmar com a unidade onde as notas fiscais são emitidas"],
@@ -203,6 +209,7 @@ export const ALERT_LABELS: Record<AlertKind, string> = {
   dado: "Dado ausente",
   notasFalta: "Notas fiscais em falta",
   semNota: "Sem nota fiscal pelo EVO",
+  liberacoes: "Liberações de quem não está em dia",
   yoyFaturamento: "Faturamento abaixo do ano anterior",
   yoyChurn: "Churn acima do ano anterior",
   yoyInadimplencia: "Inadimplência acima do ano anterior",
