@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
 import { VendasPorDia } from "@/components/VendasPorDia";
+import { SaldoDevedorCard } from "@/components/SaldoDevedor";
 import NovosContratosChart from "@/components/NovosContratosChart";
 import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
@@ -396,6 +397,7 @@ const Index = () => {
             <div className="grid grid-cols-1 gap-6 mb-10">
               <RevenueChart selectedUnit={selectedUnit} />
               <InadimplenciaChart selectedUnit={selectedUnit} />
+              <SaldoDevedorCard total={kpiCtx.cur.total} month={fullMonthData.month} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unit={selectedUnit} />
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <FormasPagamento total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />
                 <BandeirasCartao total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} unitLabel={selectedUnit ?? "Rede"} />

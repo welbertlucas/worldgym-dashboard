@@ -1,8 +1,10 @@
-// Grava só `suspensosFim` (alunos ativos com contrato trancado no fim do mês) e `cancelPerfil` (cancelamentos por
-// gênero e faixa de idade) nos meses já calculados. Serve para carregar o histórico sem recalcular mais nada;
-// a rotina diária já grava os dois em evo-alunos.mjs.
+// Grava só `suspensosFim` (alunos ativos com contrato trancado no fim do mês), `cancelPerfil` (cancelamentos por
+// gênero e faixa de idade) e `saldoDevedor` (saldo devedor em aberto no fim do mês) nos meses já calculados.
+// Serve para carregar o histórico sem recalcular mais nada;
+// a rotina diária já grava os três em evo-alunos.mjs.
 // Uso: node --env-file=.env.local scripts/evo-alunos-historico.mjs 2025-01 2025-02 ...
-import { cancelamentosPorPerfil, contarSuspensos, diaDeCorte, resumoAluno, UNIDADES } from "../server/ativos.js";
+import { cancelamentosPorPerfil, contarSuspensos, diaDeCorte, resumoAluno, saldoDoMes, UNIDADES } from "../server/ativos.js";
+import { titulosDeSaldo } from "../server/saldo.js";
 import { fetchAll, hojeBR } from "../server/evo.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 
@@ -15,6 +17,7 @@ if (faltam.length) console.log(`Sem cálculo (pulados): ${faltam.join(", ")}`);
 
 for (const [id, nome] of Object.entries(UNIDADES)) {
   const alunos = (await fetchAll(`/members?idBranch=${id}`)).map(resumoAluno);
+  const titulos = await titulosDeSaldo(Number(id));
   const por = {};
   for (const ym of meses) {
     if (!blobs[ym]) continue;
@@ -22,6 +25,7 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
     if (!u) continue;
     u.suspensosFim = por[ym] = contarSuspensos(alunos, diaDeCorte(ym, hoje));
     u.cancelPerfil = cancelamentosPorPerfil(alunos, ym, hoje);
+    u.saldoDevedor = saldoDoMes(alunos, titulos, ym, hoje);
   }
   console.log(nome, JSON.stringify(por));
 }

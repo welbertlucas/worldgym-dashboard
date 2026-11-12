@@ -5,6 +5,7 @@
 import { fetchAll } from "./evo.js";
 import { UNIT_NAMES } from "./units.js";
 import { FAIXAS_IDADE, faixaDeIdade, generoDe } from "./perfil.js";
+import { saldoNoDia } from "./saldo.js";
 
 export const ativoNoDia = (contratos, dia) =>
   contratos.some(([ini, fim, cancel]) => ini && ini <= dia && !(cancel && cancel <= dia) && fim && fim >= dia);
@@ -117,10 +118,23 @@ export function cancelamentosPorPerfil(alunos, ym, hoje) {
   return { g, i };
 }
 
-/** Baixa os alunos de uma unidade (ou usa `membros` já baixados) e calcula o movimento de cada mês pedido. */
-export async function ativosDaUnidade(idBranch, meses, hoje, membros = null) {
+/** Saldo devedor em aberto no último dia do mês (ou hoje), com a parte de quem era aluno ativo naquele dia. */
+export function saldoDoMes(alunos, titulos, ym, hoje) {
+  const dia = diaDeCorte(ym, hoje);
+  return saldoNoDia(titulos, dia, new Set(alunos.filter((a) => ativoNoDia(a.c, dia)).map((a) => a.id)));
+}
+
+/**
+ * Baixa os alunos de uma unidade (ou usa `membros` já baixados) e calcula o movimento de cada mês pedido.
+ * Com `titulos` (saldo devedor, de server/saldo.js), grava também o saldo devedor em aberto no fim de cada mês.
+ */
+export async function ativosDaUnidade(idBranch, meses, hoje, membros = null, titulos = null) {
   const alunos = (membros ?? (await fetchAll(`/members?idBranch=${idBranch}`))).map(resumoAluno);
-  return Object.fromEntries(meses.map((ym) => [ym, { ...movimentoDoMes(alunos, ym, hoje), ...fluxoDoMes(alunos, ym, hoje), suspensosFim: contarSuspensos(alunos, diaDeCorte(ym, hoje)), cancelPerfil: cancelamentosPorPerfil(alunos, ym, hoje) }]));
+  return Object.fromEntries(meses.map((ym) => [ym, {
+    ...movimentoDoMes(alunos, ym, hoje), ...fluxoDoMes(alunos, ym, hoje),
+    suspensosFim: contarSuspensos(alunos, diaDeCorte(ym, hoje)), cancelPerfil: cancelamentosPorPerfil(alunos, ym, hoje),
+    ...(titulos ? { saldoDevedor: saldoDoMes(alunos, titulos, ym, hoje) } : {}),
+  }]));
 }
 
 export const UNIDADES = UNIT_NAMES;

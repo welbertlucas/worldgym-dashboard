@@ -9,6 +9,12 @@ const EVO_URL = `${API_BASE}/indicadores`;
 export interface Cobrancas { falhas: number; recuperadas: number; abertas: number; valorAberto: number; valorRecuperado: number }
 export interface MotivoRecusa { n: number; abertas: number; valorAberto: number }
 
+/**
+ * Saldo devedor em aberto num dia: valor, títulos e pessoas; por faixa de atraso (no prazo, até 30 dias, 31–90,
+ * 91 dias a 1 ano, mais de 1 ano) [valor, pessoas]; e a parte de quem era aluno ativo no dia [valor, pessoas].
+ */
+export interface SaldoDevedor { valor: number; titulos: number; pessoas: number; faixas: [number, number][]; ativos?: [number, number] }
+
 export interface UnitData {
   name: string;
   faturamento: number;
@@ -42,6 +48,8 @@ export interface UnitData {
   suspensosFim?: number;
   /** Cancelamentos do mês por gênero [fem, masc, outros] e por faixa de idade (as 8 do perfil): [ativos no início, cancelados]. */
   cancelPerfil?: { g: [number, number][]; i: [number, number][] };
+  /** Saldo devedor em aberto no fim do mês (ou hoje): títulos "Balance due" do EVO não cancelados. */
+  saldoDevedor?: SaldoDevedor;
   /** Alunos ativos no início do mês (base do churn). */
   ativosIni?: number;
   /** Conversão de cadastros calculada pelo EVO (cadastrados no mês que viraram cliente no mesmo mês). */
@@ -413,7 +421,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "vendasDia" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "vendasDia" | "formasPagamento" | "bandeirasCartao" | "gatewaysCartao">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -539,6 +547,22 @@ export function somarVendasDia(us: Pick<UnitData, "vendasDia">[]): number[] | un
   if (!com.length) return undefined;
   const n = Math.max(...com.map((u) => u.vendasDia!.length));
   return Array.from({ length: n }, (_, d) => com.reduce((s, u) => s + (u.vendasDia![d] ?? 0), 0));
+}
+
+/** Soma o saldo devedor de várias unidades (só as que têm o dado; sem nenhuma, undefined). Pessoas somam por unidade. */
+export function somarSaldoDevedor(us: Pick<UnitData, "saldoDevedor">[]): SaldoDevedor | undefined {
+  const com = us.map((u) => u.saldoDevedor).filter((s): s is SaldoDevedor => !!s);
+  if (!com.length) return undefined;
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const par = (get: (s: SaldoDevedor) => [number, number] | undefined): [number, number] =>
+    [r2(com.reduce((n, s) => n + (get(s)?.[0] ?? 0), 0)), com.reduce((n, s) => n + (get(s)?.[1] ?? 0), 0)];
+  return {
+    valor: r2(com.reduce((n, s) => n + s.valor, 0)),
+    titulos: com.reduce((n, s) => n + s.titulos, 0),
+    pessoas: com.reduce((n, s) => n + s.pessoas, 0),
+    faixas: com[0].faixas.map((_, k) => par((s) => s.faixas[k])),
+    ...(com.every((s) => s.ativos) ? { ativos: par((s) => s.ativos) } : {}),
+  };
 }
 
 /** Soma o perfil dos cancelamentos de várias unidades (só as que têm o dado; sem nenhuma, undefined). */
@@ -685,6 +709,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.ativosFim = e.ativosFim;
         unit.ativosEvo = true;
         if (e.suspensosFim !== undefined) unit.suspensosFim = e.suspensosFim;
+        if (e.saldoDevedor !== undefined) unit.saldoDevedor = e.saldoDevedor;
         unit.adimplentes = Math.max(0, e.ativosFim - unit.inadimplentes);
         // No mês em andamento o recebimento é parcial, e o ticket também (o card mostra quanto do mês anterior já foi alcançado).
         unit.ticketMedio = Math.round((unit.recebimento / e.ativosFim) * 100) / 100;
@@ -858,6 +883,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(evo.units.some((e) => e.ativosFim)
         ? (() => {
             const comAtivos = md.units.filter((u) => u.ativosEvo);
+            const sd = somarSaldoDevedor(md.units);
             const ativos = comAtivos.reduce((s, u) => s + (u.ativosFim ?? 0), 0);
             const rec = comAtivos.reduce((s, u) => s + u.recebimento, 0);
             return {
@@ -865,6 +891,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
               ativosFim: ativos,
               ativosEvo: true,
               ...(comAtivos.some((u) => u.suspensosFim !== undefined) ? { suspensosFim: comAtivos.reduce((s, u) => s + (u.suspensosFim ?? 0), 0) } : {}),
+              ...(sd ? { saldoDevedor: sd } : {}),
               ...(ativos ? { ticketMedio: Math.round((rec / ativos) * 100) / 100 } : {}),
             };
           })()
