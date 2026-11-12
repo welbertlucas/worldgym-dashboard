@@ -20,9 +20,9 @@ import { AlunosTab } from "@/components/tabs/AlunosTab";
 import { RetencaoTab } from "@/components/tabs/RetencaoTab";
 import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
-import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
+import { CatracaTab } from "@/components/tabs/CatracaTab";
 import { UnitNavProvider } from "@/components/UnitLink";
-import { NAV_ITEMS, SUBMENUS } from "@/components/nav";
+import { enderecoAtual, NAV_ITEMS, SUBMENUS } from "@/components/nav";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { RiscosTab } from "@/components/tabs/RiscosTab";
@@ -60,7 +60,7 @@ const ABAS = new Set([...NAV_ITEMS.map((n) => n.id), "acessos"]);
 const ABAS_COMERCIAL = SUBMENUS.comercial, ABAS_FINANCEIRO = SUBMENUS.financeiro;
 function abaDoEndereco(): string | null {
   try {
-    const id = decodeURIComponent(window.location.hash.slice(1)).split("/")[0];
+    const id = enderecoAtual(decodeURIComponent(window.location.hash.slice(1))).split("/")[0];
     return ABAS.has(id) ? id : null;
   } catch {
     return null;
@@ -69,7 +69,7 @@ function abaDoEndereco(): string | null {
 /** Submenu guardado no endereço (#financeiro/notas → "notas"); cada tela confere se a aba existe. */
 function subDoEndereco(): string | null {
   try {
-    return decodeURIComponent(window.location.hash.slice(1)).split("/")[1] || null;
+    return enderecoAtual(decodeURIComponent(window.location.hash.slice(1))).split("/")[1] || null;
   } catch {
     return null;
   }
@@ -81,13 +81,14 @@ const Index = () => {
   // Perfil de uma unidade só: a unidade já vem escolhida (não existe "rede" para essa pessoa).
   const [selectedUnit, setSelectedUnit] = useState<string | null>(() => { const p = unidadesProprias(); return p?.length === 1 ? p[0] : null; });
   /** Unidade aberta pelos links de nome; a página de detalhe começa nela. */
-  // Abas com seletor de unidade próprio (Unidades, Mapa, Tráfego pago) avisam a unidade escolhida, para o cabeçalho acompanhar.
+  // Marketing (Campanhas e Anúncios) tem seletor de unidade próprio e avisa a unidade escolhida, para o cabeçalho acompanhar.
   const [unidadeDaAba, setUnidadeDaAba] = useState<string | null>(null);
-  const ABAS_COM_SELETOR = ["mapa", "campanhas"];
   const [syncing, setSyncing] = useState(false);
   // A aba fica no endereço (#campanhas, #financeiro...): recarregar a página volta para ela, o link leva direto e o "voltar" do navegador funciona.
   const [activeTab, setActiveTab] = useState(() => abaDoEndereco() ?? "executiva");
   const [subAba, setSubAba] = useState<string | null>(() => subDoEndereco());
+  /** Telas com filtro próprio no lugar do filtro do topo: Campanhas e Anúncios (Leads usa o do topo). */
+  const seletorProprio = activeTab === "campanhas" && abaAtiva(SUBMENUS.campanhas, subAba) !== "leads";
   useEffect(() => {
     const aoVoltar = () => { setActiveTab(abaDoEndereco() ?? "executiva"); setSubAba(subDoEndereco()); };
     window.addEventListener("popstate", aoVoltar);
@@ -265,7 +266,7 @@ const Index = () => {
                   Dashboard de resultados
                 </h1>
                 <p className="text-muted-foreground text-xs sm:text-sm sm:truncate first-letter:uppercase">
-                  {activeTab === "benchmark" ? (selectedUnit ? `${selectedUnit} na rede` : "Rede") : (ABAS_COM_SELETOR.includes(activeTab) ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? (soAsProprias ? (soAsProprias.length === 1 ? soAsProprias[0] : "Suas unidades") : "Rede")} • {formatDate(fullMonthData.month)}
+                  {activeTab === "benchmark" ? (selectedUnit ? `${selectedUnit} na rede` : "Rede") : (seletorProprio ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? (soAsProprias ? (soAsProprias.length === 1 ? soAsProprias[0] : "Suas unidades") : "Rede")} • {formatDate(fullMonthData.month)}
                   {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
               </div>
@@ -309,7 +310,7 @@ const Index = () => {
 
         <main ref={mainRef} className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 sm:space-y-8 max-w-[1600px] scroll-mt-20">
         {/* Filtros */}
-        {activeTab !== "mapa" && activeTab !== "campanhas" && activeTab !== "acessos" && <DateFilter
+        {!seletorProprio && activeTab !== "acessos" && <DateFilter
           selectedMonth={fullMonthData.month}
           compareMonth={compareMonth}
           selectedUnit={selectedUnit}
@@ -321,18 +322,18 @@ const Index = () => {
 
         {/* Aviso de unidade filtrada: nos menus temáticos o filtro vale para a tela toda e segue ao trocar de menu. */}
         {/* Quem tem uma unidade só não vê a faixa: para essa pessoa não existe outra visão. */}
-        {selectedUnit && !(soAsProprias?.length === 1) && ["comercial", "metas", "financeiro", "alunos", "retencao", "riscos"].includes(activeTab) && (
+        {selectedUnit && !(soAsProprias?.length === 1) && (["comercial", "metas", "financeiro", "alunos", "catraca", "retencao", "riscos"].includes(activeTab) || (activeTab === "campanhas" && !seletorProprio)) && (
           <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
             <span className="text-foreground">Mostrando só <b>{selectedUnit}</b>. Os números desta tela são desta unidade, não {soAsProprias ? "da soma das suas unidades" : "da rede"}.</span>
             <span className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => changeTab("unidades")} className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Ver retrato de {selectedUnit}</button>
+              <button type="button" onClick={() => changeTab("unidades")} className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Ver o Raio-X de {selectedUnit}</button>
               <button type="button" onClick={() => setSelectedUnit(null)} className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/90">{soAsProprias ? "Ver todas as suas unidades" : "Voltar para a rede"}</button>
             </span>
           </div>
         )}
 
         {/* Comparativo */}
-        {comparison && activeTab !== "unidades" && activeTab !== "mapa" && activeTab !== "campanhas" && activeTab !== "acessos" && (
+        {comparison && activeTab !== "unidades" && !seletorProprio && activeTab !== "acessos" && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -350,7 +351,7 @@ const Index = () => {
           </section>
         )}
 
-        {partialSelected && activeTab !== "executiva" && activeTab !== "mapa" && activeTab !== "campanhas" && activeTab !== "acessos" && (
+        {partialSelected && activeTab !== "executiva" && !seletorProprio && activeTab !== "acessos" && (
           <Notice><b>{formatDate(fullMonthData.month)}</b> está em andamento — os valores são parciais.</Notice>
         )}
 
@@ -407,10 +408,6 @@ const Index = () => {
                 <ProdutosVendidos total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
               </div>
             </>)}
-            {aba === "oportunidades" && (<>
-              <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} /></div>
-              <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} /></div>
-            </>)}
           </section>
           );
         })()}
@@ -455,6 +452,8 @@ const Index = () => {
 
         {activeTab === "alunos" && <AlunosTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} aba={subAba} onAba={(s) => changeTab(`alunos/${s}`)} />}
 
+        {activeTab === "catraca" && <CatracaTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} aba={subAba} onAba={(s) => changeTab(`catraca/${s}`)} />}
+
         {activeTab === "retencao" && <RetencaoTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} aba={subAba} onAba={(s) => changeTab(`retencao/${s}`)} />}
 
         {activeTab === "unidades" && (
@@ -482,8 +481,19 @@ const Index = () => {
         )}
 
 
-        {activeTab === "mapa" && <MapaAlunosTab initialUnit={selectedUnit} onUnitChange={setUnidadeDaAba} />}
-        {activeTab === "campanhas" && <CampanhasTab initialUnit={selectedUnit} onUnitChange={setUnidadeDaAba} month={fullMonthData.month} />}
+        {activeTab === "campanhas" && (
+          <CampanhasTab
+            initialUnit={selectedUnit}
+            onUnitChange={setUnidadeDaAba}
+            month={fullMonthData.month}
+            aba={subAba}
+            onAba={(s) => changeTab(`campanhas/${s}`)}
+            leads={<>
+              <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
+              <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
+            </>}
+          />
+        )}
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
 

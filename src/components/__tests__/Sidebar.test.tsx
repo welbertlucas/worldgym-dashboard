@@ -1,13 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { Sidebar, MobileDrawer } from "@/components/Sidebar";
-import { NAV_ITEMS } from "@/components/nav";
+import { enderecoAtual, GRUPOS_DO_MENU, NAV_ITEMS } from "@/components/nav";
 
 const noop = () => {};
 
 describe("navegação", () => {
-  it("mantém as seções originais, na mesma ordem, mais o detalhe da unidade e o mapa dos alunos", () => {
-    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "comercial", "metas", "financeiro", "alunos", "retencao", "unidades", "benchmark", "mapa", "campanhas", "riscos"]);
+  it("menu em grupos: painel, áreas, unidades (os ids antigos continuam, o mapa virou aba de Alunos)", () => {
+    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "metas", "riscos", "comercial", "financeiro", "alunos", "catraca", "retencao", "campanhas", "unidades", "benchmark"]);
+    expect(NAV_ITEMS.map((i) => i.group)).toEqual([0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2]);
+  });
+
+  it("endereços antigos levam para o lugar novo", () => {
+    expect(enderecoAtual("mapa")).toBe("alunos/onde-moram");
+    expect(enderecoAtual("alunos/frequencia")).toBe("catraca/frequencia");
+    expect(enderecoAtual("comercial/oportunidades")).toBe("campanhas/leads");
+    expect(enderecoAtual("financeiro/notas")).toBe("financeiro/notas");
   });
 
   it("sidebar lista todas as seções, marca a ativa e mostra o contador de críticos", () => {
@@ -16,6 +24,7 @@ describe("navegação", () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain("15");
     expect(html).toContain("Recolher menu");
+    for (const g of GRUPOS_DO_MENU.slice(0, 3)) expect(html).toContain(g);
   });
 
   it("recolhida, mantém rótulos acessíveis e o botão de expandir", () => {

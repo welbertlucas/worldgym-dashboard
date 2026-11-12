@@ -3,12 +3,9 @@ import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
 import { clientesSpecs } from "@/components/kpi/tabSpecs";
 import { FluxoClientesChart } from "@/components/clientes/FluxoClientesChart";
 import { PerfilAlunosCard } from "@/components/clientes/PerfilAlunosCard";
-import { AcessosCard } from "@/components/clientes/AcessosCard";
 import { SaldoHeatmap } from "@/components/clientes/SaldoHeatmap";
-import { MapaCalorEntradas } from "@/components/clientes/MapaCalorEntradas";
-import { LiberacoesCard } from "@/components/clientes/LiberacoesCard";
-import { OutrasUnidadesCard } from "@/components/clientes/OutrasUnidadesCard";
 import { Secao } from "@/components/unidades/Secao";
+import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
 import { Abas, abaAtiva } from "@/components/Abas";
 import { SUBMENUS } from "@/components/nav";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
@@ -17,7 +14,7 @@ interface Props { ctx: KpiContext; month: string; unit: string | null; aba?: str
 
 const ABAS_ALUNOS = SUBMENUS.alunos;
 
-/** Base de alunos: quantos são (base, entradas e saídas), quem são (perfil) e como frequentam (check-in). Tudo vem do EVO. */
+/** Alunos: quantos são (base, entradas e saídas), quem são (perfil) e onde moram. Tudo vem do EVO; a frequência fica em Acessos na catraca. */
 export function AlunosTab({ ctx, month, unit, aba: pedida = null, onAba = () => {} }: Props) {
   const aba = abaAtiva(ABAS_ALUNOS, pedida);
   const total = ctx.cur.total;
@@ -27,8 +24,8 @@ export function AlunosTab({ ctx, month, unit, aba: pedida = null, onAba = () => 
   return (
     <div className="space-y-10">
       <div className="space-y-3">
-        <SectionTitle hint={`${unitLabel} • ${monthLabel}${partial ? " (mês em andamento: valores parciais)" : ""}`}>Base de alunos</SectionTitle>
-        <Abas tela="alunos" titulo="Base de alunos" abas={ABAS_ALUNOS} ativa={aba} onChange={onAba} />
+        <SectionTitle hint={`${unitLabel} • ${monthLabel}${partial ? " (mês em andamento: valores parciais)" : ""}`}>Alunos</SectionTitle>
+        <Abas tela="alunos" titulo="Alunos" abas={ABAS_ALUNOS} ativa={aba} onChange={onAba} />
       </div>
 
       {aba === "base" && <Secao id="al-base" titulo="Tamanho da base" descricao="Quantos alunos ativos há, quanto a base cresceu ou encolheu no mês, por quanto tempo os alunos ficam e quanto deixam em média (LTV).">
@@ -41,11 +38,8 @@ export function AlunosTab({ ctx, month, unit, aba: pedida = null, onAba = () => 
         <PerfilAlunosCard total={total} monthLabel={monthLabel} unit={unit} />
       </Secao>}
 
-      {aba === "frequencia" && <Secao id="al-frequencia" titulo="Frequência" descricao="Em que dias e horários os alunos treinam, quando vieram pela última vez e quantas vezes a recepção liberou a catraca na mão e quem treina em outra unidade. Quem some costuma cancelar depois.">
-        <MapaCalorEntradas total={total} month={month} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
-        <AcessosCard total={total} month={month} monthLabel={monthLabel} unit={unit} />
-        <LiberacoesCard total={total} month={month} monthLabel={monthLabel} partial={partial} unit={unit} />
-        <OutrasUnidadesCard total={total} month={month} monthLabel={monthLabel} partial={partial} unit={unit} />
+      {aba === "onde-moram" && <Secao id="al-onde-moram" titulo="Onde moram" descricao="Foto de hoje do EVO: alunos ativos (ou que saíram nos últimos 12 meses) por bairro de residência e a localização das unidades. O mês do filtro não muda o mapa.">
+        <MapaAlunosTab unit={unit} />
       </Secao>}
     </div>
   );

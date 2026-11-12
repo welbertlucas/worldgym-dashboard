@@ -68,7 +68,7 @@ describe("Visão Executiva", () => {
     const html = renderToString(
       <ExecutivaTab month={cur} prev={months[2]} alerts={[]} evalMonth="2026-09" deltas={[]} metas={[]} onOpenRiscos={() => {}} onOpenUnidades={() => {}} />,
     ).replace(/<!-- -->/g, "");
-    for (const s of ["Visão executiva", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede", "Faturamento da rede", "Maiores faturamentos", "Prioridades da diretoria"]) expect(html).toContain(s);
+    for (const s of ["Overview", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede", "Faturamento da rede", "Maiores faturamentos", "Prioridades da diretoria"]) expect(html).toContain(s);
     expect(html).toContain("vs. set. de 2025"); // comparativo anual quando o mês do ano anterior existe
     expect(html).toContain("vs. ago. de 2026"); // mês fechado: compara com o mês anterior, citando o mês
     expect(html).toContain("Nenhum alerta crítico");

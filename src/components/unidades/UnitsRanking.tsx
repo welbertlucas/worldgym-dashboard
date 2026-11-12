@@ -55,7 +55,7 @@ export function PosicoesNaRede({ units, unidade, monthLabel, onVerNoBenchmark }:
           <p className="text-sm text-muted-foreground"><span className="first-letter:uppercase">{monthLabel}</span> · 1º = melhor resultado</p>
         </div>
         {onVerNoBenchmark && (
-          <button type="button" onClick={onVerNoBenchmark} className="no-print rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver no Benchmark</button>
+          <button type="button" onClick={onVerNoBenchmark} className="no-print rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver no Ranking da rede</button>
         )}
       </div>
       <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7" aria-label={`Posição de ${unidade} na rede`}>
@@ -281,7 +281,7 @@ export function UnitsRanking({ units, monthLabel, partial, variationView, destaq
           )}
 
           {destaque && onVerCompleto && (
-            <button type="button" onClick={onVerCompleto} className="no-print mt-4 text-sm font-semibold text-primary-ink underline underline-offset-4 hover:text-primary-ink/80">{rotuloVerCompleto ?? "Ver ranking completo no Benchmark"}</button>
+            <button type="button" onClick={onVerCompleto} className="no-print mt-4 text-sm font-semibold text-primary-ink underline underline-offset-4 hover:text-primary-ink/80">{rotuloVerCompleto ?? "Ver no Ranking da rede"}</button>
           )}
           {!compacto && noData.length > 0 && (
             <p className="mt-3 text-xs text-muted-foreground">Sem dado neste mês: {noData.join(", ")}.</p>

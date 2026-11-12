@@ -65,7 +65,7 @@ describe("UnitsRanking", () => {
     const html = renderToString(<PosicoesNaRede units={units} unidade="A" monthLabel="setembro de 2026" onVerNoBenchmark={() => {}} />);
     expect(html).toContain("Posição de A na rede");
     expect(html.replace(/<!-- -->/g, "")).toContain("2º");
-    expect(html).toContain("Ver no Benchmark");
+    expect(html).toContain("Ver no Ranking da rede");
     expect(html).not.toContain(`aria-label="Unidades por`);
   });
 
@@ -223,7 +223,7 @@ describe("Unidades: um menu só", () => {
   });
 });
 
-describe("Base de alunos e Retenção por assunto", () => {
+describe("Alunos, Acessos na catraca e Retenção por assunto", () => {
   it("cada menu traz as seções do seu assunto, sem misturar", async () => {
     const { AlunosTab } = await import("@/components/tabs/AlunosTab");
     const { RetencaoTab } = await import("@/components/tabs/RetencaoTab");
@@ -232,7 +232,11 @@ describe("Base de alunos e Retenção por assunto", () => {
     const ctx = { cur: m, partial: false };
     const alunos = renderToString(<AlunosTab ctx={ctx} month="2026-09" unit={null} />);
     expect(alunos).toContain("Tamanho da base");
-    expect(alunos).toContain("Frequência");
+    expect(alunos).toContain("Onde moram");
+    expect(alunos).not.toContain("Frequência"); // foi para Acessos na catraca
+    const { CatracaTab } = await import("@/components/tabs/CatracaTab");
+    const catraca = renderToString(<CatracaTab ctx={ctx} month="2026-09" unit={null} />);
+    for (const t of ["Frequência", "Liberações", "Outras unidades"]) expect(catraca).toContain(t);
     expect(alunos).not.toContain("Motivos de cancelamento");
     const ret = renderToString(<RetencaoTab ctx={ctx} month="2026-09" unit={null} />);
     for (const t of ["Cancelamentos", "Renovação", "Satisfação"]) expect(ret).toContain(t);
@@ -249,7 +253,7 @@ describe("Posição na rede no retrato da unidade", () => {
     expect(recorteEmVolta(5, -1)).toEqual([0]);
     const us = "ABCDEFGH".split("").map((n, i) => unit(n, { faturamento: 1000 - i * 100 }));
     const html = renderToString(<UnitsRanking units={us} monthLabel="x" partial={false} destaque="G" onVerCompleto={() => {}} />);
-    expect(html).toContain("Ver ranking completo no Benchmark");
+    expect(html).toContain("Ver no Ranking da rede");
     expect(html).not.toContain(">B<");
     expect(html).toContain(">A<");
     expect(html).toContain(">E<");
@@ -273,7 +277,11 @@ describe("busca do menu", () => {
   const busca = (q: string) => buscarNoMenu(itens, q).map((r) => r.destino);
   it("acha abas pelo nome e pelo que tem nos cards, sem acento", () => {
     expect(busca("nota")[0]).toBe("financeiro/notas");
-    expect(busca("catraca")).toContain("alunos/frequencia");
+    expect(busca("catraca")).toContain("catraca/frequencia");
+    expect(busca("liberacoes")).toContain("catraca/liberacoes");
+    expect(busca("mapa dos alunos")).toEqual(["alunos/onde-moram"]);
+    expect(busca("oportunidades")).toContain("campanhas/leads");
+    expect(busca("benchmark")).toContain("benchmark/posicao");
     expect(busca("saldo devedor")).toEqual(["financeiro/cobranca"]);
     expect(busca("renovacao")[0]).toBe("retencao/renovacao");
     expect(busca("Retenção")[0]).toBe("retencao");

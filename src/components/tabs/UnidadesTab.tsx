@@ -48,12 +48,12 @@ function EscolherUnidade({ selectedMonth, onPick }: { selectedMonth: string; onP
   );
 }
 
-/** Unidades: o retrato de uma unidade. Sem unidade no filtro do topo, mostra a grade para escolher. */
+/** Raio-X da unidade: tudo de uma unidade. Sem unidade no filtro do topo, mostra a grade para escolher. */
 export function UnidadesTab({ selectedMonth, unit, compareMonth, metas, onPick, onOpenMetas, onOpenTab }: Props) {
   if (!unit) {
     return (
       <div className="space-y-6">
-        <SectionTitle hint={`Escolha uma unidade para ver o retrato dela em ${formatMonthLong(selectedMonth)}: resultado do mês, posição na rede, evolução e contratos. A variação é do faturamento contra o mês anterior. Para comparar todas as unidades entre si, use o menu Benchmark.`}>Unidades</SectionTitle>
+        <SectionTitle hint={`Escolha uma unidade para ver o raio-X dela em ${formatMonthLong(selectedMonth)}: resultado do mês, posição na rede, evolução e contratos. A variação é do faturamento contra o mês anterior. Para comparar todas as unidades entre si, use o Ranking da rede.`}>Raio-X da unidade</SectionTitle>
         <EscolherUnidade selectedMonth={selectedMonth} onPick={onPick} />
       </div>
     );
@@ -61,7 +61,7 @@ export function UnidadesTab({ selectedMonth, unit, compareMonth, metas, onPick, 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <SectionTitle hint={`Retrato da unidade em ${formatMonthLong(selectedMonth)}. Para escolher outra, use o filtro "Unidade" no topo; para comparar todas, o menu Benchmark.`}>{unit}</SectionTitle>
+        <SectionTitle hint={`Raio-X da unidade em ${formatMonthLong(selectedMonth)}. Para escolher outra, use o filtro "Unidade" no topo; para comparar todas, o Ranking da rede.`}>{unit}</SectionTitle>
         <Button variant="outline" size="sm" onClick={() => window.print()} className="no-print shrink-0 text-xs font-medium">
           <Printer className="w-4 h-4" aria-hidden />
           <span>Exportar PDF</span>

@@ -1,44 +1,57 @@
-import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, Building2, BarChart3, Map as MapIcon, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
+import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, Building2, BarChart3, DoorOpen, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
 export interface NavItem { id: string; label: string; icon: LucideIcon; group: number }
 
+/** Título de cada grupo do menu (o número é o `group` dos itens). */
+export const GRUPOS_DO_MENU = ["Painel", "Áreas", "Unidades", "Administração"];
+
 // Fonte única da navegação: a sidebar (desktop) e o drawer (celular) leem esta lista.
+// Os ids ficam como eram (o endereço #id não muda); só os nomes e a ordem mudaram.
 export const NAV_ITEMS: NavItem[] = [
-  { id: "executiva", label: "Visão Executiva", icon: LayoutDashboard, group: 0 },
+  { id: "executiva", label: "Overview", icon: LayoutDashboard, group: 0 },
+  { id: "metas", label: "Metas", icon: Target, group: 0 },
+  { id: "riscos", label: "Alertas", icon: ShieldAlert, group: 0 },
   { id: "comercial", label: "Comercial", icon: TrendingUp, group: 1 },
-  { id: "metas", label: "Metas", icon: Target, group: 1 },
   { id: "financeiro", label: "Financeiro", icon: Wallet, group: 1 },
-  { id: "alunos", label: "Base de alunos", icon: Users, group: 1 },
+  { id: "alunos", label: "Alunos", icon: Users, group: 1 },
+  { id: "catraca", label: "Acessos na catraca", icon: DoorOpen, group: 1 },
   { id: "retencao", label: "Retenção", icon: UserCheck, group: 1 },
-  { id: "unidades", label: "Unidades", icon: Building2, group: 1 },
-  { id: "benchmark", label: "Benchmark", icon: BarChart3, group: 1 },
-  { id: "mapa", label: "Mapa dos alunos", icon: MapIcon, group: 1 },
-  { id: "campanhas", label: "Tráfego pago", icon: Megaphone, group: 1 },
-  { id: "riscos", label: "Alertas", icon: ShieldAlert, group: 2 },
+  { id: "campanhas", label: "Marketing", icon: Megaphone, group: 1 },
+  { id: "unidades", label: "Raio-X da unidade", icon: Building2, group: 2 },
+  { id: "benchmark", label: "Ranking da rede", icon: BarChart3, group: 2 },
 ];
 
-/** Itens do menu para quem está logado: a tela de acessos só aparece para o dono. */
+/** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. */
 export const itensDoMenu = (gerirAcessos: boolean): NavItem[] =>
-  gerirAcessos ? [...NAV_ITEMS, { id: "acessos", label: "Acessos", icon: KeyRound, group: 3 }] : NAV_ITEMS;
+  gerirAcessos ? [...NAV_ITEMS, { id: "acessos", label: "Usuários", icon: KeyRound, group: 3 }] : NAV_ITEMS;
 
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
 export const SUBMENUS: Record<string, Aba[]> = {
-  comercial: [{ id: "resumo", rotulo: "Resumo" }, { id: "vendas", rotulo: "Vendas" }, { id: "complementares", rotulo: "Receitas complementares" }, { id: "oportunidades", rotulo: "Oportunidades" }],
+  comercial: [{ id: "resumo", rotulo: "Resumo" }, { id: "vendas", rotulo: "Vendas" }, { id: "complementares", rotulo: "Receitas complementares" }],
   financeiro: [{ id: "resumo", rotulo: "Resumo" }, { id: "recebimento", rotulo: "Recebimento" }, { id: "cobranca", rotulo: "Cobrança" }, { id: "notas", rotulo: "Notas fiscais" }],
-  alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "frequencia", rotulo: "Frequência" }],
+  alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "onde-moram", rotulo: "Onde moram" }],
+  catraca: [{ id: "frequencia", rotulo: "Frequência" }, { id: "liberacoes", rotulo: "Liberações" }, { id: "outras-unidades", rotulo: "Outras unidades" }],
   retencao: [{ id: "cancelamentos", rotulo: "Cancelamentos" }, { id: "renovacao", rotulo: "Renovação" }, { id: "satisfacao", rotulo: "Satisfação" }],
+  campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "leads", rotulo: "Leads" }],
   benchmark: [{ id: "posicao", rotulo: "Posição e destaques" }, { id: "contratos", rotulo: "Contratos ativos" }, { id: "tabela", rotulo: "Tabela completa" }],
 };
 
+/** Endereços de antes da reorganização do menu (links salvos): para onde cada um foi. */
+const ENDERECOS_ANTIGOS: Record<string, string> = {
+  mapa: "alunos/onde-moram",
+  "alunos/frequencia": "catraca/frequencia",
+  "comercial/oportunidades": "campanhas/leads",
+};
+export const enderecoAtual = (endereco: string) => ENDERECOS_ANTIGOS[endereco] ?? endereco;
+
 /** Palavras que levam a cada menu ou aba na busca do menu (o que tem nos cards dela). */
 const PALAVRAS: Record<string, string> = {
-  executiva: "resumo geral rede painel principal",
+  executiva: "visao executiva resumo geral rede painel principal inicio",
   "comercial/resumo": "novos contratos cancelamentos vendas online conversao saldo de clientes",
   "comercial/vendas": "vendas por dia projecao fechamento calendario contratos mais vendidos planos",
   "comercial/complementares": "diarias personal brinquedoteca kids wg plus pro+ camisetas coqueteleiras produtos",
-  "comercial/oportunidades": "oportunidades leads origem perfil prospects cadastros",
   metas: "meta bronze prata ouro atingimento",
   "financeiro/resumo": "faturamento recebimento receita inadimplencia adimplentes ticket medio",
   "financeiro/recebimento": "formas de pagamento pix cartao credito debito bandeiras gateways adquirente multas taxas ajustes",
@@ -46,18 +59,24 @@ const PALAVRAS: Record<string, string> = {
   "financeiro/notas": "notas fiscais nf nfs-e nfse iss emissao",
   "alunos/base": "alunos ativos base fluxo novos retornos saidas permanencia ltv suspensos",
   "alunos/perfil": "genero idade perfil",
-  "alunos/frequencia": "catraca check-in acessos entradas horarios mapa de calor liberacoes manuais ultimo acesso outra unidade",
+  "alunos/onde-moram": "mapa dos alunos bairros onde moram endereco localizacao",
+  catraca: "controle de acesso entradas check-in",
+  "catraca/frequencia": "frequencia entradas horarios mapa de calor dias ultimo acesso sumidos",
+  "catraca/liberacoes": "liberacoes manuais entrada manual recepcao visitante sem pagamento fraude",
+  "catraca/outras-unidades": "outra unidade treinam em outra fluxo entre unidades",
   "retencao/cancelamentos": "churn cancelamentos motivos quem cancela",
   "retencao/renovacao": "renovacao a vencer nao renovados",
   "retencao/satisfacao": "nps google reclame aqui satisfacao notas avaliacao",
-  unidades: "retrato unidade posicao",
-  "benchmark/posicao": "ranking posicao destaques comparar unidades melhorou piorou",
+  unidades: "raio x raio-x retrato unidade posicao resultado evolucao pdf imprimir",
+  "benchmark/posicao": "benchmark ranking posicao destaques comparar unidades melhorou piorou",
   "benchmark/contratos": "contratos ativos especiais vip personal local rede",
   "benchmark/tabela": "tabela completa todas as unidades indicadores",
-  mapa: "mapa bairros onde moram endereco",
-  campanhas: "trafego pago meta facebook instagram anuncios campanhas cac pixel",
+  campanhas: "trafego pago meta facebook instagram",
+  "campanhas/campanhas": "investimento alertas evolucao cac pixel compras",
+  "campanhas/anuncios": "anuncios contato mais barato horarios dos contatos campanhas no ar veiculando",
+  "campanhas/leads": "oportunidades leads origem perfil prospects cadastros",
   riscos: "alertas riscos recomendacoes atencao critico",
-  acessos: "acessos usuarios senha permissoes",
+  acessos: "usuarios senha permissoes login niveis quem entra no painel",
 };
 
 export interface ItemDeBusca { destino: string; rotulo: string; menu: string; palavras: string }

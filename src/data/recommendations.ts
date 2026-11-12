@@ -107,7 +107,7 @@ const TEMPLATES: Record<AlertKind, Template> = {
   },
   liberacoes: {
     hypotheses: ["Recepção liberando por hábito, sem cobrar nem regularizar", "Aluno com cobrança recusada (cartão vencido) liberado para não perder a visita", "Visitante entrando sem a venda da diária registrada (pagamento por fora) ou aula experimental sem registro", "Planos que não dão acesso à unidade sendo vendidos sem explicar a regra"],
-    investigate: ["Abrir Base de alunos → Frequência → Liberações manuais da unidade e ver os grupos e os motivos", "No EVO, Gerencial → Controle de entradas → Entradas e saídas, ação “Entrada manual”: ver quem liberou, em que horários e se o visitante tinha venda no dia"],
+    investigate: ["Abrir Acessos na catraca → Liberações, na unidade, e ver os grupos e os motivos", "No EVO, Gerencial → Controle de entradas → Entradas e saídas, ação “Entrada manual”: ver quem liberou, em que horários e se o visitante tinha venda no dia"],
     correct: ["Combinar com a recepção: aluno devendo ou inativo só entra depois de cobrar ou regularizar; visitante só entra com a diária vendida no EVO ou a aula experimental registrada"],
     followUp: "Liberações sem pagamento registrado no próximo mês fechado",
   },

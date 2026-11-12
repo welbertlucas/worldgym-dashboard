@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { buscarNoMenu, itensDeBusca, itensDoMenu } from "@/components/nav";
+import { buscarNoMenu, GRUPOS_DO_MENU, itensDeBusca, itensDoMenu } from "@/components/nav";
 import { podeGerirAcessos } from "@/lib/auth";
 import wgLogo from "@/assets/wg-logo.png";
 
@@ -77,7 +77,9 @@ function NavList({ active, onChange, criticalCount, collapsed = false }: NavProp
           const badge = item.id === "riscos" ? criticalCount : 0;
           return (
             <li key={item.id}>
-              {i > 0 && itens[i - 1].group !== item.group && <div className="my-2 mx-2 h-px bg-border" role="separator" />}
+              {(i === 0 || itens[i - 1].group !== item.group) && (collapsed
+                ? i > 0 && <div className="my-2 mx-2 h-px bg-border" role="separator" />
+                : <p className={cn("px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70", i > 0 && "mt-4")}>{GRUPOS_DO_MENU[item.group]}</p>)}
               <button
                 type="button"
                 onClick={() => onChange(item.id)}

@@ -65,8 +65,8 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
   return (
     <div className="space-y-10">
       <div className="space-y-3">
-        <SectionTitle hint={`As ${units.length} unidades comparadas entre si em ${formatMonthLong(selectedMonth)}${partial ? " (mês em andamento: valores parciais)" : ""}. Clique no nome de uma unidade para abrir o retrato dela em Unidades.`}>Benchmark</SectionTitle>
-        <Abas tela="benchmark" titulo="Benchmark" abas={ABAS_BENCHMARK} ativa={aba} onChange={onAba} />
+        <SectionTitle hint={`As ${units.length} unidades comparadas entre si em ${formatMonthLong(selectedMonth)}${partial ? " (mês em andamento: valores parciais)" : ""}. Clique no nome de uma unidade para abrir o Raio-X dela.`}>Ranking da rede</SectionTitle>
+        <Abas tela="benchmark" titulo="Ranking da rede" abas={ABAS_BENCHMARK} ativa={aba} onChange={onAba} />
       </div>
 
       {aba === "posicao" && <>{!foco && destaques}{ranking}{foco && destaques}</>}

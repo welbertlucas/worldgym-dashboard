@@ -111,7 +111,7 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
 
       <section aria-labelledby="indicadores-titulo">
         <SectionTitle level="page" hint={`${umaUnidade ? `Números de ${umaUnidade}` : unidades ? `Soma das suas ${unidades.length} unidades` : "Totais da rede"} no mês selecionado. A marca no arco é o mês anterior.`}>
-          <span id="indicadores-titulo">Visão executiva</span>
+          <span id="indicadores-titulo">Overview</span>
         </SectionTitle>
         <KpiGrid ctx={ctx} specs={specs}>
           <MetasKpiCard goals={redeGoals} partial={partial} onOpen={onOpenMetas ?? (() => {})} escopo={escopo} />

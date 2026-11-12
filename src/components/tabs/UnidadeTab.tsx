@@ -33,7 +33,8 @@ interface Props {
 export const MENUS_DA_UNIDADE = [
   { id: "comercial", rotulo: "Comercial" },
   { id: "financeiro", rotulo: "Financeiro" },
-  { id: "alunos", rotulo: "Base de alunos" },
+  { id: "alunos", rotulo: "Alunos" },
+  { id: "catraca", rotulo: "Acessos na catraca" },
   { id: "retencao", rotulo: "Retenção" },
   { id: "metas", rotulo: "Metas" },
 ] as const;
@@ -118,7 +119,7 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
         </div>
       </Secao>
 
-      <Secao id="ud-posicao" titulo="Posição na rede" descricao={<>Onde {unit} fica entre as unidades em {rankMonth ? formatMonthLong(rankMonth) : "—"}{partial ? " (último mês fechado)" : ""}. Para ver quem está acima e abaixo em cada indicador, abra o Benchmark: ele já vem centrado em {unit}.</>}>
+      <Secao id="ud-posicao" titulo="Posição na rede" descricao={<>Onde {unit} fica entre as unidades em {rankMonth ? formatMonthLong(rankMonth) : "—"}{partial ? " (último mês fechado)" : ""}. Para ver quem está acima e abaixo em cada indicador, abra o Ranking da rede: ele já vem centrado em {unit}.</>}>
         <PosicoesNaRede units={rankUnits} unidade={unit} monthLabel={rankMonth ? formatMonthLong(rankMonth) : ""} onVerNoBenchmark={onOpenTab ? () => onOpenTab("benchmark") : undefined} />
       </Secao>
 
