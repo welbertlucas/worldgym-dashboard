@@ -73,7 +73,7 @@ export function AcessosTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm mt-3">
             <thead className="text-left text-xs text-muted-foreground">
-              <tr><th className="px-5 py-2 font-medium">Nome</th><th className="px-3 py-2 font-medium">Nível</th><th className="px-3 py-2 font-medium">Unidades</th><th className="px-3 py-2 font-medium">Último acesso</th><th className="px-5 py-2 font-medium text-right">Ações</th></tr>
+              <tr><th className="px-5 py-2 font-medium">Nome</th><th className="px-3 py-2 font-medium">Nível</th><th className="px-3 py-2 font-medium">Unidades</th><th className="px-3 py-2 font-medium">Último acesso</th><th className="px-3 py-2 font-medium">Resumo diário</th><th className="px-5 py-2 font-medium text-right">Ações</th></tr>
             </thead>
             <tbody>
               {dados.usuarios.map((u) => (
@@ -82,6 +82,23 @@ export function AcessosTab() {
                   <td className="px-3 py-3">{NIVEL[u.papel]}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
+                  <td className="px-3 py-3">
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-foreground" title={u.ativo ? undefined : "Acesso desativado não recebe o resumo"}>
+                      <input
+                        type="checkbox"
+                        checked={u.resumo !== false && u.ativo}
+                        disabled={!u.ativo}
+                        aria-label={`${u.nome} recebe o resumo diário por e-mail`}
+                        onChange={async (e) => {
+                          const r = await atualizarAcesso(u.id, { resumo: e.target.checked });
+                          if (r.ok) { toast({ title: e.target.checked ? `${u.nome} volta a receber o resumo` : `${u.nome} não recebe mais o resumo` }); void carregar(); }
+                          else toast({ title: "Não consegui atualizar", description: r.erro, variant: "destructive" });
+                        }}
+                        className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))] disabled:opacity-40"
+                      />
+                      {u.resumo !== false && u.ativo ? "Recebe" : "Não recebe"}
+                    </label>
+                  </td>
                   <td className="px-5 py-3 text-right">
                     {u.papel === "dono" ? <span className="text-xs text-muted-foreground">Você</span> : (
                       <span className="flex flex-wrap justify-end gap-2">
@@ -154,13 +171,14 @@ export function AcessosTab() {
 function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
   unidades: string[];
   inicial: UsuarioApi | null;
-  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[] }) => Promise<string | null>;
+  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean }) => Promise<string | null>;
   onCancelar?: () => void;
 }) {
   const [nome, setNome] = useState(inicial?.nome ?? "");
   const [email, setEmail] = useState(inicial?.email ?? "");
   const [papel, setPapel] = useState<Papel>(inicial?.papel ?? "master");
   const [marcadas, setMarcadas] = useState<string[]>(inicial?.unidades ?? []);
+  const [resumo, setResumo] = useState(inicial?.resumo !== false);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -169,10 +187,10 @@ function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
     e.preventDefault();
     setEnviando(true);
     setErro("");
-    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [] });
+    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo });
     setEnviando(false);
     if (r) return setErro(r);
-    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); }
+    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); }
   };
 
   return (
@@ -201,6 +219,10 @@ function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
           </div>
         </fieldset>
       )}
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input type="checkbox" checked={resumo} onChange={(e) => setResumo(e.target.checked)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+        Recebe o resumo diário por e-mail (às 6h47, com os números de ontem {papel === "unidades" ? "das unidades marcadas" : "da rede"})
+      </label>
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
       <div className="flex gap-2">
         <Button type="submit" disabled={enviando}><ShieldCheck className="w-4 h-4" aria-hidden />{enviando ? "Salvando..." : inicial ? "Salvar alterações" : "Criar acesso"}</Button>

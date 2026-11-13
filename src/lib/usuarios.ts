@@ -1,6 +1,7 @@
 import { authFetch, API_BASE, type Papel } from "@/lib/auth";
 
-export interface UsuarioApi { id: string; nome: string; email: string; papel: Papel; unidades: string[]; ativo: boolean; criadoEm: string }
+/** `resumo`: recebe o resumo diário por e-mail. */
+export interface UsuarioApi { id: string; nome: string; email: string; papel: Papel; unidades: string[]; ativo: boolean; resumo: boolean; criadoEm: string }
 export interface EntradaRegistro { em: string; email: string; usuarioId: string | null; nome: string | null; ok: boolean }
 export type Resposta<T> = { ok: true; dados: T } | { ok: false; erro: string };
 
@@ -24,6 +25,6 @@ export const criarDono = (c: { nome: string; email: string; senha: string }) => 
 export type EmailDeAcesso = { enviado: boolean; para: string; erro?: string };
 type ComSenha = { usuario: UsuarioApi; senhaProvisoria: string; email?: EmailDeAcesso };
 
-export const criarAcesso = (c: { nome: string; email: string; papel: Papel; unidades: string[] }) => enviar<ComSenha>({ acao: "criar", ...c });
-export const atualizarAcesso = (id: string, c: Partial<Pick<UsuarioApi, "nome" | "email" | "papel" | "unidades" | "ativo">>) => enviar<{ usuario: UsuarioApi }>({ acao: "atualizar", id, ...c });
+export const criarAcesso = (c: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean }) => enviar<ComSenha>({ acao: "criar", ...c });
+export const atualizarAcesso = (id: string, c: Partial<Pick<UsuarioApi, "nome" | "email" | "papel" | "unidades" | "ativo" | "resumo">>) => enviar<{ usuario: UsuarioApi }>({ acao: "atualizar", id, ...c });
 export const redefinirSenha = (id: string) => enviar<ComSenha>({ acao: "redefinir", id });

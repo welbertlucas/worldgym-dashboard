@@ -43,7 +43,9 @@ async function salvar(lista) {
 export const limparCache = () => { memo = null; };
 
 /** O que sai para a tela: nunca o hash da senha. */
-export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, criadoEm: u.criadoEm });
+/** `resumo`: recebe o resumo diário por e-mail (quem foi criado antes da opção recebe, como sempre recebeu). */
+export const recebeResumo = (u) => u.ativo !== false && u.resumo !== false;
+export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, criadoEm: u.criadoEm });
 
 export function hashSenha(senha) {
   const sal = randomBytes(16);
@@ -92,7 +94,7 @@ export async function criarDono({ nome, email, senha }) {
 }
 
 /** Cria um acesso com senha provisória (mostrada uma única vez ao dono). */
-export async function criarUsuario({ nome, email, papel, unidades }) {
+export async function criarUsuario({ nome, email, papel, unidades, resumo = true }) {
   const lista = await lerFresco();
   if (papel === "dono" || !PAPEIS.includes(papel)) throw new ErroAcesso("Nível inválido.");
   const dados = validarBasico({ nome, email }, lista);
@@ -100,7 +102,7 @@ export async function criarUsuario({ nome, email, papel, unidades }) {
   const u = {
     id: randomUUID(), ...dados, papel,
     unidades: papel === "unidades" ? validarUnidades(unidades) : [],
-    ativo: true, hash: hashSenha(senhaProvisoria), criadoEm: new Date().toISOString(),
+    ativo: true, resumo: resumo !== false, hash: hashSenha(senhaProvisoria), criadoEm: new Date().toISOString(),
   };
   await salvar([...lista, u]);
   return { usuario: publico(u), senhaProvisoria };
@@ -116,7 +118,7 @@ export async function redefinirSenha(id) {
   return { usuario: publico(u), senhaProvisoria };
 }
 
-/** Muda nome, nível, unidades ou desativa/reativa. O dono não pode ser rebaixado nem desativado. */
+/** Muda nome, nível, unidades, se recebe o resumo diário, ou desativa/reativa. O dono não pode ser rebaixado nem desativado. */
 export async function atualizarUsuario(id, campos) {
   const lista = await lerFresco();
   const u = lista.find((x) => x.id === id);
@@ -138,6 +140,7 @@ export async function atualizarUsuario(id, campos) {
   if (u.papel === "unidades") u.unidades = validarUnidades(campos.unidades ?? u.unidades);
   else u.unidades = [];
   if (campos.ativo !== undefined) u.ativo = Boolean(campos.ativo);
+  if (campos.resumo !== undefined) u.resumo = Boolean(campos.resumo);
   await salvar(lista);
   return publico(u);
 }

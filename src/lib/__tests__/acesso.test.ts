@@ -103,6 +103,22 @@ describe("acessos, níveis e registro", () => {
     await expect(acesso.criarUsuario({ nome: "Ana", email: "sem-arroba", papel: "master" })).rejects.toThrow(/E-mail/);
   });
 
+  it("resumo diário: marca e desmarca quem recebe; desativado nunca recebe; quem é antigo continua recebendo", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    expect(acesso.publico(dono).resumo).toBe(true);
+    const { usuario: ana } = await acesso.criarUsuario({ nome: "Ana", email: "ana@exemplo.com", papel: "master", resumo: false });
+    expect(ana.resumo).toBe(false);
+    const { usuario: bia } = await acesso.criarUsuario({ nome: "Bia", email: "bia@exemplo.com", papel: "unidades", unidades: ["Gama"] });
+    expect(bia.resumo).toBe(true);
+    expect((await acesso.atualizarUsuario(ana.id, { resumo: true })).resumo).toBe(true);
+    expect((await acesso.atualizarUsuario(dono.id, { resumo: false })).resumo).toBe(false); // o próprio dono pode deixar de receber
+    const lista = await acesso.listarUsuarios();
+    expect(lista.filter(acesso.recebeResumo).map((u: any) => u.nome)).toEqual(["Ana", "Bia"]);
+    await acesso.atualizarUsuario(bia.id, { ativo: false });
+    expect((await acesso.listarUsuarios()).filter(acesso.recebeResumo).map((u: any) => u.nome)).toEqual(["Ana"]);
+    expect(acesso.recebeResumo({ ativo: true })).toBe(true); // cadastro de antes da opção
+  });
+
   it("login cai após 12 horas sem uso e se renova a cada uso", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const h = 3600 * 1000, t0 = Date.parse("2026-11-10T08:00:00Z");

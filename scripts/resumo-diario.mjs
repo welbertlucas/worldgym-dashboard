@@ -7,7 +7,7 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { loadAll, loadCampanhas, loadMetaMeses } from "../server/store.js";
 import { alertasMeta } from "../server/alertasMeta.js";
-import { listarUsuarios } from "../server/acesso.js";
+import { listarUsuarios, recebeResumo } from "../server/acesso.js";
 import { hojeBR } from "../server/evo.js";
 import { lerMetasPlanilha } from "../server/metas.js";
 import { montarResumo, renderizarEmail, assunto, enviarEmail, envioConfigurado, smtpConfigurado, lerEnviados, salvarEnviados, chaveDoEnvio, diaAnterior, mesmoDiaMesAnterior, lerFoto, salvarFoto, fotoDe, dadosDeHoje } from "../server/resumo.js";
@@ -52,7 +52,7 @@ try {
 // Imagens publicadas no site do Atlas (public/email): o e-mail só aponta para elas, sem anexos (o Gmail mostrava cada imagem como anexo).
 const asset = (nome) => new URL(`../public/email/${nome}`, import.meta.url);
 const IMAGENS = `${(process.env.ATLAS_URL || "https://atlas.worldgymacademia.com.br").replace(/\/$/, "")}/email`;
-const usuarios = (await listarUsuarios()).filter((u) => u.ativo !== false && (!so || u.email === so));
+const usuarios = (await listarUsuarios()).filter((u) => recebeResumo(u) && (!so || u.email === so)); // desmarcado em Usuários = não recebe
 if (previa) { mkdirSync(dir, { recursive: true }); for (const f of ["banner-resumo.png", "assinatura-logo.png", "assinatura-selo.png"]) copyFileSync(asset(f), `${dir}/${f}`); }
 
 // Sem Zoho (SMTP_USUARIO/SMTP_SENHA) nem Resend (RESEND_API_KEY/RESUMO_REMETENTE) o envio fica desligado: a foto do dia já foi
