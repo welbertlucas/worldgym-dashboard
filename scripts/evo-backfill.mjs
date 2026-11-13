@@ -2,6 +2,7 @@
 // (EVO_DNS e EVO_TOKEN no ambiente; BLOB_READ_WRITE_TOKEN vem do .env.local)
 import { computeMonth } from "../server/evo.js";
 import { loadMonth, saveMonth } from "../server/store.js";
+import { salvarPagadores } from "../server/inadPerfil.js";
 
 // Campos que não vêm desta rotina (foto de contratos de evo-contratos.mjs): preserva ao regravar o mês.
 const CONTRATOS = ["alunosAtivos", "contratosAtivos", "contratosEspeciais", "contratosPersonal", "contratosLocal", "contratosParcial", "contratosRede", "ativosFim", "ativosIni", "cancelados", "aVencer", "naoRenovados", "naoRenovadosTipos", "naoRenovadosPlanos", "npsPromotores", "npsDetratores", "npsRespostas", "novosContratos", "vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "oportunidades", "conversoes", "fluxoNovos", "fluxoRetornos", "fluxoCancelados", "fluxoVencidos", "permanenciaMeses", "motivosCancel", "canceladosTipos", "canceladosPlanos", "origens", "cobrancas", "recusaMotivos", "treinoAtivo", "treinoVencido", "treinoFuturo"];
@@ -18,6 +19,10 @@ async function processar(ym) {
   if (antes?.cancelEm) data.cancelEm = antes.cancelEm;
   if (antes?.cobrancasEm) data.cobrancasEm = antes.cobrancasEm;
   if (antes?.treinosEm) data.treinosEm = antes.treinosEm;
+  // Quem pagou e quem ficou devendo: vai só para um arquivo temporário da rodada (perfil da inadimplência), nunca para o Blob.
+  const pagadores = {};
+  for (const u of data.units) { if (u._pagadores) pagadores[u.name] = u._pagadores; delete u._pagadores; }
+  salvarPagadores(ym, pagadores);
   for (const u of data.units) {
     const old = antes?.units.find((x) => x.name === u.name);
     if (old) for (const k of CONTRATOS) if (old[k] !== undefined) u[k] = old[k];

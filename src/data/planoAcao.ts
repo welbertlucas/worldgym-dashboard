@@ -40,16 +40,20 @@ export function passosDoItem(r: Recommendation): { porque: string; conferir?: st
   return { porque: r.fact, conferir: r.investigate[0], fazer: r.correct.join(" "), acompanhar: r.followUp };
 }
 
-/** Texto do plano de uma unidade para colar no WhatsApp (*negrito* e _itálico_ do próprio WhatsApp). */
-export function planoTexto(g: GrupoRisco, destaques: string[], evalMonth: string | null): string {
+/** Texto do plano de uma unidade para colar no WhatsApp (*negrito* e _itálico_ do próprio WhatsApp).
+ *  `feitos`: tipos de alerta já marcados como feitos; saem da lista e aparecem numa linha no fim. */
+export function planoTexto(g: GrupoRisco, destaques: string[], evalMonth: string | null, feitos: Set<string> = new Set()): string {
   const partes = [`*📋 Plano de ação • ${g.unit}*`];
   if (evalMonth) partes.push(`_Mês avaliado: ${formatMonthLong(evalMonth)}_`);
-  g.itens.forEach((r, i) => {
+  const pendentes = g.itens.filter((r) => !feitos.has(r.kind));
+  const prontos = g.itens.filter((r) => feitos.has(r.kind));
+  pendentes.forEach((r, i) => {
     const p = passosDoItem(r);
     partes.push("", `${EMOJI[r.severity]} *${i + 1}. ${ALERT_LABELS[r.kind]}*`, `Por quê: ${p.porque}`);
     if (p.conferir) partes.push(`Conferir: ${p.conferir}`);
     partes.push(`Fazer: ${p.fazer}`, `Acompanhar: ${p.acompanhar}`);
   });
+  if (prontos.length) partes.push("", `☑️ *Já feito:* ${prontos.map((r) => ALERT_LABELS[r.kind]).join("; ")}.`);
   if (destaques.length) partes.push("", `✅ *O que melhorou:* ${fraseDeDestaques(destaques)}`);
   partes.push("", DISCLAIMER);
   return partes.join("\n");

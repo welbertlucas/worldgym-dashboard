@@ -161,6 +161,8 @@ export async function unitMonth(idBranch, ym, hoje = hojeBR()) {
     inadimplentes: devendo.size,
     inadimplenciaPerc: pagantes.size ? round2((devendo.size / pagantes.size) * 100) : 0,
     ticketMedio: pagantes.size ? round2(recebimento / pagantes.size) : 0,
+    // Só para o perfil da inadimplência (server/inadPerfil.js): a rotina tira isto antes de gravar o mês.
+    _pagadores: { pagantes: [...pagantes].filter((x) => typeof x === "number"), devendo: [...devendo].filter((x) => typeof x === "number") },
   };
 }
 

@@ -10,7 +10,7 @@ const NOMES = Object.values(UNIT_NAMES);
 const TOTAIS = new Set(["TOTAL", "REDE"]);
 
 export const veTudo = (sessao) => sessao.papel !== "unidades";
-const propria = (sessao, nome) => (sessao.unidades ?? []).includes(String(nome ?? "").trim());
+export const propria = (sessao, nome) => (sessao.unidades ?? []).includes(String(nome ?? "").trim());
 const ehTotal = (nome) => TOTAIS.has(String(nome ?? "").trim().toUpperCase());
 
 const chaveAnon = () => process.env.SESSAO_SEGREDO || process.env.DASHBOARD_PASSWORD || "";

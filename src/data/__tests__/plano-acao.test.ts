@@ -35,6 +35,15 @@ describe("Plano de ação", () => {
     expect(planoTexto(a, ["Churn −0,4 p.p."], null)).toContain("Churn −0,4 p.p.\n");
   });
 
+  it("texto do plano: item feito sai da lista e vai para a linha 'Já feito'", () => {
+    const [, a] = gruposDoPlano(recs);
+    const tipo = a.itens[0].kind;
+    const t = planoTexto(a, [], "2026-10", new Set([tipo]));
+    expect(t).toContain("☑️ *Já feito:*");
+    expect(t.split("☑️")[0]).not.toContain(`*1. ${t.split("*Já feito:* ")[1].split(";")[0].replace(/\.$/, "")}`);
+    expect(planoTexto(a, [], "2026-10")).not.toContain("Já feito");
+  });
+
   it("resumo da rede: uma linha por unidade com o item mais grave", () => {
     const t = resumoDaRedeTexto(gruposDoPlano(recs), "2026-10");
     expect(t).toContain("1 unidade com ação: 2 itens críticos e 1 em atenção.");

@@ -58,6 +58,8 @@ export interface UnitData {
   suspensosFim?: number;
   /** Cancelamentos do mês por gênero [fem, masc, outros] e por faixa de idade (as 8 do perfil): [ativos no início, cancelados]. */
   cancelPerfil?: { g: [number, number][]; i: [number, number][] };
+  /** Inadimplência por gênero e faixa de idade: [pagantes, devendo] em cada grupo; `fora` = pagantes sem cadastro de aluno na unidade. */
+  inadPerfil?: { g: [number, number][]; i: [number, number][]; fora?: number };
   /** Saldo devedor em aberto no fim do mês (ou hoje): títulos "Balance due" do EVO não cancelados. */
   saldoDevedor?: SaldoDevedor;
   /** Alunos ativos no início do mês (base do churn). */
@@ -437,7 +439,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -587,6 +589,14 @@ export function somarCancelPerfil(us: Pick<UnitData, "cancelPerfil">[]): UnitDat
   if (!com.length) return undefined;
   const soma = (k: "g" | "i") => com[0].cancelPerfil![k].map((_, j) => [0, 1].map((x) => com.reduce((n, u) => n + (u.cancelPerfil![k][j]?.[x] ?? 0), 0)) as [number, number]);
   return { g: soma("g"), i: soma("i") };
+}
+
+/** Soma o perfil da inadimplência de várias unidades (só as que têm o dado; sem nenhuma, undefined). */
+export function somarInadPerfil(us: Pick<UnitData, "inadPerfil">[]): UnitData["inadPerfil"] {
+  const com = us.filter((u) => u.inadPerfil);
+  if (!com.length) return undefined;
+  const soma = (k: "g" | "i") => com[0].inadPerfil![k].map((_, j) => [0, 1].map((x) => com.reduce((n, u) => n + (u.inadPerfil![k][j]?.[x] ?? 0), 0)) as [number, number]);
+  return { g: soma("g"), i: soma("i"), fora: com.reduce((n, u) => n + (u.inadPerfil!.fora ?? 0), 0) };
 }
 
 /** Soma as entradas na catraca de várias unidades (mapa de calor, por dia, total e pessoas). */
@@ -752,6 +762,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.churn = e.ativosIni > 0 ? Math.round((e.cancelados / e.ativosIni) * 1000) / 10 : 0;
         if (e.cancelPerfil !== undefined) unit.cancelPerfil = e.cancelPerfil;
       }
+      if (e.inadPerfil !== undefined) unit.inadPerfil = e.inadPerfil;
       // Renovação = (a vencer − não renovados) ÷ a vencer; só contratos de prazo fixo (os recorrentes se renovam sozinhos).
       if (e.aVencer !== undefined && e.naoRenovados !== undefined) {
         unit.aVencer = e.aVencer;
@@ -843,6 +854,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
             return { cancelados: md.units.reduce((s, u) => s + u.cancelados, 0), ativosIni: ini, churn: ini > 0 ? Math.round((canc / ini) * 1000) / 10 : 0, ...(cp ? { cancelPerfil: cp } : {}) };
           })()
         : {}),
+      ...(() => { const ip = somarInadPerfil(md.units); return ip ? { inadPerfil: ip } : {}; })(),
       ...(evo.units.some((e) => e.aVencer !== undefined && e.naoRenovados !== undefined)
         ? (() => {
             const us = md.units.filter((u) => u.renovacoesEvo);

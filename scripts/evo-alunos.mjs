@@ -7,7 +7,8 @@
 // Antes eram duas varreduras completas dos alunos (cerca de 75 minutos cada).
 // Uso: node --env-file=.env.local scripts/evo-alunos.mjs 2026-10 2026-11
 import { fetchAll, hojeBR, listBranches } from "../server/evo.js";
-import { ativosDaUnidade, UNIDADES } from "../server/ativos.js";
+import { ativosDaUnidade, resumoAluno, UNIDADES } from "../server/ativos.js";
+import { inadimplenciaPorPerfil, lerPagadores } from "../server/inadPerfil.js";
 import { titulosDeSaldo } from "../server/saldo.js";
 import { anotarOrigem, salvarMapa } from "../server/origem.js";
 import { aplicarBairros, fotoDosAlunos } from "../server/bairros.js";
@@ -24,6 +25,8 @@ const blobs = Object.fromEntries(await Promise.all([...new Set([...meses, ymHoje
 for (const ym of meses) if (!blobs[ym]) throw new Error(`Mês ${ym} ainda não foi calculado; rode evo-backfill antes.`);
 const fotoHoje = blobs[ymHoje]; // sem o mês corrente calculado, só os ativos são gravados
 
+// Pagadores de cada mês deixados pela etapa do faturamento nesta mesma rodada (sem eles, o perfil da inadimplência fica como estava).
+const pagadores = Object.fromEntries(meses.map((ym) => [ym, lerPagadores(ym)]));
 const naoRenov = Object.fromEntries(await Promise.all(meses.map(async (ym) => [ym, await relatorioNaoRenovados(ym, hoje)])));
 const geo = await loadGeo();
 const locais = new Map((await listBranches()).map((b) => [b.idBranch, [b.latitude, b.longitude]]));
@@ -40,6 +43,8 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
     const u = blobs[ym].units.find((x) => x.name === nome);
     const r = naoRenov[ym].get(Number(id));
     if (u) Object.assign(u, por[ym], { naoRenovados: r?.n ?? 0, naoRenovadosTipos: r?.tipos ?? {}, naoRenovadosPlanos: r?.planos ?? [] });
+    const pag = pagadores[ym]?.[nome];
+    if (u && pag) u.inadPerfil = inadimplenciaPorPerfil(membros.map(resumoAluno), pag, ym);
   }
   console.log(nome, JSON.stringify(por));
 

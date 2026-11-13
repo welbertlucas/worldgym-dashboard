@@ -16,6 +16,7 @@ import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components
 import { BandeirasCartao, FormasPagamento, GatewaysCartao } from "@/components/FormasPagamento";
 import { CampanhasTab } from "@/components/tabs/CampanhasTab";
 import { InstagramTab } from "@/components/tabs/InstagramTab";
+import { InadPerfilCard } from "@/components/clientes/CancelPerfilCard";
 import { AvisoVerComo, VerComo } from "@/components/VerComo";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { AlunosTab } from "@/components/tabs/AlunosTab";
@@ -440,6 +441,7 @@ const Index = () => {
               <div className="grid grid-cols-1 gap-6 mb-10">
                 <CobrancasRecusa total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
                 <SaldoDevedorCard total={kpiCtx.cur.total} month={fullMonthData.month} monthLabel={mes} partial={partialSelected} unit={selectedUnit} />
+                <InadPerfilCard total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
               </div>
             )}
             {aba === "notas" && (

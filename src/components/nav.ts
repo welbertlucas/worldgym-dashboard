@@ -57,7 +57,7 @@ const PALAVRAS: Record<string, string> = {
   metas: "meta bronze prata ouro atingimento",
   "financeiro/resumo": "faturamento recebimento receita inadimplencia adimplentes ticket medio",
   "financeiro/recebimento": "formas de pagamento pix cartao credito debito bandeiras gateways adquirente multas taxas ajustes",
-  "financeiro/cobranca": "cobrancas recusadas cartao recusado saldo devedor divida devendo",
+  "financeiro/cobranca": "cobrancas recusadas cartao recusado saldo devedor divida devendo inadimplencia por genero idade perfil quem deve",
   "financeiro/notas": "notas fiscais nf nfs-e nfse iss emissao",
   "alunos/base": "alunos ativos base fluxo novos retornos saidas permanencia ltv suspensos",
   "alunos/perfil": "genero idade perfil",
