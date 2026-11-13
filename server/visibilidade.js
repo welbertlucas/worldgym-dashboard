@@ -91,3 +91,19 @@ export function filtrarCampanhas(foto, sessao) {
   const calor = foto.calor ? { ...foto.calor, unidades: soDele(foto.calor.unidades), ...(foto.calor.totais ? { totais: soDele(foto.calor.totais) } : {}) } : undefined;
   return { ...foto, campanhas: (foto.campanhas ?? []).filter(sua), ...(foto.anuncios ? { anuncios: foto.anuncios.filter(sua) } : {}), ...(calor ? { calor } : {}), erros: [], meses };
 }
+
+/** Instagram: o nível "unidades" vê só as contas das suas unidades (sem a conta da marca, como a Institucional). */
+export function filtrarInstagram(dados, sessao) {
+  if (veTudo(sessao) || !dados) return dados;
+  const sua = (x) => x.unidade && propria(sessao, x.unidade);
+  const contas = (dados.contas ?? []).filter(sua);
+  const usuarios = new Set(contas.map((c) => c.usuario));
+  return {
+    ...dados,
+    contas,
+    seguidores: Object.fromEntries(Object.entries(dados.seguidores ?? {}).filter(([u]) => usuarios.has(u))),
+    posts: (dados.posts ?? []).filter(sua),
+    stories: (dados.stories ?? []).filter(sua),
+    erros: [],
+  };
+}

@@ -8,7 +8,8 @@ const KEY = "wg-dashboard-token";
 export const AUTH_REQUIRED_EVENT = "wg-auth-required";
 
 export type Papel = "dono" | "master" | "unidades";
-export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean }
+/** `papelReal` só vem quando o dono está simulando outro nível ("ver como"). */
+export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel }
 
 // Quem está logado e se o login pede e-mail (só depois que o dono cria o primeiro acesso). Vem de GET /api/login.
 let usuario: Usuario | null = null;
@@ -24,13 +25,32 @@ export const podeGerirAcessos = () => usuario?.papel === "dono";
 /** Unidades de quem tem acesso só a algumas; null = enxerga todas. */
 export const unidadesProprias = (): string[] | null => (usuario?.papel === "unidades" ? usuario.unidades : null);
 
+// "Ver como": o dono olha o painel como Master ou como o acesso de algumas unidades. Vale só nesta aba do navegador
+// (sessionStorage) e vai em cada pedido no cabeçalho X-Atlas-Ver-Como; quem decide o que aparece é o servidor.
+const VER_COMO_KEY = "atlas-ver-como";
+export type VerComo = { papel: "master" } | { papel: "unidades"; unidades: string[] };
+export function getVerComo(): VerComo | null {
+  try { const v = sessionStorage.getItem(VER_COMO_KEY); return v ? (JSON.parse(v) as VerComo) : null; } catch { return null; }
+}
+/** Troca a simulação (null = voltar a ser dono) e recarrega a página, para todos os dados virem com o novo nível. */
+export function definirVerComo(v: VerComo | null) {
+  try { v ? sessionStorage.setItem(VER_COMO_KEY, JSON.stringify(v)) : sessionStorage.removeItem(VER_COMO_KEY); } catch { /* sem armazenamento: não simula */ }
+  window.location.reload();
+}
+export const cabecalhoVerComo = (v: VerComo | null = getVerComo()): Record<string, string> =>
+  !v ? {} : { "X-Atlas-Ver-Como": v.papel === "master" ? "master" : `unidades:${encodeURIComponent(v.unidades.join("|"))}` };
+/** O dono está vendo o painel como outro nível. */
+export const simulando = () => usuario?.papelReal === "dono";
+/** Quem pode usar o "ver como": o dono de verdade (simulando ou não), com login por e-mail. */
+export const podeVerComo = () => !usuario?.legado && (usuario?.papel === "dono" || simulando());
+
 export function getToken(): string {
   try { return localStorage.getItem(KEY) ?? ""; } catch { return ""; }
 }
 function setToken(t: string) {
   try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch { /* navegação privada: vale só nesta aba */ }
 }
-export const logout = () => { setToken(""); usuario = null; };
+export const logout = () => { setToken(""); usuario = null; try { sessionStorage.removeItem(VER_COMO_KEY); } catch { /* nada */ } };
 
 /** Botão "Sair": apaga o token deste navegador e volta para a tela de senha. */
 export function sair() {
@@ -93,7 +113,7 @@ export function vigiarSessao(agora: () => number = Date.now): () => void {
 /** fetch com o token; se o servidor recusar (senha trocada ou token vencido), pede o login de novo. */
 export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
   const token = getToken();
-  const headers = { ...(init?.headers as Record<string, string> | undefined), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const headers = { ...(init?.headers as Record<string, string> | undefined), ...(token ? { Authorization: `Bearer ${token}`, ...cabecalhoVerComo() } : {}) };
   const res = await fetch(url, init || token ? { ...init, headers } : undefined);
   guardarRenovado(res);
   if (res.status === 401) {
@@ -107,7 +127,7 @@ export async function authFetch(url: string, init?: RequestInit): Promise<Respon
 export async function precisaDeLogin(): Promise<boolean> {
   try {
     const token = getToken();
-    const res = await fetch(`${API}/login`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+    const res = await fetch(`${API}/login`, token ? { headers: { Authorization: `Bearer ${token}`, ...cabecalhoVerComo() } } : undefined);
     if (!res.ok) return false; // API fora do ar: deixa abrir; os dados é que não vão carregar
     guardarRenovado(res);
     const j = (await res.json()) as { protegido: boolean; logado: boolean; comEmail?: boolean; usuario?: Usuario | null };

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Chip, Segmentos } from "@/components/DateFilter";
-import { GitCompareArrows } from "lucide-react";
+import { ArrowLeftRight } from "lucide-react";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { comercialSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { TrendCard } from "@/components/unidades/TrendCard";
@@ -144,7 +144,7 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
                 id="ud-comparar"
                 rotulo="Linha de comparação"
                 valor={comparar === REDE ? "Média da rede" : comparar || "Nenhuma"}
-                icone={<GitCompareArrows className="h-4 w-4" />}
+                icone={<ArrowLeftRight className="h-4 w-4" />}
                 ativo={!!comparar}
                 value={comparar}
                 onChange={setComparar}

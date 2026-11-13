@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, GitCompareArrows, X } from "lucide-react";
+import { Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ArrowLeftRight, X } from "lucide-react";
 import { getAvailableMonths, getAvailableUnits } from "@/data/dashboardData";
 import { cn } from "@/lib/utils";
 import { unidadesProprias } from "@/lib/auth";
@@ -206,7 +206,7 @@ export function DateFilter({ selectedMonth, compareMonth, onMonthChange, onCompa
           rotulo="Comparar com"
           valor={compareMonth ? `x ${formatMonth(compareMonth)}` : "Comparar com…"}
           ativo={!!compareMonth}
-          icone={<GitCompareArrows className="h-4 w-4" />}
+          icone={<ArrowLeftRight className="h-4 w-4" />}
           value={compareMonth ?? ""}
           onChange={(v) => onCompareMonthChange(v || null)}
           aoLimpar={compareMonth ? () => onCompareMonthChange(null) : undefined}

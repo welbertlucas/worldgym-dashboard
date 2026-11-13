@@ -15,6 +15,8 @@ import { OrigemOportunidades } from "@/components/OrigemOportunidades";
 import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components/ContratosVendidos";
 import { BandeirasCartao, FormasPagamento, GatewaysCartao } from "@/components/FormasPagamento";
 import { CampanhasTab } from "@/components/tabs/CampanhasTab";
+import { InstagramTab } from "@/components/tabs/InstagramTab";
+import { AvisoVerComo, VerComo } from "@/components/VerComo";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { AlunosTab } from "@/components/tabs/AlunosTab";
 import { RetencaoTab } from "@/components/tabs/RetencaoTab";
@@ -88,7 +90,10 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState(() => abaDoEndereco() ?? "executiva");
   const [subAba, setSubAba] = useState<string | null>(() => subDoEndereco());
   /** Telas com filtro próprio no lugar do filtro do topo: Campanhas e Anúncios (Leads usa o do topo). */
-  const seletorProprio = activeTab === "campanhas" && abaAtiva(SUBMENUS.campanhas, subAba) !== "leads";
+  const abaMarketing = activeTab === "campanhas" ? abaAtiva(SUBMENUS.campanhas, subAba) : null;
+  const seletorProprio = abaMarketing !== null && abaMarketing !== "leads" && abaMarketing !== "instagram";
+  /** Telas que não dependem do mês (o Instagram mostra o que está guardado, pelos últimos dias). */
+  const semMes = abaMarketing === "instagram";
   useEffect(() => {
     const aoVoltar = () => { setActiveTab(abaDoEndereco() ?? "executiva"); setSubAba(subDoEndereco()); };
     window.addEventListener("popstate", aoVoltar);
@@ -267,7 +272,7 @@ const Index = () => {
                   Dashboard de resultados
                 </h1>
                 <p className="text-muted-foreground text-xs sm:text-sm sm:truncate first-letter:uppercase">
-                  {activeTab === "benchmark" ? (selectedUnit ? `${selectedUnit} na rede` : "Rede") : (seletorProprio ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? (soAsProprias ? (soAsProprias.length === 1 ? soAsProprias[0] : "Suas unidades") : "Rede")} • {formatDate(fullMonthData.month)}
+                  {activeTab === "benchmark" ? (selectedUnit ? `${selectedUnit} na rede` : "Rede") : (seletorProprio ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? (soAsProprias ? (soAsProprias.length === 1 ? soAsProprias[0] : "Suas unidades") : "Rede")}{!semMes && <> • {formatDate(fullMonthData.month)}</>}
                   {compareMonth && ` x ${formatDate(compareMonth)}`}
                 </p>
               </div>
@@ -284,6 +289,7 @@ const Index = () => {
             )}
             {/* Unidade ou rede: um botão só, no canto do cabeçalho, para todas as telas que filtram por unidade. */}
             {comBotaoDeUnidade && <BotaoUnidade id="filtro-unidade" className="hidden sm:flex" value={selectedUnit} onChange={setSelectedUnit} />}
+            <VerComo className="hidden xl:flex" />
             {getUsuario() && !getUsuario()!.legado && (
               <p className="hidden md:block text-xs text-muted-foreground truncate max-w-[14rem]" title={getUsuario()!.email}>
                 {getUsuario()!.nome}
@@ -309,6 +315,7 @@ const Index = () => {
             )}
             </div>
           </div>
+          <AvisoVerComo />
           {/* No celular o botão vai para uma linha própria, para não espremer o título. */}
           {comBotaoDeUnidade && (
             <div className="px-3 pb-3 sm:hidden">
@@ -319,7 +326,7 @@ const Index = () => {
 
         <main ref={mainRef} className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 sm:space-y-8 max-w-[1600px] scroll-mt-20">
         {/* Filtros */}
-        {!seletorProprio && activeTab !== "acessos" && <DateFilter
+        {!seletorProprio && !semMes && activeTab !== "acessos" && <DateFilter
           selectedMonth={fullMonthData.month}
           compareMonth={compareMonth}
           onMonthChange={setSelectedMonth}
@@ -339,7 +346,7 @@ const Index = () => {
         )}
 
         {/* Comparativo */}
-        {comparison && activeTab !== "unidades" && !seletorProprio && activeTab !== "acessos" && (
+        {comparison && activeTab !== "unidades" && !seletorProprio && !semMes && activeTab !== "acessos" && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -357,7 +364,7 @@ const Index = () => {
           </section>
         )}
 
-        {partialSelected && activeTab !== "executiva" && !seletorProprio && activeTab !== "acessos" && (
+        {partialSelected && activeTab !== "executiva" && !seletorProprio && !semMes && activeTab !== "acessos" && (
           <Notice><b>{formatDate(fullMonthData.month)}</b> está em andamento — os valores são parciais.</Notice>
         )}
 
@@ -498,6 +505,7 @@ const Index = () => {
               <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
               <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
             </>}
+            instagram={<InstagramTab unit={selectedUnit} />}
           />
         )}
 

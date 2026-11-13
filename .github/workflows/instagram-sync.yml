@@ -1,0 +1,32 @@
+name: Atualizar Instagram das unidades
+
+# Lê perfis, posts e stories do Instagram das unidades (só leitura) e grava no Blob da Vercel, com uma imagem pequena
+# de cada post/story. A cada 4 horas porque os stories somem da API em 24 horas. Sem as permissões do Instagram no
+# token, termina sem erro e não grava nada.
+on:
+  schedule:
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: instagram-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Perfis, posts e stories
+        env:
+          META_TOKEN_DFGO: ${{ secrets.META_TOKEN_DFGO }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/instagram-sync.mjs

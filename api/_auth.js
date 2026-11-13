@@ -12,6 +12,7 @@
 // proteção fica desligada, MAS se já existem usuários o servidor recusa tudo (nunca abre por esquecimento de variável).
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { listarUsuarios } from "../server/acesso.js";
+import { UNIT_NAMES } from "../server/units.js";
 
 /** Tempo sem uso até o login cair. */
 export const INATIVIDADE_MS = 12 * 3600 * 1000;
@@ -78,6 +79,25 @@ const SESSAO_ABERTA = Object.freeze({ id: "aberto", nome: "Sem proteção", emai
 
 export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], legado: false });
 
+/**
+ * "Ver como": o dono pode olhar o painel como Master ou como o acesso de algumas unidades, para conferir o que cada
+ * nível enxerga. O pedido vem no cabeçalho X-Atlas-Ver-Como ("master" ou "unidades:<nomes separados por |>", com
+ * encodeURIComponent). Só vale para quem É dono; para qualquer outro nível o cabeçalho é ignorado. Durante a simulação
+ * a sessão é a do nível escolhido (os filtros do servidor valem de verdade) e leva papelReal = "dono" para o painel
+ * mostrar o aviso e o botão de voltar.
+ */
+export const CABECALHO_VER_COMO = "X-Atlas-Ver-Como";
+export function aplicarVerComo(sessao, pedido, nomesValidos = Object.values(UNIT_NAMES)) {
+  if (!sessao || sessao.papel !== "dono" || typeof pedido !== "string" || !pedido) return sessao;
+  if (pedido === "master") return { ...sessao, papel: "master", unidades: [], papelReal: "dono" };
+  if (!pedido.startsWith("unidades:")) return sessao;
+  let nomes = [];
+  try { nomes = decodeURIComponent(pedido.slice(9)).split("|").map((n) => n.trim()); } catch { return sessao; }
+  const unidades = [...new Set(nomes.filter((n) => nomesValidos.includes(n)))];
+  return unidades.length ? { ...sessao, papel: "unidades", unidades, papelReal: "dono" } : sessao;
+}
+const pedidoVerComo = (req) => req.headers?.[CABECALHO_VER_COMO.toLowerCase()];
+
 /** Quem está fazendo o pedido, ou null. Confere o usuário na lista a cada vez (desativado = fora).
  *  Com `res`, renova o login (mais 12 horas a partir de agora) mandando o token novo no cabeçalho X-Atlas-Token. */
 export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
@@ -90,7 +110,7 @@ export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
   // Renova quando o token tem mais de 5 minutos. Tokens antigos de 30 dias (resta mais que 12 horas) viram de 12 horas no primeiro uso.
   const resta = t.exp - agora;
   if (res && (resta <= INATIVIDADE_MS - RENOVAR_APOS_MS || resta > INATIVIDADE_MS)) res.setHeader(CABECALHO_TOKEN, criarTokenUsuario(u.id, agora).token);
-  return sessaoDe(u);
+  return aplicarVerComo(sessaoDe(u), pedidoVerComo(req));
 }
 
 /**
@@ -130,8 +150,8 @@ const ORIGENS = new Set(["https://welbertlucas.github.io", "https://atlas.worldg
 export function cors(req, res) {
   const origin = req.headers.origin;
   if (origin && ORIGENS.has(origin)) res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Vary", "Origin, Authorization");
+  res.setHeader("Vary", `Origin, Authorization, ${CABECALHO_VER_COMO}`);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", `Authorization, Content-Type, ${CABECALHO_VER_COMO}`);
   res.setHeader("Access-Control-Expose-Headers", CABECALHO_TOKEN);
 }

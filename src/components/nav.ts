@@ -35,7 +35,7 @@ export const SUBMENUS: Record<string, Aba[]> = {
   alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "onde-moram", rotulo: "Onde moram" }],
   catraca: [{ id: "frequencia", rotulo: "Frequência" }, { id: "liberacoes", rotulo: "Liberações" }, { id: "outras-unidades", rotulo: "Outras unidades" }],
   retencao: [{ id: "cancelamentos", rotulo: "Cancelamentos" }, { id: "renovacao", rotulo: "Renovação" }, { id: "satisfacao", rotulo: "Satisfação" }],
-  campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "leads", rotulo: "Leads" }],
+  campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "leads", rotulo: "Leads" }, { id: "instagram", rotulo: "Instagram" }],
   benchmark: [{ id: "posicao", rotulo: "Posição e destaques" }, { id: "contratos", rotulo: "Contratos ativos" }, { id: "tabela", rotulo: "Tabela completa" }],
 };
 
@@ -77,6 +77,7 @@ const PALAVRAS: Record<string, string> = {
   "campanhas/campanhas": "investimento alertas evolucao cac pixel compras",
   "campanhas/anuncios": "anuncios contato mais barato horarios dos contatos campanhas no ar veiculando",
   "campanhas/leads": "oportunidades leads origem perfil prospects cadastros",
+  "campanhas/instagram": "instagram feed stories posts seguidores redes sociais perfil postagem",
   riscos: "alertas riscos recomendacoes atencao critico",
   acessos: "usuarios senha permissoes login niveis quem entra no painel",
 };

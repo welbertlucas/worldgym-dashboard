@@ -1,5 +1,5 @@
 // Armazenamento dos totais mensais (Vercel Blob privado, um arquivo por mês).
-import { put, get, list } from "@vercel/blob";
+import { put, get, list, del } from "@vercel/blob";
 
 const path = (ym) => `indicadores/${ym}.json`;
 
@@ -76,4 +76,33 @@ export async function saveMetaMeses(novos) {
   const tudo = { ...((await loadMetaMeses()) ?? {}), ...novos };
   await put(metaMesesPath, JSON.stringify(tudo), { access: "private", contentType: "application/json", addRandomSuffix: false, allowOverwrite: true });
   return tudo;
+}
+
+// Instagram das unidades: um arquivo com perfis, posts, stories e seguidores por dia (scripts/instagram-sync.mjs),
+// e uma imagem pequena por post/story em instagram/midia/<id>.jpg (o link do Meta vence; a cópia fica).
+const instagramPath = "instagram/dados.json";
+const midiaPath = (id) => `instagram/midia/${id}.jpg`;
+
+export async function loadInstagram() {
+  const r = await get(instagramPath, { access: "private", useCache: false });
+  if (!r || r.statusCode !== 200) return null;
+  return JSON.parse(await new Response(r.stream).text());
+}
+
+export async function saveInstagram(dados) {
+  await put(instagramPath, JSON.stringify(dados), { access: "private", contentType: "application/json", addRandomSuffix: false, allowOverwrite: true });
+}
+
+export async function saveMidiaInstagram(id, jpeg) {
+  await put(midiaPath(id), jpeg, { access: "private", contentType: "image/jpeg", addRandomSuffix: false, allowOverwrite: true });
+}
+
+/** Stream da imagem guardada (ou null). */
+export async function loadMidiaInstagram(id) {
+  const r = await get(midiaPath(id), { access: "private" });
+  return r && r.statusCode === 200 ? r.stream : null;
+}
+
+export async function apagarMidiasInstagram(ids) {
+  if (ids.length) await del(ids.map(midiaPath));
 }

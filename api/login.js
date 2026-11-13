@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const sessao = protege ? await sessaoDaRequisicao(req, res) : null; // abrir o Atlas também renova o login
       const logado = !protege || Boolean(sessao);
-      const usuario = sessao ? { nome: sessao.nome, email: sessao.email, papel: sessao.papel, unidades: sessao.unidades, legado: sessao.legado } : null;
+      const usuario = sessao ? { nome: sessao.nome, email: sessao.email, papel: sessao.papel, unidades: sessao.unidades, legado: sessao.legado, ...(sessao.papelReal ? { papelReal: sessao.papelReal } : {}) } : null;
       return res.status(200).json({ protegido: protege, logado, comEmail, usuario });
     }
     if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
