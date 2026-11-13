@@ -12,6 +12,13 @@ interface DateFilterProps {
   hideCompare?: boolean;
 }
 
+/** "2026-10" -> "Out/26" (botões curtos do topo). */
+export function mesCurto(m: string) {
+  const [y, mo] = m.split("-").map(Number);
+  const nome = new Date(y, (mo || 1) - 1, 1).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  return `${nome.charAt(0).toUpperCase()}${nome.slice(1)}/${String(y).slice(2)}`;
+}
+
 export function formatMonth(m: string) {
   const [y, mo] = m.split("-").map(Number);
   const s = new Date(y, (mo || 1) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -196,7 +203,7 @@ export function DateFilter({ selectedMonth, compareMonth, onMonthChange, onCompa
   const months = getAvailableMonths();
   return (
     <div role="group" aria-label="Filtros do dashboard" className="flex flex-wrap items-center gap-2">
-      <BotaoPilula id="filtro-mes" rotulo="Mês de referência" valor={formatMonth(selectedMonth)} ativo icone={<CalendarDays className="h-4 w-4" />} value={selectedMonth} onChange={onMonthChange}>
+      <BotaoPilula id="filtro-mes" rotulo="Mês de referência" valor={mesCurto(selectedMonth)} ativo icone={<CalendarDays className="h-4 w-4" />} value={selectedMonth} onChange={onMonthChange}>
         {[...months].reverse().map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
       </BotaoPilula>
 
@@ -204,7 +211,7 @@ export function DateFilter({ selectedMonth, compareMonth, onMonthChange, onCompa
         <BotaoPilula
           id="filtro-comparar"
           rotulo="Comparar com"
-          valor={compareMonth ? `x ${formatMonth(compareMonth)}` : "Comparar com…"}
+          valor={compareMonth ? `x ${mesCurto(compareMonth)}` : "Comparar"}
           ativo={!!compareMonth}
           icone={<ArrowLeftRight className="h-4 w-4" />}
           value={compareMonth ?? ""}
