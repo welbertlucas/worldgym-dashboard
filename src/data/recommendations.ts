@@ -43,13 +43,13 @@ const TEMPLATES: Record<AlertKind, Template> = {
   },
   inadimplencia: {
     hypotheses: ["Falha ou atraso na cobrança recorrente", "Concentração de vencimentos no período", "Perfil de plano/forma de pagamento da unidade"],
-    investigate: ["Abrir Financeiro → Cobrança com a unidade escolhida: saldo devedor por tempo de atraso e motivos das cobranças recusadas", "No EVO, tirar a lista de inadimplentes da unidade para a régua de cobrança"],
+    investigate: ["Abrir Financeiro → Inadimplência com a unidade escolhida: saldo devedor por tempo de atraso e motivos das cobranças recusadas", "No EVO, tirar a lista de inadimplentes da unidade para a régua de cobrança"],
     correct: ["Régua de cobrança ativa (contato, renegociação) e revisão da forma de pagamento recorrente"],
     followUp: "Inadimplência % e recebimento ÷ faturamento no próximo mês fechado",
   },
   recebimento: {
     hypotheses: ["Inadimplência elevada", "Descompasso entre competência e caixa (vendas parceladas ou a prazo)", "Cobranças recusadas no cartão recorrente (cartão vencido ou sem limite)"],
-    investigate: ["Abrir Financeiro → Cobrança com a unidade escolhida: cobranças recusadas e saldo devedor", "Abrir Financeiro → Recebimento: formas de pagamento do mês, para ver se o que falta é cartão, boleto ou Pix"],
+    investigate: ["Abrir Financeiro → Inadimplência com a unidade escolhida: cobranças recusadas e saldo devedor", "Abrir Financeiro → Recebimento: formas de pagamento do mês, para ver se o que falta é cartão, boleto ou Pix"],
     correct: ["Cobrar os títulos em aberto e atualizar os cartões recusados; se a diferença for venda a prazo, acompanhar a entrada no mês seguinte"],
     followUp: "Razão recebimento ÷ faturamento no próximo mês fechado",
   },
@@ -77,7 +77,7 @@ const TEMPLATES: Record<AlertKind, Template> = {
   },
   yoyInadimplencia: {
     hypotheses: ["Cobrança recorrente menos efetiva que a do ano anterior", "Mudança na forma de pagamento predominante", "Perfil de alunos/planos com mais atraso"],
-    investigate: ["Abrir Financeiro → Cobrança: saldo devedor por tempo de atraso e cobranças recusadas, e comparar com a régua de cobrança do ano anterior"],
+    investigate: ["Abrir Financeiro → Inadimplência: saldo devedor por tempo de atraso e cobranças recusadas, e comparar com a régua de cobrança do ano anterior"],
     correct: ["Reforçar régua de cobrança e renegociação"],
     followUp: "Inadimplência vs. mesmo mês do ano anterior no próximo mês fechado",
   },

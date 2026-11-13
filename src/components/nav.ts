@@ -31,7 +31,7 @@ export const itensDoMenu = (gerirAcessos: boolean): NavItem[] =>
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
 export const SUBMENUS: Record<string, Aba[]> = {
   comercial: [{ id: "resumo", rotulo: "Resumo" }, { id: "vendas", rotulo: "Vendas" }, { id: "complementares", rotulo: "Receitas complementares" }],
-  financeiro: [{ id: "resumo", rotulo: "Resumo" }, { id: "recebimento", rotulo: "Recebimento" }, { id: "cobranca", rotulo: "Cobrança" }, { id: "notas", rotulo: "Notas fiscais" }],
+  financeiro: [{ id: "resumo", rotulo: "Resumo" }, { id: "recebimento", rotulo: "Recebimento" }, { id: "cobranca", rotulo: "Inadimplência" }, { id: "notas", rotulo: "Notas fiscais" }],
   alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "onde-moram", rotulo: "Onde moram" }],
   catraca: [{ id: "frequencia", rotulo: "Frequência" }, { id: "liberacoes", rotulo: "Liberações" }, { id: "outras-unidades", rotulo: "Outras unidades" }],
   retencao: [{ id: "cancelamentos", rotulo: "Cancelamentos" }, { id: "renovacao", rotulo: "Renovação" }, { id: "satisfacao", rotulo: "Satisfação" }],
