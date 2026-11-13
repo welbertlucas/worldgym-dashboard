@@ -71,7 +71,7 @@ export function ContatosPorHorario({ unit }: { unit: string | null }) {
                       onMouseLeave={() => setCel(null)}
                       onClick={() => setCel(k)}
                       className={topo || cel === k ? "h-7 cursor-default rounded-[4px] ring-2 ring-primary ring-inset" : "h-7 cursor-default rounded-[4px]"}
-                      style={{ background: v > 0 ? `hsl(217 91% 55% / ${0.08 + (v / maior) * 0.82})` : "hsl(var(--secondary))" }}
+                      style={{ background: v > 0 ? `hsl(4 90% 50% / ${0.06 + (v / maior) * 0.84})` : "hsl(var(--secondary))" }}
                     >
                       <span className="sr-only">{dec(v)}</span>
                     </td>
@@ -89,7 +89,7 @@ export function ContatosPorHorario({ unit }: { unit: string | null }) {
       </p>
       <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground" aria-hidden>
         <span>menos</span>
-        <span className="h-2 w-24 rounded-full" style={{ background: "linear-gradient(to right, hsl(217 91% 55% / 0.08), hsl(217 91% 55% / 0.9))" }} />
+        <span className="h-2 w-24 rounded-full" style={{ background: "linear-gradient(to right, hsl(4 90% 50% / 0.06), hsl(4 90% 50% / 0.9))" }} />
         <span>mais contatos</span>
       </div>
       {cobertura !== null && (
