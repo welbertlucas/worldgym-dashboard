@@ -70,7 +70,7 @@ describe("resumo diário", () => {
     const html = renderizarEmail(montarResumo(m, usr, "2026-11-10", refX), usr);
     expect(html).not.toContain("<b>X</b>");
     expect(html).not.toContain("As comparações são sempre"); // frase tirada da saudação a pedido do dono
-    for (const t of ["No resumo de hoje", "O faturamento do mês soma", "Vendas</h2>", "vendas online", "receitas complementares", "contratos vendidos", "conversão média", "Retenção</h2>", "cancelamentos", "O churn do mês está em", "renovados", "dos pagantes", "Contratos mais vendidos</h2>", "Satisfação</h2>", "O NPS do mês está em", "pesquisas", "neutros", "Alertas</h2>", "pedindo atenção", "Este é o resumo da World Gym", "sócio ou gestor de mais de uma unidade", "Ver as pesquisas no WeHelp", "https://app.wehelpsoftware.com"]) expect(html).toContain(t);
+    for (const t of ["No resumo de hoje", "O faturamento do mês soma", "Vendas</h2>", "vendas online", "receitas complementares", "contratos vendidos", "conversão média", "Retenção</h2>", "cancelamentos", "O churn do mês está em", "renovados", "dos pagantes", "Contratos mais vendidos</h2>", "Satisfação</h2>", "O NPS do mês está em", "pesquisas", "neutros", "Alertas</h2>", "pedindo atenção", "Este é o resumo das suas unidades World Gym", "Entre as suas 2 unidades", "Ver as pesquisas no WeHelp", "https://app.wehelpsoftware.com"]) expect(html).toContain(t);
     expect(html).not.toContain("alunos adimplentes"); // parcial no meio do mês, confundia com os alunos ativos
     const sem = renderizarEmail(montarResumo(m, usr, "2026-11-10", null), usr);
     expect(sem).not.toMatch(/(acima|abaixo)<\/span> do mês passado/);
@@ -165,28 +165,50 @@ describe("resumo diário", () => {
     expect(valoresDoDia({ faturamento: 5 }, { faturamento: 9 }).faturamento).toBe(0); // correção do EVO nunca vira dia negativo
   });
 
-  it("gestor ou sócio de mais de uma unidade recebe só a de maior faturamento; o aviso do Atlas vai para todo dono de unidade e gestor", () => {
+  it("sócio de várias unidades recebe a soma delas, com a que mais faturou e a que mais caiu; ninguém recebe mais o aviso do Atlas", () => {
     const usr = { papel: "unidades", unidades: ["Asa Norte", "Gama", "Itapoã"], nome: "Carla Souza" };
-    const r = montarResumo(meses, usr, "2026-11-10"); // faturamento: Asa 500, Gama 900, Itapoã 1000
-    expect(r.unidade).toBe("Itapoã");
+    const r = montarResumo(meses, usr, "2026-11-10", ref); // faturamento: Asa 500, Gama 900, Itapoã 1000; mês passado: Asa 1000, Gama 1000
+    expect(r.unidade).toBeNull();
     expect(r.maisDeUma).toBe(true);
-    expect(r.linhas.map((l: any) => l.nome)).toEqual(["Itapoã"]);
-    expect(r.total.faturamento).toBe(1000);
+    expect(r.total.faturamento).toBe(2400);
+    expect(r.linhas.map((l: any) => l.nome)).toEqual(["Itapoã", "Gama", "Asa Norte"]);
+    expect(r.destaquesUnidades).toEqual({ quantas: 3, maior: { nome: "Itapoã", faturamento: 1000 }, pior: { nome: "Asa Norte", pct: -50 }, melhor: null });
+    expect(assunto(r)).toBe("Suas unidades: R$ 2.400 no mês");
     const html = renderizarEmail(r, usr);
-    expect(html).toContain("Bom dia, Carla! Este é o resumo da World Gym Itapoã, com os números de ontem e do mês.");
-    expect(html).toContain("Se você é sócio ou gestor de mais de uma unidade");
-    // o aviso aparece para todo dono de unidade e gestor, mesmo com uma unidade só; o master recebe a rede e não vê o aviso
+    expect(html).toContain("Bom dia, Carla! Este é o resumo das suas unidades World Gym, com os números de ontem e do mês.");
+    expect(html).toContain("Entre as suas 3 unidades, a que mais faturou no mês foi");
+    expect(html).toContain("Itapoã (R$&nbsp;1.000)");
+    expect(html).toContain("a que mais caiu em relação ao mesmo período do mês passado foi");
+    expect(html).toContain("Asa Norte (−50%)");
+    expect(html).not.toContain("mais de uma unidade");
+    // nenhuma em queda: a que mais cresceu; sem comparação: só a que mais faturou
+    const subiu = montarResumo(meses, { papel: "unidades", unidades: ["Gama", "Itapoã"] }, "2026-11-10", { dia: "x", units: { Gama: { ...ref.units.Gama, faturamento: 600 } } });
+    expect(subiu.destaquesUnidades.melhor).toEqual({ nome: "Gama", pct: 50 });
+    expect(renderizarEmail(subiu, { papel: "unidades", nome: "B" })).toContain("nenhuma faturou menos que no mesmo período do mês passado, e a que mais cresceu foi");
+    expect(montarResumo(meses, { papel: "unidades", unidades: ["Gama", "Itapoã"] }, "2026-11-10").destaquesUnidades.pior).toBeNull();
+    // a mesma unidade faturou mais e caiu mais: uma frase só, sem repetir o nome
+    const mesma = montarResumo(meses, { papel: "unidades", unidades: ["Gama", "Itapoã"] }, "2026-11-10", { dia: "x", units: { Itapoã: { ...ref.units.Gama, faturamento: 2000 } } });
+    expect(renderizarEmail(mesma, { papel: "unidades", nome: "B" })).toContain("mas ela também foi a que mais caiu em relação ao mesmo período do mês passado");
+    // uma unidade só: a unidade, sem frases de destaque e sem o aviso
     const um = montarResumo(meses, { papel: "unidades", unidades: ["Gama"], nome: "B" }, "2026-11-10");
     expect(um.maisDeUma).toBe(false);
-    expect(renderizarEmail(um, { papel: "unidades", nome: "B" })).toContain("Se você é sócio ou gestor de mais de uma unidade");
+    expect(um.unidade).toBe("Gama");
+    expect(um.destaquesUnidades).toBeNull();
+    expect(renderizarEmail(um, { papel: "unidades", nome: "B" })).not.toContain("mais de uma unidade");
     const rede = montarResumo(meses, { papel: "master", nome: "Ana" }, "2026-11-10");
     expect(rede.unidade).toBeNull();
-    const h = renderizarEmail(rede, { papel: "master", nome: "Ana" });
-    expect(h).toContain("Este é o resumo da rede World Gym");
-    expect(h).not.toContain("mais de uma unidade");
-    // desempate: mesmo faturamento -> ordem alfabética
-    const iguais = montarResumo([{ month: "2026-11", generatedAt: agora, units: [un("Zeta"), un("Alfa")] }], { papel: "unidades", unidades: ["Zeta", "Alfa"] }, "2026-11-10");
-    expect(iguais.unidade).toBe("Alfa");
+    expect(renderizarEmail(rede, { papel: "master", nome: "Ana" })).toContain("Este é o resumo da rede World Gym");
+  });
+
+  it("metas do sócio de várias unidades: soma as metas que somam, só se todas cadastraram", () => {
+    const usr = { papel: "unidades", unidades: ["Gama", "Itapoã"] };
+    const linhas = [["Mês", "Unidade", "Indicador", "Bronze", "Prata", "Ouro"], ["2026-11", "Gama", "Faturamento", "800", "1.200", "1.500"], ["2026-11", "Itapoã", "Faturamento", "1.000", "1.500", "2.000"], ["2026-11", "Gama", "Churn", "5", "4", "3"], ["2026-11", "Itapoã", "Churn", "5", "4", "3"]];
+    const r = montarResumo(meses, usr, "2026-11-10", null, parseMetas(linhas, 2026)); // soma do mês: 1900
+    expect(r.metas.faturamento).toMatchObject({ semMeta: false, topo: { nivel: "ouro", alvo: 3500, falta: 1600 } });
+    expect(r.metas.churn).toMatchObject({ semMeta: true }); // percentual não soma
+    const so = montarResumo(meses, usr, "2026-11-10", null, parseMetas(linhas.slice(0, 2), 2026));
+    expect(so.metas.faturamento).toEqual({ semMeta: true, aviso: "nem todas as suas unidades cadastraram meta" });
+    expect(montarResumo(meses, usr, "2026-11-10", null, []).metas.faturamento.aviso).toBe("suas unidades não cadastraram meta");
   });
   it("assunto traz o número do dia e a meta; a prévia completa com o mês e os alertas", () => {
     const usr = { papel: "unidades", unidades: ["Gama"], nome: "B" };

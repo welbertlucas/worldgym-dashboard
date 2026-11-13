@@ -1,6 +1,6 @@
 // Resumo diário por e-mail: cada acesso recebe só as unidades que pode ver.
 //   dono e master -> a rede inteira (cartões + alertas + tabela com todas as unidades)
-//   unidades      -> só as unidades dele (uma: cartões; várias: totais + tabela)
+//   unidades      -> só as unidades dele (uma: a unidade; várias: a soma delas, a que mais faturou e a que mais caiu)
 // Os números vêm do mesmo arquivo consolidado que o painel usa; às 7h o dia anterior já está fechado.
 // A comparação é com o MESMO DIA do mês passado, a partir de uma foto que o próprio envio grava todo dia
 // (o consolidado só guarda totais do mês inteiro). Sem foto do dia de referência, o cartão não mostra comparação.
@@ -130,6 +130,22 @@ export function topContratos(contratos, base, contratosRef) {
   }));
 }
 
+/**
+ * Sócio de várias unidades: a que mais faturou no mês e a que mais caiu (faturamento contra o mesmo período do mês
+ * passado). Sem nenhuma em queda, a que mais cresceu. Sem comparação, só a que mais faturou.
+ */
+export function destaquesDasUnidades(atuais, refs) {
+  const [maior] = [...atuais].sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
+  const variacoes = atuais
+    .map((u) => ({ nome: u.nome, ref: refs.find((r) => r.nome === u.nome)?.faturamento ?? 0, atual: u.faturamento }))
+    .filter((x) => x.ref > 0)
+    .map((x) => ({ nome: x.nome, pct: Math.round(((x.atual - x.ref) / x.ref) * 1000) / 10 }))
+    .sort((a, b) => a.pct - b.pct || a.nome.localeCompare(b.nome, "pt-BR"));
+  const pior = variacoes.find((x) => x.pct < 0) ?? null;
+  const melhor = !pior && variacoes.length ? variacoes[variacoes.length - 1] : null;
+  return { quantas: atuais.length, maior: { nome: maior.nome, faturamento: maior.faturamento }, pior, melhor };
+}
+
 // ---------- metas ----------
 /** Valores do mês que as metas acompanham, a partir de um total (ou de uma unidade). */
 export const valoresParaMeta = (x) => ({
@@ -142,9 +158,20 @@ export const valoresParaMeta = (x) => ({
 export function resumirMetas(metas, ym, usuario, total, atuais) {
   const doMes = (metas ?? []).filter((m) => m.mes === ym);
   const rede = usuario.papel !== "unidades";
-  const aviso = rede ? "a rede não cadastrou meta" : "sua unidade não cadastrou meta";
+  const varias = !rede && atuais.length > 1;
+  const aviso = rede ? "a rede não cadastrou meta" : varias ? "suas unidades não cadastraram meta" : "sua unidade não cadastrou meta";
   const por = {};
   for (const chave of Object.keys(INDICADORES_META)) {
+    if (varias) {
+      // Várias unidades: soma as metas das unidades, só nos indicadores que somam (moeda e quantidade) e só se todas cadastraram.
+      const somavel = INDICADORES_META[chave].formato !== "percentual";
+      const ms = atuais.map((u) => doMes.find((x) => x.unidade === u.nome && x.chave === chave));
+      if (!somavel || ms.some((m) => !m)) { por[chave] = { semMeta: true, aviso: somavel && ms.some(Boolean) ? "nem todas as suas unidades cadastraram meta" : aviso }; continue; }
+      const soma = {};
+      for (const t of ["bronze", "prata", "ouro"]) if (ms.every((m) => m[t] !== undefined)) soma[t] = ms.reduce((s, m) => s + m[t], 0);
+      por[chave] = Object.keys(soma).length ? { semMeta: false, ...situacaoMeta(chave, valoresParaMeta(total)[chave], soma) } : { semMeta: true, aviso };
+      continue;
+    }
     const alvo = rede ? "TOTAL" : atuais[0].nome;
     const m = doMes.find((x) => x.unidade === alvo && x.chave === chave);
     por[chave] = m ? { semMeta: false, ...situacaoMeta(chave, valoresParaMeta(rede ? total : atuais[0])[chave], m) } : { semMeta: true, aviso };
@@ -239,13 +266,8 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   let nomes = new Set(unidadesDoUsuario(usuario));
   let atuais = (mes.units ?? []).filter((x) => nomes.has(x.name)).map((x) => ({ nome: x.name, ...indicadores(x) }));
   if (atuais.length === 0) return null;
-  // Gestor ou sócio de mais de uma unidade: o e-mail é da unidade que mais faturou no mês; as demais ficam no Atlas.
+  // Gestor ou sócio de mais de uma unidade: o e-mail é a soma das unidades dele, com a que mais faturou e a que mais caiu.
   const maisDeUma = usuario.papel === "unidades" && atuais.length > 1;
-  if (maisDeUma) {
-    const [melhor] = [...atuais].sort((a, b) => b.faturamento - a.faturamento || a.nome.localeCompare(b.nome, "pt-BR"));
-    atuais = [melhor];
-    nomes = new Set([melhor.nome]);
-  }
   const refs = ref ? Object.entries(ref.units ?? {}).filter(([n]) => nomes.has(n)).map(([nome, v]) => ({ nome, ...v })) : [];
   const total = totalizar(atuais);
   const totalRef = refs.length ? totalizar(refs) : null;
@@ -264,7 +286,8 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   const base = ateDia.endsWith("-01") ? { ...totalizar([]), zero: true } : ontemDoUsuario.length ? totalizar(ontemDoUsuario) : null;
   const dia = valoresDoDia(total, base);
   const metasDoMes = resumirMetas(metas, ym, usuario, total, atuais);
-  return { notas, mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
+  const destaquesUnidades = maisDeUma ? destaquesDasUnidades(atuais, refs) : null;
+  return { destaquesUnidades, notas, mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" && !maisDeUma ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
 }
 
 // ---------- e-mail ----------
@@ -272,6 +295,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const brl = (n) => "R$ " + Math.round(n || 0).toLocaleString("pt-BR");
 const int = (n) => Math.round(n || 0).toLocaleString("pt-BR");
 const virg = (n) => String(n).replace(".", ",");
+/** Variação com sinal: +12,4 ou −12,4 (sinal de menos de verdade). */
+const sinal = (n) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${virg(Math.abs(n))}`;
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 export const rotuloMes = (ym) => `${MESES[Number(ym.slice(5)) - 1]} de ${ym.slice(0, 4)}`;
 const dataCurta = (ms) => { const d = new Date(ms); return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}`; };
@@ -279,7 +304,7 @@ const dataCurta = (ms) => { const d = new Date(ms); return `${pad(d.getUTCDate()
  *  Se o EVO não atualizou esta madrugada, o assunto não afirma número nenhum. */
 export function assunto(r) {
   if (r.desatualizado) return `World Gym Atlas · resumo de ${dataCurta(r.ateDia)}`;
-  const quem = r.unidade ?? "Rede World Gym";
+  const quem = r.unidade ?? (r.maisDeUma ? "Suas unidades" : "Rede World Gym");
   const fat = r.dia ? `${brl(r.dia.faturamento)} ontem` : `${brl(r.total.faturamento)} no mês`;
   const m = r.metas?.faturamento;
   const meta = !m || m.semMeta ? "" : m.topo.falta > 0 ? ` · faltam ${brl(m.topo.falta)} para a meta ouro` : " · meta ouro atingida";
@@ -408,7 +433,7 @@ const juntar = (xs) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join("
 export function renderizarEmail(r, usuario, { url = "https://atlas.worldgymacademia.com.br", banner = "banner-resumo.png", assinatura = ASSINATURA.imagens, urlWehelp = "https://app.wehelpsoftware.com", contato = CONTATO_PADRAO } = {}) {
   const t = r.total, f = r.totalRef, d = r.dia;
   const primeiro = esc(String(usuario.nome ?? "").trim().split(/\s+/)[0] || "");
-  const quem = r.unidade ? `da World Gym ${esc(r.unidade)}` : "da rede World Gym";
+  const quem = r.unidade ? `da World Gym ${esc(r.unidade)}` : r.maisDeUma ? "das suas unidades World Gym" : "da rede World Gym";
   const dt = new Date(r.ateDia + 86400000);
   const data = `${DIAS_CURTOS[dt.getUTCDay()]} | ${pad(dt.getUTCDate())} DE ${MESES[dt.getUTCMonth()].toUpperCase()}`;
   const m = r.metas?.faturamento;
@@ -435,19 +460,29 @@ export function renderizarEmail(r, usuario, { url = "https://atlas.worldgymacade
 ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};font-size:15px;line-height:1.55;color:${TEXTO}">${e}&nbsp; ${txt}</p>`).join("")}
 </td></tr></table>`;
 
-  // ---- Vendas
+  // ---- Vendas (sócio de várias unidades: duas frases com a que mais faturou e a que mais caiu, do mesmo tamanho com 2 ou 15)
+  const fraseUnidades = (x) => {
+    if (!x) return "";
+    const maior = `a que mais faturou no mês foi ${b(`${esc(x.maior.nome)} (${brl(x.maior.faturamento)})`)}`;
+    const segunda = x.pior && x.pior.nome === x.maior.nome
+      ? `, mas ela também foi a que mais caiu em relação ao mesmo período do mês passado (${b(`${sinal(x.pior.pct)}%`)})`
+      : x.pior
+      ? `; a que mais caiu em relação ao mesmo período do mês passado foi ${b(`${esc(x.pior.nome)} (${sinal(x.pior.pct)}%)`)}`
+      : x.melhor ? `; nenhuma faturou menos que no mesmo período do mês passado, e a que mais cresceu foi ${b(`${esc(x.melhor.nome)} (${sinal(x.melhor.pct)}%)`)}` : "";
+    return `\n<p style="${P}">Entre as suas ${x.quantas} unidades, ${maior}${segunda}.</p>`;
+  };
   const vOnline = ontem(d?.vendasOnline, brl, null);
   const vContr = ontem(d?.novosContratos, (x) => `${int(x)} ${x === 1 ? "contrato novo" : "contratos novos"}`, "nenhum contrato novo");
   const fatMes = `${b(brl(t.faturamento))}${entre(vari(t.faturamento, f?.faturamento))}`;
   const vendas = secao("Vendas", "💰", `
-<p style="${P}">${d ? `O faturamento de ontem foi de ${b(brl(d.faturamento))}, e o mês já soma ${fatMes}.` : `O faturamento do mês soma ${fatMes}.`} ${metaTxt}</p>
+<p style="${P}">${d ? `O faturamento de ontem foi de ${b(brl(d.faturamento))}, e o mês já soma ${fatMes}.` : `O faturamento do mês soma ${fatMes}.`} ${metaTxt}</p>${fraseUnidades(r.destaquesUnidades)}
 <p style="${P}">${d ? `Ontem entraram ${vOnline ? `${b(vOnline)} em vendas online` : "nenhuma venda online"} e ${b(vContr)}. ` : ""}No mês, são ${b(`${int(t.novosContratos)} contratos vendidos`)}${entre(vari(t.novosContratos, f?.novosContratos))} e ${b(brl(t.vendasOnline))} em vendas online${entre(vari(t.vendasOnline, f?.vendasOnline))}.</p>
 <p style="${P}">As receitas complementares somaram ${d ? `${b(brl(d.complementar))} ontem e ` : ""}${b(brl(t.complementar))} no mês${entre(vari(t.complementar, f?.complementar))}. A conversão média está em ${b(`${virg(t.conversao ?? 0)}%`)}${entre(vari(t.conversao, convRef, { pp: true }))}.</p>`);
 
   // ---- Notas fiscais (só valores): o recebido do mês anterior que já tem nota e, neste mês, recebido × emitido até ontem.
   const nf = r.notas;
   const nomeMes = (ym) => MESES[Number(ym.slice(5)) - 1];
-  const quemRecebeu = r.unidade ? "a unidade" : "a rede";
+  const quemRecebeu = r.unidade ? "a unidade recebeu" : r.maisDeUma ? "suas unidades receberam" : "a rede recebeu";
   const pctNota = (x) => `${virg(Math.round((x.comNota / x.recebido) * 1000) / 10)}%`;
   const semEmissao = nf?.semEmissao ?? [];
   const notasP = [];
@@ -456,10 +491,10 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
     const atrasa = r.unidade && nf.comAtraso?.includes(r.unidade);
     notasP.push(atrasa
       ? `A unidade costuma emitir as notas de um mês ao longo do mês seguinte: do que recebeu em ${nomeMes(nf.passado.mes)}, ${b(`${pctNota(nf.passado)} já tem nota fiscal`)} até agora${falta >= 1 ? `, e faltam notas para ${b(brl(falta))}` : ""}.`
-      : `Do que ${quemRecebeu} recebeu em ${nomeMes(nf.passado.mes)}, ${b(`${pctNota(nf.passado)} já tem nota fiscal`)}${falta >= 1 ? `; faltam notas para ${b(brl(falta))}` : ""}.${r.unidade ? "" : " Algumas unidades emitem as notas de um mês no mês seguinte, então esse número ainda sobe."}`);
+      : `Do que ${quemRecebeu} em ${nomeMes(nf.passado.mes)}, ${b(`${pctNota(nf.passado)} já tem nota fiscal`)}${falta >= 1 ? `; faltam notas para ${b(brl(falta))}` : ""}.${r.unidade ? "" : " Algumas unidades emitem as notas de um mês no mês seguinte, então esse número ainda sobe."}`);
   }
   if (nf?.atual?.recebido > 0 && !(r.unidade && semEmissao.includes(r.unidade))) {
-    notasP.push(`Em ${nomeMes(nf.atual.mes)}, até ontem, ${r.unidade ? "foram" : "a rede teve"} ${b(brl(nf.atual.recebido))} recebidos e ${nf.atual.emitido >= 1 ? `${b(brl(nf.atual.emitido))} em notas emitidas` : "nenhuma nota emitida ainda"}${nf.atual.outrosMeses >= 1 ? `; desse valor, ${b(brl(nf.atual.outrosMeses))} são notas de pagamentos de meses anteriores, emitidas com atraso` : ""}.`);
+    notasP.push(`Em ${nomeMes(nf.atual.mes)}, até ontem, ${r.unidade ? "foram" : r.maisDeUma ? "suas unidades tiveram" : "a rede teve"} ${b(brl(nf.atual.recebido))} recebidos e ${nf.atual.emitido >= 1 ? `${b(brl(nf.atual.emitido))} em notas emitidas` : "nenhuma nota emitida ainda"}${nf.atual.outrosMeses >= 1 ? `; desse valor, ${b(brl(nf.atual.outrosMeses))} são notas de pagamentos de meses anteriores, emitidas com atraso` : ""}.`);
   }
   if (semEmissao.length) notasP.push(r.unidade ? `${b("A unidade não emitiu nota fiscal pelo EVO")} no mês passado nem neste.` : `${b(juntar(semEmissao))} não ${semEmissao.length === 1 ? "emitiu" : "emitiram"} nota fiscal pelo EVO no mês passado nem neste.`);
   const notasFiscais = notasP.length ? secao("Notas fiscais", "🧾", notasP.map((x) => `<p style="${P}">${x}</p>`).join("\n")) : "";
@@ -505,8 +540,6 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
     ? secao("Alertas", "🚨", `<p style="${P}">Você tem ${b(`${n} ${n === 1 ? "alerta" : "alertas"}`)} pedindo atenção${crit ? (crit === n ? (n === 1 ? ", e ele é crítico" : ", todos críticos") : `, ${crit} ${crit === 1 ? "crítico" : "críticos"}`) : ""}: ${quaisAlertas.join("; ")}. Os detalhes e as ações sugeridas estão no Atlas.</p>`)
     : secao("Alertas", "✅", `<p style="${P}">Nenhum alerta hoje: os indicadores estão dentro do esperado.</p>`);
 
-  // Dono de unidade e gestor (papel "unidades"): o aviso aparece para todos; master e dono da rede já recebem a rede inteira.
-  const maisUnidades = r.papel === "unidades" ? `<p style="${P};margin-top:32px;font-size:13px;line-height:1.6;color:${SUAVE}">Se você é sócio ou gestor de mais de uma unidade, <a href="${esc(url)}" style="color:${VERMELHO};font-weight:600">acesse o Atlas</a> para ver todos os indicadores.</p>` : "";
   const rodape = ["Você recebe este e-mail porque tem acesso ao World Gym Atlas.", contato ? `Dúvidas ou sugestões: <a href="mailto:${esc(contato)}" style="color:#7a7a85">${esc(contato)}</a>.` : ""].filter(Boolean).join("<br>");
 
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>@media (max-width:520px){.miolo{padding:26px 20px 34px!important}.as-logo{padding-right:10px!important}.as-logo img{width:56px!important}.as-texto{padding-left:10px!important}.as-linha{padding-right:8px!important}.as-site{font-size:12px!important}.as-selo{padding-left:8px!important}.as-selo img{width:44px!important}}</style></head>
@@ -528,7 +561,6 @@ ${nps}
 ${trafego}
 ${alertas}
 <p style="margin:36px 0 0" align="center"><a href="${esc(url)}" style="display:inline-block;background:${VERMELHO};color:#ffffff;text-decoration:none;font-family:${sans};font-size:15px;font-weight:600;padding:14px 34px;border-radius:10px">${n ? "Ver alertas no Atlas" : "Abrir o Atlas"}</a></p>
-${maisUnidades}
 ${blocoAssinatura(assinatura)}
 </td></tr>
 <tr><td style="padding:22px 8px 0;font-family:${sans};font-size:12px;line-height:1.7;color:#9a9aa5;text-align:center">${rodape}</td></tr>
