@@ -7,6 +7,7 @@ import { CampanhasNoAr } from "@/components/CampanhasNoAr";
 import { InvestimentoMeta } from "@/components/InvestimentoMeta";
 import { AlertasMeta } from "@/components/AlertasMeta";
 import { EvolucaoMeta } from "@/components/EvolucaoMeta";
+import { CampanhasDoMes } from "@/components/CampanhasDoMes";
 import { RankingAnuncios } from "@/components/RankingAnuncios";
 import { ContatosPorHorario } from "@/components/ContatosPorHorario";
 import { INSTITUCIONAL } from "@/data/campanhas";
@@ -32,7 +33,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month, aba: pedida = n
   // "Institucional" só existe nesta aba: para o resto do painel vale como rede
   useEffect(() => { onUnitChange?.(unit === INSTITUCIONAL ? null : unit); }, [unit, onUnitChange]);
   const dicas: Record<string, string> = {
-    campanhas: "Alertas de melhoria das campanhas, quanto se investiu no Meta no mês e a evolução mês a mês. A conta Institucional fica separada das unidades",
+    campanhas: "Alertas de melhoria das campanhas, quanto se investiu no Meta no mês, o resultado de cada campanha e a evolução mês a mês. A conta Institucional fica separada das unidades",
     anuncios: "Os anúncios que trazem contato mais barato, os horários dos contatos e as campanhas que estão veiculando. A conta Institucional fica separada das unidades",
     leads: "De onde vêm os leads (oportunidades cadastradas no EVO) e o perfil deles, no mês do filtro e na unidade escolhida no alto à direita",
     instagram: "Seguidores, ritmo de postagem, stories e feed do Instagram das unidades, da unidade escolhida no alto à direita (na rede, todas as contas, inclusive a Institucional)",
@@ -42,18 +43,15 @@ export function CampanhasTab({ initialUnit, onUnitChange, month, aba: pedida = n
       <div className="space-y-3">
         <SectionTitle hint={dicas[aba]}>Marketing</SectionTitle>
         <Abas tela="campanhas" titulo="Marketing" abas={ABAS_MARKETING} ativa={aba} onChange={onAba} />
-        {aba !== "leads" && aba !== "instagram" && <div role="group" aria-label="Filtros do tráfego pago" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-3">
-          <div className="min-w-0 lg:w-72">
-            <ChipUnidade id="trafego-unidade" value={unit} units={units} onChange={setUnit} extras={veInstitucional && <option value={INSTITUCIONAL}>Institucional (conta da rede)</option>} />
-          </div>
-          {aba === "campanhas" && <div className="min-w-0 lg:w-80">
-            <ChipMes id="trafego-mes" rotulo="Mês do investimento" value={mes} months={meses} onChange={setMes} />
-          </div>}
+        {aba !== "leads" && aba !== "instagram" && <div role="group" aria-label="Filtros do tráfego pago" className="flex flex-wrap items-center gap-2">
+          <ChipUnidade id="trafego-unidade" value={unit} units={units} onChange={setUnit} extras={veInstitucional && <option value={INSTITUCIONAL}>Institucional (conta da rede)</option>} />
+          {aba === "campanhas" && <ChipMes id="trafego-mes" rotulo="Mês do investimento" value={mes} months={meses} onChange={setMes} />}
         </div>}
       </div>
       {aba === "campanhas" && <>
         <AlertasMeta unit={unit} />
         <InvestimentoMeta unit={unit} month={mes} />
+        <CampanhasDoMes unit={unit} month={mes} />
         <EvolucaoMeta unit={unit} month={mes} />
       </>}
       {aba === "anuncios" && <>

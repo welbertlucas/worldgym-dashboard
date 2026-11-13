@@ -139,10 +139,10 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
         acoes={
           <>
             <Segmentos rotulo="Período dos gráficos" opcoes={PERIODOS.map((p) => [p.n, p.label] as const)} valor={periodo} onChange={setPeriodo} />
-            <div className="w-full min-w-0 sm:w-64">
+            <div className="min-w-0">
               <Chip
                 id="ud-comparar"
-                rotulo="Linha de comparação"
+                rotulo="Comparar com"
                 valor={comparar === REDE ? "Média da rede" : comparar || "Nenhuma"}
                 icone={<ArrowLeftRight className="h-4 w-4" />}
                 ativo={!!comparar}
@@ -184,7 +184,7 @@ export function UnidadeDetalhe({ unit, selectedMonth, compareMonth, metas, onOpe
         </Secao>
       )}
       {onOpenTab && (
-        <Secao id="ud-menus" titulo={`Mais detalhes de ${unit}`} descricao={`Abre o menu já filtrado em ${unit}. Para voltar à rede, use “Voltar para a rede” na faixa do topo.`}>
+        <Secao id="ud-menus" titulo={`Mais detalhes de ${unit}`} descricao={`Abre o menu já filtrado em ${unit}. Para voltar à rede, escolha “Toda a rede” no botão de unidade, no alto à direita.`}>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {MENUS_DA_UNIDADE.map((m) => (
               <li key={m.id}>

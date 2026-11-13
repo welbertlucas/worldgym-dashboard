@@ -216,7 +216,7 @@ describe("Unidades: um menu só", () => {
     expect(detalhe.replace(/<!-- -->/g, "")).toContain("Comercial de A");
     expect(detalhe.replace(/<!-- -->/g, "")).toContain("Retenção de A");
     expect(detalhe).toContain("Posição de A na rede");
-    expect(detalhe).toContain("Linha de comparação");
+    expect(detalhe).toContain("Comparar com");
     expect(detalhe).toContain("As setas de cada cartão comparam com");
     expect(detalhe).toContain("Ver em Metas");
     expect(detalhe).toContain("Exportar PDF");

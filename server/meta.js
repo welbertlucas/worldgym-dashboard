@@ -244,6 +244,29 @@ export async function mesDaConta(conta, token, ym, hoje = hojeBrasilia()) {
   return { investimento: Number(i.spend || 0), impressoes: Number(i.impressions || 0), alcance: Number(i.reach || 0), cliques: Number(i.clicks || 0), leads: leadsDe(i.actions), conversas: soma(i.actions, CONVERSA), ...comprasDe(i.actions, i.action_values) };
 }
 
+/** Campanha do mês (insights no nível de campanha) -> linha guardada. */
+export function campanhaDoMes(c, conta) {
+  return {
+    id: c.campaign_id, unidade: conta.unidade, conta: conta.conta, nome: c.campaign_name ?? "(sem nome)", objetivo: c.objective ?? null,
+    investimento: Number(c.spend || 0), impressoes: Number(c.impressions || 0), cliques: Number(c.clicks || 0),
+    leads: leadsDe(c.actions), conversas: soma(c.actions, CONVERSA), compras: comprasDe(c.actions, c.action_values).compras,
+  };
+}
+
+/** Cada campanha que gastou no mês, numa conta (inclusive as pausadas depois). */
+export async function campanhasDoMes(conta, token, ym, hoje = hojeBrasilia()) {
+  const fim = fimDoMes(ym);
+  const periodo = encodeURIComponent(JSON.stringify({ since: `${ym}-01`, until: fim < hoje ? fim : hoje }));
+  const out = [];
+  let url = `https://graph.facebook.com/${VERSAO}/act_${conta.id}/insights?level=campaign&fields=campaign_id,campaign_name,objective,spend,impressions,clicks,actions,action_values&time_range=${periodo}&limit=100`;
+  while (url) {
+    const r = await graph(url, token);
+    out.push(...(r.data ?? []).map((c) => campanhaDoMes(c, conta)).filter((c) => c.investimento > 0));
+    url = r.paging?.next ?? null;
+  }
+  return out;
+}
+
 const REDE = "Rede";
 const CAMPOS_MES = ["investimento", "impressoes", "alcance", "cliques", "leads", "conversas", "compras", "valorCompras"];
 
@@ -257,6 +280,7 @@ export async function mesesDaRede(tokens, meses, contas = CONTAS, pausaMs = 300,
     if (`${ym}-01` > hoje) continue;
     const unidades = {};
     const erros = [];
+    const campanhas = [];
     for (const conta of contas) {
       const token = tokens[conta.token];
       if (!token) { erros.push({ conta: conta.conta, erro: `sem token ${conta.token}` }); continue; }
@@ -264,10 +288,12 @@ export async function mesesDaRede(tokens, meses, contas = CONTAS, pausaMs = 300,
         const r = await mesDaConta(conta, token, ym, hoje);
         const u = (unidades[conta.unidade ?? REDE] ??= Object.fromEntries(CAMPOS_MES.map((k) => [k, 0])));
         for (const k of CAMPOS_MES) u[k] = Math.round((u[k] + r[k]) * 100) / 100;
+        // Lista por campanha: se falhar, o total da unidade continua valendo.
+        if (r.investimento > 0) campanhas.push(...(await campanhasDoMes(conta, token, ym, hoje).catch(() => [])));
       } catch (e) { erros.push({ conta: conta.conta, erro: e.message }); }
       await new Promise((r) => setTimeout(r, pausaMs));
     }
-    saida[ym] = { geradoEm: new Date().toISOString(), unidades, erros };
+    saida[ym] = { geradoEm: new Date().toISOString(), unidades, erros, campanhas: campanhas.sort((x, y) => y.investimento - x.investimento) };
   }
   return saida;
 }

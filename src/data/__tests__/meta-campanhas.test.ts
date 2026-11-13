@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 // @ts-expect-error módulo JS do servidor
+import { filtrarCampanhas } from "../../../server/visibilidade.js";
+// @ts-expect-error módulo JS do servidor
 import { anunciosDaConta, calorDaConta, calorDaRede, campanhaDoMeta, campanhasDaRede, CONTAS, estaNoAr, listaDeMeses, mesesDaRede, mesesDaRotina } from "../../../server/meta.js";
 
 const conta = { id: "1", conta: "WG 3 - Asa Norte", unidade: "Asa Norte", token: "DFGO" };
@@ -50,6 +52,26 @@ describe("investimento do mês por unidade (Meta)", () => {
     // mês corrente vai só até hoje; todas as campanhas da conta (nível conta), não só as ativas
     expect(decodeURIComponent(urls[0])).toContain('"since":"2026-11-01","until":"2026-11-10"');
     expect(urls[0]).toContain("level=account");
+  });
+  it("guarda cada campanha que gastou no mês, com a unidade da conta, da que mais gastou para a que menos", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => ({
+      ok: true, status: 200,
+      json: async () => url.includes("level=campaign")
+        ? { data: [
+            { campaign_id: "c1", campaign_name: "Matrícula", objective: "OUTCOME_ENGAGEMENT", spend: "80", impressions: "100", clicks: "5", actions: [{ action_type: "onsite_conversion.messaging_conversation_started_7d", value: "8" }] },
+            { campaign_id: "c2", campaign_name: "Parada", spend: "0" },
+            { campaign_id: "c3", campaign_name: "Leads", spend: "120", actions: [{ action_type: "lead", value: "4" }] },
+          ] }
+        : { data: [{ spend: "200", impressions: "100", clicks: "5" }] },
+    })));
+    const r = await mesesDaRede({ DFGO: "x" }, ["2026-11"], [{ ...conta, id: "1" }], 0, "2026-11-10");
+    expect(r["2026-11"].campanhas.map((c: any) => [c.nome, c.investimento, c.unidade])).toEqual([["Leads", 120, "Asa Norte"], ["Matrícula", 80, "Asa Norte"]]);
+    expect(r["2026-11"].campanhas[1]).toMatchObject({ conversas: 8, objetivo: "OUTCOME_ENGAGEMENT" });
+  });
+  it("nível unidades vê só as campanhas das suas unidades", () => {
+    const foto = { campanhas: [], erros: [], meses: { "2026-11": { geradoEm: "x", erros: [], unidades: { Gama: {}, Itapoã: {} }, campanhas: [{ unidade: "Gama" }, { unidade: "Itapoã" }, { unidade: null }] } } };
+    const v = filtrarCampanhas(foto, { papel: "unidades", unidades: ["Gama"] });
+    expect(v.meses["2026-11"].campanhas).toEqual([{ unidade: "Gama" }]);
   });
   it("lista de meses e meses da rotina diária", () => {
     expect(listaDeMeses("2025-11..2026-02")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);

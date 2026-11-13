@@ -28,8 +28,17 @@ export interface ResultadoMeta {
   /** Pessoas diferentes que viram os anúncios no mês (meses lidos antes de 11/2026 não têm). */
   alcance?: number;
 }
-/** Unidades do mês; a chave "Rede" é a conta Institucional (anúncio da rede toda). */
-export interface MesMeta { geradoEm: string; unidades: Record<string, ResultadoMeta>; erros: { conta: string; erro: string }[] }
+/** Resultado de uma campanha no mês (todas as que gastaram, inclusive as pausadas depois). `unidade: null` = Institucional. */
+export interface CampanhaMes { id: string; unidade: string | null; conta: string; nome: string; objetivo: string | null; investimento: number; impressoes: number; cliques: number; leads: number; conversas: number; compras: number }
+/** Unidades do mês; a chave "Rede" é a conta Institucional (anúncio da rede toda). `campanhas`: meses lidos a partir de 13/11/2026. */
+export interface MesMeta { geradoEm: string; unidades: Record<string, ResultadoMeta>; erros: { conta: string; erro: string }[]; campanhas?: CampanhaMes[] }
+
+/** Campanhas do mês da escolha (unidade, Institucional ou, sem escolha, todas as unidades), da que mais gastou para a que menos. */
+export function campanhasDoMesDaEscolha(mes: MesMeta | undefined, unidade: string | null): CampanhaMes[] | null {
+  if (!mes?.campanhas) return null;
+  const ok = (c: CampanhaMes) => (unidade === INSTITUCIONAL ? c.unidade === null : unidade ? c.unidade === unidade : c.unidade !== null);
+  return mes.campanhas.filter(ok).sort((a, b) => b.investimento - a.investimento);
+}
 /** Anúncio com gasto nos últimos 30 dias (ranking). `imagem` = miniatura do criativo no Meta (o link vence em alguns dias; a foto diária renova). */
 export interface Anuncio {
   id: string;

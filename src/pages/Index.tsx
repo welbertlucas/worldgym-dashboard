@@ -333,18 +333,6 @@ const Index = () => {
           onCompareMonthChange={setCompareMonth}
         />}
 
-        {/* Aviso de unidade filtrada: nos menus temáticos o filtro vale para a tela toda e segue ao trocar de menu. */}
-        {/* Quem tem uma unidade só não vê a faixa: para essa pessoa não existe outra visão. */}
-        {selectedUnit && !(soAsProprias?.length === 1) && (["comercial", "metas", "financeiro", "alunos", "catraca", "retencao", "plano", "riscos"].includes(activeTab) || (activeTab === "campanhas" && !seletorProprio)) && (
-          <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
-            <span className="text-foreground">Mostrando só <b>{selectedUnit}</b>. Os números desta tela são desta unidade, não {soAsProprias ? "da soma das suas unidades" : "da rede"}.</span>
-            <span className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => changeTab("unidades")} className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">Ver o Raio-X de {selectedUnit}</button>
-              <button type="button" onClick={() => setSelectedUnit(null)} className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/90">{soAsProprias ? "Ver todas as suas unidades" : "Voltar para a rede"}</button>
-            </span>
-          </div>
-        )}
-
         {/* Comparativo */}
         {comparison && activeTab !== "unidades" && !seletorProprio && !semMes && activeTab !== "acessos" && (
           <section>

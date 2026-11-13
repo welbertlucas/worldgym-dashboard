@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ArrowLeftRight, X } from "lucide-react";
+import { Building2, CalendarDays, ChevronDown, ArrowLeftRight, X } from "lucide-react";
 import { getAvailableMonths, getAvailableUnits } from "@/data/dashboardData";
 import { cn } from "@/lib/utils";
 import { unidadesProprias } from "@/lib/auth";
@@ -29,56 +29,40 @@ export function formatMonth(m: string) {
  * Um filtro em forma de "chip": ícone, rótulo pequeno e o valor escolhido em destaque. O select nativo fica por cima,
  * invisível, então o clique abre o seletor do próprio sistema (bom no celular) e leitores de tela leem o select de verdade.
  */
-export function Chip({ id, rotulo, valor, icone, ativo, children, value, onChange, aoLimpar, rotuloLimpar, antes, depois }: {
+export function Chip({ id, rotulo, valor, icone, ativo, children, value, onChange, aoLimpar, rotuloLimpar, rotuloVisivel = true, className }: {
   id: string; rotulo: string; valor: string; icone: ReactNode; ativo?: boolean; children: ReactNode;
-  value: string; onChange: (v: string) => void; aoLimpar?: () => void; rotuloLimpar?: string; antes?: ReactNode; depois?: ReactNode;
+  value: string; onChange: (v: string) => void; aoLimpar?: () => void; rotuloLimpar?: string;
+  /** Mostra o rótulo antes do valor ("Severidade Todas"); desligado quando o valor já se explica (unidade, mês). */
+  rotuloVisivel?: boolean; className?: string;
 }) {
+  // Pílula no mesmo formato dos botões do topo (unidade, mês e comparação): ícone, valor, seta; ativo no vermelho claro.
   return (
-    <div className={cn(
-      "group relative flex h-12 min-w-0 items-center rounded-2xl border bg-card shadow-sm transition-colors focus-within:ring-2 focus-within:ring-ring",
-      ativo ? "border-primary/40 bg-primary/5" : "border-border hover:border-foreground/25",
-    )}>
-      {antes}
-      <div className="relative flex min-w-0 flex-1 items-center gap-2.5 px-3">
-        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", ativo ? "bg-primary/10 text-primary-ink" : "bg-secondary text-muted-foreground")} aria-hidden>{icone}</span>
-        <span className="min-w-0 flex-1 leading-tight">
-          <span className="block truncate whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-muted-foreground" title={rotulo}>{rotulo}</span>
-          <span className="block truncate text-sm font-semibold text-foreground">{valor}</span>
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-y-px" aria-hidden />
-        <label htmlFor={id} className="sr-only">{rotulo}</label>
-        <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
-          {children}
-        </select>
-      </div>
-      {depois}
-      {aoLimpar && (
-        <button type="button" onClick={aoLimpar} title={rotuloLimpar} aria-label={rotuloLimpar} className="relative z-10 mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <X className="h-4 w-4" aria-hidden />
-        </button>
+    <div
+      className={cn(
+        "relative inline-flex h-9 min-w-0 max-w-full items-center gap-2 rounded-full border px-3 text-sm shadow-sm transition-colors focus-within:ring-2 focus-within:ring-ring",
+        ativo ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:border-foreground/25",
+        className,
       )}
+      title={rotulo}
+    >
+      <span className={cn("shrink-0", ativo ? "text-primary-ink" : "text-muted-foreground")} aria-hidden>{icone}</span>
+      {rotuloVisivel && <span className="shrink-0 text-muted-foreground">{rotulo}</span>}
+      <span className="min-w-0 truncate font-medium text-foreground">{valor}</span>
+      {aoLimpar
+        ? <button type="button" onClick={aoLimpar} title={rotuloLimpar} aria-label={rotuloLimpar} className="relative z-10 -mr-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-3.5 w-3.5" aria-hidden /></button>
+        : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
+      <label htmlFor={id} className="sr-only">{rotulo}</label>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer rounded-full opacity-0">
+        {children}
+      </select>
     </div>
   );
 }
 
-const seta = "relative z-10 flex h-full w-9 shrink-0 items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
-
-/** Chip de mês com setas de mês anterior/próximo (meses em ordem crescente). */
+/** Chip de mês: "Out/26" no botão e os nomes inteiros na lista (meses em ordem crescente). */
 export function ChipMes({ id, rotulo, value, months, onChange }: { id: string; rotulo: string; value: string; months: string[]; onChange: (m: string) => void }) {
-  const i = months.indexOf(value);
-  const anterior = i > 0 ? months[i - 1] : null;
-  const proximo = i >= 0 && i < months.length - 1 ? months[i + 1] : null;
   return (
-    <Chip
-      id={id}
-      rotulo={rotulo}
-      valor={formatMonth(value)}
-      icone={<CalendarDays className="h-4 w-4" />}
-      value={value}
-      onChange={onChange}
-      antes={<button type="button" className={cn(seta, "rounded-l-2xl border-r border-border")} disabled={!anterior} onClick={() => anterior && onChange(anterior)} aria-label="Mês anterior" title="Mês anterior"><ChevronLeft className="h-4 w-4" aria-hidden /></button>}
-      depois={<button type="button" className={cn(seta, "rounded-r-2xl border-l border-border")} disabled={!proximo} onClick={() => proximo && onChange(proximo)} aria-label="Próximo mês" title="Próximo mês"><ChevronRight className="h-4 w-4" aria-hidden /></button>}
-    >
+    <Chip id={id} rotulo={rotulo} valor={mesCurto(value)} icone={<CalendarDays className="h-4 w-4" />} ativo value={value} onChange={onChange} rotuloVisivel={false}>
       {[...months].reverse().map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
     </Chip>
   );
@@ -93,7 +77,7 @@ export function ChipUnidade({ id, value, units, onChange, extras, rotuloRede = "
   if (proprias?.length === 1) {
     const u = proprias[0];
     return (
-      <Chip id={id} rotulo="Unidade" valor={u} icone={<Building2 className="h-4 w-4" />} ativo value={u} onChange={() => {}}>
+      <Chip id={id} rotulo="Unidade" valor={u} icone={<Building2 className="h-4 w-4" />} ativo value={u} onChange={() => {}} rotuloVisivel={false}>
         <option value={u}>{u}</option>
       </Chip>
     );
@@ -101,6 +85,7 @@ export function ChipUnidade({ id, value, units, onChange, extras, rotuloRede = "
   if (proprias) { rotuloRede = "Todas as suas unidades"; extras = null; }
   return (
     <Chip
+      rotuloVisivel={false}
       id={id}
       rotulo="Unidade"
       valor={value ?? rotuloRede}
@@ -153,17 +138,17 @@ export function BotaoUnidade({ id, value, onChange, className }: { id: string; v
   );
 }
 
-/** Botões lado a lado (ex.: "Por unidade | Lista completa") na mesma altura e borda dos chips. */
+/** Botões lado a lado (ex.: "Por unidade | Lista completa") na mesma altura e formato de pílula dos chips. */
 export function Segmentos<T extends string | number>({ rotulo, opcoes, valor, onChange }: { rotulo: string; opcoes: readonly (readonly [T, string])[]; valor: T; onChange: (v: T) => void }) {
   return (
-    <div role="group" aria-label={rotulo} className="inline-flex h-12 shrink-0 items-center gap-1 rounded-2xl border border-border bg-card p-1 shadow-sm">
+    <div role="group" aria-label={rotulo} className="inline-flex h-9 shrink-0 items-center gap-0.5 rounded-full border border-border bg-card p-0.5 shadow-sm">
       {opcoes.map(([v, label]) => (
         <button
           key={String(v)}
           type="button"
           aria-pressed={valor === v}
           onClick={() => onChange(v)}
-          className={cn("h-full rounded-xl px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", valor === v ? "bg-foreground text-background" : "text-muted-foreground hover:bg-secondary hover:text-foreground")}
+          className={cn("h-full rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", valor === v ? "bg-foreground text-background" : "text-muted-foreground hover:bg-secondary hover:text-foreground")}
         >
           {label}
         </button>
