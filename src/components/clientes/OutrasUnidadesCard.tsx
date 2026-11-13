@@ -13,25 +13,24 @@ export function fluxosDaRede(units: Pick<UnitData, "name" | "outrasUnidades">[],
     .slice(0, n);
 }
 
-/** Lista de unidades pelo número de entradas na catraca (maior primeiro), com todas as unidades. */
-function Lista({ titulo, fluxo }: { titulo: string; fluxo: FluxoUnidades }) {
-  const linhas = [...fluxo.unidades].sort((a, b) => b[2] - a[2]);
-  const maior = Math.max(...linhas.map(([, , e]) => e), 1);
+function Lista({ titulo, fluxo, rotulo }: { titulo: string; fluxo: FluxoUnidades; rotulo: string }) {
+  const maior = Math.max(...fluxo.unidades.map(([, p]) => p), 1);
   return (
     <div>
       <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{titulo}</h4>
-      {linhas.length === 0 ? <p className="text-sm text-muted-foreground">Ninguém neste mês.</p> : (
+      {fluxo.unidades.length === 0 ? <p className="text-sm text-muted-foreground">Ninguém neste mês.</p> : (
         <ol className="space-y-1.5" aria-label={titulo}>
-          <li aria-hidden className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_4.5rem] gap-3 text-[11px] uppercase tracking-wide text-muted-foreground">
-            <span /><span /><span className="text-right">Entradas</span>
+          <li aria-hidden className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_3.5rem_4.5rem] gap-3 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <span /><span /><span className="text-right">{rotulo}</span><span className="text-right">Entradas</span>
           </li>
-          {linhas.map(([nome, , e]) => (
-            <li key={nome} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_4.5rem] items-center gap-3 text-sm">
+          {fluxo.unidades.map(([nome, p, e]) => (
+            <li key={nome} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_3.5rem_4.5rem] items-center gap-3 text-sm">
               <span className="truncate"><UnitLink name={nome} /></span>
               <span className="h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
-                <span className="block h-full rounded-full bg-foreground/60" style={{ width: `${(e / maior) * 100}%` }} />
+                <span className="block h-full rounded-full bg-foreground/60" style={{ width: `${(p / maior) * 100}%` }} />
               </span>
-              <span className="text-right font-semibold tabular-nums text-foreground" aria-label={`${int(e)} entradas`}>{int(e)}</span>
+              <span className="text-right font-semibold tabular-nums text-foreground" aria-label={`${int(p)} ${rotulo}`}>{int(p)}</span>
+              <span className="text-right tabular-nums text-muted-foreground" aria-label={`${int(e)} entradas`}>{int(e)}</span>
             </li>
           ))}
         </ol>
@@ -57,7 +56,7 @@ export function OutrasUnidadesCard({ total, month, monthLabel, partial, unit }: 
     const frequentadores = com.reduce((s, u) => s + (u.frequentadores ?? 0), 0);
     const fluxos = fluxosDaRede(com);
     const maior = Math.max(...fluxos.map((f) => f[2]), 1);
-    const ranking = [...com].sort((a, b) => b.outrasUnidades!.vieram.entradas - a.outrasUnidades!.vieram.entradas).slice(0, 8);
+    const ranking = [...com].sort((a, b) => b.outrasUnidades!.vieram.pessoas - a.outrasUnidades!.vieram.pessoas).slice(0, 8);
     return (
       <ChartCard
         title={titulo}
@@ -85,7 +84,7 @@ export function OutrasUnidadesCard({ total, month, monthLabel, partial, unit }: 
               ))}
             </ol>
           </div>
-          <Lista titulo="Unidades que mais recebem alunos de outras" fluxo={{ pessoas: 0, entradas: 0, unidades: ranking.map((u) => [u.name, u.outrasUnidades!.vieram.pessoas, u.outrasUnidades!.vieram.entradas]) }} />
+          <Lista titulo="Unidades que mais recebem alunos de outras" fluxo={{ pessoas: 0, entradas: 0, unidades: ranking.map((u) => [u.name, u.outrasUnidades!.vieram.pessoas, u.outrasUnidades!.vieram.entradas]) }} rotulo="alunos" />
         </div>
         <p className="mt-4 text-xs text-muted-foreground">
           Cruza as entradas na catraca com a unidade do cadastro de cada aluno no EVO (a de hoje). Só contagens: ninguém é identificado. Visitantes sem cadastro de aluno ficam de fora.
@@ -109,8 +108,8 @@ export function OutrasUnidadesCard({ total, month, monthLabel, partial, unit }: 
       }
     >
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
-        <Lista titulo={`Para onde foram os alunos de ${unit}`} fluxo={o.foram} />
-        <Lista titulo={`De onde vieram os alunos de outras unidades`} fluxo={o.vieram} />
+        <Lista titulo={`Para onde foram os alunos de ${unit}`} fluxo={o.foram} rotulo="alunos" />
+        <Lista titulo={`De onde vieram os alunos de outras unidades`} fluxo={o.vieram} rotulo="alunos" />
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
         Cruza as entradas na catraca com a unidade do cadastro de cada aluno no EVO (a de hoje). Só contagens: ninguém é identificado. Visitantes sem cadastro de aluno ficam de fora.
