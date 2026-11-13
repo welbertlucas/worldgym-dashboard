@@ -8,8 +8,8 @@ const KEY = "wg-dashboard-token";
 export const AUTH_REQUIRED_EVENT = "wg-auth-required";
 
 export type Papel = "dono" | "master" | "unidades";
-/** `papelReal` só vem quando o dono está simulando outro nível ("ver como"). */
-export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel }
+/** `papelReal` só vem quando o dono está simulando outro nível ("ver como"). `gerenciaAcessos`: Master liberado pelo dono a criar acessos. */
+export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean }
 
 // Quem está logado e se o login pede e-mail (só depois que o dono cria o primeiro acesso). Vem de GET /api/login.
 let usuario: Usuario | null = null;
@@ -19,9 +19,9 @@ export const loginComEmail = () => comEmail;
 /** Sem informação (sem senha ligada ou API fora do ar) vale como dono: o servidor é quem filtra os dados de verdade. */
 export const papelAtual = (): Papel => usuario?.papel ?? "dono";
 export const ehDono = () => papelAtual() === "dono";
-/** Só o dono atualiza da planilha e gerencia acessos; sem sessão identificada (sem senha ligada) segue como hoje. */
+/** Só o dono atualiza da planilha; acessos, o dono e o Master que ele liberou. Sem sessão identificada (sem senha ligada) segue como hoje. */
 export const podeAtualizar = () => ehDono();
-export const podeGerirAcessos = () => usuario?.papel === "dono";
+export const podeGerirAcessos = () => usuario?.papel === "dono" || usuario?.gerenciaAcessos === true;
 /** Unidades de quem tem acesso só a algumas; null = enxerga todas. */
 export const unidadesProprias = (): string[] | null => (usuario?.papel === "unidades" ? usuario.unidades : null);
 

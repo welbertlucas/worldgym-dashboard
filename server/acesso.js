@@ -45,7 +45,23 @@ export const limparCache = () => { memo = null; };
 /** O que sai para a tela: nunca o hash da senha. */
 /** `resumo`: recebe o resumo diário por e-mail (quem foi criado antes da opção recebe, como sempre recebeu). */
 export const recebeResumo = (u) => u.ativo !== false && u.resumo !== false;
-export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, criadoEm: u.criadoEm });
+/** Master a quem o dono liberou criar e alterar acessos (só vale para Master). */
+export const gerenciaAcessos = (u) => u?.papel === "master" && u.gerenciaAcessos === true;
+export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), criadoEm: u.criadoEm });
+
+/**
+ * Quem não é dono, mas gerencia acessos (ator com gerenciaAcessos), não mexe na conta do dono nem na de outro que
+ * também gerencia, não dá nem tira essa permissão e não muda o próprio nível nem se desativa. Sem ator = dono.
+ */
+function conferirAtor(ator, alvo, campos = {}) {
+  if (!ator || ator.papel === "dono") return;
+  if (alvo?.papel === "dono") throw new ErroAcesso("Só o dono altera a conta do dono.", 403);
+  if (alvo && alvo.id !== ator.id && gerenciaAcessos(alvo)) throw new ErroAcesso("Só o dono altera quem também gerencia acessos.", 403);
+  if (campos.gerenciaAcessos !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de gerenciar acessos.", 403);
+  if (alvo?.id === ator.id && ((campos.papel !== undefined && campos.papel !== alvo.papel) || campos.ativo === false)) {
+    throw new ErroAcesso("Você não pode mudar o seu próprio nível nem se desativar.", 403);
+  }
+}
 
 export function hashSenha(senha) {
   const sal = randomBytes(16);
@@ -94,35 +110,42 @@ export async function criarDono({ nome, email, senha }) {
 }
 
 /** Cria um acesso com senha provisória (mostrada uma única vez ao dono). */
-export async function criarUsuario({ nome, email, papel, unidades, resumo = true }) {
+export async function criarUsuario({ nome, email, papel, unidades, resumo = true, gerenciaAcessos: gerencia }, ator = null) {
   const lista = await lerFresco();
   if (papel === "dono" || !PAPEIS.includes(papel)) throw new ErroAcesso("Nível inválido.");
+  conferirAtor(ator, null, { gerenciaAcessos: gerencia || undefined });
   const dados = validarBasico({ nome, email }, lista);
   const senhaProvisoria = gerarSenhaProvisoria();
   const u = {
     id: randomUUID(), ...dados, papel,
     unidades: papel === "unidades" ? validarUnidades(unidades) : [],
-    ativo: true, resumo: resumo !== false, hash: hashSenha(senhaProvisoria), criadoEm: new Date().toISOString(),
+    ativo: true, resumo: resumo !== false, ...(papel === "master" && gerencia === true ? { gerenciaAcessos: true } : {}),
+    hash: hashSenha(senhaProvisoria), criadoEm: new Date().toISOString(),
   };
   await salvar([...lista, u]);
   return { usuario: publico(u), senhaProvisoria };
 }
 
-export async function redefinirSenha(id) {
+export async function redefinirSenha(id, ator = null) {
   const lista = await lerFresco();
   const u = lista.find((x) => x.id === id);
   if (!u) throw new ErroAcesso("Acesso não encontrado.", 404);
+  conferirAtor(ator, u);
   const senhaProvisoria = gerarSenhaProvisoria();
   u.hash = hashSenha(senhaProvisoria);
   await salvar(lista);
   return { usuario: publico(u), senhaProvisoria };
 }
 
-/** Muda nome, nível, unidades, se recebe o resumo diário, ou desativa/reativa. O dono não pode ser rebaixado nem desativado. */
-export async function atualizarUsuario(id, campos) {
+/**
+ * Muda nome, nível, unidades, se recebe o resumo diário, se gerencia acessos (só o dono decide, só para Master), ou
+ * desativa/reativa. O dono não pode ser rebaixado nem desativado. `ator`: quem pede, quando não é o dono.
+ */
+export async function atualizarUsuario(id, campos, ator = null) {
   const lista = await lerFresco();
   const u = lista.find((x) => x.id === id);
   if (!u) throw new ErroAcesso("Acesso não encontrado.", 404);
+  conferirAtor(ator, u, campos);
   if (u.papel === "dono" && (campos.papel !== undefined && campos.papel !== "dono" || campos.ativo === false)) {
     throw new ErroAcesso("O dono não pode ser rebaixado nem desativado.", 403);
   }
@@ -141,6 +164,8 @@ export async function atualizarUsuario(id, campos) {
   else u.unidades = [];
   if (campos.ativo !== undefined) u.ativo = Boolean(campos.ativo);
   if (campos.resumo !== undefined) u.resumo = Boolean(campos.resumo);
+  if (campos.gerenciaAcessos !== undefined) u.gerenciaAcessos = Boolean(campos.gerenciaAcessos);
+  if (u.papel !== "master") delete u.gerenciaAcessos; // a permissão só vale para Master
   await salvar(lista);
   return publico(u);
 }

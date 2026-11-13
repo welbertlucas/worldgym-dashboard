@@ -95,6 +95,52 @@ describe("acessos, níveis e registro", () => {
     expect((await chama(usuarios, com(tokenDono, { method: "POST", body: { acao: "criar", nome: "Outro", email: "outro@exemplo.com", papel: "dono" } }))).code).toBe(400);
   });
 
+  it("Master liberado pelo dono gerencia acessos, mas não mexe no dono, não passa a permissão adiante nem muda o próprio nível", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
+    const ana = (await post(tokenDono, { acao: "criar", nome: "Ana Júlia", email: "ana@exemplo.com", papel: "master" })).body.usuario;
+    const bia = (await post(tokenDono, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master" })).body.usuario;
+    expect(ana.gerenciaAcessos).toBe(false);
+    const tokenAna = criarTokenUsuario(ana.id).token;
+    expect((await chama(usuarios, com(tokenAna, { method: "GET" }))).code).toBe(403);
+
+    // o dono libera
+    const lib = await post(tokenDono, { acao: "atualizar", id: ana.id, gerenciaAcessos: true });
+    expect(lib.body.usuario.gerenciaAcessos).toBe(true);
+    expect((await chama(login, com(tokenAna, { method: "GET" }))).body.usuario.gerenciaAcessos).toBe(true);
+
+    // o que ela pode
+    expect((await chama(usuarios, com(tokenAna, { method: "GET" }))).code).toBe(200);
+    const novo = await post(tokenAna, { acao: "criar", nome: "Carlos", email: "carlos@exemplo.com", papel: "unidades", unidades: ["Gama"] });
+    expect(novo.code).toBe(200);
+    expect((await post(tokenAna, { acao: "atualizar", id: bia.id, ativo: false })).code).toBe(200);
+    expect((await post(tokenAna, { acao: "redefinir", id: novo.body.usuario.id })).code).toBe(200);
+    expect((await post(tokenAna, { acao: "atualizar", id: ana.id, resumo: false })).code).toBe(200);
+
+    // o que ela não pode
+    expect((await post(tokenAna, { acao: "atualizar", id: dono.id, nome: "Outro Nome" })).code).toBe(403);
+    expect((await post(tokenAna, { acao: "redefinir", id: dono.id })).code).toBe(403);
+    expect((await post(tokenAna, { acao: "criar", nome: "Novo Dono", email: "nd@exemplo.com", papel: "dono" })).code).toBe(400);
+    expect((await post(tokenAna, { acao: "criar", nome: "Dani", email: "dani@exemplo.com", papel: "master", gerenciaAcessos: true })).code).toBe(403);
+    expect((await post(tokenAna, { acao: "atualizar", id: bia.id, gerenciaAcessos: true })).code).toBe(403);
+    expect((await post(tokenAna, { acao: "atualizar", id: ana.id, papel: "unidades", unidades: ["Gama"] })).code).toBe(403);
+    expect((await post(tokenAna, { acao: "atualizar", id: ana.id, ativo: false })).code).toBe(403);
+    expect((await post(tokenAna, { acao: "atualizar", id: ana.id, gerenciaAcessos: false })).code).toBe(403);
+
+    // outro que também gerencia: só o dono altera
+    await post(tokenDono, { acao: "atualizar", id: bia.id, ativo: true, gerenciaAcessos: true });
+    expect((await post(tokenAna, { acao: "atualizar", id: bia.id, ativo: false })).code).toBe(403);
+    expect((await post(tokenAna, { acao: "redefinir", id: bia.id })).code).toBe(403);
+
+    // a permissão só vale para Master: rebaixada a Unidades, perde
+    const rebaixa = await post(tokenDono, { acao: "atualizar", id: bia.id, papel: "unidades", unidades: ["Gama"] });
+    expect(rebaixa.body.usuario.gerenciaAcessos).toBe(false);
+    // o dono tira a permissão: volta o 403
+    await post(tokenDono, { acao: "atualizar", id: ana.id, gerenciaAcessos: false });
+    expect((await chama(usuarios, com(tokenAna, { method: "GET" }))).code).toBe(403);
+  });
+
   it("valida e-mail repetido, unidade desconhecida e nível 'unidades' sem unidade", async () => {
     await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     await expect(acesso.criarUsuario({ nome: "Ana", email: "dono@exemplo.com", papel: "master" })).rejects.toThrow(/Já existe/);

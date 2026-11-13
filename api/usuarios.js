@@ -1,4 +1,4 @@
-// Gestão de acessos: só o dono.
+// Gestão de acessos: o dono e quem ele liberou (Master com "gerencia acessos"; ver conferirAtor em server/acesso.js).
 // GET  /api/usuarios            -> { usuarios, unidades, legado }   (legado: true = ainda sem nenhum usuário, só a senha única)
 // GET  /api/usuarios?registro=1 -> { registro: [...] }              (entradas e tentativas erradas, mais novas primeiro)
 // POST /api/usuarios { acao: "primeiro-dono" | "criar" | "atualizar" | "redefinir", ... }
@@ -15,8 +15,11 @@ export default async function handler(req, res) {
   cors(req, res);
   res.setHeader("Cache-Control", "no-store");
   if (req.method === "OPTIONS") return res.status(204).end();
-  const sessao = await exigirLogin(req, res, { papeis: ["dono"] });
+  const sessao = await exigirLogin(req, res);
   if (!sessao) return;
+  const ehDono = sessao.papel === "dono";
+  if (!ehDono && !sessao.gerenciaAcessos) return res.status(403).json({ error: "sem permissão" });
+  const ator = ehDono ? null : sessao;
 
   try {
     if (req.method === "GET") {
@@ -28,19 +31,20 @@ export default async function handler(req, res) {
 
     const { acao, ...campos } = doCorpo(req);
     if (acao === "primeiro-dono") {
+      if (!ehDono) return res.status(403).json({ error: "sem permissão" });
       if (sessao.id === "aberto") return res.status(409).json({ error: "Configure a senha do servidor antes de criar o dono." });
       return res.status(200).json({ usuario: await criarDono(campos) });
     }
     if (sessao.legado) return res.status(409).json({ error: "Crie primeiro a sua conta de dono." });
     // Criar e "Nova senha" também mandam a senha por e-mail (Zoho). Se o e-mail falhar, a senha continua na tela.
     if (acao === "criar" || acao === "redefinir") {
-      const r = acao === "criar" ? await criarUsuario(campos) : await redefinirSenha(campos.id);
+      const r = acao === "criar" ? await criarUsuario(campos, ator) : await redefinirSenha(campos.id, ator);
       const email = await enviarAcesso(r.usuario, r.senhaProvisoria, { novo: acao === "criar" });
       return res.status(200).json({ ...r, email });
     }
     if (acao === "atualizar") {
       const { id, ...resto } = campos;
-      return res.status(200).json({ usuario: await atualizarUsuario(id, resto) });
+      return res.status(200).json({ usuario: await atualizarUsuario(id, resto, ator) });
     }
     return res.status(400).json({ error: "ação desconhecida" });
   } catch (e) {

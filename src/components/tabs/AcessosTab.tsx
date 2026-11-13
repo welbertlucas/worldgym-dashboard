@@ -5,7 +5,7 @@ import { Notice } from "@/components/Notice";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { AUTH_REQUIRED_EVENT, logout, precisaDeLogin, type Papel } from "@/lib/auth";
+import { AUTH_REQUIRED_EVENT, ehDono, getUsuario, logout, precisaDeLogin, type Papel } from "@/lib/auth";
 import {
   atualizarAcesso, criarAcesso, criarDono, listarAcessos, lerRegistro, redefinirSenha,
   type EmailDeAcesso, type EntradaRegistro, type UsuarioApi,
@@ -15,7 +15,7 @@ const NIVEL: Record<Papel, string> = { dono: "Dono", master: "Master", unidades:
 const campo = "h-10 w-full rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 const quando = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-/** Gestão de acessos: só o dono vê. */
+/** Gestão de acessos: o dono e o Master que ele liberou ("Pode gerenciar acessos"). O servidor confere as mesmas regras. */
 export function AcessosTab() {
   const [dados, setDados] = useState<{ usuarios: UsuarioApi[]; unidades: string[]; legado: boolean } | null>(null);
   const [registro, setRegistro] = useState<EntradaRegistro[]>([]);
@@ -43,10 +43,19 @@ export function AcessosTab() {
   if (dados.legado) return <PrimeiroDono />;
 
   const mostrarSenha = (nome: string, senha: string, email?: EmailDeAcesso) => setSenhaNova({ nome, senha, email });
+  const souDono = ehDono();
+  const meuEmail = getUsuario()?.email ?? "";
+  /** Por que esta linha não pode ser alterada por quem está vendo (null = pode). Espelha conferirAtor do servidor. */
+  const bloqueio = (u: UsuarioApi): string | null => {
+    if (u.papel === "dono") return souDono ? "Você" : "Dono";
+    if (u.email === meuEmail) return "Você";
+    if (!souDono && u.gerenciaAcessos) return "Só o dono altera";
+    return null;
+  };
 
   return (
     <div className="space-y-8">
-      <SectionTitle level="page" hint="Quem pode entrar no Atlas, com que nível e em quais unidades. Só você vê esta tela.">Acessos</SectionTitle>
+      <SectionTitle level="page" hint={souDono ? "Quem pode entrar no Atlas, com que nível e em quais unidades. Só você e quem você liberar para gerenciar acessos veem esta tela." : "Quem pode entrar no Atlas, com que nível e em quais unidades. O dono liberou você para criar e alterar acessos."}>Acessos</SectionTitle>
 
       {senhaNova && (
         <div role="status" className="card-surface border-primary/40 p-5 space-y-3">
@@ -79,7 +88,7 @@ export function AcessosTab() {
               {dados.usuarios.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
                   <td className="px-5 py-3"><div className="font-medium text-foreground">{u.nome}{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
-                  <td className="px-3 py-3">{NIVEL[u.papel]}</td>
+                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
                   <td className="px-3 py-3">
@@ -87,7 +96,7 @@ export function AcessosTab() {
                       <input
                         type="checkbox"
                         checked={u.resumo !== false && u.ativo}
-                        disabled={!u.ativo}
+                        disabled={!u.ativo || (!souDono && (u.papel === "dono" || (u.gerenciaAcessos && u.email !== meuEmail)))}
                         aria-label={`${u.nome} recebe o resumo diário por e-mail`}
                         onChange={async (e) => {
                           const r = await atualizarAcesso(u.id, { resumo: e.target.checked });
@@ -100,7 +109,7 @@ export function AcessosTab() {
                     </label>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    {u.papel === "dono" ? <span className="text-xs text-muted-foreground">Você</span> : (
+                    {bloqueio(u) ? <span className="text-xs text-muted-foreground">{bloqueio(u)}</span> : (
                       <span className="flex flex-wrap justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => setEditando(u)}>Editar</Button>
                         <Button variant="outline" size="sm" onClick={async () => {
@@ -129,6 +138,7 @@ export function AcessosTab() {
           key={editando?.id ?? "novo"}
           unidades={dados.unidades}
           inicial={editando}
+          podeLiberar={souDono}
           onCancelar={editando ? () => setEditando(null) : undefined}
           onSalvar={async (v) => {
             if (editando) {
@@ -168,10 +178,12 @@ export function AcessosTab() {
   );
 }
 
-function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
+function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar }: {
   unidades: string[];
   inicial: UsuarioApi | null;
-  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean }) => Promise<string | null>;
+  /** Só o dono vê a opção "Pode gerenciar acessos". */
+  podeLiberar: boolean;
+  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean }) => Promise<string | null>;
   onCancelar?: () => void;
 }) {
   const [nome, setNome] = useState(inicial?.nome ?? "");
@@ -179,6 +191,7 @@ function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
   const [papel, setPapel] = useState<Papel>(inicial?.papel ?? "master");
   const [marcadas, setMarcadas] = useState<string[]>(inicial?.unidades ?? []);
   const [resumo, setResumo] = useState(inicial?.resumo !== false);
+  const [gerencia, setGerencia] = useState(inicial?.gerenciaAcessos === true);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -187,10 +200,10 @@ function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
     e.preventDefault();
     setEnviando(true);
     setErro("");
-    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo });
+    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia } : {}) });
     setEnviando(false);
     if (r) return setErro(r);
-    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); }
+    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); }
   };
 
   return (
@@ -205,7 +218,7 @@ function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
           </Select>
         </label>
       </div>
-      <p className="text-xs text-muted-foreground">{papel === "master" ? "Master vê todos os dados da rede, mas não atualiza da planilha nem cria acessos." : "Unidades vê só as unidades escolhidas abaixo; as outras aparecem apenas no benchmark, com o nome escondido."}</p>
+      <p className="text-xs text-muted-foreground">{papel === "master" ? `Master vê todos os dados da rede, mas não atualiza da planilha${podeLiberar ? " e só cria acessos se você liberar abaixo." : " nem cria acessos."}` : "Unidades vê só as unidades escolhidas abaixo; as outras aparecem apenas no benchmark, com o nome escondido."}</p>
       {papel === "unidades" && (
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-foreground">Unidades que a pessoa enxerga <span className="font-normal text-muted-foreground">({marcadas.length} de {unidades.length})</span></legend>
@@ -223,12 +236,18 @@ function FormularioAcesso({ unidades, inicial, onSalvar, onCancelar }: {
         <input type="checkbox" checked={resumo} onChange={(e) => setResumo(e.target.checked)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
         Recebe o resumo diário por e-mail (às 6h47, com os números de ontem {papel === "unidades" ? "das unidades marcadas" : "da rede"})
       </label>
+      {podeLiberar && papel === "master" && (
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={gerencia} onChange={(e) => setGerencia(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+          <span>Pode gerenciar acessos <span className="block text-xs text-muted-foreground">Cria, edita e desativa acessos e gera senhas novas. Não mexe na sua conta, não cria outro dono e não passa esta permissão adiante.</span></span>
+        </label>
+      )}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
       <div className="flex gap-2">
         <Button type="submit" disabled={enviando}><ShieldCheck className="w-4 h-4" aria-hidden />{enviando ? "Salvando..." : inicial ? "Salvar alterações" : "Criar acesso"}</Button>
         {onCancelar && <Button type="button" variant="ghost" onClick={onCancelar}>Cancelar</Button>}
       </div>
-      {!inicial && <p className="text-xs text-muted-foreground">O sistema gera uma senha provisória, manda para o e-mail da pessoa e mostra uma vez aqui. Se ela esquecer, você gera outra em "Nova senha" (sai um e-mail novo).</p>}
+      {!inicial && <p className="text-xs text-muted-foreground">O sistema gera uma senha provisória, manda para o e-mail da pessoa e mostra uma vez aqui. Se ela esquecer, dá para gerar outra em "Nova senha" (sai um e-mail novo).</p>}
     </form>
   );
 }
