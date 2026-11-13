@@ -13,6 +13,7 @@ export const CONTAS_IG = {
   "worldgym.itapoa": "Itapoã",
   "worldgym.santamariadf": "Santa Maria",
   "worldgym.aguaslindas": "Águas Lindas-GO",
+  "worldgympro.goiania": "Goiânia Pro-GO", // do portfólio World Gym Goiânia, compartilhado com o DF&GO (Insights) em 12/11/2026
 };
 
 /** Quanto tempo de posts e stories fica guardado. */
