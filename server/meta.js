@@ -28,6 +28,10 @@ export const CONTAS = [
   // Do portfólio BR 01, compartilhada com o DF&GO só com "Ver desempenho" (11/11/2026)
   { id: "763313349769288", conta: "[CA01] WG Salvador", unidade: "Salvador Pro-BA", token: "DFGO" },
   { id: "911817731179169", conta: "[CA00] Institucional", unidade: null, token: "DFGO" },
+  // Do portfólio WORLD GYM BR 02 (id 1656489128840899, quem cuida de Jardim Ingá e Ponte Alta), compartilhadas com o
+  // DF&GO; o dashboard-leitura recebeu "Ver desempenho" em 12/11/2026. Ponte Alta soma as duas contas dela.
+  { id: "1481281986831660", conta: "World Gym Jardim Ingá", unidade: "Jardim Ingá-GO", token: "DFGO" },
+  { id: "937567348598291", conta: "World Gym Ponte Alta", unidade: "Ponte Alta", token: "DFGO" },
 ];
 
 const LEAD = new Set(["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"]);
