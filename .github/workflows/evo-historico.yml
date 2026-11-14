@@ -6,6 +6,7 @@ name: Recarga do histórico (EVO)
 #                (lê antes os alunos de todas as unidades para o mapa de origem: cerca de 1 hora a mais)
 #   pagamentos -> formas de pagamento, bandeiras e gateways do cartão e as notas fiscais (com a cobertura do recebido)
 #   vendas    -> tudo o que vem das vendas (novos contratos, avulsas, planos mais vendidos) e as vendas por dia do mês
+#   inadimplencia -> inadimplência por gênero e faixa de idade (relê os títulos de cada mês: ~7 min por mês na rede)
 # Usa a mesma fila do evo-sync para nunca gravar os meses ao mesmo tempo que ele.
 
 on:
@@ -14,7 +15,7 @@ on:
       etapa:
         description: "O que recarregar"
         type: choice
-        options: [alunos, entradas, vendas, pagamentos]
+        options: [alunos, entradas, vendas, pagamentos, inadimplencia]
         default: alunos
       months:
         description: "Meses AAAA-MM separados por vírgula, ou um intervalo AAAA-MM..AAAA-MM"
@@ -74,6 +75,13 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-vendas.mjs $MONTHS_DONE
+      - name: Inadimplência por gênero e faixa de idade
+        if: ${{ github.event.inputs.etapa == 'inadimplencia' }}
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-inad-historico.mjs $MONTHS_DONE
       - name: Formas de pagamento e notas fiscais
         if: ${{ github.event.inputs.etapa == 'pagamentos' }}
         env:
