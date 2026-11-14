@@ -79,9 +79,7 @@ export function PerfilTaxaCard({ perfil: p, textos, monthLabel, partial, unitLab
         <div className="flex flex-wrap gap-x-10 gap-y-3">
           <HeadlineStat label={textos.geral} value={fmtTaxa(geral)} swatch={<span className="h-0.5 w-3 bg-foreground/70" />} />
           {idadeTopo && <HeadlineStat label={`${textos.topoIdade}: ${idadeTopo.rotulo}`} value={fmtTaxa(idadeTopo.t)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />}
-          {generoTopo && (generoDifere
-            ? <HeadlineStat label={`${textos.topoGenero}: ${generoTopo.rotulo.toLowerCase()}`} value={fmtTaxa(generoTopo.t)} swatch={<span className="h-2 w-2 rounded-full bg-primary/60" />} />
-            : <HeadlineStat label="Gênero" value="Sem diferença" swatch={<span className="h-2 w-2 rounded-full bg-foreground/30" />} />)}
+          {generoTopo && generoDifere && <HeadlineStat label={`${textos.topoGenero}: ${generoTopo.rotulo.toLowerCase()}`} value={fmtTaxa(generoTopo.t)} swatch={<span className="h-2 w-2 rounded-full bg-primary/60" />} />}
         </div>
       }
     >

@@ -494,7 +494,8 @@ describe("cancelamentos por gênero e idade", () => {
     expect(h).toContain("feminino"); // 10% × 5%: diferença grande
     const parecido = { cancelPerfil: { g: [[1605, 81], [1554, 73], [27, 2]], i: Array.from({ length: 8 }, () => [100, 5]) } } as unknown as UnitData;
     const h2 = renderToString(createElement(CancelPerfilCard, { total: parecido, monthLabel: "x", partial: false, unitLabel: "A" })).replace(/<!-- -->/g, "");
-    expect(h2).toContain("Sem diferença"); // 5,0% × 4,7%
+    expect(h2).not.toContain("Gênero que mais cancela"); // 5,0% × 4,7%: sem destaque de gênero
+    expect(h2).not.toContain("Sem diferença");
     expect(renderToString(createElement(CancelPerfilCard, { total: {} as UnitData, monthLabel: "x", partial: false, unitLabel: "Rede" }))).toContain("ainda não foi carregado");
   });
 });
