@@ -3,14 +3,15 @@
 // painel (src/data/alerts.ts) usam a mesma regra, sempre sobre um mês já fechado.
 //
 // Pelo total do mês (as unidades têm de 15 a 37 mil entradas; o que muda as liberações é o hábito da recepção, não o tamanho).
-// Calibrado com nov/2025–out/2026 (23 unidades): de 1 a 4 alertas por mês na rede.
+// Recalibrado em 13/11/2026 com nov/2025–out/2026 (23 unidades): com 120, as mesmas 4 unidades entravam todo mês
+// (Samambaia Norte, Samambaia Sul, Salvador Pro, Riacho Fundo II); com 200, de 1 a 3 alertas por mês somando a alta.
 
 /** Motivos de bloqueio em que a liberação deixa entrar quem não está em dia com a academia (receita em jogo). */
 export const MOTIVOS_DE_RECEITA = ["Saldo devedor", "Aluno inativo", "Catraca fora do plano"];
 
 export const LIMITES_LIBERACOES = {
   /** Nível: liberações sem pagamento registrado no mês, a partir disto. */
-  minNivel: 120,
+  minNivel: 200,
   /** Alta: o mês com pelo menos `vezes` a média dos `baseMeses` meses anteriores (e pelo menos `minAlta` liberações). */
   vezes: 2,
   baseMeses: 3,

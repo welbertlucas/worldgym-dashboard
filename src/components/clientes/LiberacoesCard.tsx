@@ -2,7 +2,7 @@ import { UnitLink } from "@/components/UnitLink";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import { dashboardData, getDataByMonth, type UnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
-import { MOTIVOS_DE_RECEITA as MOTIVOS, alertasLiberacoes, liberacoesDeReceita } from "../../../server/alertasLiberacoes.js";
+import { MOTIVOS_DE_RECEITA as MOTIVOS, LIMITES_LIBERACOES as LL, alertasLiberacoes, liberacoesDeReceita } from "../../../server/alertasLiberacoes.js";
 
 /** Os 4 grupos das liberações (server/entradas.js); 1 e 3 são as sem pagamento registrado. */
 export const GRUPOS = ["Aluno com pendência de cadastro", "Aluno que não estava em dia", "Visitante com venda no dia", "Visitante sem venda no dia"];
@@ -17,7 +17,7 @@ export const MOTIVOS_DE_RECEITA = new Set(MOTIVOS);
 
 /** Por que a unidade está no alerta de liberações (mesma regra da tela Alertas e do e-mail), em poucas palavras. */
 const porque = (a: { nivel: boolean; alta: boolean; quantidade: number; media: number | null }) =>
-  [a.nivel && "120 ou mais sem pagamento no mês", a.alta && a.media !== null && `${dec(a.quantidade / Math.max(a.media, 1))}× a média dos 3 meses anteriores`].filter(Boolean).join(" e ");
+  [a.nivel && `${LL.minNivel} ou mais sem pagamento no mês`, a.alta && a.media !== null && `${dec(a.quantidade / Math.max(a.media, 1))}× a média dos 3 meses anteriores`].filter(Boolean).join(" e ");
 
 /**
  * Liberações manuais na catraca: a catraca barrou e a recepção liberou. O motivo é o do bloqueio que a mesma pessoa
@@ -119,7 +119,7 @@ export function LiberacoesCard({ total, month, monthLabel, partial, unit }: { to
         Liberação manual: a recepção liberou a entrada no sistema. O motivo é o do bloqueio que a mesma pessoa levou na catraca da unidade até 30 minutos antes;
         “Sem bloqueio antes” é quando foi liberada sem a catraca ter barrado (por exemplo, sem tentar o reconhecimento facial).
         Sem pagamento registrado (em vermelho) = aluno que não estava em dia (saldo devedor, inativo ou plano que não dá acesso àquela catraca) mais visitante (sem cadastro de aluno) liberado sem nenhuma venda no mesmo dia, que pode ser aula experimental ou acesso sem pagar.
-        Num mês fechado, entra no alerta “Liberações sem pagamento registrado” a unidade com 120 ou mais dessas liberações, ou com o dobro da média dos 3 meses anteriores (mínimo de 30).
+        Num mês fechado, entra no alerta “Liberações sem pagamento registrado” a unidade com {LL.minNivel} ou mais dessas liberações, ou com o dobro da média dos {LL.baseMeses} meses anteriores (mínimo de {LL.minAlta}).
         {!grupos && " Este mês ainda não separa os visitantes: conta só os alunos que não estavam em dia. "}
         Quem liberou não sai pela API do EVO; para ver o colaborador, use no EVO Gerencial → Controle de entradas → Entradas e saídas, com a ação “Entrada manual”.
       </p>
