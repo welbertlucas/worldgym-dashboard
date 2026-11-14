@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Info } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
@@ -17,26 +18,22 @@ import { AXIS_TICK, GRID, TOOLTIP_STYLE } from "@/components/chartTheme";
 const shortMonth = (m: string) => { const [y, mo] = m.split("-").map(Number); return new Date(y, mo - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }); };
 const TIER_RANK: Record<TierResult, number> = { ouro: 3, prata: 2, bronze: 1, abaixo: 0 };
 
+/** Quem não tem meta cadastrada não preenche planilha: manda a meta para a World Gym Brasil, que cadastra. */
+function AvisoEnviarMeta() {
+  return (
+    <p className="flex items-start gap-2.5 rounded-2xl bg-secondary/60 px-4 py-3 text-sm text-foreground">
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <span>O gestor da unidade pode enviar a meta para a <b>World Gym Brasil</b>, que faz o cadastro.</span>
+    </p>
+  );
+}
+
 function EmptyState() {
   return (
-    <div className="card-surface p-6 text-sm space-y-3">
+    <div className="card-surface p-6 text-sm space-y-4">
       <p className="font-semibold">Nenhuma meta cadastrada ainda.</p>
       <ExemploMeta />
-      <p className="text-muted-foreground">
-        Preencha a aba <b>Metas</b> da planilha: uma linha por unidade, mês e indicador, com os três níveis. Use a unidade <b>Rede</b> (ou <b>TOTAL</b>) para a meta da rede.
-        Bronze é o nível mais fácil e ouro o mais difícil; para churn e inadimplência, em que menos é melhor, o ouro é o menor valor. Os níveis podem ficar em branco.
-        O mês vai no formato <b>aaaa-mm</b> (por exemplo, 2026-10).
-      </p>
-      <div className="overflow-x-auto">
-        <table className="text-xs border border-border">
-          <thead><tr className="bg-secondary">{["Mês", "Unidade", "Indicador", "Bronze", "Prata", "Ouro"].map((h) => <th key={h} className="px-3 py-1.5 text-left border-r border-border">{h}</th>)}</tr></thead>
-          <tbody>
-            <tr><td className="px-3 py-1.5">2026-10</td><td className="px-3 py-1.5">Gama</td><td className="px-3 py-1.5">Faturamento</td><td className="px-3 py-1.5">R$ 380.000</td><td className="px-3 py-1.5">R$ 420.000</td><td className="px-3 py-1.5">R$ 460.000</td></tr>
-            <tr><td className="px-3 py-1.5">2026-10</td><td className="px-3 py-1.5">Rede</td><td className="px-3 py-1.5">Churn</td><td className="px-3 py-1.5">8,0%</td><td className="px-3 py-1.5">6,5%</td><td className="px-3 py-1.5">5,0%</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p className="text-xs text-muted-foreground">Indicadores aceitos: {Object.values(META_INDICATORS).map((i) => i.label).join(", ")}.</p>
+      <AvisoEnviarMeta />
     </div>
   );
 }
@@ -125,9 +122,10 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
         ) : (
           <div className="space-y-4">
             <p className="card-surface px-5 py-6 text-center text-sm text-muted-foreground">
-              {ringName === "Rede" ? "A rede não tem meta cadastrada neste mês." : `${ringName} não tem meta cadastrada em ${formatMonthLong(shownMonth)}.`} Preencha a aba Metas da planilha.
+              {ringName === "Rede" ? "A rede não tem meta cadastrada neste mês." : `${ringName} não tem meta cadastrada em ${formatMonthLong(shownMonth)}.`}
             </p>
             <ExemploMeta />
+            <AvisoEnviarMeta />
           </div>
         )}
       </section>
