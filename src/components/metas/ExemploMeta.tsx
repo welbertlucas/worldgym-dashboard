@@ -8,7 +8,13 @@ const NIVEIS: { tier: Tier; ordem: string; faturamento: number; pct: number }[] 
   { tier: "ouro", ordem: "Maior nível", faturamento: 460000, pct: 0.58 },
 ];
 
+/** Equipe do exemplo, e o valor fixo por recepcionista que a unidade pagava antes (o percentual é definido para ficar perto disso). */
+const RECEPCIONISTAS = 4;
+const FIXO_POR_RECEPCIONISTA: Record<Tier, number> = { bronze: 300, prata: 400, ouro: 600 };
+
 const pctBR = (p: number) => `${p.toFixed(2).replace(".", ",")}%`;
+const reais = (v: number, casas = 0) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: casas, maximumFractionDigits: casas }).format(v);
+const premiacao = (n: { faturamento: number; pct: number }) => Math.round((n.faturamento * n.pct) / 100);
 
 /** Explica, sem dados reais, como a meta mensal é montada: três níveis de faturamento, cada um com seu percentual de premiação. */
 export function ExemploMeta() {
@@ -21,6 +27,7 @@ export function ExemploMeta() {
         </div>
         <p className="text-sm text-muted-foreground">
           A meta do mês tem três níveis de faturamento. Quanto mais alto o nível alcançado, maior o percentual de premiação.
+          A meta é <b>coletiva</b>: o valor total da premiação é dividido pelo número de recepcionistas da unidade.
         </p>
       </div>
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -33,16 +40,29 @@ export function ExemploMeta() {
             </p>
             <p className="mt-2 text-xs text-muted-foreground">Faturamento do mês</p>
             <p className="text-lg font-bold tabular-nums text-foreground">{formatMetaValue("faturamento", n.faturamento)}</p>
-            <p className="mt-2 text-xs text-muted-foreground">Premiação</p>
+            <p className="mt-2 text-xs text-muted-foreground">Premiação total da unidade</p>
             <p className="text-sm tabular-nums text-foreground">
-              {pctBR(n.pct)} → <span className="font-semibold">{formatMetaValue("faturamento", Math.round((n.faturamento * n.pct) / 100))}</span>
+              {pctBR(n.pct)} → <span className="font-semibold">{reais(premiacao(n))}</span>
             </p>
+            <p className="mt-2 text-xs text-muted-foreground">Para cada recepcionista (com {RECEPCIONISTAS})</p>
+            <p className="text-sm font-semibold tabular-nums text-foreground">{reais(premiacao(n) / RECEPCIONISTAS, 2)}</p>
           </li>
         ))}
       </ul>
       <p className="text-xs text-muted-foreground">
         A premiação é o percentual do nível sobre o faturamento atingido: no exemplo, fechar o mês com {formatMetaValue("faturamento", NIVEIS[0].faturamento)} dá Bronze e {pctBR(NIVEIS[0].pct)} desse valor.
       </p>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <p className="font-semibold text-foreground">O total muda com o tamanho da equipe</p>
+        <p>
+          O percentual é definido para o total ficar próximo do que a unidade já paga hoje de valor fixo. Se paga {reais(FIXO_POR_RECEPCIONISTA.bronze)} por recepcionista,
+          com 3 o total fica em torno de {reais(FIXO_POR_RECEPCIONISTA.bronze * 3)} e com {RECEPCIONISTAS}, em torno de {reais(FIXO_POR_RECEPCIONISTA.bronze * RECEPCIONISTAS)}.
+        </p>
+        <p>
+          Com {RECEPCIONISTAS} recepcionistas, um fixo de {reais(FIXO_POR_RECEPCIONISTA.bronze)} no Bronze, {reais(FIXO_POR_RECEPCIONISTA.prata)} na Prata e {reais(FIXO_POR_RECEPCIONISTA.ouro)} no Ouro
+          dá um total de {reais(FIXO_POR_RECEPCIONISTA.bronze * RECEPCIONISTAS)}, {reais(FIXO_POR_RECEPCIONISTA.prata * RECEPCIONISTAS)} e {reais(FIXO_POR_RECEPCIONISTA.ouro * RECEPCIONISTAS)}.
+        </p>
+      </div>
       <p className="text-xs font-semibold text-foreground">
         Exemplo ilustrativo. Os valores apresentados não representam a meta desta unidade.
       </p>

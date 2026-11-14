@@ -31,6 +31,11 @@ describe("MetasTab", () => {
     expect(html).toMatch(/0,33%\s*→\s*<span[^>]*>R\$\s?1\.254/);
     expect(html).toMatch(/0,41%\s*→\s*<span[^>]*>R\$\s?1\.722/);
     expect(html).toMatch(/0,58%\s*→\s*<span[^>]*>R\$\s?2\.668/);
+    // meta coletiva: o total é dividido pelo número de recepcionistas (4 no exemplo)
+    expect(html).toContain("<b>coletiva</b>");
+    expect(html).toContain("dividido pelo número de recepcionistas");
+    for (const v of ["313,50", "430,50", "667,00"]) expect(html).toContain(v);
+    for (const v of ["R$ 900", "R$ 1.200", "R$ 1.600", "R$ 2.400"].map((x) => x.replace(" ", "\u00a0"))) expect(html).toContain(v);
   });
 
   it("unidade sem meta (a rede tem): mostra o aviso e o exemplo; com meta, não mostra o exemplo", () => {
