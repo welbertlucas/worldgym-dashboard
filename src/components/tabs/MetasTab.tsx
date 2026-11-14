@@ -5,6 +5,7 @@ import { Notice } from "@/components/Notice";
 import { Select } from "@/components/ui/select";
 import { TIER_COLOR, TierBadge, TierBullet, TierChips, shownPct, tierName } from "@/components/metas/TierGauge";
 import { GoalRing } from "@/components/metas/GoalRing";
+import { ExemploMeta } from "@/components/metas/ExemploMeta";
 import { type MonthData } from "@/data/dashboardData";
 import {
   META_INDICATORS, TIER_LABEL, TIERS, actualFor, bulletScale, formatMetaValue, getMeta, isSingleGoal, metaWarnings, progressToNext, resolveGoal, tierReached,
@@ -20,6 +21,7 @@ function EmptyState() {
   return (
     <div className="card-surface p-6 text-sm space-y-3">
       <p className="font-semibold">Nenhuma meta cadastrada ainda.</p>
+      <ExemploMeta />
       <p className="text-muted-foreground">
         Preencha a aba <b>Metas</b> da planilha: uma linha por unidade, mês e indicador, com os três níveis. Use a unidade <b>Rede</b> (ou <b>TOTAL</b>) para a meta da rede.
         Bronze é o nível mais fácil e ouro o mais difícil; para churn e inadimplência, em que menos é melhor, o ouro é o menor valor. Os níveis podem ficar em branco.
@@ -121,9 +123,12 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
             subtitle={`${ringName} • ${formatMonthLong(shownMonth)}${partial ? " • parcial do mês em andamento" : ""}${ring.units ? ` • soma das ${ring.units} ${ring.units === 1 ? "unidade" : "unidades"} com meta (realizado e metas só dela${ring.units === 1 ? "" : "s"})` : ""}`}
           />
         ) : (
-          <p className="card-surface px-5 py-8 text-center text-sm text-muted-foreground">
-            {ringName === "Rede" ? "A rede não tem meta cadastrada neste mês." : `${ringName} não tem meta cadastrada em ${formatMonthLong(shownMonth)}.`} Preencha a aba Metas da planilha.
-          </p>
+          <div className="space-y-4">
+            <p className="card-surface px-5 py-6 text-center text-sm text-muted-foreground">
+              {ringName === "Rede" ? "A rede não tem meta cadastrada neste mês." : `${ringName} não tem meta cadastrada em ${formatMonthLong(shownMonth)}.`} Preencha a aba Metas da planilha.
+            </p>
+            <ExemploMeta />
+          </div>
         )}
       </section>
 

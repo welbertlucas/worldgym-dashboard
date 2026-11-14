@@ -20,6 +20,25 @@ describe("MetasTab", () => {
     expect(html).toContain("Bronze");
   });
 
+  it("sem metas: explica a estrutura com um exemplo ilustrativo, sem confundir com dados reais", () => {
+    const html = renderToString(<MetasTab data={data} metas={[]} month="2026-09" />).replace(/<!-- -->/g, "");
+    expect(html).toContain("Como funciona a meta");
+    expect(html).toContain("Exemplo ilustrativo. Os valores apresentados não representam a meta desta unidade.");
+    for (const t of ["Bronze", "Prata", "Ouro", "1º nível", "2º nível", "Maior nível"]) expect(html).toContain(t);
+    // premiação = faturamento × percentual
+    expect(html).toMatch(/0,33%\s*→\s*<span[^>]*>R\$\s?1\.254/);
+    expect(html).toMatch(/0,41%\s*→\s*<span[^>]*>R\$\s?1\.722/);
+    expect(html).toMatch(/0,58%\s*→\s*<span[^>]*>R\$\s?2\.668/);
+  });
+
+  it("unidade sem meta (a rede tem): mostra o aviso e o exemplo; com meta, não mostra o exemplo", () => {
+    const sem = renderToString(<MetasTab data={data} metas={metas} month="2026-09" unit="Z" />).replace(/<!-- -->/g, "");
+    expect(sem).toContain("Z não tem meta cadastrada");
+    expect(sem).toContain("Como funciona a meta");
+    const com = renderToString(<MetasTab data={data} metas={metas} month="2026-09" unit="A" />).replace(/<!-- -->/g, "");
+    expect(com).not.toContain("Como funciona a meta");
+  });
+
   it("renderiza cartões da rede com nível atingido, % da meta e quanto falta", () => {
     const html = renderToString(<MetasTab data={data} metas={metas} month="2026-09" />).replace(/<!-- -->/g, "");
     expect(html).toContain("Faturamento");
