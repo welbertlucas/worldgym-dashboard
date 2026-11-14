@@ -186,6 +186,12 @@ describe("indicadores em meia-lua nas demais abas", () => {
     expect(variation(1, -5, "pct", true, "x")).toBeUndefined();
   });
 
+  it("conversão de cadastros mostra quantas oportunidades foram cadastradas", () => {
+    const comOport = { ...B, total: unit("TOTAL", { oportunidades: 1234, conversoes: 310, icvEvo: true, icv: 25.1 }) };
+    expect(html(find(comercialSpecs, "Conversão de Cadastros"), { cur: comOport, prev: A, partial: false })).toContain("1.234 oportunidades cadastradas");
+    expect(html(find(comercialSpecs, "Conversão de Cadastros"))).not.toContain("oportunidades cadastradas");
+  });
+
   it("novos contratos somam as unidades e comparam com o mês anterior citando o mês", () => {
     const h = html(find(comercialSpecs, "Novos Contratos"));
     expect(h).toContain("130"); // 80 + 50

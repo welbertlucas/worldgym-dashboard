@@ -14,7 +14,10 @@ const complementar = (title: string, pick: KpiSpec["pick"]): KpiSpec => ({ title
 export const comercialSpecs: KpiSpec[] = [
   { title: "Novos Contratos", kind: "flow", projecao: true, pick: (v) => sumUnits(v, (u) => u.novosContratos), fmt: int },
   { title: "Saldo de Clientes", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
-  { title: "Conversão de Cadastros", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pct },
+  {
+    title: "Conversão de Cadastros", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pct,
+    extra: (v) => (v.total.oportunidades > 0 ? [{ text: `${int(v.total.oportunidades)} oportunidades cadastradas`, tone: "neutral" }] : []),
+  },
   {
     title: "Vendas Online", kind: "flow", projecao: true, pick: (v) => v.total.vendasOnline, fmt: brl,
     extra: (v) => (v.total.faturamento ? [{ text: `${((v.total.vendasOnline / v.total.faturamento) * 100).toFixed(2).replace(".", ",")}% do faturamento`, tone: "neutral" }] : []),

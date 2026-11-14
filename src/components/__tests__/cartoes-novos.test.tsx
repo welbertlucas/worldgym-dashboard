@@ -24,6 +24,13 @@ describe("origem das oportunidades", () => {
     expect(html).toContain("50,0% convertem");
     expect(limpo(renderToString(<OrigemOportunidades total={unit("A")} monthLabel="x" partial={false} unitLabel="Rede" />))).toContain("Sem oportunidades do EVO");
   });
+  it("separa as vindas do Meta (Instagram, Facebook, anúncio)", () => {
+    const html = limpo(renderToString(<OrigemOportunidades total={unit("A", { origens: { Instagram: [20, 4], "Facebook Ads": [10, 1], "Totem/Site": [70, 5] } })} monthLabel="x" partial={false} unitLabel="Rede" />));
+    expect(html).toContain("Vindas do Meta");
+    expect(html).toMatch(/30<\/span> cadastradas · 30,0% do total · <span[^>]*>5<\/span> convertidas \(16,7%\)/);
+    const sem = limpo(renderToString(<OrigemOportunidades total={unit("A", { origens: { "Totem/Site": [70, 5] } })} monthLabel="x" partial={false} unitLabel="Rede" />));
+    expect(sem).toContain("Nenhuma oportunidade com origem Instagram");
+  });
 });
 
 describe("cobranças com falha", () => {

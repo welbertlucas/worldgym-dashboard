@@ -1,5 +1,7 @@
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import { type UnitData } from "@/data/dashboardData";
+// Mesma regra dos alertas do Meta.
+import { origemMetaDe } from "../../server/alertasMeta.js";
 
 const MAX_LINHAS = 8;
 const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1).replace(".", ",")}%` : "—");
@@ -21,6 +23,7 @@ export function OrigemOportunidades({ total, monthLabel, partial, unitLabel }: {
   const convertidas = Object.values(origens).reduce((s, [, v]) => s + v, 0);
   const linhas = origensOrdenadas(origens);
   const maior = linhas[0][1];
+  const meta = origemMetaDe(origens);
   return (
     <ChartCard
       title="Origem das oportunidades"
@@ -43,7 +46,15 @@ export function OrigemOportunidades({ total, monthLabel, partial, unitLabel }: {
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-xs text-muted-foreground">Origem informada no cadastro do prospect. "Convertem" = viraram cliente dentro do mesmo mês do cadastro.</p>
+      <div className="mt-4 rounded-xl bg-secondary/60 px-4 py-3">
+        <p className="text-sm font-medium text-foreground">Vindas do Meta (Instagram, Facebook e anúncios)</p>
+        <p className="mt-0.5 text-sm tabular-nums text-muted-foreground">
+          {meta.cadastradas > 0
+            ? <><span className="font-semibold text-foreground">{meta.cadastradas.toLocaleString("pt-BR")}</span> cadastradas · {pct(meta.cadastradas, cadastradas)} do total · <span className="font-semibold text-foreground">{meta.convertidas.toLocaleString("pt-BR")}</span> convertidas ({pct(meta.convertidas, meta.cadastradas)})</>
+            : "Nenhuma oportunidade com origem Instagram, Facebook ou anúncio neste mês."}
+        </p>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">Origem informada no cadastro do prospect. "Convertem" = viraram cliente dentro do mesmo mês do cadastro. "Vindas do Meta" soma as origens com Instagram, Facebook, anúncio ou tráfego pago no nome (a mesma regra dos alertas do Marketing).</p>
     </ChartCard>
   );
 }
