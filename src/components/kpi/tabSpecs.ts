@@ -1,5 +1,6 @@
 import { type KpiSpec } from "@/components/kpi/KpiGrid";
-import { sumUnits } from "@/data/kpiView";
+import { sumUnits, type MonthView } from "@/data/kpiView";
+import { type MetricDetail } from "@/components/MetricCard";
 import { ltv, receitaComplementar, saldoAlunos } from "@/data/dashboardData";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 
@@ -11,12 +12,16 @@ const score = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 
 /** Receitas complementares não têm direção favorável definida: cor neutra. */
 const complementar = (title: string, pick: KpiSpec["pick"]): KpiSpec => ({ title, kind: "flow", direction: null, noDataIfZero: true, projecao: true, pick, fmt: brl });
 
+/** Abaixo do velocímetro de conversão (Comercial e Overview): quantas oportunidades foram cadastradas no mês (EVO). */
+export const oportunidadesCadastradas = (v: MonthView): MetricDetail[] =>
+  v.total.oportunidades > 0 ? [{ text: `${int(v.total.oportunidades)} oportunidades cadastradas`, tone: "neutral" }] : [];
+
 export const comercialSpecs: KpiSpec[] = [
   { title: "Novos Contratos", kind: "flow", projecao: true, pick: (v) => sumUnits(v, (u) => u.novosContratos), fmt: int },
   { title: "Saldo de Clientes", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
   {
     title: "Conversão de Cadastros", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pct,
-    extra: (v) => (v.total.oportunidades > 0 ? [{ text: `${int(v.total.oportunidades)} oportunidades cadastradas`, tone: "neutral" }] : []),
+    extra: oportunidadesCadastradas,
   },
   {
     title: "Vendas Online", kind: "flow", projecao: true, pick: (v) => v.total.vendasOnline, fmt: brl,

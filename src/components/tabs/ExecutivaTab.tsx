@@ -4,6 +4,7 @@ import { UnitHighlights } from "@/components/UnitHighlights";
 import { RevenueTrend } from "@/components/executiva/RevenueTrend";
 import { TopUnits } from "@/components/executiva/TopUnits";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
+import { oportunidadesCadastradas } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard, type RedeGoal } from "@/components/executiva/MetasKpiCard";
 import { RecommendationCard } from "@/components/tabs/RecommendationCard";
 import { type MonthData, dashboardData, dashboardDataRede } from "@/data/dashboardData";
@@ -97,7 +98,7 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
     { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pctText },
     { title: "Inadimplência", kind: "rate", rateKey: "inadimplenciaPerc", pick: (v) => v.total.inadimplenciaPerc, fmt: pctText },
     { title: "Renovação", kind: "rate", rateKey: "renovacoes", pick: (v) => v.total.renovacoes, fmt: pctText },
-    { title: "Conversão", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pctText },
+    { title: "Conversão", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pctText, extra: oportunidadesCadastradas },
   ];
 
   return (

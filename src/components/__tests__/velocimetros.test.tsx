@@ -102,6 +102,13 @@ describe("Visão Executiva em meias-luas", () => {
     expect(html).not.toContain("Saúde da carteira");
   });
 
+  it("Overview: a conversão mostra quantas oportunidades foram cadastradas", () => {
+    const ant = month("2026-08", [unit("A")]);
+    const m = { ...month("2026-09", [unit("A")]), total: unit("TOTAL", { oportunidades: 2345, conversoes: 500, icvEvo: true, icv: 21.3 }) };
+    dashboardData.push(ant, m);
+    expect(renderToString(<ExecutivaTab month={m} prev={ant} {...props} />).replace(/<!-- -->/g, "")).toContain("2.345 oportunidades cadastradas");
+  });
+
   it("mês em andamento: taxa compara com o mês anterior; valor absoluto mostra quanto do mês anterior já foi alcançado", () => {
     const cur = monthKey(new Date());
     const ant = month("2000-01", [unit("A", { faturamento: 1000000, churn: 4 })]);
