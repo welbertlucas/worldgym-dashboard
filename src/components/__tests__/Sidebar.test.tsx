@@ -19,26 +19,53 @@ describe("navegação", () => {
     expect(enderecoAtual("financeiro/notas")).toBe("financeiro/notas");
   });
 
-  it("sidebar lista todas as seções, marca a ativa e mostra o contador de críticos", () => {
-    const html = renderToString(<Sidebar active="riscos" onChange={noop} criticalCount={15} collapsed={false} onToggleCollapsed={noop} />);
-    for (const item of NAV_ITEMS) expect(html).toContain(item.label);
-    expect(html).toContain('aria-current="page"');
-    expect(html).toContain("15");
+  it("sidebar lista as seções (Alertas fica no cabeçalho, não na barra) e marca a ativa", () => {
+    const html = renderToString(<Sidebar active="riscos" onChange={noop} collapsed={false} onToggleCollapsed={noop} />);
+    for (const item of NAV_ITEMS.filter((i) => !i.oculto)) expect(html).toContain(item.label);
+    expect(html).not.toContain(">Alertas<");
     expect(html).toContain("Recolher menu");
     for (const g of GRUPOS_DO_MENU.slice(0, 3)) expect(html).toContain(g);
   });
 
   it("recolhida, mantém rótulos acessíveis e o botão de expandir", () => {
-    const html = renderToString(<Sidebar active="executiva" onChange={noop} criticalCount={0} collapsed onToggleCollapsed={noop} />);
+    const html = renderToString(<Sidebar active="executiva" onChange={noop} collapsed onToggleCollapsed={noop} />);
     expect(html).toContain("Expandir menu");
     expect(html).toContain('class="flex-1 text-left sr-only"');
   });
 
   it("drawer só renderiza aberto e é um diálogo modal", () => {
-    expect(renderToString(<MobileDrawer open={false} onClose={noop} active="executiva" onChange={noop} criticalCount={3} />)).toBe("");
-    const html = renderToString(<MobileDrawer open onClose={noop} active="executiva" onChange={noop} criticalCount={3} />);
+    expect(renderToString(<MobileDrawer open={false} onClose={noop} active="executiva" onChange={noop} />)).toBe("");
+    const html = renderToString(<MobileDrawer open onClose={noop} active="executiva" onChange={noop} />);
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-modal="true"');
     expect(html).toContain("Fechar menu");
+  });
+});
+
+import { AlertasNoTopo, maisCriticos } from "@/components/AlertasNoTopo";
+import type { Alert } from "@/data/alerts";
+
+describe("alertas no cabeçalho", () => {
+  const alerta = (id: string, severity: Alert["severity"], weight: number, unit = "Gama"): Alert =>
+    ({ id, unit, kind: "faturamento", severity, month: "2026-10", fact: `fato ${id}`, rule: "r", weight }) as unknown as Alert;
+  const lista = [alerta("a", "critical", 0.02), alerta("b", "attention", 0.5), alerta("c", "critical", 0.09, "Asa Norte"), alerta("d", "critical", 0.05)];
+
+  it("o painel traz só críticos, os de maior peso primeiro, no máximo 5", () => {
+    expect(maisCriticos(lista).map((a) => a.id)).toEqual(["c", "d", "a"]);
+    const muitos = Array.from({ length: 9 }, (_, i) => alerta(`x${i}`, "critical", i / 100));
+    expect(maisCriticos(muitos)).toHaveLength(5);
+  });
+
+  it("o botão mostra o número de críticos e fica com rótulo acessível", () => {
+    const html = renderToString(<AlertasNoTopo alertas={lista} onVerTodos={noop} />);
+    expect(html).toContain('aria-label="Alertas: 3 críticos"');
+    expect(html).toContain(">3<");
+    expect(renderToString(<AlertasNoTopo alertas={[]} onVerTodos={noop} />)).toContain('aria-label="Alertas: nenhum crítico"');
+  });
+
+  it("a busca do menu ainda acha Alertas, mesmo fora da barra lateral", async () => {
+    const { itensDoMenu, itensDeBusca, buscarNoMenu } = await import("@/components/nav");
+    expect(itensDoMenu(false).some((i) => i.id === "riscos")).toBe(false);
+    expect(buscarNoMenu(itensDeBusca(itensDoMenu(false, true)), "alertas").map((r) => r.destino)).toContain("riscos");
   });
 });

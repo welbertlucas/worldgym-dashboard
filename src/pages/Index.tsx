@@ -11,6 +11,7 @@ import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { BotaoUnidade, DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
+import { AlertasNoTopo } from "@/components/AlertasNoTopo";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
 import { TempoParaConverter } from "@/components/TempoParaConverter";
@@ -201,7 +202,6 @@ const Index = () => {
   };
   // Receitas complementares da rede ou da unidade selecionada (com Brinquedoteca, WG Plus e Pro+).
   const rc = kpiCtx.cur.total;
-  const criticalCount = alerts.filter((a) => a.severity === "critical").length;
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
@@ -227,11 +227,10 @@ const Index = () => {
       <Sidebar
         active={activeTab}
         onChange={changeTab}
-        criticalCount={criticalCount}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
       />
-      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} criticalCount={criticalCount} />
+      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} />
 
       <div className="flex-1 min-w-0">
         <div role="note" className="flex items-center justify-center gap-2 border-b border-primary/20 bg-primary/10 px-3 py-1.5 text-center text-xs text-foreground sm:text-sm">
@@ -273,6 +272,7 @@ const Index = () => {
             {/* Unidade ou rede: um botão só, no canto do cabeçalho, para todas as telas que filtram por unidade. */}
             {comBotaoDeUnidade && <BotaoUnidade id="filtro-unidade" className="hidden sm:flex" value={selectedUnit} onChange={setSelectedUnit} />}
             <VerComo className="hidden xl:flex" />
+            <AlertasNoTopo alertas={alerts} onVerTodos={() => changeTab("riscos")} />
             {getUsuario() && !getUsuario()!.legado && (
               <p className="hidden md:block text-xs text-muted-foreground truncate max-w-[14rem]" title={getUsuario()!.email}>
                 {getUsuario()!.nome}

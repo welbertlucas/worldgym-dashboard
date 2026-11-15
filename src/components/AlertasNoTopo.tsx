@@ -1,0 +1,89 @@
+import { useEffect, useRef, useState } from "react";
+import { TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatMonthLong } from "@/data/periods";
+import type { Alert } from "@/data/alerts";
+
+const MAX_NO_PAINEL = 5;
+
+/** Os críticos primeiro e, dentro de cada grupo, os de unidades que pesam mais no faturamento da rede. */
+export function maisCriticos(alertas: Alert[], limite = MAX_NO_PAINEL): Alert[] {
+  const criticos = alertas.filter((a) => a.severity === "critical");
+  return [...criticos].sort((a, b) => b.weight - a.weight).slice(0, limite);
+}
+
+/**
+ * Ícone de alerta no canto do cabeçalho, com o número de alertas críticos. Ao clicar, abre um painel com os mais críticos
+ * e o caminho para a tela completa de alertas.
+ */
+export function AlertasNoTopo({ alertas, onVerTodos }: { alertas: Alert[]; onVerTodos: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const raiz = useRef<HTMLDivElement>(null);
+  const criticos = alertas.filter((a) => a.severity === "critical").length;
+  const lista = maisCriticos(alertas);
+
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => { if (raiz.current && !raiz.current.contains(e.target as Node)) setAberto(false); };
+    const tecla = (e: KeyboardEvent) => { if (e.key === "Escape") setAberto(false); };
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", tecla);
+    return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", tecla); };
+  }, [aberto]);
+
+  const rotulo = criticos > 0 ? `Alertas: ${criticos} ${criticos === 1 ? "crítico" : "críticos"}` : "Alertas: nenhum crítico";
+  return (
+    <div ref={raiz} className="relative">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-label={rotulo}
+        aria-haspopup="dialog"
+        aria-expanded={aberto}
+        title={rotulo}
+        className={cn(
+          "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary shadow-sm transition-colors hover:border-foreground/25 hover:bg-secondary",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          aberto && "bg-secondary",
+        )}
+      >
+        <TriangleAlert className="h-4 w-4" aria-hidden />
+        {criticos > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 min-w-[1.1rem] rounded-full bg-primary px-1 py-0.5 text-center text-[10px] font-semibold leading-none text-primary-foreground" aria-hidden>
+            {criticos}
+          </span>
+        )}
+      </button>
+      {aberto && (
+        <div
+          role="dialog"
+          aria-label="Alertas mais críticos"
+          className="absolute right-0 top-full z-50 mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-white p-3 shadow-lg"
+        >
+          <p className="px-1 pb-2 text-sm font-semibold text-foreground">
+            {criticos > 0 ? `${criticos} ${criticos === 1 ? "alerta crítico" : "alertas críticos"}` : "Nenhum alerta crítico"}
+          </p>
+          {lista.length > 0 ? (
+            <ul className="max-h-[22rem] space-y-1 overflow-y-auto">
+              {lista.map((a) => (
+                <li key={a.id} className="rounded-lg px-2 py-2 hover:bg-secondary/60">
+                  <p className="text-sm font-medium text-foreground">{a.unit}<span className="font-normal text-muted-foreground"> · {formatMonthLong(a.month)}</span></p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.fact}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-1 pb-1 text-sm text-muted-foreground">Nada crítico neste mês.</p>
+          )}
+          <button
+            type="button"
+            onClick={() => { setAberto(false); onVerTodos(); }}
+            className="mt-2 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold text-primary-ink hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Ver todos os alertas ({alertas.length})
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

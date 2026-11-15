@@ -2,7 +2,8 @@ import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, BarCha
 
 import type { Aba } from "@/components/Abas";
 
-export interface NavItem { id: string; label: string; icon: LucideIcon; group: number }
+/** `oculto`: a tela existe (endereço, busca) mas não aparece na barra lateral; é aberta por outro lugar (o ícone de alertas no cabeçalho). */
+export interface NavItem { id: string; label: string; icon: LucideIcon; group: number; oculto?: boolean }
 
 /** Título de cada grupo do menu (o número é o `group` dos itens). */
 export const GRUPOS_DO_MENU = ["Painel", "Áreas", "Unidades", "Administração"];
@@ -13,7 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "executiva", label: "Overview", icon: LayoutDashboard, group: 0 },
   { id: "plano", label: "Plano de ação", icon: ListChecks, group: 0 },
   { id: "metas", label: "Metas", icon: Target, group: 0 },
-  { id: "riscos", label: "Alertas", icon: ShieldAlert, group: 0 },
+  { id: "riscos", label: "Alertas", icon: ShieldAlert, group: 0, oculto: true },
   { id: "comercial", label: "Comercial", icon: TrendingUp, group: 1 },
   { id: "financeiro", label: "Financeiro", icon: Wallet, group: 1 },
   { id: "alunos", label: "Alunos", icon: Users, group: 1 },
@@ -23,9 +24,11 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "benchmark", label: "Ranking da rede", icon: BarChart3, group: 2 },
 ];
 
-/** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. */
-export const itensDoMenu = (gerirAcessos: boolean): NavItem[] =>
-  gerirAcessos ? [...NAV_ITEMS, { id: "acessos", label: "Usuários", icon: KeyRound, group: 3 }] : NAV_ITEMS;
+/** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. `comOcultos` serve à busca, que ainda acha as telas fora da barra lateral. */
+export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false): NavItem[] => {
+  const base = comOcultos ? NAV_ITEMS : NAV_ITEMS.filter((i) => !i.oculto);
+  return gerirAcessos ? [...base, { id: "acessos", label: "Usuários", icon: KeyRound, group: 3 }] : base;
+};
 
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
 export const SUBMENUS: Record<string, Aba[]> = {

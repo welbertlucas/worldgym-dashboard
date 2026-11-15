@@ -9,7 +9,6 @@ interface NavProps {
   active: string;
   onChange: (id: string) => void;
   /** Alertas críticos, exibido junto de "Alertas". */
-  criticalCount: number;
 }
 
 /**
@@ -20,7 +19,7 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   const [consulta, setConsulta] = useState("");
   const [sel, setSel] = useState(0);
   const campo = useRef<HTMLInputElement>(null);
-  const resultados = buscarNoMenu(itensDeBusca(itensDoMenu(podeGerirAcessos())), consulta);
+  const resultados = buscarNoMenu(itensDeBusca(itensDoMenu(podeGerirAcessos(), true)), consulta);
   const abrir = (destino: string) => { setConsulta(""); campo.current?.blur(); onChange(destino); };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, resultados.length - 1)); }
@@ -64,7 +63,7 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   );
 }
 
-function NavList({ active, onChange, criticalCount, collapsed = false }: NavProps & { collapsed?: boolean }) {
+function NavList({ active, onChange, collapsed = false }: NavProps & { collapsed?: boolean }) {
   const itens = itensDoMenu(podeGerirAcessos());
   return (
     <>
@@ -74,7 +73,6 @@ function NavList({ active, onChange, criticalCount, collapsed = false }: NavProp
         {itens.map((item, i) => {
           const Icon = item.icon;
           const isActive = active === item.id;
-          const badge = item.id === "riscos" ? criticalCount : 0;
           return (
             <li key={item.id}>
               {(i === 0 || itens[i - 1].group !== item.group) && (collapsed
@@ -94,17 +92,6 @@ function NavList({ active, onChange, criticalCount, collapsed = false }: NavProp
               >
                 <Icon className="w-[18px] h-[18px] shrink-0 text-primary" aria-hidden />
                 <span className={cn("flex-1 text-left", collapsed && "sr-only")}>{item.label}</span>
-                {badge > 0 && (
-                  <span
-                    className={cn(
-                      "rounded-full bg-primary text-primary-foreground text-[11px] leading-none font-semibold",
-                      collapsed ? "absolute top-1 right-2 px-1.5 py-1" : "px-2 py-1"
-                    )}
-                    aria-label={`${badge} alertas críticos`}
-                  >
-                    {badge}
-                  </span>
-                )}
               </button>
             </li>
           );
@@ -158,7 +145,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, ...nav }: SidebarProps) 
 interface DrawerProps extends NavProps { open: boolean; onClose: () => void }
 
 /** Drawer de navegação para telas menores que lg: Esc fecha, foco fica preso e volta ao botão de origem. */
-export function MobileDrawer({ open, onClose, active, onChange, criticalCount }: DrawerProps) {
+export function MobileDrawer({ open, onClose, active, onChange }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -207,7 +194,7 @@ export function MobileDrawer({ open, onClose, active, onChange, criticalCount }:
             <X className="w-5 h-5" aria-hidden />
           </button>
         </div>
-        <NavList active={active} criticalCount={criticalCount} onChange={(id) => { onChange(id); onClose(); }} />
+        <NavList active={active} onChange={(id) => { onChange(id); onClose(); }} />
       </div>
     </div>
   );
