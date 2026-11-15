@@ -200,26 +200,25 @@ describe("Unidades: um menu só", () => {
     expect(html).toContain("Posição de A na rede");
   });
 
-  it("Benchmark compara todas; Unidades sem unidade mostra a grade e, com unidade, o retrato", async () => {
-    const { UnidadesTab } = await import("@/components/tabs/UnidadesTab");
+  it("Ranking da rede traz as abas de evolução e comparação e o botão de PDF; o Raio-X deixou de existir", async () => {
     const { BenchmarkTab } = await import("@/components/tabs/BenchmarkTab");
-    dashboardData.push(month("2026-08", [unit("A", { faturamento: 300 }), unit("B", { faturamento: 200 })]), month("2026-09", [unit("A", { faturamento: 330 }), unit("B", { faturamento: 210 })]));
-    const bench = renderToString(<BenchmarkTab selectedMonth="2026-09" evalMonth={null} prevEvalMonth={null} deltas={[]} />);
+    const meses = [month("2026-08", [unit("A", { faturamento: 300 }), unit("B", { faturamento: 200 })]), month("2026-09", [unit("A", { faturamento: 330 }), unit("B", { faturamento: 210 })])];
+    dashboardData.push(...meses);
+    dashboardDataRede.push(...meses);
+    const props = { selectedMonth: "2026-09", evalMonth: null, prevEvalMonth: null, deltas: [] };
+    const bench = renderToString(<BenchmarkTab {...props} />);
     expect(bench).toContain("Desempenho por unidade");
-    expect(bench).toContain("Tabela completa");
-    const props = { selectedMonth: "2026-09", compareMonth: null, metas: [], onPick: () => {} };
-    const grade = renderToString(<UnidadesTab {...props} unit={null} />).replace(/<!-- -->/g, "");
-    expect(grade).toContain("Escolha uma unidade");
-    expect(grade).toContain("+10,0%");
-    expect(grade).not.toContain("Desempenho por unidade");
-    const detalhe = renderToString(<UnidadesTab {...props} unit="A" onOpenMetas={() => {}} onOpenTab={() => {}} />);
-    expect(detalhe.replace(/<!-- -->/g, "")).toContain("Comercial de A");
-    expect(detalhe.replace(/<!-- -->/g, "")).toContain("Retenção de A");
-    expect(detalhe).toContain("Posição de A na rede");
-    expect(detalhe).toContain("Comparar com");
-    expect(detalhe).toContain("As setas de cada cartão comparam com");
-    expect(detalhe).toContain("Ver em Metas");
-    expect(detalhe).toContain("Exportar PDF");
+    expect(bench).toContain("Evolução da unidade");
+    expect(bench).toContain("Comparar unidades");
+    expect(bench).toContain("Exportar PDF");
+    const evolucao = renderToString(<BenchmarkTab {...props} unit="A" aba="evolucao" />).replace(/<!-- -->/g, "");
+    expect(evolucao).toContain("Evolução de A");
+    expect(evolucao).toContain("Comparar com");
+    const semUnidade = renderToString(<BenchmarkTab {...props} aba="evolucao" />);
+    expect(semUnidade).toContain("Escolha uma unidade no botão de unidade");
+    const comparar = renderToString(<BenchmarkTab {...props} aba="comparar" />);
+    expect(comparar).toContain("Duas unidades lado a lado");
+    dashboardDataRede.length = 0;
   });
 });
 

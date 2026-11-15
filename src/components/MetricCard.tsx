@@ -28,7 +28,7 @@ interface MetricCardProps {
   /** Sem borda e sombra: para compor uma grade de indicadores numa única superfície. */
   bare?: boolean;
   /** Estado vazio (ex.: sem metas): troca o valor por uma mensagem orientativa. */
-  empty?: { message: string; hint: string };
+  empty?: { message: string; hint?: string };
 }
 
 // A cor aparece só no indicador de status (ponto e traço do mini-gráfico); o número fica em tinta.
@@ -59,7 +59,7 @@ export function MetricCard({ title, value, subtitle, details, icon: Icon, varian
           <Icon className="w-4 h-4" aria-hidden />
         </div>
         <p className="text-base font-semibold text-foreground leading-snug">{empty.message}</p>
-        <p className="text-xs text-muted-foreground">{empty.hint}</p>
+        {empty.hint && <p className="text-xs text-muted-foreground">{empty.hint}</p>}
       </div>
     );
   }

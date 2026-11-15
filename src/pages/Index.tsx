@@ -22,7 +22,6 @@ import { AvisoVerComo, VerComo } from "@/components/VerComo";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { AlunosTab } from "@/components/tabs/AlunosTab";
 import { RetencaoTab } from "@/components/tabs/RetencaoTab";
-import { UnidadesTab } from "@/components/tabs/UnidadesTab";
 import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
 import { CatracaTab } from "@/components/tabs/CatracaTab";
 import { PlanoAcaoTab } from "@/components/tabs/PlanoAcaoTab";
@@ -126,7 +125,7 @@ const Index = () => {
     const fechado = getLastClosedMonth(dashboardData.map((d) => d.month));
     setSelectedMonth((cur) => (fechado && isPartialMonth(cur) ? fechado : cur));
     setSelectedUnit(name); // a unidade vai para o filtro do topo: o mesmo filtro vale em todas as abas
-    changeTab("unidades");
+    changeTab("benchmark/posicao");
   };
   const [, forceTick] = useState(0);
 
@@ -315,7 +314,7 @@ const Index = () => {
         />}
 
         {/* Comparativo */}
-        {comparison && activeTab !== "unidades" && !seletorProprio && !semMes && activeTab !== "acessos" && (
+        {comparison && !seletorProprio && !semMes && activeTab !== "acessos" && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -438,18 +437,6 @@ const Index = () => {
         {activeTab === "catraca" && <CatracaTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} aba={subAba} onAba={(s) => changeTab(`catraca/${s}`)} />}
 
         {activeTab === "retencao" && <RetencaoTab ctx={kpiCtx} month={fullMonthData.month} unit={kpiUnit} aba={subAba} onAba={(s) => changeTab(`retencao/${s}`)} />}
-
-        {activeTab === "unidades" && (
-          <UnidadesTab
-            selectedMonth={fullMonthData.month}
-            unit={selectedUnit}
-            compareMonth={compareMonth}
-            metas={metasData}
-            onPick={openUnit}
-            onOpenMetas={() => changeTab("metas")}
-            onOpenTab={changeTab}
-          />
-        )}
 
         {activeTab === "benchmark" && (
           <BenchmarkTab

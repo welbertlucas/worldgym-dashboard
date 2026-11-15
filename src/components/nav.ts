@@ -1,4 +1,4 @@
-import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, Building2, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
+import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
@@ -20,7 +20,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "catraca", label: "Acessos na catraca", icon: DoorOpen, group: 1 },
   { id: "retencao", label: "Retenção", icon: UserCheck, group: 1 },
   { id: "campanhas", label: "Marketing", icon: Megaphone, group: 1 },
-  { id: "unidades", label: "Raio-X da unidade", icon: Building2, group: 2 },
   { id: "benchmark", label: "Ranking da rede", icon: BarChart3, group: 2 },
 ];
 
@@ -36,7 +35,7 @@ export const SUBMENUS: Record<string, Aba[]> = {
   catraca: [{ id: "frequencia", rotulo: "Frequência" }, { id: "liberacoes", rotulo: "Liberações" }, { id: "outras-unidades", rotulo: "Outras unidades" }],
   retencao: [{ id: "cancelamentos", rotulo: "Cancelamentos" }, { id: "renovacao", rotulo: "Renovação" }, { id: "satisfacao", rotulo: "Satisfação" }],
   campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "leads", rotulo: "Leads" }, { id: "instagram", rotulo: "Instagram" }],
-  benchmark: [{ id: "posicao", rotulo: "Posição e destaques" }, { id: "contratos", rotulo: "Contratos ativos" }, { id: "tabela", rotulo: "Tabela completa" }],
+  benchmark: [{ id: "posicao", rotulo: "Posição e destaques" }, { id: "evolucao", rotulo: "Evolução da unidade" }, { id: "comparar", rotulo: "Comparar unidades" }, { id: "contratos", rotulo: "Contratos ativos" }, { id: "tabela", rotulo: "Tabela completa" }],
 };
 
 /** Endereços de antes da reorganização do menu (links salvos): para onde cada um foi. */
@@ -44,6 +43,7 @@ const ENDERECOS_ANTIGOS: Record<string, string> = {
   mapa: "alunos/onde-moram",
   "alunos/frequencia": "catraca/frequencia",
   "comercial/oportunidades": "campanhas/leads",
+  unidades: "benchmark/posicao",
 };
 export const enderecoAtual = (endereco: string) => ENDERECOS_ANTIGOS[endereco] ?? endereco;
 
@@ -69,8 +69,9 @@ const PALAVRAS: Record<string, string> = {
   "retencao/cancelamentos": "churn cancelamentos motivos quem cancela",
   "retencao/renovacao": "renovacao a vencer nao renovados",
   "retencao/satisfacao": "nps google reclame aqui satisfacao notas avaliacao",
-  unidades: "raio x raio-x retrato unidade posicao resultado evolucao pdf imprimir",
-  "benchmark/posicao": "benchmark ranking posicao destaques comparar unidades melhorou piorou",
+  "benchmark/posicao": "benchmark ranking posicao destaques comparar unidades melhorou piorou pdf imprimir exportar",
+  "benchmark/evolucao": "evolucao da unidade faturamento recebimento inadimplencia churn renovacao novos contratos linha mes a mes raio x",
+  "benchmark/comparar": "comparar duas unidades lado a lado indicador a indicador",
   "benchmark/contratos": "contratos ativos especiais vip personal local rede",
   "benchmark/tabela": "tabela completa todas as unidades indicadores",
   campanhas: "trafego pago meta facebook instagram",

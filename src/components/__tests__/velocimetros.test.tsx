@@ -238,5 +238,8 @@ describe("indicadores em meia-lua nas demais abas", () => {
     const ok = renderToString(<MetasKpiCard goals={[{ tier: "ouro", pct: 100, done: true, single: true }]} partial={false} onOpen={() => {}} />);
     expect(ok).toContain("100%");
     expect(renderToString(<MetasKpiCard goals={[]} partial onOpen={() => {}} />)).toContain("Sem metas da rede");
+    const vazio = renderToString(<MetasKpiCard goals={[]} partial onOpen={() => {}} escopo="da unidade" />);
+    expect(vazio).toContain("O gestor da unidade pode enviar a meta para a World Gym Brasil realizar o cadastro.");
+    expect(vazio).not.toContain("planilha");
   });
 });

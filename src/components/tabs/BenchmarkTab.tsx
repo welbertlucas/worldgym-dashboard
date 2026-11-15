@@ -1,4 +1,9 @@
 import { useState } from "react";
+import { Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { UnitComparison } from "@/components/UnitComparison";
+import { EvolucaoDaUnidade } from "@/components/unidades/EvolucaoDaUnidade";
+import { getLastClosedMonth } from "@/data/periods";
 import { SectionTitle } from "@/components/SectionTitle";
 import { UnitHighlights } from "@/components/UnitHighlights";
 import { UnitDeltaChart } from "@/components/UnitDeltaChart";
@@ -9,7 +14,7 @@ import { Secao } from "@/components/unidades/Secao";
 import { Abas, abaAtiva } from "@/components/Abas";
 import { SUBMENUS } from "@/components/nav";
 import { type UnitDelta } from "@/data/unitMetrics";
-import { getDataByMonthRede } from "@/data/dashboardData";
+import { getDataByMonthRede, dashboardData } from "@/data/dashboardData";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 
 interface Props {
@@ -65,11 +70,28 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
   return (
     <div className="space-y-10">
       <div className="space-y-3">
-        <SectionTitle hint={`As ${units.length} unidades comparadas entre si em ${formatMonthLong(selectedMonth)}${partial ? " (mês em andamento: valores parciais)" : ""}. Clique no nome de uma unidade para abrir o Raio-X dela.`}>Ranking da rede</SectionTitle>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <SectionTitle hint={`As ${units.length} unidades comparadas entre si em ${formatMonthLong(selectedMonth)}${partial ? " (mês em andamento: valores parciais)" : ""}. Clique no nome de uma unidade para ver a posição dela na rede.`}>Ranking da rede</SectionTitle>
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="no-print shrink-0 text-xs font-medium">
+            <Printer className="w-4 h-4" aria-hidden />
+            <span>Exportar PDF</span>
+          </Button>
+        </div>
         <Abas tela="benchmark" titulo="Ranking da rede" abas={ABAS_BENCHMARK} ativa={aba} onChange={onAba} />
       </div>
 
       {aba === "posicao" && <>{!foco && destaques}{ranking}{foco && destaques}</>}
+
+      {aba === "evolucao" && (foco
+        ? <EvolucaoDaUnidade unit={foco} />
+        : <Secao id="bm-evolucao" titulo="Evolução da unidade" descricao="Escolha uma unidade no botão de unidade, no alto à direita, para ver a evolução dela mês a mês, contra a rede ou outra unidade."><p className="text-sm text-muted-foreground">Nenhuma unidade escolhida.</p></Secao>)}
+
+      {aba === "comparar" && (() => {
+        const mesComp = partial ? getLastClosedMonth(dashboardData.map((d) => d.month)) ?? selectedMonth : selectedMonth;
+        return <Secao id="bm-comparar" titulo="Comparar unidades" descricao={`Duas unidades lado a lado, indicador a indicador, em ${formatMonthLong(mesComp)}${partial ? " (último mês fechado)" : ""}. Escolha as duas e o mês nos seletores.`}>
+          <UnitComparison key={foco ?? "sem-foco"} selectedMonth={mesComp} inicialA={foco ?? undefined} />
+        </Secao>;
+      })()}
 
       {aba === "contratos" && <Secao id="bm-contratos" titulo="Contratos ativos" descricao="Foto de hoje do EVO: especiais/VIP, personal e plano local ou rede, por unidade.">
         <ContratosAtivos units={units} foco={foco} />

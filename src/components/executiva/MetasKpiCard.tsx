@@ -13,7 +13,11 @@ export function MetasKpiCard({ goals, partial, onOpen, escopo = "da rede" }: Pro
   if (!goals.length) {
     return (
       <MetricCard bare className={TILE_FRAME} title={`Metas ${escopo}`} value="—" icon={Target} variant="default"
-        empty={{ message: `Sem metas ${escopo} cadastradas para este mês`, hint: `Preencha a aba Metas da planilha para acompanhar as metas ${escopo}.` }} />
+        empty={{
+          message: `Sem metas ${escopo} cadastradas para este mês`,
+          // Na rede quem cadastra é a própria World Gym Brasil; nas unidades, o gestor pede o cadastro.
+          ...(escopo === "da rede" ? {} : { hint: "O gestor da unidade pode enviar a meta para a World Gym Brasil realizar o cadastro." }),
+        }} />
     );
   }
   const n = goals.length;

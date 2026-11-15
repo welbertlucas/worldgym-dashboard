@@ -21,7 +21,7 @@ const TEMPLATES: Record<AlertKind, Template> = {
       { probes: ["ticket"], text: "O ticket médio caiu: revisar descontos, mix de planos e política de preço da unidade" },
     ],
     hypotheses: ["Queda de novos contratos ou de renovações no período", "Aumento de cancelamentos ou de inadimplência", "Mudança de preço/mix de planos ou desconto promocional", "Evento pontual (obra, fechamento parcial, feriados)"],
-    investigate: ["Abrir o Raio-X da unidade e comparar novos contratos, cancelados e renovação com o mês anterior", "Confirmar com o gerente se houve evento pontual no mês"],
+    investigate: ["Abrir a evolução da unidade (Ranking da rede) e comparar novos contratos, cancelados e renovação com o mês anterior", "Confirmar com o gerente se houve evento pontual no mês"],
     correct: ["Se for perda de entrada: reforçar ação comercial local; se for perda de base: plano de retenção para a carteira em risco"],
     followUp: "Faturamento da unidade no próximo mês fechado vs. mês atual",
   },
