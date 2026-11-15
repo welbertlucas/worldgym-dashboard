@@ -143,6 +143,10 @@ export async function entrar(senha: string, email?: string): Promise<{ ok: true 
   try {
     const res = await fetch(`${API}/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(comEmail ? { email, senha } : { senha }) });
     if (res.status === 401) return { ok: false, erro: comEmail ? "E-mail ou senha incorretos." : "Senha incorreta." };
+    if (res.status === 429) {
+      const { minutos } = (await res.json().catch(() => ({}))) as { minutos?: number };
+      return { ok: false, erro: `Muitas tentativas de entrada. Tente de novo em ${minutos ?? 15} ${minutos === 1 ? "minuto" : "minutos"}.` };
+    }
     if (!res.ok) return { ok: false, erro: "Não consegui entrar agora. Tente de novo em instantes." };
     const j = (await res.json()) as { token: string; usuario?: Usuario };
     setToken(j.token);

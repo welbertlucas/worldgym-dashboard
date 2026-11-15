@@ -293,3 +293,39 @@ describe("horários dos contatos por nível", () => {
     expect(Object.keys(r.calor.unidades)).toEqual(["Gama"]);
   });
 });
+
+describe("freio de tentativas de login", () => {
+  beforeEach(() => {
+    process.env.DASHBOARD_PASSWORD = "senha-unica-de-teste";
+    definirArmazem(memoria());
+    acesso.limparCache();
+    acesso.limparFreio();
+  });
+  afterEach(() => { delete process.env.DASHBOARD_PASSWORD; delete process.env.SESSAO_SEGREDO; definirArmazem(null); acesso.limparCache(); });
+
+  it("depois de 5 senhas erradas bloqueia o e-mail, mesmo com a senha certa; erros de outro e-mail não contam", async () => {
+    await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tenta = (senha: string, ip = "1.1.1.1") => chama(login, { method: "POST", headers: { "x-real-ip": ip }, body: { email: "dono@exemplo.com", senha } });
+    for (let i = 0; i < 5; i++) expect((await tenta("errada-errada", `9.9.9.${i}`)).code).toBe(401);
+    const bloq = await tenta("senha-do-dono-123", "7.7.7.7");
+    expect(bloq.code).toBe(429);
+    expect(bloq.body.minutos).toBeGreaterThan(0);
+    expect(bloq.headers["Retry-After"]).toBeDefined();
+  }, 20000);
+
+  it("login certo zera os erros do e-mail", async () => {
+    await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tenta = (senha: string) => chama(login, { method: "POST", headers: { "x-real-ip": "2.2.2.2" }, body: { email: "dono@exemplo.com", senha } });
+    for (let i = 0; i < 4; i++) await tenta("errada-errada");
+    expect((await tenta("senha-do-dono-123")).code).toBe(200);
+    for (let i = 0; i < 4; i++) expect((await tenta("errada-errada")).code).toBe(401);
+    expect((await tenta("senha-do-dono-123")).code).toBe(200);
+  }, 20000);
+
+  it("o bloqueio do endereço vale para qualquer e-mail", async () => {
+    await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    for (let i = 0; i < 20; i++) await chama(login, { method: "POST", headers: { "x-real-ip": "3.3.3.3" }, body: { email: `x${i}@exemplo.com`, senha: "qualquer" } });
+    const r = await chama(login, { method: "POST", headers: { "x-real-ip": "3.3.3.3" }, body: { email: "dono@exemplo.com", senha: "senha-do-dono-123" } });
+    expect(r.code).toBe(429);
+  }, 40000);
+});
