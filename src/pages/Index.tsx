@@ -1,4 +1,4 @@
-import { Abertura } from "@/components/Abertura";
+import { Abertura, seguirComAbeturaAzul } from "@/components/Abertura";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
@@ -161,6 +161,8 @@ const Index = () => {
   }, []);
 
   const fullMonthData = (selectedMonth ? getDataByMonth(selectedMonth) : null) || getLatestData();
+  // O painel apareceu: a tela de carregar volta a seguir a regra normal (clara para quem tem sessão).
+  useEffect(() => { if (fullMonthData.month) seguirComAbeturaAzul(false); }, [fullMonthData.month]);
   const unitData = selectedUnit ? getUnitData(fullMonthData.month, selectedUnit) : null;
 
 

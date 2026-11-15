@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Globo } from "@/components/Globo";
 import { Ceu } from "@/components/Ceu";
+import { Abertura, seguirComAbeturaAzul } from "@/components/Abertura";
 import { entrar, loginComEmail } from "@/lib/auth";
+
+const ENTRANDO_MIN_MS = 1500;
 
 export function Login({ onEntrou }: { onEntrou: () => void }) {
   const comEmail = loginComEmail(); // só depois que o dono cria os acessos; antes vale a senha única
@@ -16,13 +19,22 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
     if (!senha || (comEmail && !email.trim()) || enviando) return;
     setEnviando(true);
     setErro("");
+    const inicio = Date.now();
     const r = await entrar(senha, email);
+    if (r.ok) {
+      // A tela de carregar fica por pelo menos um instante (não pisca) e segue azul até o painel aparecer.
+      seguirComAbeturaAzul(true);
+      await new Promise((ok) => setTimeout(ok, Math.max(0, ENTRANDO_MIN_MS - (Date.now() - inicio))));
+      onEntrou();
+      return;
+    }
     setEnviando(false);
-    if (r.ok) onEntrou();
-    else setErro(r.erro);
+    setErro(r.erro);
   };
 
   return (
+    <>
+    {enviando && <Abertura azul mensagem="Entrando no Atlas" />}
     <main className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,1fr)_28rem]">
       {/* Céu: noite azul-marinho, como o céu de verdade. O globo do logo da World Gym ocupa o centro. */}
       <section className="relative isolate flex min-h-[46vh] flex-col overflow-hidden bg-[#050B22] p-[clamp(1.75rem,4vw,3.25rem)] text-white">
@@ -102,5 +114,6 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
         <p className="mt-10 text-center text-[11.4px] text-[#8A8F96]">Desenvolvido por Flag Holding LTDA - WG Master Franchise Brasil</p>
       </section>
     </main>
+    </>
   );
 }

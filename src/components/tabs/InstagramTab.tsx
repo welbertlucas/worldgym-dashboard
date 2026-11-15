@@ -3,6 +3,7 @@ import { Eye, Heart, Image as ImageIcon, MessageCircle, Reply } from "lucide-rea
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { carregarInstagram, contasDaEscolha, imagemInstagram, NOME_DO_TIPO, resumoDasContas, storiesPorDia, type DadosInstagram, type PostInstagram, type StoryInstagram } from "@/data/instagram";
 import { cn } from "@/lib/utils";
+import { DesempenhoPorTipo } from "@/components/DesempenhoPorTipo";
 
 const int = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString("pt-BR"));
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "");
@@ -131,6 +132,8 @@ export function InstagramTab({ unit }: { unit: string | null }) {
           Stories contam só a partir do dia em que o painel começou a guardá-los (o Meta só os entrega enquanto estão no ar, por 24 horas). O ganho de seguidores aparece quando houver histórico. Último post em vermelho: mais de 7 dias sem postar no feed.
         </p>
       </ChartCard>
+
+      <DesempenhoPorTipo posts={posts} quem={quem} />
 
       <ChartCard title="Stories" subtitle={<>{quem} • {diasStories === 7 ? "últimos 7 dias" : "últimos 30 dias"}</>}>
         {dias.length === 0 ? <ChartEmpty>Nenhum story guardado ainda.</ChartEmpty> : (

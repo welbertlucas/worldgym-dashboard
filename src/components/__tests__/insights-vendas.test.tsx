@@ -389,3 +389,47 @@ describe("vendas por dia: destaque", () => {
     expect(h).toContain("Terça, 13/10");
   });
 });
+
+describe("tela de carregar", () => {
+  it("ao entrar pelo login a tela é azul, com a mensagem; sem forçar e sem sessão também é azul", async () => {
+    const { Abertura } = await import("@/components/Abertura");
+    const h = renderToString(<Abertura azul mensagem="Entrando no Atlas" />);
+    expect(h).toContain("Entrando no Atlas");
+    expect(h).toContain("#21398A"); // o fundo azul do login
+    expect(h).not.toContain("#FAFAFB"); // e não o claro
+  });
+  it("com a regra de seguir azul ligada, mesmo com sessão guardada a tela continua azul; desligada, volta ao normal", async () => {
+    const { Abertura, seguirComAbeturaAzul } = await import("@/components/Abertura");
+    seguirComAbeturaAzul(true);
+    expect(renderToString(<Abertura mensagem="Carregando" />)).toContain("#21398A");
+    seguirComAbeturaAzul(false);
+  });
+});
+
+describe("marketing: gráficos novos", () => {
+  it("custo por contato por unidade: do mais barato ao mais caro, média da rede e unidades sem contato à parte", async () => {
+    const { custosPorUnidade } = await import("@/components/CustoPorContatoUnidades");
+    const mes = { geradoEm: "x", erros: [], unidades: {
+      Gama: { investimento: 1000, impressoes: 0, cliques: 0, leads: 40, conversas: 10 }, // R$ 20
+      "Asa Norte": { investimento: 600, impressoes: 0, cliques: 0, leads: 10, conversas: 0 }, // R$ 60
+      Itapoã: { investimento: 300, impressoes: 0, cliques: 0, leads: 0, conversas: 0 }, // sem contato
+      Rede: { investimento: 9999, impressoes: 0, cliques: 0, leads: 1, conversas: 1 }, // institucional: fora
+    } } as never;
+    const r = custosPorUnidade(mes);
+    expect(r.linhas.map((l) => [l.nome, Math.round(l.custo)])).toEqual([["Gama", 20], ["Asa Norte", 60]]);
+    expect(r.semContato).toEqual(["Itapoã"]);
+    expect(Math.round((r.media ?? 0) * 100) / 100).toBe(26.67); // 1600 ÷ 60
+    expect(custosPorUnidade(undefined)).toEqual({ linhas: [], semContato: [], media: null });
+  });
+  it("desempenho por tipo de conteúdo: média de interações por post, em ordem, com o melhor tipo destacado", async () => {
+    const { desempenhoPorTipo, DesempenhoPorTipo } = await import("@/components/DesempenhoPorTipo");
+    const p = (tipo: string, interacoes: number | null, curtidas = 0) => ({ tipo, interacoes, curtidas, comentarios: 0, salvos: 0, compartilhamentos: 0 }) as never;
+    const posts = [p("REELS", 100), p("REELS", 50), p("REELS", 150), p("IMAGE", 30), p("IMAGE", null, 10), p("IMAGE", 20), p("CAROUSEL_ALBUM", 500)];
+    const l = desempenhoPorTipo(posts);
+    expect(l.map((x) => [x.rotulo, x.posts, Math.round(x.media)])).toEqual([["Carrossel", 1, 500], ["Reels", 3, 100], ["Foto", 3, 20]]);
+    const h = limpo(renderToString(<DesempenhoPorTipo posts={posts} quem="Rede" />));
+    expect(h).toContain("Reels");
+    expect(h).toContain("com menos de 3 posts");
+    expect(limpo(renderToString(<DesempenhoPorTipo posts={[]} quem="Rede" />))).toContain("Nenhum post guardado");
+  });
+});

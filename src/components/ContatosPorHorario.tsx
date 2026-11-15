@@ -13,6 +13,28 @@ const int = (n: number) => Math.round(n).toLocaleString("pt-BR");
 const dec = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const data = (iso: string) => iso.split("-").reverse().slice(0, 2).join("/");
 
+const PERIODOS = [
+  { nome: "Madrugada", de: 0, ate: 6 }, { nome: "Manhã", de: 6, ate: 12 }, { nome: "Tarde", de: 12, ate: 18 }, { nome: "Noite", de: 18, ate: 24 },
+];
+
+/** Colunas simples: a mais alta em carmim, o valor em cima de cada uma. */
+function Colunas({ titulo, itens, maior }: { titulo: string; itens: { rotulo: string; n: number; destaque: boolean }[]; maior: number }) {
+  return (
+    <div>
+      <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{titulo}</h4>
+      <ul className="flex h-36 items-end gap-2" aria-label={titulo}>
+        {itens.map((i) => (
+          <li key={i.rotulo} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
+            <span className="text-xs font-semibold tabular-nums text-foreground">{int(i.n)}</span>
+            <div className={i.destaque ? "w-full rounded-t bg-primary" : "w-full rounded-t bg-foreground/60"} style={{ height: `${Math.max((i.n / maior) * 100, 2) * 0.75}%` }} aria-hidden />
+            <span className="text-[11px] text-muted-foreground">{i.rotulo}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Quando chegam os contatos do Meta (leads e conversas): média por dia da semana e hora nas últimas 4 semanas. */
 export function ContatosPorHorario({ unit }: { unit: string | null }) {
   const [foto, setFoto] = useState<FotoCampanhas | null | undefined>(undefined);
@@ -34,6 +56,8 @@ export function ContatosPorHorario({ unit }: { unit: string | null }) {
   const porDia = DIAS.map((d) => ({ ...d, n: calor.slice(d.sem * 24, d.sem * 24 + 24).reduce((s, x) => s + x, 0) }));
   const melhorDia = [...porDia].sort((a, b) => b.n - a.n)[0];
   const horas = Array.from({ length: 24 }, (_, h) => h);
+  const porPeriodo = PERIODOS.map((p) => ({ ...p, n: DIAS.reduce((t, d) => t + calor.slice(d.sem * 24 + p.de, d.sem * 24 + p.ate).reduce((s, x) => s + x, 0), 0) }));
+  const maiorDia = Math.max(...porDia.map((d) => d.n), 1), maiorPeriodo = Math.max(...porPeriodo.map((p) => p.n), 1);
 
   return (
     <ChartCard
@@ -48,6 +72,10 @@ export function ContatosPorHorario({ unit }: { unit: string | null }) {
         </div>
       }
     >
+      <div className="mb-6 grid grid-cols-1 gap-8 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Colunas titulo="Contatos por dia da semana" itens={porDia.map((d) => ({ rotulo: d.nome, n: d.n, destaque: d.sem === melhorDia.sem }))} maior={maiorDia} />
+        <Colunas titulo="Contatos por período do dia" itens={porPeriodo.map((p) => ({ rotulo: p.nome, n: p.n, destaque: p.n === maiorPeriodo }))} maior={maiorPeriodo} />
+      </div>
       <div className="relative overflow-x-auto">
         <table className="w-full min-w-[640px] border-separate border-spacing-[2px] text-[11px]" aria-label="Média de contatos do Meta por dia da semana e hora">
           <thead>

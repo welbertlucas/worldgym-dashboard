@@ -5,6 +5,7 @@ import { ChipMes, ChipUnidade } from "@/components/DateFilter";
 import { SectionTitle } from "@/components/SectionTitle";
 import { CampanhasNoAr } from "@/components/CampanhasNoAr";
 import { InvestimentoMeta } from "@/components/InvestimentoMeta";
+import { CustoPorContatoUnidades } from "@/components/CustoPorContatoUnidades";
 import { AlertasMeta } from "@/components/AlertasMeta";
 import { EvolucaoMeta } from "@/components/EvolucaoMeta";
 import { CampanhasDoMes } from "@/components/CampanhasDoMes";
@@ -50,6 +51,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month, aba: pedida = n
       {aba === "campanhas" && <>
         <AlertasMeta unit={unit} />
         <InvestimentoMeta unit={unit} month={mes} />
+        <CustoPorContatoUnidades unit={unit} month={mes} />
         <CampanhasDoMes unit={unit} month={mes} />
         <EvolucaoMeta unit={unit} month={mes} />
       </>}

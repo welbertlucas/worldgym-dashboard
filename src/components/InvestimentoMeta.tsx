@@ -75,14 +75,13 @@ export function InvestimentoMeta({ unit, month }: { unit: string | null; month: 
       {porUnidade.length > 0 && (
         <div className="mt-5 overflow-x-auto">
           <table className="w-full min-w-[540px] text-sm" aria-label="Investimento do Meta por unidade, da que mais investiu para a que menos investiu">
-            <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-1.5 font-medium">Unidade</th><th className="py-1.5 text-right font-medium">Investido</th><th className="py-1.5 text-right font-medium">Contatos</th><th className="py-1.5 text-right font-medium">Custo por contato</th><th className="py-1.5 text-right font-medium">Do faturamento</th>{comCompras && <th className="py-1.5 text-right font-medium">Vendas online</th>}</tr></thead>
+            <thead><tr className="text-left text-xs text-muted-foreground"><th className="py-1.5 font-medium">Unidade</th><th className="py-1.5 text-right font-medium">Investido</th><th className="py-1.5 text-right font-medium">Contatos</th><th className="py-1.5 text-right font-medium">Do faturamento</th>{comCompras && <th className="py-1.5 text-right font-medium">Vendas online</th>}</tr></thead>
             <tbody>
               {porUnidade.map((u) => (
                 <tr key={u.nome} className="border-t border-border">
                   <td className="py-1.5 text-foreground">{u.nome}</td>
                   <td className="py-1.5 text-right tabular-nums">{reais(u.investimento)}</td>
                   <td className="py-1.5 text-right tabular-nums">{int(u.contatos)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{u.contatos > 0 ? reais2(u.investimento / u.contatos) : "—"}</td>
                   <td className="py-1.5 text-right tabular-nums">{u.pct === null ? "—" : pctBr(u.pct)}</td>
                   {comCompras && <td className="py-1.5 text-right tabular-nums">{u.compras > 0 ? int(u.compras) : "—"}</td>}
                 </tr>
