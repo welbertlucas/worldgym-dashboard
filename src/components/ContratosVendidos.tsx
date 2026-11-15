@@ -131,17 +131,10 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
         <div className="space-y-6">
           <div>
             <h4 className="mb-3 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de venda<InfoTip label="tipo de venda">{AJUDA_TIPO_VENDA}</InfoTip></h4>
-            <ul className="space-y-2.5" aria-label="Vendas de contrato por tipo">
-              {linhasTipoVenda(tv).map((l) => (
-                <li key={l.rotulo} className="flex items-baseline justify-between gap-3 text-sm">
-                  <span className="min-w-0">
-                    <span className="text-foreground">{l.rotulo}</span>
-                    <span className="block text-xs text-muted-foreground">{l.detalhe}</span>
-                  </span>
-                  <span className="shrink-0 text-right tabular-nums"><span className="font-semibold text-foreground">{l.n.toLocaleString("pt-BR")}</span> <span className="text-muted-foreground">· {moeda(l.v)}</span></span>
-                </li>
-              ))}
-            </ul>
+            <MiniRosca rotulo="Tipo de venda" tamanho="h-24 w-24" fatias={linhasTipoVenda(tv).map((l, i) => ({
+              rotulo: l.rotulo, n: l.n, detalhe: moeda(l.v),
+              cor: ["hsl(var(--foreground) / 0.8)", "hsl(var(--primary))", "hsl(var(--foreground) / 0.35)"][i],
+            }))} />
           </div>
           <div>
             <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Duração do plano</h4>
@@ -153,7 +146,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
         {familias
           ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
           : <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.</>}
-        {" "}Renovações não entram no ranking nem na duração dos planos.{!tv.auto && " As renovações de contrato deste mês ainda não foram carregadas."}
+        {" "}Renovações não entram no ranking nem na duração dos planos.{!tv.auto && " As renovações de contrato deste mês ainda não foram carregadas."}{" "}
         Valor médio = valor da venda (num plano anual pago à vista, é o ano inteiro).
       </p>
     </ChartCard>

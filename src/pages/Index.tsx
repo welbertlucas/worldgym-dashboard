@@ -385,7 +385,7 @@ const Index = () => {
                   { label: "Pro+", value: rc.proMais ?? 0, color: "hsl(262 45% 52%)", valueText: formatCurrency(rc.proMais ?? 0) },
                   { label: "Camisetas", value: rc.camisetas, color: "hsl(222 14% 52%)", valueText: formatCurrency(rc.camisetas) },
                   { label: "Coqueteleiras", value: rc.coqueteleiras, color: "hsl(220 14% 78%)", valueText: formatCurrency(rc.coqueteleiras) },
-                ]}
+                ].sort((a, b) => b.value - a.value)}
               />
                 <ProdutosVendidos total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
               </div>
