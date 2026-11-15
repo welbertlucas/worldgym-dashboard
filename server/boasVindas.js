@@ -30,6 +30,7 @@ ${rotulo("Senha provisória")}
 <table role="presentation" style="margin:0;border-collapse:collapse"><tr><td style="border-radius:8px;background:${VERMELHO}">
 <a href="${esc(url)}" style="display:inline-block;padding:12px 22px;font-family:${sans};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">Entrar no Atlas</a>
 </td></tr></table>
+<p style="margin:20px 0 0;font-family:${sans};font-size:13px;line-height:1.6;color:#6B7078">No primeiro acesso, o Atlas pede que você escolha uma senha só sua. A provisória acima deixa de valer depois disso.</p>
 </td></tr></table>
 </td></tr></table>
 </body></html>`;

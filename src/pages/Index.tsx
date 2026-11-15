@@ -11,6 +11,7 @@ import { VendasOnlineChart } from "@/components/VendasOnlineChart";
 import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { BotaoUnidade, DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
+import { TrocarSenha } from "@/components/TrocarSenha";
 import { AlertasNoTopo } from "@/components/AlertasNoTopo";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
@@ -93,6 +94,7 @@ const Index = () => {
   const [syncing, setSyncing] = useState(false);
   // A aba fica no endereço (#campanhas, #financeiro...): recarregar a página volta para ela, o link leva direto e o "voltar" do navegador funciona.
   const [activeTab, setActiveTab] = useState(() => abaDoEndereco() ?? "executiva");
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
   const [subAba, setSubAba] = useState<string | null>(() => subDoEndereco());
   /** Telas com filtro próprio no lugar do filtro do topo: Campanhas e Anúncios. */
   const abaMarketing = activeTab === "campanhas" ? abaAtiva(SUBMENUS.campanhas, subAba) : null;
@@ -232,6 +234,7 @@ const Index = () => {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
       />
+      {trocandoSenha && <TrocarSenha onFeito={() => setTrocandoSenha(false)} onCancelar={() => setTrocandoSenha(false)} />}
       <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} />
 
       <div className="flex-1 min-w-0">
@@ -276,9 +279,15 @@ const Index = () => {
             <VerComo className="hidden xl:flex" />
             <AlertasNoTopo alertas={alerts} onVerTodos={() => changeTab("riscos")} />
             {getUsuario() && !getUsuario()!.legado && (
-              <p className="hidden md:block text-xs text-muted-foreground truncate max-w-[14rem]" title={getUsuario()!.email}>
+              <button
+                type="button"
+                onClick={() => setTrocandoSenha(true)}
+                className="hidden md:block max-w-[14rem] truncate rounded text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                title={`${getUsuario()!.email} · clique para trocar a senha`}
+                aria-label={`${getUsuario()!.nome}: trocar senha`}
+              >
                 {getUsuario()!.nome}
-              </p>
+              </button>
             )}
             {podeAtualizar() && (
               <button

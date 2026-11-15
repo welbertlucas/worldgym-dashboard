@@ -433,3 +433,28 @@ describe("marketing: gráficos novos", () => {
     expect(limpo(renderToString(<DesempenhoPorTipo posts={[]} quem="Rede" />))).toContain("Nenhum post guardado");
   });
 });
+
+describe("tela de trocar a senha", () => {
+  it("primeiro acesso: sem cancelar, só sair; troca voluntária: com cancelar; regras locais", async () => {
+    const { TrocarSenha, motivoLocal } = await import("@/components/TrocarSenha");
+    const obrig = renderToString(<TrocarSenha obrigatoria onFeito={() => {}} onSair={() => {}} />);
+    expect(obrig).toContain("Escolha a sua senha");
+    expect(obrig).toContain("Senha provisória");
+    expect(obrig).toContain("Sair");
+    expect(obrig).not.toContain("Cancelar");
+    const vol = renderToString(<TrocarSenha onFeito={() => {}} onCancelar={() => {}} />);
+    expect(vol).toContain("Trocar senha");
+    expect(vol).toContain("Cancelar");
+    expect(vol).toContain('role="dialog"');
+    expect(motivoLocal("curta", "curta", "x")).toContain("10 caracteres");
+    expect(motivoLocal("uma-senha-bem-forte-9", "outra", "x")).toContain("não são iguais");
+    expect(motivoLocal("igual-a-atual-123", "igual-a-atual-123", "igual-a-atual-123")).toContain("diferente da atual");
+    expect(motivoLocal("uma-senha-bem-forte-9", "uma-senha-bem-forte-9", "provisoria")).toBeNull();
+  });
+  it("o e-mail de acesso avisa que a senha provisória será trocada", async () => {
+    // @ts-expect-error módulo JS do servidor
+    const { emailDeAcesso } = await import("../../../server/boasVindas.js");
+    const { html } = emailDeAcesso({ nome: "Maria", email: "m@x.com" }, "ABC123def456", { novo: true });
+    expect(html).toContain("escolha uma senha só sua");
+  });
+});

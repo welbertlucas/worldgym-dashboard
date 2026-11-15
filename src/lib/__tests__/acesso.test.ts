@@ -10,6 +10,8 @@ import login from "../../../api/login.js";
 // @ts-expect-error módulos JS do servidor
 import usuarios from "../../../api/usuarios.js";
 // @ts-expect-error módulos JS do servidor
+import senhaApi from "../../../api/senha.js";
+// @ts-expect-error módulos JS do servidor
 import * as vis from "../../../server/visibilidade.js";
 
 const memoria = () => {
@@ -25,6 +27,8 @@ const res = () => {
   return r;
 };
 const chama = async (h: any, req: any) => { const r = res(); await h({ headers: {}, query: {}, ...req }, r); return r; };
+// Acesso novo nasce com senha provisória e só vê dados depois de escolher a própria.
+const trocaSenha = (id: string, provisoria: string) => acesso.definirNovaSenha(id, provisoria, "senha-propria-de-teste-1");
 const com = (token: string, extra: any = {}) => ({ headers: { authorization: `Bearer ${token}` }, ...extra });
 
 describe("acessos, níveis e registro", () => {
@@ -84,6 +88,8 @@ describe("acessos, níveis e registro", () => {
     expect(m.body.senhaProvisoria).toHaveLength(12);
     const u = await chama(usuarios, com(tokenDono, { method: "POST", body: { acao: "criar", nome: "João", email: "joao@exemplo.com", papel: "unidades", unidades: ["Itapoã", "Gama"] } }));
     expect(u.code).toBe(200);
+    await trocaSenha(m.body.usuario.id, m.body.senhaProvisoria);
+    await trocaSenha(u.body.usuario.id, u.body.senhaProvisoria);
 
     const tokenMaster = criarTokenUsuario(m.body.usuario.id).token;
     const tokenUni = criarTokenUsuario(u.body.usuario.id).token;
@@ -99,7 +105,9 @@ describe("acessos, níveis e registro", () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;
     const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
-    const ana = (await post(tokenDono, { acao: "criar", nome: "Ana Júlia", email: "ana@exemplo.com", papel: "master" })).body.usuario;
+    const criadaAna = (await post(tokenDono, { acao: "criar", nome: "Ana Júlia", email: "ana@exemplo.com", papel: "master" })).body;
+    const ana = criadaAna.usuario;
+    await trocaSenha(ana.id, criadaAna.senhaProvisoria);
     const bia = (await post(tokenDono, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master" })).body.usuario;
     expect(ana.gerenciaAcessos).toBe(false);
     const tokenAna = criarTokenUsuario(ana.id).token;
@@ -241,6 +249,7 @@ describe("acessos, níveis e registro", () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const { usuario, senhaProvisoria } = await acesso.criarUsuario({ nome: "Maria", email: "maria@exemplo.com", papel: "master" });
     expect(await acesso.autenticar("maria@exemplo.com", senhaProvisoria)).toBeTruthy();
+    await trocaSenha(usuario.id, senhaProvisoria);
     const token = criarTokenUsuario(usuario.id).token;
     expect(await exigirLogin(com(token), res())).toBeTruthy();
 
@@ -374,4 +383,78 @@ describe("freio de tentativas de login", () => {
     const r = await chama(login, { method: "POST", headers: { "x-real-ip": "3.3.3.3" }, body: { email: "dono@exemplo.com", senha: "senha-do-dono-123" } });
     expect(r.code).toBe(429);
   }, 40000);
+});
+
+
+describe("troca de senha no primeiro acesso", () => {
+  beforeEach(() => {
+    process.env.DASHBOARD_PASSWORD = "senha-unica-de-teste";
+    definirArmazem(memoria());
+    acesso.limparCache();
+    acesso.limparFreio();
+  });
+  afterEach(() => { delete process.env.DASHBOARD_PASSWORD; delete process.env.SESSAO_SEGREDO; definirArmazem(null); acesso.limparCache(); });
+
+  it("acesso novo e senha refeita exigem a troca; o dono não; e sem trocar não há dados", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    expect(dono.trocarSenha).toBe(false);
+    const { usuario, senhaProvisoria } = await acesso.criarUsuario({ nome: "Maria", email: "maria@exemplo.com", papel: "master" });
+    expect(usuario.trocarSenha).toBe(true);
+
+    const login1 = await chama(login, { method: "POST", headers: { "x-real-ip": "5.5.5.5" }, body: { email: "maria@exemplo.com", senha: senhaProvisoria } });
+    expect(login1.code).toBe(200);
+    expect(login1.body.usuario.trocarSenha).toBe(true);
+    const token = login1.body.token;
+    const bloqueado = res();
+    expect(await exigirLogin(com(token), bloqueado)).toBe(false);
+    expect(bloqueado.code).toBe(403);
+    expect(bloqueado.body).toMatchObject({ trocarSenha: true });
+    // o servidor ainda diz quem ela é (para a tela pedir a troca)
+    const quem = await chama(login, com(token, { method: "GET" }));
+    expect(quem.body.usuario.trocarSenha).toBe(true);
+  });
+
+  it("troca: confere a atual, recusa senha fraca e, trocando, libera os dados; a provisória deixa de valer", async () => {
+    await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const { usuario, senhaProvisoria } = await acesso.criarUsuario({ nome: "Maria Souza", email: "maria.souza@exemplo.com", papel: "master" });
+    const token = criarTokenUsuario(usuario.id).token;
+    const troca = (body: any, ip = "6.6.6.6") => chama(senhaApi, com(token, { method: "POST", headers: { authorization: `Bearer ${token}`, "x-real-ip": ip }, body }));
+
+    expect((await troca({ atual: "errada-errada-1", nova: "uma-senha-bem-forte-9" })).code).toBe(401);
+    expect((await troca({ atual: senhaProvisoria, nova: "curta" })).code).toBe(400);
+    expect((await troca({ atual: senhaProvisoria, nova: senhaProvisoria })).code).toBe(400); // igual à provisória
+    expect((await troca({ atual: senhaProvisoria, nova: "1234567890" })).code).toBe(400); // óbvia
+    expect((await troca({ atual: senhaProvisoria, nova: "maria.souza-2026-x" })).code).toBe(400); // contém o e-mail
+    expect(await acesso.autenticar("maria.souza@exemplo.com", senhaProvisoria)).toBeTruthy(); // nada mudou até aqui
+
+    const ok = await troca({ atual: senhaProvisoria, nova: "uma-senha-bem-forte-9" });
+    expect(ok.code).toBe(200);
+    expect(ok.body.usuario.trocarSenha).toBe(false);
+    expect(JSON.stringify(ok.body)).not.toContain("hash");
+    expect(await acesso.autenticar("maria.souza@exemplo.com", senhaProvisoria)).toBeNull();
+    expect(await acesso.autenticar("maria.souza@exemplo.com", "uma-senha-bem-forte-9")).toBeTruthy();
+    expect(await exigirLogin(com(token), res())).toBeTruthy(); // agora vê os dados
+
+    // pode trocar de novo quando quiser, informando a atual
+    expect((await troca({ atual: "uma-senha-bem-forte-9", nova: "outra-senha-ainda-melhor-7" })).code).toBe(200);
+  }, 20000);
+
+  it("errar a senha atual várias vezes bloqueia a troca (freio)", async () => {
+    await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const { usuario, senhaProvisoria } = await acesso.criarUsuario({ nome: "Maria", email: "maria@exemplo.com", papel: "master" });
+    const token = criarTokenUsuario(usuario.id).token;
+    const troca = (atual: string, ip: string) => chama(senhaApi, { method: "POST", headers: { authorization: `Bearer ${token}`, "x-real-ip": ip }, body: { atual, nova: "uma-senha-bem-forte-9" } });
+    for (let i = 0; i < 5; i++) expect((await troca("errada-errada-1", `7.7.7.${i}`)).code).toBe(401);
+    const r = await troca(senhaProvisoria, "7.7.7.9");
+    expect(r.code).toBe(429);
+  }, 20000);
+
+  it("acessos criados antes da regra (sem o campo) também precisam trocar, menos o dono; sem login não troca", async () => {
+    expect(acesso.precisaTrocarSenha({ papel: "master" })).toBe(true);
+    expect(acesso.precisaTrocarSenha({ papel: "unidades" })).toBe(true);
+    expect(acesso.precisaTrocarSenha({ papel: "dono" })).toBe(false);
+    expect(acesso.precisaTrocarSenha({ papel: "master", trocarSenha: false })).toBe(false);
+    expect(acesso.precisaTrocarSenha({ papel: "dono", trocarSenha: true })).toBe(true); // senha refeita do dono
+    expect((await chama(senhaApi, { method: "POST", body: { atual: "x", nova: "y" } })).code).toBe(401);
+  });
 });

@@ -47,7 +47,12 @@ export const limparCache = () => { memo = null; };
 export const recebeResumo = (u) => u.ativo !== false && u.resumo !== false;
 /** Master a quem o dono liberou criar e alterar acessos (só vale para Master). */
 export const gerenciaAcessos = (u) => u?.papel === "master" && u.gerenciaAcessos === true;
-export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), criadoEm: u.criadoEm });
+/**
+ * Quem ainda usa a senha provisória precisa escolher uma só sua. Vale para toda senha gerada pelo sistema (acesso novo ou "nova senha") e,
+ * como migração, para os acessos criados antes desta regra (sem o campo), exceto o dono, que escolheu a própria senha ao criar a conta.
+ */
+export const precisaTrocarSenha = (u) => u?.trocarSenha === true || (u?.trocarSenha === undefined && u?.papel !== "dono");
+export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
 
 /**
  * Quem não é dono, mas gerencia acessos (ator com gerenciaAcessos), não mexe na conta do dono nem na de outro que
@@ -120,7 +125,7 @@ export async function criarUsuario({ nome, email, papel, unidades, resumo = true
     id: randomUUID(), ...dados, papel,
     unidades: papel === "unidades" ? validarUnidades(unidades) : [],
     ativo: true, resumo: resumo !== false, ...(papel === "master" && gerencia === true ? { gerenciaAcessos: true } : {}),
-    hash: hashSenha(senhaProvisoria), criadoEm: new Date().toISOString(),
+    hash: hashSenha(senhaProvisoria), trocarSenha: true, criadoEm: new Date().toISOString(),
   };
   await salvar([...lista, u]);
   return { usuario: publico(u), senhaProvisoria };
@@ -133,6 +138,7 @@ export async function redefinirSenha(id, ator = null) {
   conferirAtor(ator, u);
   const senhaProvisoria = gerarSenhaProvisoria();
   u.hash = hashSenha(senhaProvisoria);
+  u.trocarSenha = true;
   await salvar(lista);
   return { usuario: publico(u), senhaProvisoria };
 }
@@ -166,6 +172,36 @@ export async function atualizarUsuario(id, campos, ator = null) {
   if (campos.resumo !== undefined) u.resumo = Boolean(campos.resumo);
   if (campos.gerenciaAcessos !== undefined) u.gerenciaAcessos = Boolean(campos.gerenciaAcessos);
   if (u.papel !== "master") delete u.gerenciaAcessos; // a permissão só vale para Master
+  await salvar(lista);
+  return publico(u);
+}
+
+const SENHAS_FRACAS = new Set(["1234567890", "0123456789", "senha12345", "senha123456", "password123", "qwerty12345", "abcdefghij", "worldgym123", "worldgym2026", "atlas12345"]);
+
+/** Regras da senha nova (a mesma exigência do dono ao criar a conta: 10 caracteres), mais as que impedem as escolhas óbvias. Devolve o motivo ou null. */
+export function motivoSenhaFraca(nova, u, atual = "") {
+  const n = String(nova ?? "");
+  if (n.length < 10) return "A senha precisa ter pelo menos 10 caracteres.";
+  if (n.length > 128) return "A senha pode ter no máximo 128 caracteres.";
+  if (n === String(atual ?? "")) return "A senha nova precisa ser diferente da provisória.";
+  if (new Set(n).size < 4) return "Use caracteres mais variados.";
+  const baixa = n.toLowerCase();
+  if (SENHAS_FRACAS.has(baixa)) return "Essa senha é fácil de adivinhar. Escolha outra.";
+  const local = String(u?.email ?? "").split("@")[0].toLowerCase();
+  if (local.length >= 4 && baixa.includes(local)) return "A senha não pode conter o seu e-mail.";
+  return null;
+}
+
+/** A pessoa escolhe a própria senha: confere a atual (a provisória, na primeira vez), valida a nova e grava. */
+export async function definirNovaSenha(id, atual, nova) {
+  const lista = await lerFresco();
+  const u = lista.find((x) => x.id === id && x.ativo !== false);
+  if (!u) throw new ErroAcesso("Acesso não encontrado.", 404);
+  if (!conferirSenha(atual, u.hash)) throw new ErroAcesso("A senha atual não confere.", 401);
+  const motivo = motivoSenhaFraca(nova, u, atual);
+  if (motivo) throw new ErroAcesso(motivo, 400);
+  u.hash = hashSenha(nova);
+  u.trocarSenha = false;
   await salvar(lista);
   return publico(u);
 }

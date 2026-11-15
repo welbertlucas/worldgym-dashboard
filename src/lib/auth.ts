@@ -9,13 +9,15 @@ export const AUTH_REQUIRED_EVENT = "wg-auth-required";
 
 export type Papel = "dono" | "master" | "unidades";
 /** `papelReal` só vem quando o dono está simulando outro nível ("ver como"). `gerenciaAcessos`: Master liberado pelo dono a criar acessos. */
-export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean }
+export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean; /** Ainda usa a senha provisória: precisa escolher a própria antes de ver dados. */ trocarSenha?: boolean }
 
 // Quem está logado e se o login pede e-mail (só depois que o dono cria o primeiro acesso). Vem de GET /api/login.
 let usuario: Usuario | null = null;
 let comEmail = false;
 export const getUsuario = () => usuario;
 export const loginComEmail = () => comEmail;
+/** Quem entrou com a senha provisória só vê a tela de escolher a própria senha. */
+export const precisaTrocarSenha = () => usuario?.trocarSenha === true;
 /** Sem informação (sem senha ligada ou API fora do ar) vale como dono: o servidor é quem filtra os dados de verdade. */
 export const papelAtual = (): Papel => usuario?.papel ?? "dono";
 export const ehDono = () => papelAtual() === "dono";
@@ -121,6 +123,23 @@ export async function authFetch(url: string, init?: RequestInit): Promise<Respon
     window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
   }
   return res;
+}
+
+/** A pessoa escolhe a própria senha (`atual` = a provisória na primeira vez). Devolve o erro em português, ou ok. */
+export async function trocarMinhaSenha(atual: string, nova: string): Promise<{ ok: true } | { ok: false; erro: string }> {
+  try {
+    const res = await authFetch(`${API}/senha`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ atual, nova }) });
+    if (res.status === 429) {
+      const { minutos } = (await res.json().catch(() => ({}))) as { minutos?: number };
+      return { ok: false, erro: `Muitas tentativas. Tente de novo em ${minutos ?? 15} ${minutos === 1 ? "minuto" : "minutos"}.` };
+    }
+    const j = (await res.json().catch(() => ({}))) as { error?: string; usuario?: Usuario };
+    if (!res.ok) return { ok: false, erro: res.status === 401 && j.error?.includes("atual") ? "A senha atual não confere." : j.error ?? "Não consegui trocar a senha agora." };
+    if (usuario) usuario = { ...usuario, trocarSenha: false };
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Sem conexão com o servidor." };
+  }
 }
 
 /** true = pode entrar (sem senha configurada ou já logado). */

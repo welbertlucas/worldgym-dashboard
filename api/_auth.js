@@ -12,7 +12,7 @@
 // Segredo de assinatura: SESSAO_SEGREDO (Vercel); se não existir, deriva de DASHBOARD_PASSWORD. Sem nenhum dos dois a
 // proteção fica desligada, MAS se já existem usuários o servidor recusa tudo (nunca abre por esquecimento de variável).
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { listarUsuarios, gerenciaAcessos } from "../server/acesso.js";
+import { listarUsuarios, gerenciaAcessos, precisaTrocarSenha } from "../server/acesso.js";
 import { UNIT_NAMES } from "../server/units.js";
 
 /** Tempo sem uso até o login cair: 12 horas para dono e Master (aparelho próprio), 4 horas para quem vê só algumas unidades (computador de recepção, em geral compartilhado). */
@@ -88,7 +88,7 @@ export const tokenDaRequisicao = (req) => String(req.headers.authorization ?? ""
 const SESSAO_LEGADO = Object.freeze({ id: "legado", nome: "Senha única", email: "", papel: "dono", unidades: [], legado: true });
 const SESSAO_ABERTA = Object.freeze({ id: "aberto", nome: "Sem proteção", email: "", papel: "dono", unidades: [], legado: true });
 
-export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], gerenciaAcessos: gerenciaAcessos(u), legado: false });
+export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], gerenciaAcessos: gerenciaAcessos(u), trocarSenha: precisaTrocarSenha(u), legado: false });
 
 /**
  * "Ver como": o dono pode olhar o painel como Master ou como o acesso de algumas unidades, para conferir o que cada
@@ -146,6 +146,12 @@ export async function exigirLogin(req, res, { papeis } = {}) {
     if (!sessao) {
       res.setHeader("Cache-Control", "no-store");
       res.status(401).json({ error: "login necessário" });
+      return false;
+    }
+    // Senha provisória: nada de dados até a pessoa escolher a própria (só o login e a troca de senha respondem).
+    if (sessao.trocarSenha) {
+      res.setHeader("Cache-Control", "no-store");
+      res.status(403).json({ error: "troque a senha para continuar", trocarSenha: true });
       return false;
     }
     if (papeis && !papeis.includes(sessao.papel)) {
