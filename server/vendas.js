@@ -41,7 +41,10 @@ const round2 = (n) => Math.round(n * 100) / 100;
 /** Nome do plano como aparece na venda, sem espaços sobrando (" WG 30  " → "WG 30"). */
 export const nomePlano = (i) => String(i.item || i.description || "").replace(/\s+/g, " ").trim();
 
-/** Tipo da venda de contrato: novo (matrícula), rematrícula (ex-aluno voltando) ou renovação. */
+/**
+ * Tipo da venda de contrato: novo (matrícula), rematrícula (ex-aluno voltando) ou renovação. "renewal" no EVO é toda nova venda depois de um
+ * contrato anterior, manual (plano com vigência) ou automática (recorrência mensal): a separação é feita em `tipoVenda.auto`.
+ */
 export function tipoDaVenda(venda, item) {
   if (venda.registrationKind === "enrollment") return "novo";
   if (venda.registrationKind === "re-enrollment") return "remat";
@@ -128,7 +131,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0) });
+    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0) });
     const dia = Number(String(s.saleDate ?? "").slice(8, 10));
     for (const i of s.saleItens || []) {
       // Produtos e serviços avulsos (camiseta, coqueteleira, diária, avaliação...): ranking pelo valor vendido.
@@ -147,6 +150,8 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
         const v = i.saleValue || 0;
         u.tipoVenda[tipo][0] += 1;
         u.tipoVenda[tipo][1] += v;
+        // Renovação de plano de recorrência mensal (o item vem com valueNextMonth): o EVO renova sozinho todo mês. `auto` é parte de `renov`.
+        if (tipo === "renov" && i.valueNextMonth != null) { u.tipoVenda.auto[0] += 1; u.tipoVenda.auto[1] += v; }
         // Ranking e duração olham só a venda nova (matrícula e rematrícula): renovação é, na maior parte, a recorrência mensal automática.
         if (tipo !== "renov") {
           const n = nomePlano(i);

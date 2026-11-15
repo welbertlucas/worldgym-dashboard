@@ -181,7 +181,8 @@ export interface UnitData {
   gatewaysCartao?: Record<string, number>;
 }
 
-export type TipoVenda = { novo: [number, number]; remat: [number, number]; renov: [number, number] };
+/** [quantidade, valor] por tipo de venda. `auto` (parte de `renov`) = renovação automática de plano de recorrência mensal; meses antigos não têm. */
+export type TipoVenda = { novo: [number, number]; remat: [number, number]; renov: [number, number]; auto?: [number, number] };
 
 export interface MonthData {
   month: string;
@@ -555,7 +556,10 @@ export const somarTaxasCobradas = (us: Pick<UnitData, "taxasCobradas">[]) => jun
 /** Soma o tipo de venda e a duração dos planos vendidos de várias unidades. */
 export function somarTipoVenda(us: Pick<UnitData, "tipoVenda">[]): TipoVenda {
   const out: TipoVenda = { novo: [0, 0], remat: [0, 0], renov: [0, 0] };
-  for (const u of us) if (u.tipoVenda) for (const k of ["novo", "remat", "renov"] as const) { out[k][0] += u.tipoVenda[k][0]; out[k][1] += u.tipoVenda[k][1]; }
+  const com = us.filter((u) => u.tipoVenda);
+  for (const u of com) for (const k of ["novo", "remat", "renov"] as const) { out[k][0] += u.tipoVenda![k][0]; out[k][1] += u.tipoVenda![k][1]; }
+  // A divisão manual × automática só vale se todas as unidades já a trazem (senão a soma ficaria menor que o total de renovações).
+  if (com.length && com.every((u) => u.tipoVenda!.auto)) out.auto = com.reduce<[number, number]>((a, u) => [a[0] + u.tipoVenda!.auto![0], a[1] + u.tipoVenda!.auto![1]], [0, 0]);
   return out;
 }
 

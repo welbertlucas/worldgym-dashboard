@@ -2,7 +2,7 @@
 // (o mesmo número do painel Dashboard > Renovações). O relatório vem em Excel e cobre todas as unidades.
 // Cancelados (FlCancelado = True) ficam de fora: não são vencimentos.
 import { evoBuffer } from "./evo.js";
-import { diaDeCorte } from "./ativos.js";
+import { diaDeCorteRenovacao } from "./ativos.js";
 import { lerXlsx } from "./xlsx.js";
 import { tipoContrato } from "./vendas.js";
 
@@ -14,9 +14,10 @@ export const tipoNaoRenovado = tipoContrato;
  * (pelo nome do contrato no EVO, os 10 maiores). Só contagens: nenhum dado do aluno sai daqui.
  */
 export async function relatorioNaoRenovados(ym, hoje) {
-  const fim = diaDeCorte(ym, hoje);
-  const buf = await evoBuffer(`/api/v2/management/not-renewed?dtStart=${ym}-01&dtEnd=${fim}`);
+  const fim = diaDeCorteRenovacao(ym, hoje);
   const por = new Map();
+  if (fim < `${ym}-01`) return por; // hoje é dia 1: ainda não há vencimento fechado no mês
+  const buf = await evoBuffer(`/api/v2/management/not-renewed?dtStart=${ym}-01&dtEnd=${fim}`);
   for (const r of lerXlsx(buf)) {
     if (r.FlCancelado !== "False") continue;
     const id = Number(r.IdFilial);

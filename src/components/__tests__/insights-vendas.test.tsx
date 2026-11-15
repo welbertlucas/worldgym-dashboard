@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
-import { ContratosVendidos, fatiasPorTipo } from "@/components/ContratosVendidos";
+import { ContratosVendidos, fatiasPorTipo, linhasTipoVenda } from "@/components/ContratosVendidos";
 import { somarContratosVendidos, somarEntradas, somarTipoVenda, type TipoVenda, type UnitData } from "@/data/dashboardData";
 import { LiberacoesCard } from "@/components/clientes/LiberacoesCard";
 import { fluxosDaRede, OutrasUnidadesCard } from "@/components/clientes/OutrasUnidadesCard";
@@ -28,6 +28,28 @@ describe("contratos mais vendidos", () => {
     expect(h).not.toContain(">F<");
     expect(h).toContain("Rematrícula");
     expect(h).toContain("98%"); // os 5 primeiros somam 98 de 100
+  });
+  it("tipo de venda: matrículas, rematrículas e renovações de contrato (sem a recorrência automática), com o \"i\" explicativo", () => {
+    const tv: TipoVenda = { novo: [80, 8000], remat: [20, 2000], renov: [500, 50000], auto: [470, 47000] };
+    expect(linhasTipoVenda(tv).map((l) => [l.rotulo, l.n, l.v])).toEqual([
+      ["Matrículas", 80, 8000], ["Rematrículas", 20, 2000], ["Renovações de contrato", 30, 3000],
+    ]);
+    const total = { contratosVendidos: [["WG 30", 100, 10000]] as [string, number, number][], tipoVenda: tv, duracaoVenda: [100, 0, 0, 0, 0] } as unknown as UnitData;
+    const h = limpo(renderToString(<ContratosVendidos total={total} monthLabel="Outubro de 2026" partial={false} unitLabel="Rede" />));
+    for (const t of ["Matrículas", "Rematrículas", "Renovações de contrato"]) expect(h).toContain(t);
+    expect(h).not.toContain("Recorrência automática");
+    expect(h).toContain("Como é calculado: tipo de venda"); // botão "i"
+  });
+  it("tipo de venda sem a divisão manual × automática (meses antigos): não mostra renovações (só matrículas e rematrículas)", () => {
+    const tv: TipoVenda = { novo: [80, 8000], remat: [20, 2000], renov: [500, 50000] };
+    expect(linhasTipoVenda(tv).map((l) => [l.rotulo, l.n])).toEqual([["Matrículas", 80], ["Rematrículas", 20]]);
+  });
+  it("a rede só traz a divisão automática se todas as unidades a trazem", () => {
+    const a = { tipoVenda: { novo: [1, 1], remat: [1, 1], renov: [10, 10], auto: [8, 8] } } as unknown as UnitData;
+    const b = { tipoVenda: { novo: [1, 1], remat: [1, 1], renov: [5, 5], auto: [4, 4] } } as unknown as UnitData;
+    const velha = { tipoVenda: { novo: [1, 1], remat: [1, 1], renov: [5, 5] } } as unknown as UnitData;
+    expect(somarTipoVenda([a, b]).auto).toEqual([12, 12]);
+    expect(somarTipoVenda([a, velha]).auto).toBeUndefined();
   });
   it("sem dados mostra o estado vazio", () => {
     const h = renderToString(<ContratosVendidos total={{} as UnitData} monthLabel="Jan" partial={false} unitLabel="Rede" />);

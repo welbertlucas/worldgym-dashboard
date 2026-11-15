@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
-import { movimentoDoMes, ativoNoDia, fluxoDoMes, contarSuspensos, resumoAluno } from "../../../server/ativos.js";
+import { diaDeCorteRenovacao, movimentoDoMes, ativoNoDia, fluxoDoMes, contarSuspensos, resumoAluno } from "../../../server/ativos.js";
 // @ts-expect-error módulo JS do servidor
 import { resumirVendas, categoriaAvulsa, faixaDuracao } from "../../../server/vendas.js";
 // @ts-expect-error módulo JS do servidor
@@ -74,11 +74,12 @@ describe("resumirVendas", () => {
       venda({ registrationKind: "re-enrollment" }, [{ idMembership: 2, item: "ANUAL", saleValue: 1198.8 }]),
       venda({ registrationKind: "renewal" }, [{ idMembership: 1, idMembershipRenewed: 5, item: "WG 30", saleValue: 189.9 }]),
       venda({ registrationKind: null }, [{ idMembership: 1, idMembershipRenewed: 5, item: "WG 30", saleValue: 189.9 }]),
+      venda({ registrationKind: "renewal" }, [{ idMembership: 1, idMembershipRenewed: 6, item: "WG 30", saleValue: 99.9, valueNextMonth: 99.9 }]),
       venda({ registrationKind: "enrollment" }, [{ idMembership: 8, item: "PERSONAL WG LOCAL", saleValue: 200 }, { idMembership: 9, item: "WG DIÁRIA", saleValue: 30 }]),
     ], planos);
     const u = por["Asa Norte"];
     expect(u.contratosVendidos).toEqual([["WG 30", 2, 379.8], ["ANUAL", 1, 1198.8]]);
-    expect(u.tipoVenda).toEqual({ novo: [2, 379.8], remat: [1, 1198.8], renov: [2, 379.8] });
+    expect(u.tipoVenda).toEqual({ novo: [2, 379.8], remat: [1, 1198.8], renov: [3, 479.7], auto: [1, 99.9] });
     expect(u.duracaoVenda).toEqual([2, 0, 0, 1, 0]);
     expect(u._planos).toBeUndefined();
     expect(u._avulsos).toBeUndefined();
@@ -497,5 +498,13 @@ describe("cancelamentos por gênero e idade", () => {
     expect(h2).not.toContain("Gênero que mais cancela"); // 5,0% × 4,7%: sem destaque de gênero
     expect(h2).not.toContain("Sem diferença");
     expect(renderToString(createElement(CancelPerfilCard, { total: {} as UnitData, monthLabel: "x", partial: false, unitLabel: "Rede" }))).toContain("ainda não foi carregado");
+  });
+});
+
+describe("corte das renovações", () => {
+  it("mês em andamento vai até ontem; mês fechado, até o último dia; no dia 1 não há o que contar", () => {
+    expect(diaDeCorteRenovacao("2026-11", "2026-11-15")).toBe("2026-11-14");
+    expect(diaDeCorteRenovacao("2026-10", "2026-11-15")).toBe("2026-10-31");
+    expect(diaDeCorteRenovacao("2026-11", "2026-11-01") < "2026-11-01").toBe(true);
   });
 });

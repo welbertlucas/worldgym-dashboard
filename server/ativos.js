@@ -43,6 +43,16 @@ export function diaDeCorte(ym, hoje) {
   return hoje < ultimo ? hoje : ultimo;
 }
 
+/**
+ * Último dia a considerar nas renovações: os contratos que vencem hoje ainda podem ser renovados hoje (a recorrência só renova no fim do dia),
+ * então o mês em andamento vai até ontem. Em mês fechado é o último dia dele. Pode cair antes do dia 1 (hoje é dia 1): nada a contar ainda.
+ */
+export function diaDeCorteRenovacao(ym, hoje) {
+  const [y, m] = ym.split("-").map(Number);
+  const ultimo = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  return hoje <= ultimo ? diaAnterior(hoje) : ultimo;
+}
+
 /** Dia anterior a uma data AAAA-MM-DD. */
 export function diaAnterior(dia) {
   const t = new Date(`${dia}T00:00:00Z`);
@@ -64,8 +74,9 @@ export const contarAVencer = (alunos, de, ate) =>
 /** Números de um mês a partir do histórico de contratos: ativos no início e no fim, cancelados e contratos a vencer no mês. */
 export function movimentoDoMes(alunos, ym, hoje) {
   const fim = diaDeCorte(ym, hoje);
+  const fimRenov = diaDeCorteRenovacao(ym, hoje);
   const ini = `${ym}-01`;
-  return { ativosFim: contarAtivos(alunos, fim), ativosIni: contarAtivos(alunos, diaAnterior(ini)), cancelados: contarCancelados(alunos, ini, fim), aVencer: contarAVencer(alunos, ini, fim) };
+  return { ativosFim: contarAtivos(alunos, fim), ativosIni: contarAtivos(alunos, diaAnterior(ini)), cancelados: contarCancelados(alunos, ini, fim), aVencer: contarAVencer(alunos, ini, fimRenov) };
 }
 
 const DIAS_POR_MES = 30.4375;

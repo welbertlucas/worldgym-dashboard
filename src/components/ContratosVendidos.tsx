@@ -1,9 +1,32 @@
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
 import { CORTESIAS, type UnitData } from "@/data/dashboardData";
 import { MiniRosca } from "@/components/MiniRosca";
+import { InfoTip } from "@/components/InfoTip";
+import type { TipoVenda } from "@/data/dashboardData";
 
 const TOP = 5;
 const moeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+const AJUDA_TIPO_VENDA =
+  "Matrícula: aluno novo. Rematrícula: ex-aluno que volta depois do prazo de renovação do EVO (hoje, 30 dias após o fim do contrato). " +
+  "Renovação de contrato: nova venda de um plano com vigência, feita dentro desse prazo. " +
+  "A recorrência mensal (débito automático, sem vigência) não conta como renovação. " +
+  "A taxa de renovação, em Retenção, olha só os contratos com vigência.";
+
+type LinhaTipo = { rotulo: string; detalhe: string; n: number; v: number };
+
+/** As linhas do bloco "Tipo de venda". A recorrência automática (sem vigência) fica de fora das renovações; meses antigos, sem a divisão, não mostram renovações. */
+export function linhasTipoVenda(tv: TipoVenda): LinhaTipo[] {
+  const base: LinhaTipo[] = [
+    { rotulo: "Matrículas", detalhe: "Alunos novos", n: tv.novo[0], v: tv.novo[1] },
+    { rotulo: "Rematrículas", detalhe: "Ex-alunos que voltaram", n: tv.remat[0], v: tv.remat[1] },
+  ];
+  if (!tv.auto) return base;
+  return [
+    ...base,
+    { rotulo: "Renovações de contrato", detalhe: "Plano com vigência, renovado no vencimento", n: Math.max(0, tv.renov[0] - tv.auto[0]), v: Math.max(0, Math.round((tv.renov[1] - tv.auto[1]) * 100) / 100) },
+  ];
+}
+
 const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)}%` : "—");
 export const DURACOES = ["Mensal", "Trimestral", "Semestral", "Anual", "Outras"];
 const CORES_DURACAO = ["bg-foreground/80", "bg-foreground/55", "bg-foreground/35", "bg-primary", "bg-foreground/15"];
@@ -107,11 +130,18 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
         )}
         <div className="space-y-6">
           <div>
-            <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Quem comprou</h4>
-            <MiniRosca rotulo="Tipo de venda" tamanho="h-24 w-24" fatias={[
-              { rotulo: "Aluno novo", n: tv.novo[0], cor: "hsl(var(--foreground) / 0.8)" },
-              { rotulo: "Rematrícula", n: tv.remat[0], cor: "hsl(var(--primary))" },
-            ]} />
+            <h4 className="mb-3 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de venda<InfoTip label="tipo de venda">{AJUDA_TIPO_VENDA}</InfoTip></h4>
+            <ul className="space-y-2.5" aria-label="Vendas de contrato por tipo">
+              {linhasTipoVenda(tv).map((l) => (
+                <li key={l.rotulo} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="min-w-0">
+                    <span className="text-foreground">{l.rotulo}</span>
+                    <span className="block text-xs text-muted-foreground">{l.detalhe}</span>
+                  </span>
+                  <span className="shrink-0 text-right tabular-nums"><span className="font-semibold text-foreground">{l.n.toLocaleString("pt-BR")}</span> <span className="text-muted-foreground">· {moeda(l.v)}</span></span>
+                </li>
+              ))}
+            </ul>
           </div>
           <div>
             <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Duração do plano</h4>
@@ -123,7 +153,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
         {familias
           ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
           : <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.</>}
-        {" "}Renovações não entram no ranking porque são, na maior parte, a recorrência automática do mês ({tv.renov[0].toLocaleString("pt-BR")} no mês).
+        {" "}Renovações não entram no ranking nem na duração dos planos.{!tv.auto && " As renovações de contrato deste mês ainda não foram carregadas."}
         Valor médio = valor da venda (num plano anual pago à vista, é o ano inteiro).
       </p>
     </ChartCard>
