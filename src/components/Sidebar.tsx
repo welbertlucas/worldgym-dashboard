@@ -92,7 +92,7 @@ function NavList({ active, onChange, criticalCount, collapsed = false }: NavProp
                   isActive ? "bg-foreground/[0.07] text-foreground font-semibold" : "text-muted-foreground font-medium hover:bg-secondary/70 hover:text-foreground"
                 )}
               >
-                <Icon className={cn("w-[18px] h-[18px] shrink-0", isActive && "text-primary")} aria-hidden />
+                <Icon className="w-[18px] h-[18px] shrink-0 text-primary" aria-hidden />
                 <span className={cn("flex-1 text-left", collapsed && "sr-only")}>{item.label}</span>
                 {badge > 0 && (
                   <span
