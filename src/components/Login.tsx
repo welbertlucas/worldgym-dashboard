@@ -30,7 +30,10 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
         <Ceu className="absolute inset-0 -z-10" />
         <h1 className="relative z-10 font-['Cinzel'] uppercase leading-none">
           <span className="mb-2 block text-[clamp(0.85rem,1.15vw,1rem)] font-medium tracking-[0.42em] text-white/80">World Gym</span>
-          <span className="block text-[clamp(2.1rem,3.2vw,2.9rem)] font-bold tracking-[0.12em]">Atlas</span>
+          <span className="flex items-center gap-3 text-[clamp(2.1rem,3.2vw,2.9rem)] font-bold tracking-[0.12em]">
+            Atlas
+            <span className="rounded-full border border-white/40 px-2.5 py-0.5 font-['Montserrat'] text-[0.7rem] font-semibold tracking-[0.2em] text-white/85">BETA</span>
+          </span>
         </h1>
         <div className="flex flex-1 items-center justify-center py-10 lg:absolute lg:inset-0 lg:py-0">
           <Globo className="w-[min(60%,460px,58vh)]" />
@@ -43,7 +46,8 @@ export function Login({ onEntrou }: { onEntrou: () => void }) {
           <h2 className="mb-2 text-balance font-['Montserrat'] text-[clamp(1.75rem,2.4vw,2.1rem)] font-extrabold leading-[1.2] tracking-[-0.025em] text-black">
             Entrar no Atlas
           </h2>
-          <p className="mb-8 leading-normal text-[#6B7078]">{comEmail ? "Entre com o seu e-mail e a senha de acesso." : "Digite a senha de acesso para ver os resultados da rede."}</p>
+          <p className="mb-2 leading-normal text-[#6B7078]">{comEmail ? "Entre com o seu e-mail e a senha de acesso." : "Digite a senha de acesso para ver os resultados da rede."}</p>
+          <p className="mb-8 text-sm leading-normal text-[#6B7078]">O Atlas está em fase beta: continua evoluindo e pode ter ajustes e pequenas falhas.</p>
 
           {comEmail && (
             <label className="mb-4 flex flex-col gap-2">

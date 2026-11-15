@@ -256,6 +256,10 @@ const Index = () => {
       <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} criticalCount={criticalCount} />
 
       <div className="flex-1 min-w-0">
+        <div role="note" className="flex items-center justify-center gap-2 border-b border-primary/20 bg-primary/10 px-3 py-1.5 text-center text-xs text-foreground sm:text-sm">
+          <span className="rounded-full bg-primary px-2 py-px text-[10px] font-bold uppercase tracking-wider text-primary-foreground">Beta</span>
+          <span>Você está usando uma versão beta do Atlas: ela continua evoluindo e pode ter ajustes e pequenas falhas.</span>
+        </div>
         <header className="border-b border-border sticky top-0 z-40 bg-white/85 backdrop-blur-md">
           <div className="px-3 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
