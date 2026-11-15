@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Copy, KeyRound, ShieldCheck } from "lucide-react";
+import { NAV_ITEMS, SUBMENUS } from "@/components/nav";
+import { formatMonthLong } from "@/data/periods";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { Button } from "@/components/ui/button";
@@ -7,28 +9,39 @@ import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { AUTH_REQUIRED_EVENT, ehDono, getUsuario, logout, precisaDeLogin, type Papel } from "@/lib/auth";
 import {
-  atualizarAcesso, criarAcesso, criarDono, listarAcessos, lerRegistro, redefinirSenha,
-  type EmailDeAcesso, type EntradaRegistro, type UsuarioApi,
+  atualizarAcesso, criarAcesso, criarDono, listarAcessos, lerAtividade, lerRegistro, redefinirSenha,
+  type EmailDeAcesso, type EntradaAtividade, type EntradaRegistro, type UsuarioApi,
 } from "@/lib/usuarios";
 
 const NIVEL: Record<Papel, string> = { dono: "Dono", master: "Master", unidades: "Unidades" };
 const campo = "h-10 w-full rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
+/** "comercial/vendas" → "Comercial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
+export function nomeDaTela(tela: string): string {
+  const [menu, aba] = tela.split("/");
+  const item = NAV_ITEMS.find((i) => i.id === menu);
+  const sub = aba ? SUBMENUS[menu]?.find((a) => a.id === aba) : null;
+  return item ? (sub ? `${item.label} › ${sub.rotulo}` : item.label) : tela;
+}
+
 const quando = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 /** Gestão de acessos: o dono e o Master que ele liberou ("Pode gerenciar acessos"). O servidor confere as mesmas regras. */
 export function AcessosTab() {
   const [dados, setDados] = useState<{ usuarios: UsuarioApi[]; unidades: string[]; legado: boolean } | null>(null);
   const [registro, setRegistro] = useState<EntradaRegistro[]>([]);
+  const [atividade, setAtividade] = useState<EntradaAtividade[]>([]);
+  const [detalhe, setDetalhe] = useState<UsuarioApi | null>(null);
   const [erro, setErro] = useState("");
   const [senhaNova, setSenhaNova] = useState<{ nome: string; senha: string; email?: EmailDeAcesso } | null>(null);
   const [editando, setEditando] = useState<UsuarioApi | null>(null);
 
   const carregar = useCallback(async () => {
-    const [a, r] = await Promise.all([listarAcessos(), lerRegistro()]);
+    const [a, r, at] = await Promise.all([listarAcessos(), lerRegistro(), ehDono() ? lerAtividade() : Promise.resolve(null)]);
     if (!a.ok) return setErro(a.erro);
     setErro("");
     setDados(a.dados);
     if (r.ok) setRegistro(r.dados.registro);
+    if (at?.ok) setAtividade(at.dados.atividade);
   }, []);
   useEffect(() => { void carregar(); }, [carregar]);
 
@@ -37,6 +50,7 @@ export function AcessosTab() {
     for (const e of registro) if (e.ok && !m.has(e.email)) m.set(e.email, e.em); // registro vem do mais novo para o mais velho
     return m;
   }, [registro]);
+
 
   if (erro) return <div><SectionTitle level="page">Acessos</SectionTitle><Notice>{erro}</Notice></div>;
   if (!dados) return <div><SectionTitle level="page">Acessos</SectionTitle><p className="text-sm text-muted-foreground">Carregando...</p></div>;
@@ -87,7 +101,7 @@ export function AcessosTab() {
             <tbody>
               {dados.usuarios.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
-                  <td className="px-5 py-3"><div className="font-medium text-foreground">{u.nome}{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
+                  <td className="px-5 py-3"><div className="font-medium text-foreground"><button type="button" onClick={() => setDetalhe(u)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" title="Ver último acesso e histórico">{u.nome}</button>{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
                   <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
@@ -157,23 +171,14 @@ export function AcessosTab() {
         />
       </section>
 
-      <section aria-labelledby="ac-reg" className="card-surface p-5">
-        <h3 id="ac-reg" className="text-base font-semibold text-foreground">Entradas recentes</h3>
-        <p className="text-sm text-muted-foreground mt-1">Cada vez que alguém digita a senha (o login cai depois de 12 horas sem uso para dono e Master e de 4 horas para quem vê só algumas unidades; e, mesmo usando todo dia, depois de 7 dias). Mostra também senhas erradas de e-mails cadastrados.</p>
-        {registro.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">Ninguém entrou ainda.</p> : (
-          <ul className="mt-4 divide-y divide-border text-sm">
-            {registro.slice(0, 50).map((e, i) => (
-              <li key={i} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span className="text-foreground">{e.nome ?? e.email}{e.nome && <span className="text-muted-foreground"> · {e.email}</span>}</span>
-                <span className="flex items-center gap-3 text-muted-foreground tabular-nums">
-                  <span className={e.ok ? "" : "font-medium text-destructive"}>{e.ok ? "Entrou" : "Senha errada"}</span>
-                  {quando(e.em)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {detalhe && (
+        <DetalheDoAcesso
+          usuario={detalhe}
+          entradas={registro.filter((e) => e.email === detalhe.email)}
+          atividade={souDono ? atividade.filter((e) => e.usuarioId === detalhe.id) : null}
+          onFechar={() => setDetalhe(null)}
+        />
+      )}
     </div>
   );
 }
@@ -288,6 +293,66 @@ function PrimeiroDono() {
         <Notice>Depois de criar, a senha única de antes deixa de valer e todo mundo precisa entrar com e-mail e senha. Você entra primeiro, com a conta nova.</Notice>
         <Button type="submit" disabled={enviando}>{enviando ? "Criando..." : "Criar conta de dono"}</Button>
       </form>
+    </div>
+  );
+}
+
+/** Quando a pessoa entrou e o que fez: as entradas (e senhas erradas) e, só para o dono, as telas abertas e exportações. */
+export function DetalheDoAcesso({ usuario, entradas, atividade, onFechar }: { usuario: UsuarioApi; entradas: EntradaRegistro[]; atividade: EntradaAtividade[] | null; onFechar: () => void }) {
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => { if (e.key === "Escape") onFechar(); };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [onFechar]);
+  const ultima = entradas.find((e) => e.ok);
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6" onClick={onFechar}>
+      <div role="dialog" aria-modal="true" aria-labelledby="ac-det" onClick={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-background p-5 shadow-xl sm:rounded-2xl sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 id="ac-det" className="text-lg font-semibold text-foreground">{usuario.nome}</h3>
+            <p className="text-sm text-muted-foreground">{usuario.email} · {NIVEL[usuario.papel]}{usuario.papel === "unidades" ? ` · ${usuario.unidades.join(", ")}` : ""}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onFechar}>Fechar</Button>
+        </div>
+        <p className="mt-4 text-sm text-foreground">
+          Último acesso: <b>{ultima ? quando(ultima.em) : "nunca entrou"}</b>
+        </p>
+
+        <h4 className="mt-5 text-sm font-semibold text-foreground">Entradas recentes</h4>
+        <p className="text-xs text-muted-foreground">Cada vez que a pessoa digitou a senha, e as senhas erradas. Guardamos 90 dias.</p>
+        {entradas.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Nenhuma entrada registrada.</p> : (
+          <ul className="mt-2 divide-y divide-border text-sm">
+            {entradas.slice(0, 15).map((e, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 py-1.5">
+                <span className={e.ok ? "text-foreground" : "font-medium text-destructive"}>{e.ok ? "Entrou" : "Senha errada"}</span>
+                <span className="text-muted-foreground tabular-nums">{quando(e.em)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {atividade && (
+          <>
+            <h4 className="mt-5 text-sm font-semibold text-foreground">Telas abertas e exportações</h4>
+            <p className="text-xs text-muted-foreground">Com a unidade e o mês que a pessoa estava vendo, nos últimos 7 dias. Só você, como dono, vê esta parte. Quando você usa "ver como", não entra aqui.</p>
+            {atividade.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Nenhuma atividade registrada nos últimos 7 dias.</p> : (
+              <ul className="mt-2 divide-y divide-border text-sm">
+                {atividade.slice(0, 40).map((e, i) => (
+                  <li key={i} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-1.5">
+                    <span className="text-foreground">
+                      <span className="text-muted-foreground">{e.evento === "exportar" ? "Exportou " : "Abriu "}</span>
+                      <span className={e.evento === "exportar" ? "font-medium" : ""}>{nomeDaTela(e.tela)}</span>
+                      {e.mes && <span className="text-muted-foreground"> · {e.unidade ?? "Rede"} · {formatMonthLong(e.mes)}</span>}
+                    </span>
+                    <span className="text-muted-foreground tabular-nums">{quando(e.em)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

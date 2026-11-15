@@ -2,6 +2,8 @@ import { Abertura, seguirComAbeturaAzul } from "@/components/Abertura";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
+import { MarcaDagua } from "@/components/MarcaDagua";
+import { registrarTela } from "@/lib/atividade";
 import { FaturamentoProjecao } from "@/components/FaturamentoProjecao";
 import { VendasPorDia } from "@/components/VendasPorDia";
 import { Abas, abaAtiva } from "@/components/Abas";
@@ -44,7 +46,7 @@ import { viewFor } from "@/data/kpiView";
 import { computeAlerts, sameMonthLastYear } from "@/data/alerts";
 import { computeUnitDeltas } from "@/data/unitMetrics";
 import { metasData, metasRede, syncMetasFromSheets } from "@/data/metas";
-import { formatMonthLong, getLastClosedMonth, isPartialMonth } from "@/data/periods";
+import { formatMonthLong, getLastClosedMonth, getMonthToOpen, isPartialMonth } from "@/data/periods";
 import {
   getLatestData, getDataByMonth, getDataByMonthRede, comparePeriods, dashboardData, dashboardDataRede,
   getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets, evoAtualizadoEm, receitaComplementar,
@@ -143,8 +145,8 @@ const Index = () => {
     setSyncing(false);
     if (res.ok) {
       setLoadedAt(new Date());
-      // Abre no último mês FECHADO: o mês em andamento é parcial (e a planilha só ganha a linha dele no fim).
-      const abre = getLastClosedMonth(dashboardData.map((d) => d.month)) ?? getLatestData().month;
+      // Ao entrar, abre no mês atual (parcial, em andamento); se o mês atual ainda não tem dados, no mais recente que existe.
+      const abre = getMonthToOpen(dashboardData.map((d) => d.month)) ?? getLatestData().month;
       setSelectedMonth((cur) => (keepSelection && cur ? cur : abre));
       forceTick((n) => n + 1);
       if (!silent) toast({ title: "Dados atualizados", description: `${res.count} meses carregados.` });
@@ -224,11 +226,16 @@ const Index = () => {
     return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   };
 
+  // Registro de atividade: a tela aberta (com a unidade e o mês que a pessoa está vendo) é anotada no servidor, no máximo a cada 5 minutos por combinação.
+  const mesVisto = fullMonthData.month;
+  useEffect(() => { if (mesVisto) registrarTela(subAba ? `${activeTab}/${subAba}` : activeTab, { unidade: selectedUnit, mes: mesVisto }); }, [activeTab, subAba, selectedUnit, mesVisto]);
+
   if (!fullMonthData.month) return <Abertura mensagem="Carregando os resultados da rede" />;
 
   return (
     <UnitNavProvider value={openUnit}>
     <div className="min-h-screen bg-background lg:flex">
+      <MarcaDagua />
       <Sidebar
         active={activeTab}
         onChange={changeTab}

@@ -117,7 +117,7 @@ export function emailAcessoNovo(u, ctx, agora = Date.now(), { paraDono = false }
       titulo: "Novo acesso à sua conta",
       paragrafos: [`Olá, ${primeiroNome(u)}.`, "Detectamos um acesso à sua conta do World Gym Atlas de um aparelho que ainda não tinha sido usado."],
       linhas: detalhes(ctx, agora),
-      rodape: `Foi você? Então não precisa fazer nada. Se não foi, entre em <a href="${URL_ATLAS}" style="color:${VERMELHO}">${URL_ATLAS.replace("https://", "")}</a>, troque a sua senha (clique no seu nome, no alto da tela) e avise o dono do sistema.`,
+      rodape: `Foi você? Então não precisa fazer nada. Se não foi, entre em <a href="${URL_ATLAS}" style="color:${VERMELHO}">${URL_ATLAS.replace("https://", "")}</a>, troque a sua senha (clique no seu nome, no alto da tela).`,
     }),
   };
 }

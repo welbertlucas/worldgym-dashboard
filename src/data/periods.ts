@@ -14,6 +14,13 @@ export function getLastClosedMonth(months: string[], now: Date = new Date()): st
   return closed.length ? closed[closed.length - 1] : null;
 }
 
+/** Mês em que o painel abre: o mês corrente, se já está na lista; senão, o mais recente que não passa dele (ou o último, se todos forem futuros). Lista em ordem crescente. */
+export function getMonthToOpen(months: string[], now: Date = new Date()): string | null {
+  const current = monthKey(now);
+  const ate = months.filter((m) => m <= current);
+  return ate.length ? ate[ate.length - 1] : months[months.length - 1] ?? null;
+}
+
 export function formatMonthLong(month: string): string {
   if (!month) return "";
   const [y, m] = month.split("-").map(Number);

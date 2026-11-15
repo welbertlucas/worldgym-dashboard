@@ -3,6 +3,7 @@ import { authFetch, API_BASE, type Papel } from "@/lib/auth";
 /** `resumo`: recebe o resumo diário por e-mail. `gerenciaAcessos`: Master que o dono liberou a criar e alterar acessos. */
 export interface UsuarioApi { id: string; nome: string; email: string; papel: Papel; unidades: string[]; ativo: boolean; resumo: boolean; gerenciaAcessos?: boolean; criadoEm: string }
 export interface EntradaRegistro { em: string; email: string; usuarioId: string | null; nome: string | null; ok: boolean }
+export interface EntradaAtividade { em: string; usuarioId: string; nome: string; email: string; tela: string; evento: "tela" | "exportar"; /** Unidade do filtro (null = a rede toda) e mês (AAAA-MM); ausentes nos registros antigos. */ unidade?: string | null; mes?: string | null }
 export type Resposta<T> = { ok: true; dados: T } | { ok: false; erro: string };
 
 async function chamar<T>(url: string, init?: RequestInit): Promise<Resposta<T>> {
@@ -20,6 +21,7 @@ const enviar = <T>(corpo: object) => chamar<T>(`${API_BASE}/usuarios`, { method:
 
 export const listarAcessos = () => chamar<{ usuarios: UsuarioApi[]; unidades: string[]; legado: boolean }>(`${API_BASE}/usuarios`);
 export const lerRegistro = () => chamar<{ registro: EntradaRegistro[] }>(`${API_BASE}/usuarios?registro=1`);
+export const lerAtividade = () => chamar<{ atividade: EntradaAtividade[] }>(`${API_BASE}/usuarios?atividade=1`);
 export const criarDono = (c: { nome: string; email: string; senha: string }) => enviar<{ usuario: UsuarioApi }>({ acao: "primeiro-dono", ...c });
 /** Resultado do e-mail com a senha (Zoho). `enviado: false` = a senha só está na tela. */
 export type EmailDeAcesso = { enviado: boolean; para: string; erro?: string };

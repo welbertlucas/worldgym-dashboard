@@ -1,11 +1,12 @@
 // Gestão de acessos: o dono e quem ele liberou (Master com "gerencia acessos"; ver conferirAtor em server/acesso.js).
 // GET  /api/usuarios            -> { usuarios, unidades, legado }   (legado: true = ainda sem nenhum usuário, só a senha única)
 // GET  /api/usuarios?registro=1 -> { registro: [...] }              (entradas e tentativas erradas, mais novas primeiro)
+// GET  /api/usuarios?atividade=1 -> { atividade: [...] }           (telas abertas e exportações dos últimos 3 dias, mais novas primeiro; só o dono)
 // POST /api/usuarios { acao: "primeiro-dono" | "criar" | "atualizar" | "redefinir", ... }
 //   criar/redefinir -> { usuario, senhaProvisoria, email: { enviado, para, erro? } }
 import { cors, exigirLogin } from "./_auth.js";
 import {
-  listarUsuarios, criarDono, criarUsuario, atualizarUsuario, redefinirSenha, lerRegistro, publico, UNIDADES_DA_REDE, ErroAcesso,
+  listarUsuarios, criarDono, criarUsuario, atualizarUsuario, redefinirSenha, lerRegistro, lerAtividade, publico, UNIDADES_DA_REDE, ErroAcesso,
 } from "../server/acesso.js";
 import { enviarAcesso } from "../server/boasVindas.js";
 
@@ -23,6 +24,10 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
+      if (req.query?.atividade) {
+        if (!ehDono) return res.status(403).json({ error: "só o dono vê a atividade" });
+        return res.status(200).json({ atividade: await lerAtividade() });
+      }
       if (req.query?.registro) return res.status(200).json({ registro: await lerRegistro() });
       const lista = await listarUsuarios();
       return res.status(200).json({ usuarios: lista.map(publico), unidades: UNIDADES_DA_REDE, legado: lista.length === 0 });

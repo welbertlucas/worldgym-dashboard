@@ -12,13 +12,18 @@ import usuarios from "../../../api/usuarios.js";
 // @ts-expect-error módulos JS do servidor
 import senhaApi from "../../../api/senha.js";
 // @ts-expect-error módulos JS do servidor
+import atividadeApi from "../../../api/atividade.js";
+// @ts-expect-error módulos JS do servidor
 import * as avisos from "../../../server/avisos.js";
 // @ts-expect-error módulos JS do servidor
 import * as vis from "../../../server/visibilidade.js";
 
 const memoria = () => {
   const m = new Map<string, unknown>();
-  return { m, async ler(c: string) { return (m.get(c) as unknown) ?? null; }, async gravar(c: string, d: unknown) { m.set(c, structuredClone(d)); } };
+  return {
+    m, async ler(c: string) { return (m.get(c) as unknown) ?? null; }, async gravar(c: string, d: unknown) { m.set(c, structuredClone(d)); },
+    async listar(p: string) { return [...m.keys()].filter((k) => k.startsWith(p)); }, async apagar(c: string) { m.delete(c); },
+  };
 };
 const res = () => {
   const r: any = { headers: {} as Record<string, string>, code: 200, body: undefined };
@@ -80,6 +85,72 @@ describe("acessos, níveis e registro", () => {
     await chama(login, { method: "POST", body: { email: "dono@exemplo.com", senha: "senha-do-dono-123" } });
     const reg = await acesso.lerRegistro();
     expect(reg.map((r: any) => [r.email, r.ok])).toEqual([["dono@exemplo.com", true], ["dono@exemplo.com", false]]);
+  });
+
+  it("registra a atividade em lote (telas e exportações) e só o dono a lê; evento inválido e ver como não entram", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const m = await chama(usuarios, com(tokenDono, { method: "POST", body: { acao: "criar", nome: "Maria", email: "maria@exemplo.com", papel: "master" } }));
+    await trocaSenha(m.body.usuario.id, m.body.senhaProvisoria);
+    const tokenMaria = criarTokenUsuario(m.body.usuario.id).token;
+    const manda = (token: string, body: any, extra: any = {}) => chama(atividadeApi, com(token, { method: "POST", body, ...extra }));
+
+    const agora = Date.now();
+    const lote = await manda(tokenMaria, { eventos: [
+      { tela: "comercial/vendas", unidade: "Gama", mes: "2026-10", em: agora - 60_000 },
+      { tela: "benchmark/posicao", evento: "exportar", em: agora },
+      { tela: "<script>" }, // inválida: ignorada
+      { tela: "financeiro", evento: "apagar" }, // evento inválido: ignorado
+    ] });
+    expect(lote.code).toBe(200);
+    expect(lote.body.gravados).toBe(2);
+    expect((await manda(tokenMaria, { tela: "financeiro" })).code).toBe(400); // formato antigo (sem lista)
+    expect((await chama(atividadeApi, { method: "POST", body: { eventos: [{ tela: "financeiro" }] } })).code).toBe(401);
+    // O dono simulando outro nível ("ver como") não polui o registro.
+    const vc = await manda(tokenDono, { eventos: [{ tela: "alunos/base" }] }, { headers: { authorization: `Bearer ${tokenDono}`, "x-atlas-ver-como": "master" } });
+    expect(vc.body.gravados).toBe(0);
+    // Horário do navegador no futuro ou muito antigo é limitado a agora / 24 horas atrás.
+    await manda(tokenMaria, { eventos: [{ tela: "alunos/base", unidade: "<b>x</b>", mes: "outubro", em: agora + 9e9 }] });
+
+    const lida = await chama(usuarios, com(tokenDono, { method: "GET", query: { atividade: "1" } }));
+    expect(lida.code).toBe(200);
+    expect(lida.body.atividade.map((a: any) => [a.tela, a.evento, a.unidade, a.mes])).toEqual([
+      ["alunos/base", "tela", null, null], ["benchmark/posicao", "exportar", null, null], ["comercial/vendas", "tela", "Gama", "2026-10"],
+    ]);
+    expect(Date.parse(lida.body.atividade[0].em)).toBeLessThanOrEqual(Date.now());
+    // Só o dono lê: nem Master sem a permissão, nem Master liberado a gerenciar acessos.
+    expect((await chama(usuarios, com(tokenMaria, { method: "GET", query: { atividade: "1" } }))).code).toBe(403);
+    await chama(usuarios, com(tokenDono, { method: "POST", body: { acao: "atualizar", id: m.body.usuario.id, gerenciaAcessos: true } }));
+    acesso.limparCache();
+    expect((await chama(usuarios, com(tokenMaria, { method: "GET", query: { atividade: "1" } }))).code).toBe(403);
+    expect((await chama(usuarios, com(tokenMaria, { method: "GET", query: { registro: "1" } }))).code).toBe(200);
+  });
+
+  it("retenção: apaga atividade e entradas com mais de 90 dias, sem tocar em usuários nem backups", async () => {
+    const mem = memoria();
+    definirArmazem(mem);
+    const agora = Date.parse("2026-11-15T15:00:00Z");
+    const dia = (n: number) => new Date(agora - n * 86400000).toISOString().slice(0, 10);
+    for (const n of [0, 30, 89, 91, 200]) mem.m.set(`acesso/atividade-${dia(n)}.json`, [{ x: 1 }]);
+    for (const k of ["2026-11", "2026-08", "2026-07", "2026-06", "2025-01"]) mem.m.set(`acesso/log-${k}.json`, [{ x: 1 }]);
+    mem.m.set("acesso/usuarios.json", [{ id: "u" }]);
+    mem.m.set("backup/usuarios-2026-11-14.enc", "x");
+    // Corte = 17/08/2026: o log de agosto ainda tem dias dentro dos 90; junho e julho saem.
+    const apagados = await acesso.limparRegistrosAntigos(agora);
+    expect(apagados.sort()).toEqual([`acesso/atividade-${dia(200)}.json`, `acesso/atividade-${dia(91)}.json`, "acesso/log-2025-01.json", "acesso/log-2026-06.json", "acesso/log-2026-07.json"].sort());
+    expect([...mem.m.keys()].sort()).toEqual([
+      "acesso/log-2026-08.json", "acesso/log-2026-11.json", `acesso/atividade-${dia(0)}.json`, `acesso/atividade-${dia(30)}.json`, `acesso/atividade-${dia(89)}.json`, "acesso/usuarios.json", "backup/usuarios-2026-11-14.enc",
+    ].sort());
+  });
+
+  it("a limpeza roda sozinha no primeiro registro do dia", async () => {
+    const mem = memoria();
+    definirArmazem(mem);
+    const agora = Date.parse("2026-11-15T15:00:00Z");
+    mem.m.set("acesso/atividade-2026-05-01.json", [{ x: 1 }]);
+    await acesso.registrarAtividade({ usuario: { id: "u1", nome: "A", email: "a@x.com" }, eventos: [{ tela: "financeiro" }] }, agora);
+    expect(mem.m.has("acesso/atividade-2026-05-01.json")).toBe(false);
+    expect(mem.m.has("acesso/atividade-2026-11-15.json")).toBe(true);
   });
 
   it("só o dono cria acessos; master e unidades levam 403; o dono não é rebaixado nem desativado", async () => {

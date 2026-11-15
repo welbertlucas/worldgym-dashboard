@@ -1,3 +1,4 @@
+import { registrarExportacao } from "@/lib/atividade";
 import { useState } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,7 +73,7 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
       <div className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <SectionTitle hint={`As ${units.length} unidades comparadas entre si em ${formatMonthLong(selectedMonth)}${partial ? " (mês em andamento: valores parciais)" : ""}. Clique no nome de uma unidade para ver a posição dela na rede.`}>Ranking da rede</SectionTitle>
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="no-print shrink-0 text-xs font-medium">
+          <Button variant="outline" size="sm" onClick={() => { registrarExportacao("benchmark/posicao", { unidade: unit, mes: selectedMonth }); window.print(); }} className="no-print shrink-0 text-xs font-medium">
             <Printer className="w-4 h-4" aria-hidden />
             <span>Exportar PDF</span>
           </Button>
@@ -94,7 +95,7 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
       })()}
 
       {aba === "contratos" && <Secao id="bm-contratos" titulo="Contratos ativos" descricao="Foto de hoje do EVO: especiais/VIP, personal e plano local ou rede, por unidade.">
-        <ContratosAtivos units={units} foco={foco} />
+        <ContratosAtivos units={units} foco={foco} mes={selectedMonth} />
         {!units.some((u) => u.contratosAtivos !== undefined) && <p className="text-sm text-muted-foreground">A foto de contratos só existe no mês em andamento. Escolha o mês atual no topo para ver.</p>}
       </Secao>}
 

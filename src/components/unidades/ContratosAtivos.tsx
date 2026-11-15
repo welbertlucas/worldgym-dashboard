@@ -1,3 +1,4 @@
+import { registrarExportacao } from "@/lib/atividade";
 import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { type UnitData } from "@/data/dashboardData";
@@ -42,7 +43,7 @@ function BarraAlcance({ v }: { v: ContratosView }) {
  * Contratos ativos hoje: totais da rede (ou da unidade em `foco`, com o percentual da rede ao lado) e um cartão por
  * unidade, com a do foco destacada. Só aparece quando o EVO trouxe a foto do dia.
  */
-export function ContratosAtivos({ units, foco = null }: { units: UnitData[]; foco?: string | null }) {
+export function ContratosAtivos({ units, foco = null, mes = null }: { units: UnitData[]; foco?: string | null; /** Mês mostrado (AAAA-MM), só para o registro de atividade. */ mes?: string | null }) {
   const [ordem, setOrdem] = useState<Ordem>("especiais");
   // Exporta só esta seção: durante a impressão, tudo fora dela vira display:none (visibility deixaria páginas em branco) e a página fica em retrato.
   useEffect(() => {
@@ -65,6 +66,7 @@ export function ContratosAtivos({ units, foco = null }: { units: UnitData[]; foc
     st.id = "contratos-page-style";
     st.textContent = "@page { size: A4 portrait; margin: 12mm; }";
     document.head.appendChild(st);
+    registrarExportacao("benchmark/contratos", { unidade: foco, mes });
     window.print();
   };
   const rede = somaContratos(units);

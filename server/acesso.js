@@ -7,7 +7,7 @@
 //
 // As senhas nunca são guardadas: só uma versão embaralhada (scrypt) que não dá para desfazer.
 import { randomBytes, randomInt, scryptSync, timingSafeEqual, randomUUID } from "node:crypto";
-import { lerJson, gravarJson } from "./armazem.js";
+import { lerJson, gravarJson, listarCaminhos, apagarCaminho } from "./armazem.js";
 import { UNIT_NAMES } from "./units.js";
 
 export const PAPEIS = ["dono", "master", "unidades"];
@@ -240,12 +240,83 @@ export async function registrarAcesso({ email, usuarioId = null, nome = null, ok
   const atual = (await lerJson(arq)) ?? [];
   atual.push({ em: new Date(agora).toISOString(), email: normalizarEmail(email), usuarioId, nome, ok });
   await gravarJson(arq, atual.slice(-LIMITE_LOG));
+  if (atual.length === 1) await limparRegistrosAntigos(agora); // primeiro registro do mês: aproveita para apagar os antigos
 }
 
-/** Entradas mais recentes primeiro (mês atual e o anterior). */
-export async function lerRegistro(agora = Date.now(), limite = 200) {
+/** Entradas mais recentes primeiro (os últimos 4 meses, que cobrem os 90 dias guardados). */
+export async function lerRegistro(agora = Date.now(), limite = 1000) {
   const d = new Date(agora);
-  const anterior = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
-  const [a, b] = await Promise.all([lerJson(arquivoLog(mesDe(agora))), lerJson(arquivoLog(mesDe(anterior)))]);
-  return [...(b ?? []), ...(a ?? [])].reverse().slice(0, limite);
+  const meses = [0, 1, 2, 3].map((k) => mesDe(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - k, 1)));
+  const lidos = await Promise.all(meses.map((m) => lerJson(arquivoLog(m))));
+  return lidos.reverse().flatMap((l) => l ?? []).reverse().slice(0, limite);
+}
+
+// ----- Registro de atividade: quais telas cada pessoa abre e quem exporta (um arquivo por dia) -----
+const arquivoAtividade = (dia) => `acesso/atividade-${dia}.json`;
+const LIMITE_ATIVIDADE_DIA = 2000;
+export const EVENTOS_ATIVIDADE = ["tela", "exportar"];
+/** Endereço de tela válido: letras minúsculas, números, "/" e "-" (ex.: "comercial/vendas"). */
+export const telaValida = (t) => typeof t === "string" && /^[a-z0-9][a-z0-9/-]{0,39}$/.test(t);
+/** Mês AAAA-MM e unidade da rede (ou null = a rede toda): o que a pessoa estava vendo. Valor inválido vira null. */
+export const mesValido = (m) => (typeof m === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(m) ? m : null);
+export const unidadeValida = (u) => (typeof u === "string" && UNIDADES_DA_REDE.includes(u) ? u : null);
+/** Dia no horário de Brasília (UTC−3), para o arquivo bater com o dia que a equipe vê. */
+const diaBR = (agora) => new Date(agora - 3 * 3600 * 1000).toISOString().slice(0, 10);
+
+export const MAX_EVENTOS_POR_LOTE = 50;
+const DIA_MS = 24 * 3600 * 1000;
+
+/**
+ * Anota as telas que a pessoa abriu ("tela") e as exportações/impressões ("exportar"), todas de uma vez (uma leitura e uma gravação).
+ * `eventos`: [{ tela, evento, unidade, mes, em }]. O horário `em` (ms) vem do navegador, mas só vale até 24 horas para trás e nunca no futuro.
+ * Evento inválido é ignorado. Devolve quantos entraram. No primeiro registro do dia apaga os arquivos com mais de 90 dias.
+ */
+export async function registrarAtividade({ usuario, eventos }, agora = Date.now()) {
+  if (!usuario?.id || usuario.legado || !Array.isArray(eventos)) return 0;
+  const novos = eventos.slice(0, MAX_EVENTOS_POR_LOTE)
+    .filter((e) => e && telaValida(e.tela) && EVENTOS_ATIVIDADE.includes(e.evento ?? "tela"))
+    .map((e) => {
+      const quando = Number.isFinite(Number(e.em)) ? Math.min(agora, Math.max(agora - DIA_MS, Number(e.em))) : agora;
+      return { em: new Date(quando).toISOString(), usuarioId: usuario.id, nome: usuario.nome, email: usuario.email, tela: e.tela, evento: e.evento ?? "tela", unidade: unidadeValida(e.unidade), mes: mesValido(e.mes) };
+    });
+  if (!novos.length) return 0;
+  const arq = arquivoAtividade(diaBR(agora));
+  const atual = (await lerJson(arq)) ?? [];
+  await gravarJson(arq, [...atual, ...novos].slice(-LIMITE_ATIVIDADE_DIA));
+  if (atual.length === 0) await limparRegistrosAntigos(agora);
+  return novos.length;
+}
+
+/** Atividade dos últimos `dias` dias (hoje e os anteriores), das mais novas para as mais antigas. */
+export async function lerAtividade(agora = Date.now(), dias = 7, limite = 600) {
+  const arquivos = Array.from({ length: dias }, (_, i) => arquivoAtividade(diaBR(agora - i * DIA_MS)));
+  const lidos = await Promise.all(arquivos.map((a) => lerJson(a)));
+  return lidos.flatMap((l) => (l ?? []).slice().sort((a, b) => (a.em < b.em ? 1 : -1))).slice(0, limite);
+}
+
+// ----- Retenção: o registro de entradas e a atividade ficam 90 dias -----
+export const RETENCAO_DIAS = 90;
+
+/**
+ * Apaga os arquivos de atividade (um por dia) e de entradas (um por mês) mais antigos que 90 dias. Só mexe nesses dois tipos de arquivo
+ * (nunca na lista de usuários nem nos backups). Chamada sozinha no primeiro registro de cada dia/mês; custa uma listagem por vez.
+ * Devolve os caminhos apagados.
+ */
+export async function limparRegistrosAntigos(agora = Date.now()) {
+  const corteDia = diaBR(agora - RETENCAO_DIAS * DIA_MS);
+  const apagados = [];
+  try {
+    for (const caminho of await listarCaminhos("acesso/")) {
+      const dia = caminho.match(/^acesso\/atividade-(\d{4}-\d{2}-\d{2})\.json$/)?.[1];
+      const mes = caminho.match(/^acesso\/log-(\d{4}-\d{2})\.json$/)?.[1];
+      // O mês de entradas só sai quando ele inteiro é anterior ao corte (o mês do corte ainda tem dias dentro dos 90).
+      if ((dia && dia < corteDia) || (mes && mes < corteDia.slice(0, 7))) {
+        await apagarCaminho(caminho);
+        apagados.push(caminho);
+      }
+    }
+  } catch {
+    /* limpar é um favor: se falhar, tenta de novo no próximo dia */
+  }
+  return apagados;
 }
