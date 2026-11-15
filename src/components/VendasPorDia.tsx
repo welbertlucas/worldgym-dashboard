@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
-import { getDataByMonth, getUnitData, type UnitData } from "@/data/dashboardData";
+import { getDataByMonth, type UnitData } from "@/data/dashboardData";
+import { mesesDeReferencia } from "@/data/projecaoMes";
 import { nextTier, resolveGoal, TIERS, TIER_LABEL, tierReached, type Meta } from "@/data/metas";
 import { formatMonthLong } from "@/data/periods";
 import { DIAS_MINIMOS, diaDaSemana, diasFechados, diasNoMes, mediaPorDiaDaSemana, projetarMes } from "@/data/vendasDia";
@@ -12,20 +13,6 @@ const SEMANA = [
 const NOME_LONGO = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 const int = (n: number) => Math.round(n).toLocaleString("pt-BR");
 const dec = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
-/** Meses de referência: os `n` anteriores ao mês mostrado que têm vendas por dia (para a projeção e a média por dia da semana). */
-export function mesesDeReferencia(month: string, unit: string | null, n = 3): [string, number[]][] {
-  const out: [string, number[]][] = [];
-  let [y, m] = month.split("-").map(Number);
-  for (let k = 0; k < 12 && out.length < n; k++) {
-    m -= 1;
-    if (m === 0) { m = 12; y -= 1; }
-    const ym = `${y}-${String(m).padStart(2, "0")}`;
-    const v = (unit ? getUnitData(ym, unit) : getDataByMonth(ym)?.total)?.vendasDia;
-    if (v?.length) out.push([ym, v]);
-  }
-  return out.reverse();
-}
 
 const nomeDoMes = (ym: string, month: "short" | "long") => {
   const [y, m] = ym.split("-").map(Number);

@@ -487,7 +487,7 @@ const Index = () => {
           />
         )}
 
-        {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} />}
+        {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} />}
 
         {activeTab === "plano" && <PlanoAcaoTab alerts={alerts} evalMonth={evalMonth} deltas={unitDeltas} unit={selectedUnit} onOpenAlertas={() => changeTab("riscos")} />}
 

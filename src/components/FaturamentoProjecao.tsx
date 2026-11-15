@@ -1,9 +1,8 @@
 import { ChartCard, HeadlineStat } from "@/components/ChartCard";
-import { mesesDeReferencia } from "@/components/VendasPorDia";
 import { getDataByMonth, type UnitData } from "@/data/dashboardData";
 import { formatMetaValue, nextTier, resolveGoal, TIERS, TIER_LABEL, tierReached, type Meta } from "@/data/metas";
 import { formatMonthLong } from "@/data/periods";
-import { diasFechados, projetarMes } from "@/data/vendasDia";
+import { projecaoFaturamento } from "@/data/projecaoMes";
 
 const brl = (n: number) => formatMetaValue("faturamento", n);
 const pct = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -19,20 +18,10 @@ const int = (n: number) => Math.round(n).toLocaleString("pt-BR");
 export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm, metas }: {
   total: UnitData; month: string; partial: boolean; unit: string | null; atualizadoEm: string | null; metas: Meta[];
 }) {
-  const lancado = total.previsaoFaturamento;
-  if (!partial || lancado === undefined || !(lancado > 0)) return null;
-  const jaVenceu = total.faturamento;
+  const p = projecaoFaturamento(total, month, partial, unit, atualizadoEm);
+  if (!p) return null;
+  const { jaVenceu, lancado, vendasFuturas, estimativa, faltam, ticket, contratos: proj } = p;
   const aVencer = Math.max(0, lancado - jaVenceu);
-
-  // Vendas que ainda vão entrar: contratos novos que faltam × valor médio de um contrato novo (matrícula e rematrícula).
-  const dias = diasFechados(month, partial, atualizadoEm);
-  const proj = total.vendasDia?.length ? projetarMes(total.vendasDia, month, dias, mesesDeReferencia(month, unit)) : null;
-  const tv = total.tipoVenda;
-  const nVendas = tv ? tv.novo[0] + tv.remat[0] : 0;
-  const ticket = tv && nVendas > 0 ? (tv.novo[1] + tv.remat[1]) / nVendas : 0;
-  const faltam = proj ? Math.max(0, proj.valor - (total.novosContratos ?? proj.realizado)) : 0;
-  const vendasFuturas = proj && ticket ? faltam * ticket : null;
-  const estimativa = lancado + (vendasFuturas ?? 0);
 
   const md = getDataByMonth(month);
   // Meta da rede somada só de algumas unidades não compara com o realizado de todas: aí fica sem o nível.
@@ -46,7 +35,7 @@ export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm,
 
   return (
     <ChartCard
-      title="Quanto vamos faturar até o fim do mês"
+      title="Projeção de faturamento até o final do mês"
       subtitle={<>{unit ?? "Rede"} • {formatMonthLong(month)} (mês em andamento)</>}
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">

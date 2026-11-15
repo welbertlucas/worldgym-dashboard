@@ -98,6 +98,23 @@ describe("MetasTab", () => {
     // unidades ordenadas pelo nível: B (prata) antes de A (abaixo)
     expect(html.indexOf(">B<")).toBeLessThan(html.indexOf(">A<"));
   });
+
+  it("mês em andamento: mostra a projeção de fechamento de faturamento contra a meta", () => {
+    const cur = monthKey(new Date());
+    // A: já venceu 30 mil e o EVO tem 110 mil lançados no mês (prata, 120 mil, ainda não); B: 130 mil e 160 mil lançados (ouro).
+    const live = [month(cur, [unit("A", { faturamento: 30000, previsaoFaturamento: 110000 }), unit("B", { faturamento: 130000, previsaoFaturamento: 160000 })])];
+    const ms: Meta[] = [
+      { month: cur, unit: "A", key: "faturamento", bronze: 100000, prata: 120000, ouro: 150000 },
+      { month: cur, unit: "B", key: "faturamento", bronze: 100000, prata: 120000, ouro: 150000 },
+    ];
+    const html = renderToString(<MetasTab data={live} metas={ms} month={cur} />).replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
+    expect(html).toContain("Projeção de fechamento");
+    expect(html).toContain("nível Bronze"); // A: 110 mil
+    expect(html).toContain("nível Ouro"); // B: 160 mil
+    expect(html).toContain("a conta fica em Financeiro");
+    // mês fechado: sem projeção
+    expect(renderToString(<MetasTab data={data} metas={metas} month="2026-09" />)).not.toContain("Projeção de fechamento");
+  });
 });
 
 describe("meta única da rede", () => {

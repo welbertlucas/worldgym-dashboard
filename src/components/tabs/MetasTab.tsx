@@ -7,7 +7,8 @@ import { Select } from "@/components/ui/select";
 import { TIER_COLOR, TierBadge, TierBullet, TierChips, shownPct, tierName } from "@/components/metas/TierGauge";
 import { GoalRing } from "@/components/metas/GoalRing";
 import { ExemploMeta } from "@/components/metas/ExemploMeta";
-import { type MonthData } from "@/data/dashboardData";
+import { type MonthData, type UnitData } from "@/data/dashboardData";
+import { projecaoContratos, projecaoFaturamento } from "@/data/projecaoMes";
 import {
   META_INDICATORS, TIER_LABEL, TIERS, actualFor, bulletScale, formatMetaValue, getMeta, isSingleGoal, metaWarnings, progressToNext, resolveGoal, tierReached,
   type Meta, type MetaKey, type TierResult,
@@ -17,6 +18,28 @@ import { AXIS_TICK, GRID, TOOLTIP_STYLE } from "@/components/chartTheme";
 
 const shortMonth = (m: string) => { const [y, mo] = m.split("-").map(Number); return new Date(y, mo - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }); };
 const TIER_RANK: Record<TierResult, number> = { ouro: 3, prata: 2, bronze: 1, abaixo: 0 };
+
+/** Indicadores com projeção de fechamento: faturamento (Financeiro) e novos contratos (Comercial → Vendas). */
+const PROJETAVEIS: MetaKey[] = ["faturamento", "novosContratos"];
+
+/** Projeção de fechamento do mês em andamento para o indicador; null se não há (mês fechado, antes do dia 10, sem dados). */
+function projetar(key: MetaKey, u: UnitData | undefined, month: string, partial: boolean, unit: string | null, atualizadoEm: string | null): number | null {
+  if (!partial || !u || !PROJETAVEIS.includes(key)) return null;
+  if (key === "novosContratos") return projecaoContratos(u, month, partial, unit, atualizadoEm)?.valor ?? null;
+  const p = projecaoFaturamento(u, month, partial, unit, atualizadoEm);
+  return p ? p.estimativa : null;
+}
+
+/** "Projeção de fechamento: R$ X, nível Prata" (ou "abaixo da meta"). */
+function LinhaProjecao({ metaKey, valor, meta }: { metaKey: MetaKey; valor: number; meta: Meta }) {
+  const nivel = tierReached(metaKey, valor, meta);
+  return (
+    <p className="text-xs text-muted-foreground tabular-nums">
+      Projeção de fechamento: <span className="font-semibold text-foreground">{metaKey === "novosContratos" ? `≈ ${Math.round(valor).toLocaleString("pt-BR")}` : `≈ ${formatMetaValue(metaKey, valor)}`}</span>
+      {" "}no ritmo atual, {nivel === "abaixo" ? (isSingleGoal(meta) ? "abaixo da meta" : "abaixo do bronze") : isSingleGoal(meta) ? "meta atingida" : `nível ${TIER_LABEL[nivel]}`}
+    </p>
+  );
+}
 
 /** Quem não tem meta cadastrada não preenche planilha: manda a meta para a World Gym Brasil, que cadastra. */
 function AvisoEnviarMeta() {
@@ -38,7 +61,7 @@ function EmptyState() {
   );
 }
 
-export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[]; metas: Meta[]; month: string; unit?: string | null }) {
+export function MetasTab({ data, metas, month, unit = null, atualizadoEm = null }: { data: MonthData[]; metas: Meta[]; month: string; unit?: string | null; atualizadoEm?: string | null }) {
   const keysWithMetas = (Object.keys(META_INDICATORS) as MetaKey[]).filter((k) => metas.some((m) => m.key === k));
   const [key, setKey] = useState<MetaKey | "">("");
   if (!metas.length) return <div><SectionTitle level="page">Metas</SectionTitle><EmptyState /></div>;
@@ -59,7 +82,7 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
     const actual = u[k];
     const tier = tierReached(k, actual, meta);
     const prog = progressToNext(k, actual, meta);
-    return { name: u.name, meta, actual, tier, pct: prog.pct, done: prog.next === null, scale: bulletScale(k, actual, meta) };
+    return { name: u.name, meta, actual, tier, proj: projetar(k, u, shownMonth, partial, u.name, atualizadoEm), pct: prog.pct, done: prog.next === null, scale: bulletScale(k, actual, meta) };
   }).filter((r): r is NonNullable<typeof r> => r !== null)
     .sort((a, b) => TIER_RANK[b.tier] - TIER_RANK[a.tier] || b.pct - a.pct);
 
@@ -68,6 +91,8 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
   const rk = (key && ringKeys.includes(key) ? key : ringKeys[0]) as MetaKey | undefined;
   const ring = md && rk ? resolveGoal(metas, md, shownMonth, unit, rk) : null;
   const ringName = unit ?? "Rede";
+  // Projeção só quando a meta é da própria unidade ou da rede (a soma de algumas unidades não compara com o total da rede).
+  const ringProj = ring && !ring.units && rk && md ? projetar(rk, unit ? md.units.find((x) => x.name === unit) : md.total, shownMonth, partial, unit, atualizadoEm) : null;
 
   // Histórico (rede) do indicador escolhido: realizado × níveis de meta
   const evoKey = k ?? keysWithMetas[0];
@@ -110,7 +135,7 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
             </div>
           )}
         </div>
-        {ring && rk ? (
+        {ring && rk ? (<>
           <GoalRing
             metaKey={rk}
             actual={ring.actual}
@@ -119,7 +144,8 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
             title={META_INDICATORS[rk].label}
             subtitle={`${ringName} • ${formatMonthLong(shownMonth)}${partial ? " • parcial do mês em andamento" : ""}${ring.units ? ` • soma das ${ring.units} ${ring.units === 1 ? "unidade" : "unidades"} com meta (realizado e metas só dela${ring.units === 1 ? "" : "s"})` : ""}`}
           />
-        ) : (
+          {ringProj !== null && <div className="mt-2 px-1"><LinhaProjecao metaKey={rk} valor={ringProj} meta={ring.meta} /></div>}
+        </>) : (
           <div className="space-y-4">
             <p className="card-surface px-5 py-6 text-center text-sm text-muted-foreground">
               {ringName === "Rede" ? "A rede não tem meta cadastrada neste mês." : `${ringName} não tem meta cadastrada em ${formatMonthLong(shownMonth)}.`}
@@ -159,12 +185,15 @@ export function MetasTab({ data, metas, month, unit = null }: { data: MonthData[
                   <span className="w-[10.5rem] flex justify-start"><TierBadge tier={r.tier} partial={partial} single={isSingleGoal(r.meta)} /></span>
                 </div>
                 <div className="col-span-2 sm:col-span-1 sm:order-2">{r.scale && <TierBullet scale={r.scale} thin />}</div>
-                <div className="col-span-2 sm:order-4 sm:col-span-3"><TierChips metaKey={k} actual={r.actual} meta={r.meta} /></div>
+                <div className="col-span-2 sm:order-4 sm:col-span-3 space-y-1"><TierChips metaKey={k} actual={r.actual} meta={r.meta} />{r.proj !== null && <LinhaProjecao metaKey={k} valor={r.proj} meta={r.meta} />}</div>
               </li>
             ))}
           </ol>
           <p className="mt-2 text-xs text-muted-foreground">
             A porcentagem é o quanto já foi alcançado do próximo nível. A barra mostra as faixas Bronze, Prata e Ouro; o traço escuro é o realizado.
+            {partial && PROJETAVEIS.includes(k) && (k === "faturamento"
+              ? " A projeção soma o que já está lançado no EVO ao que se estima vender até o fim do mês; a conta fica em Financeiro → Resumo."
+              : " A projeção usa a curva de vendas dos 3 meses anteriores; a conta fica em Comercial → Vendas.")}
           </p>
         </section>
       )}

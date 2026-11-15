@@ -11,7 +11,7 @@ describe("FaturamentoProjecao", () => {
   it("mês em andamento: já venceu, a vencer e a explicação", () => {
     const t = h({}).replace(/ /g, " ");
     expect(t).toContain("Já lançado no EVO");
-    expect(t).toContain("Quanto vamos faturar até o fim do mês");
+    expect(t).toContain("Projeção de faturamento até o final do mês");
     expect(t).toContain("Como é calculado");
     expect(t).toContain("75,0% do total"); // 600 mil de 800 mil
   });
