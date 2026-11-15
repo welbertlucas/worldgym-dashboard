@@ -2,6 +2,7 @@ import { UnitLink } from "@/components/UnitLink";
 import { getAvailableMonths, getDataByMonth, saldoAlunos, type UnitData } from "@/data/dashboardData";
 import { isPartialMonth } from "@/data/periods";
 import { cn } from "@/lib/utils";
+import { unidadesProprias } from "@/lib/auth";
 
 const MESES = 12;
 /** Variação de ±4% da base de alunos no mês pinta a célula por inteiro. */
@@ -28,6 +29,10 @@ export function SaldoHeatmap({ selectedMonth, selectedUnit }: { selectedMonth: s
     return { nome, celulas, acumulado };
   }).sort((a, b) => a.acumulado - b.acumulado);
   const totais = porMes.map((d) => (d ? d.units.reduce((s, u) => s + (saldoAlunos(u) ?? 0), 0) : undefined));
+  // Quem só vê as próprias unidades não tem "Rede": com uma unidade o total repetiria a linha de cima; com várias é a soma delas.
+  const proprias = unidadesProprias();
+  const rotuloTotal = proprias ? "Suas unidades" : "Rede";
+  const mostraTotal = !(proprias && linhas.length <= 1);
   const haDado = linhas.some((l) => l.celulas.some((u) => u && saldoAlunos(u) !== undefined));
 
   return (
@@ -65,11 +70,11 @@ export function SaldoHeatmap({ selectedMonth, selectedUnit }: { selectedMonth: s
                   <td className={cn("py-1.5 pl-3 text-right text-sm font-semibold", l.acumulado > 0 ? "text-success" : l.acumulado < 0 ? "text-destructive" : "text-foreground")}>{l.acumulado > 0 ? "+" : ""}{l.acumulado.toLocaleString("pt-BR")}</td>
                 </tr>
               ))}
-              <tr>
-                <th scope="row" className="sticky left-0 z-10 border-t border-border bg-white py-2 pr-3 text-left text-sm font-semibold text-foreground">Rede</th>
+              {mostraTotal && <tr>
+                <th scope="row" className="sticky left-0 z-10 border-t border-border bg-white py-2 pr-3 text-left text-sm font-semibold text-foreground">{rotuloTotal}</th>
                 {totais.map((t, i) => <td key={meses[i]} className="border-t border-border px-1 py-2 text-center text-xs font-semibold text-foreground">{t === undefined ? "—" : t > 0 ? `+${t.toLocaleString("pt-BR")}` : t.toLocaleString("pt-BR")}</td>)}
                 <td className="border-t border-border py-2 pl-3 text-right text-sm font-semibold text-foreground">{totais.reduce<number>((s, t) => s + (t ?? 0), 0).toLocaleString("pt-BR")}</td>
-              </tr>
+              </tr>}
             </tbody>
           </table>
         </div>

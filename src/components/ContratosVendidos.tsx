@@ -147,6 +147,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
           ? <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), agrupados pelo tipo do plano, porque cada unidade dá nome próprio aos seus planos no EVO. Escolha uma unidade no filtro para ver os planos pelo nome. Diárias, brinquedoteca e personal ficam de fora.</>
           : <>Planos vendidos no mês a alunos novos e a ex-alunos que voltaram (rematrícula), pelo nome do plano no EVO; diárias, brinquedoteca e personal ficam de fora.</>}
         {" "}Renovações não entram no ranking nem na duração dos planos.{!tv.auto && " As renovações de contrato deste mês ainda não foram carregadas."}{" "}
+        O total de planos pode ser menor que os novos contratos do mês, que também contam personal, Brinquedoteca, WG Plus e Pro+ (somados nas receitas complementares).{" "}
         Valor médio = valor da venda (num plano anual pago à vista, é o ano inteiro).
       </p>
     </ChartCard>
