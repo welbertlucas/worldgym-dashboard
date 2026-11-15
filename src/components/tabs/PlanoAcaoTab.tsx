@@ -4,6 +4,7 @@ import { type Alert } from "@/data/alerts";
 import { buildRecommendations, ALERT_LABELS } from "@/data/recommendations";
 import { dashboardData } from "@/data/dashboardData";
 import { formatMonthLong } from "@/data/periods";
+import { AvisoMesFechado } from "@/components/AvisoMesFechado";
 import { type UnitDelta } from "@/data/unitMetrics";
 import { destaquesDaUnidade, fraseDeDestaques, gruposDoPlano, passosDoItem, planoTexto, resumoDaRedeTexto } from "@/data/planoAcao";
 import { SectionTitle } from "@/components/SectionTitle";
@@ -45,9 +46,11 @@ export function PlanoAcaoTab({ alerts: todos, evalMonth, deltas, unit = null, on
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <SectionTitle hint={`${mes ? `Último mês fechado: ${mes}. ` : ""}O que fazer em cada unidade, a partir dos alertas críticos e de atenção. Copie o plano e mande para o gestor, a equipe ou os sócios. Para entender a causa (evidências e hipóteses), abra os Alertas.`}>Plano de ação</SectionTitle>
+        <SectionTitle hint="O que fazer em cada unidade, a partir dos alertas críticos e de atenção. Copie o plano e mande para o gestor, a equipe ou os sócios. Para entender a causa (evidências e hipóteses), abra os Alertas.">{mes ? `Plano de ação com base em ${mes}` : "Plano de ação"}</SectionTitle>
         {grupos.length > 1 && <BotaoCopiar rotulo="Copiar resumo da rede" texto={() => resumoDaRedeTexto(grupos, evalMonth)} />}
       </div>
+
+      {evalMonth && <AvisoMesFechado evalMonth={evalMonth} oQue="plano" />}
 
       {grupos.length === 0 ? (
         <p className="card-surface p-6 text-sm text-muted-foreground">
@@ -125,7 +128,7 @@ export function PlanoAcaoTab({ alerts: todos, evalMonth, deltas, unit = null, on
 
       <p className="text-xs text-muted-foreground">
         {informativos > 0 && <>Os {informativos} {informativos === 1 ? "item informativo fica" : "itens informativos ficam"} só nos Alertas. </>}
-        O plano sai dos mesmos alertas: quando um alerta deixa de aparecer no mês seguinte, ele some daqui. "Feito" vale para o mês avaliado: se o alerta continuar no mês seguinte, o item volta como pendente.
+        O plano sai dos mesmos alertas: quando um alerta deixa de aparecer no mês seguinte, ele some daqui. {mes ? `"Feito" vale para ${mes}: se o alerta continuar no mês seguinte, o item volta como pendente.` : '"Feito" vale para o mês avaliado: se o alerta continuar no mês seguinte, o item volta como pendente.'}
         {onOpenAlertas && <> <button type="button" onClick={onOpenAlertas} className="font-medium text-primary-ink underline underline-offset-4 hover:text-primary-ink/80">Ver os alertas com evidências e hipóteses</button></>}
       </p>
     </div>

@@ -27,7 +27,7 @@ export function recommendationText(rec: Recommendation, evalMonth?: string | nul
     "", "*Como investigar:*", bullets(rec.investigate),
     "", "*Ação sugerida:*", bullets(rec.correct),
     "", `*Acompanhar:* ${rec.followUp}`,
-    ...(evalMonth ? ["", `_Avaliação do mês fechado: ${formatMonthLong(evalMonth)}_`] : []),
+    ...(evalMonth ? ["", `_Com base em ${formatMonthLong(evalMonth)}, o último mês fechado_`] : []),
     "", DISCLAIMER,
   );
   return parts.join("\n");

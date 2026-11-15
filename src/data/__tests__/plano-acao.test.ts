@@ -27,7 +27,7 @@ describe("Plano de ação", () => {
     const [, a] = gruposDoPlano(recs);
     const t = planoTexto(a, ["Faturamento +21,5%"], "2026-10");
     expect(t).toContain("*📋 Plano de ação • A*");
-    expect(t).toContain("_Mês avaliado: outubro de 2026_");
+    expect(t).toContain("_Com base em outubro de 2026, o último mês fechado_");
     expect(t).toContain("🟠 *1. Churn");
     expect(t).toContain("Fazer: cobrar registrar");
     expect(t).toContain("Conferir: olhar no EVO");

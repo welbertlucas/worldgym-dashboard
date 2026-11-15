@@ -6,6 +6,7 @@ import { UnitLink } from "@/components/UnitLink";
 import { agruparPorUnidade } from "@/data/riscosGrupos";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { SectionTitle } from "@/components/SectionTitle";
+import { AvisoMesFechado } from "@/components/AvisoMesFechado";
 import { Chip, Segmentos } from "@/components/DateFilter";
 import { formatMonthLong } from "@/data/periods";
 import { dashboardData } from "@/data/dashboardData";
@@ -27,9 +28,10 @@ export function RiscosTab({ alerts: todos, evalMonth, unit = null }: { alerts: A
 
   return (
     <div className="space-y-4">
-      <SectionTitle>Alertas</SectionTitle>
+      <SectionTitle>{evalMonth ? `Alertas de ${formatMonthLong(evalMonth)}` : "Alertas"}</SectionTitle>
+      {evalMonth && <AvisoMesFechado evalMonth={evalMonth} oQue="alertas" />}
       <p className="text-sm text-muted-foreground">
-        {evalMonth ? <>Avaliação do último mês fechado: <b>{formatMonthLong(evalMonth)}</b>, comparado ao mês anterior. O mês em andamento não entra nos alertas.</> : "Ainda não há mês fechado para avaliar."}{" "}
+        {evalMonth ? <>Cada mês fechado é comparado ao anterior.</> : "Ainda não há mês fechado para avaliar."}{" "}
         Cada item separa o <b>fato</b> (calculado dos dados do EVO e da planilha) das <b>hipóteses</b> (causas a verificar — o dashboard não conhece as causas).
       </p>
       <div className="card-surface overflow-hidden" role="group" aria-label="Alertas por severidade">

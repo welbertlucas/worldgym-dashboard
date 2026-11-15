@@ -285,7 +285,7 @@ const Index = () => {
             {/* Unidade ou rede: um botão só, no canto do cabeçalho, para todas as telas que filtram por unidade. */}
             {comBotaoDeUnidade && <BotaoUnidade id="filtro-unidade" className="hidden sm:flex" value={selectedUnit} onChange={setSelectedUnit} />}
             <VerComo className="hidden xl:flex" />
-            <AlertasNoTopo alertas={alerts} onVerTodos={() => changeTab("riscos")} />
+            <AlertasNoTopo alertas={alerts} mes={evalMonth} onVerTodos={() => changeTab("riscos")} />
             {getUsuario() && !getUsuario()!.legado && (
               <button
                 type="button"

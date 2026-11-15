@@ -44,7 +44,7 @@ export function passosDoItem(r: Recommendation): { porque: string; conferir?: st
  *  `feitos`: tipos de alerta já marcados como feitos; saem da lista e aparecem numa linha no fim. */
 export function planoTexto(g: GrupoRisco, destaques: string[], evalMonth: string | null, feitos: Set<string> = new Set()): string {
   const partes = [`*📋 Plano de ação • ${g.unit}*`];
-  if (evalMonth) partes.push(`_Mês avaliado: ${formatMonthLong(evalMonth)}_`);
+  if (evalMonth) partes.push(`_Com base em ${formatMonthLong(evalMonth)}, o último mês fechado_`);
   const pendentes = g.itens.filter((r) => !feitos.has(r.kind));
   const prontos = g.itens.filter((r) => feitos.has(r.kind));
   pendentes.forEach((r, i) => {
@@ -64,7 +64,7 @@ export function resumoDaRedeTexto(grupos: GrupoRisco[], evalMonth: string | null
   const criticos = grupos.reduce((s, g) => s + g.criticos, 0), atencao = grupos.reduce((s, g) => s + g.atencao, 0);
   const unidades = grupos.filter((g) => g.unit !== "Rede").length;
   const partes = ["*📋 Plano de ação da rede*"];
-  if (evalMonth) partes.push(`_Mês avaliado: ${formatMonthLong(evalMonth)}_`);
+  if (evalMonth) partes.push(`_Com base em ${formatMonthLong(evalMonth)}, o último mês fechado_`);
   partes.push(`${unidades} ${unidades === 1 ? "unidade" : "unidades"} com ação: ${criticos} ${criticos === 1 ? "item crítico" : "itens críticos"} e ${atencao} em atenção.`, "");
   for (const g of grupos) {
     const [r, ...resto] = g.itens;

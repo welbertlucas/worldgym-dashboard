@@ -16,7 +16,7 @@ export function maisCriticos(alertas: Alert[], limite = MAX_NO_PAINEL): Alert[] 
  * Ícone de alerta no canto do cabeçalho, com o número de alertas críticos. Ao clicar, abre um painel com os mais críticos
  * e o caminho para a tela completa de alertas.
  */
-export function AlertasNoTopo({ alertas, onVerTodos }: { alertas: Alert[]; onVerTodos: () => void }) {
+export function AlertasNoTopo({ alertas, onVerTodos, mes = null }: { alertas: Alert[]; onVerTodos: () => void; /** Último mês fechado, que os alertas avaliam. */ mes?: string | null }) {
   const [aberto, setAberto] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
   const criticos = alertas.filter((a) => a.severity === "critical").length;
@@ -31,7 +31,8 @@ export function AlertasNoTopo({ alertas, onVerTodos }: { alertas: Alert[]; onVer
     return () => { document.removeEventListener("mousedown", fora); document.removeEventListener("keydown", tecla); };
   }, [aberto]);
 
-  const rotulo = criticos > 0 ? `Alertas: ${criticos} ${criticos === 1 ? "crítico" : "críticos"}` : "Alertas: nenhum crítico";
+  const deQuando = mes ? ` de ${formatMonthLong(mes)} (mês fechado)` : "";
+  const rotulo = criticos > 0 ? `Alertas${deQuando}: ${criticos} ${criticos === 1 ? "crítico" : "críticos"}` : `Alertas${deQuando}: nenhum crítico`;
   return (
     <div ref={raiz} className="relative">
       <button
@@ -66,8 +67,9 @@ export function AlertasNoTopo({ alertas, onVerTodos }: { alertas: Alert[]; onVer
           className="absolute right-0 top-full z-50 mt-2 w-[22rem] max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-white p-3 shadow-lg"
         >
           <p className="px-1 pb-2 text-sm font-semibold text-foreground">
-            {criticos > 0 ? `${criticos} ${criticos === 1 ? "alerta crítico" : "alertas críticos"}` : "Nenhum alerta crítico"}
+            {criticos > 0 ? `${criticos} ${criticos === 1 ? "alerta crítico" : "alertas críticos"}` : "Nenhum alerta crítico"}{mes && ` em ${formatMonthLong(mes)}`}
           </p>
+          {mes && <p className="px-1 pb-2 -mt-1 text-xs text-muted-foreground">Do último mês fechado: mostram o que aconteceu. Para o mês em andamento, veja as Metas.</p>}
           {lista.length > 0 ? (
             <ul className="max-h-[22rem] space-y-1 overflow-y-auto">
               {lista.map((a) => (

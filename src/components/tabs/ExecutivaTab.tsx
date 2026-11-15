@@ -105,8 +105,8 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
     <div className="space-y-8 sm:space-y-10">
       {partial && (
         <Notice>
-          <b>{formatMonthLong(month.month)} está em andamento</b> — os valores são parciais: a comparação com o mês anterior é provisória e não gera alertas.
-          {evalMonth && <> Alertas e destaques usam o último mês fechado: <b>{formatMonthLong(evalMonth)}</b>.</>}
+          <b>{formatMonthLong(month.month)} está em andamento</b> — os valores são parciais e a comparação com o mês anterior é provisória.
+          {evalMonth && <> O plano de ação, os alertas e a comparação entre unidades abaixo são de <b>{formatMonthLong(evalMonth)}</b>, o último mês fechado: mostram o que aconteceu. Para o ritmo de {formatMonthLong(month.month)}, veja as Metas.</>}
         </Notice>
       )}
 
@@ -130,8 +130,8 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
       <section aria-labelledby="prioridades-titulo" className="card-surface overflow-hidden">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 sm:p-6">
           <div className="flex-1 min-w-[14rem]">
-            <h3 id="prioridades-titulo" className="text-base font-semibold text-foreground">Plano de ação</h3>
-            <p className="text-sm text-muted-foreground">Os cinco itens mais urgentes do último mês fechado</p>
+            <h3 id="prioridades-titulo" className="text-base font-semibold text-foreground">{evalMonth ? `Plano de ação com base em ${formatMonthLong(evalMonth)}` : "Plano de ação"}</h3>
+            <p className="text-sm text-muted-foreground">Os cinco itens mais urgentes{evalMonth ? ` de ${formatMonthLong(evalMonth)}, o último mês fechado` : " do último mês fechado"}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded-full bg-destructive/10 text-destructive font-semibold px-3 py-1">{critical} críticos</span>
@@ -142,13 +142,13 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
         {recs.length ? (
           <div className="divide-y divide-border border-t border-border">{recs.map((r) => <RecommendationCard key={r.id} rec={r} flat evalMonth={evalMonth} />)}</div>
         ) : (
-          <p className="border-t border-border p-5 text-sm text-muted-foreground">Nenhum alerta crítico ou de atenção no último mês fechado.</p>
+          <p className="border-t border-border p-5 text-sm text-muted-foreground">{evalMonth ? `Nenhum alerta crítico ou de atenção em ${formatMonthLong(evalMonth)}, o último mês fechado.` : "Nenhum alerta crítico ou de atenção no último mês fechado."}</p>
         )}
       </section>
 
       {deltas.length > 1 && (
         <section>
-          <SectionTitle>Comparação entre unidades</SectionTitle>
+          <SectionTitle>{evalMonth ? `Comparação entre unidades em ${formatMonthLong(evalMonth)}` : "Comparação entre unidades"}</SectionTitle>
           <UnitHighlights deltas={deltas} />
           <p className="text-xs text-muted-foreground mt-2">Baseado no último mês fechado vs. o anterior. Unidades novas (sem mês anterior) ficam de fora.</p>
         </section>

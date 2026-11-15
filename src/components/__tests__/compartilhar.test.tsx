@@ -19,7 +19,7 @@ describe("texto para WhatsApp", () => {
     const t = recommendationText(rec, "2026-09");
     for (const s of ["*🔴 Crítico • Gama*", "Queda de faturamento", "*Fato (dos dados):* Faturamento caiu 12,5%", "*Ano anterior:* −18%",
       "*O que os dados indicam:*\n• Novos contratos -31,0%", "Sem sinal relevante em: ticket médio.", "• Menos vendas novas (indício nos dados)", "• Conferir funil de vendas", "• Plano de ação com prazo",
-      "*Acompanhar:* Rever no próximo fechamento.", "Avaliação do mês fechado: setembro de 2026", DISCLAIMER]) expect(t).toContain(s);
+      "*Acompanhar:* Rever no próximo fechamento.", "Com base em setembro de 2026, o último mês fechado", DISCLAIMER]) expect(t).toContain(s);
     expect(t.endsWith("conferir informações relevantes._")).toBe(true);
     expect(t).not.toContain("http");
     expect(t).not.toContain("github.io");
