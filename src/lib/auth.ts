@@ -158,9 +158,19 @@ export async function precisaDeLogin(): Promise<boolean> {
   }
 }
 
+/** Código aleatório deste navegador (nunca sai de lá a não ser no login), para o aviso de "aparelho novo" por e-mail. */
+function idDoAparelho(): string {
+  try {
+    const k = "atlas-aparelho";
+    let v = localStorage.getItem(k);
+    if (!v || v.length < 16) { v = crypto.randomUUID(); localStorage.setItem(k, v); }
+    return v;
+  } catch { return ""; }
+}
+
 export async function entrar(senha: string, email?: string): Promise<{ ok: true } | { ok: false; erro: string }> {
   try {
-    const res = await fetch(`${API}/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(comEmail ? { email, senha } : { senha }) });
+    const res = await fetch(`${API}/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(comEmail ? { email, senha, aparelho: idDoAparelho() } : { senha }) });
     if (res.status === 401) return { ok: false, erro: comEmail ? "E-mail ou senha incorretos." : "Senha incorreta." };
     if (res.status === 429) {
       const { minutos } = (await res.json().catch(() => ({}))) as { minutos?: number };

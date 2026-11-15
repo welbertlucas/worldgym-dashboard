@@ -5,6 +5,7 @@ import {
   protegido, temSegredo, senhaCorreta, criarToken, criarTokenUsuario, sessaoDaRequisicao, cors,
 } from "./_auth.js";
 import { bloqueadoPor, anotarErro, zerarErros, enderecoDe } from "../server/freio.js";
+import { avisarAcesso, avisarBloqueio } from "../server/avisos.js";
 import { listarUsuarios, autenticar, publico, registrarAcesso, normalizarEmail } from "../server/acesso.js";
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -28,7 +29,8 @@ export default async function handler(req, res) {
     }
     if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
 
-    const { email, senha } = doCorpo(req);
+    const { email, senha, aparelho } = doCorpo(req);
+    const ctx = { aparelho, ua: req.headers?.["user-agent"], ip: enderecoDe(req), headers: req.headers ?? {} }; // para os avisos por e-mail
 
     // Freio: muitas senhas erradas seguidas bloqueiam o e-mail (ou o endereço) por alguns minutos.
     const chaveIp = `ip:${enderecoDe(req)}`;
@@ -55,11 +57,14 @@ export default async function handler(req, res) {
       const existe = lista.some((x) => x.email === normalizarEmail(email));
       if (existe) await registrarAcesso({ email, ok: false }).catch(() => {});
       await anotarErro(chaveIp, "ip");
-      await anotarErro(chaveEmail, "email");
+      const bloqueou = await anotarErro(chaveEmail, "email");
+      const alvo = lista.find((x) => x.email === normalizarEmail(email));
+      if (bloqueou && alvo) await avisarBloqueio(alvo, ctx, 15); // só para e-mail que existe: não revela nem enche a caixa por tentativa em e-mail aleatório
       await esperar(1000);
       return res.status(401).json({ error: "e-mail ou senha incorretos" });
     }
     await zerarErros(chaveEmail);
+    await avisarAcesso(u, ctx); // aparelho novo: avisa por e-mail (nunca derruba o login)
     await registrarAcesso({ email: u.email, usuarioId: u.id, nome: u.nome, ok: true }).catch(() => {}); // o registro não derruba o login
     return res.status(200).json({ ...criarTokenUsuario(u.id, Date.now(), { papel: u.papel }), usuario: publico(u) });
   } catch (e) {

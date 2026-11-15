@@ -19,14 +19,16 @@ export async function bloqueadoPor(chave, agora = Date.now()) {
   } catch { return 0; }
 }
 
-/** Anota uma senha errada; ao passar do limite, bloqueia por TRAVA_MS. */
+/** Anota uma senha errada; ao passar do limite, bloqueia por TRAVA_MS. Devolve true quando ESTA tentativa foi a que bloqueou. */
 export async function anotarErro(chave, tipo, agora = Date.now()) {
   try {
     const reg = await lerJson(caminho(chave));
     const erros = [...recentes(reg, agora), agora];
-    const ate = erros.length >= LIMITES[tipo] ? agora + TRAVA_MS : reg?.ate > agora ? reg.ate : 0;
-    await gravarJson(caminho(chave), { erros: ate && ate > agora && erros.length >= LIMITES[tipo] ? [] : erros, ate });
-  } catch { /* sem armazém: sem freio */ }
+    const bloqueou = erros.length >= LIMITES[tipo];
+    const ate = bloqueou ? agora + TRAVA_MS : reg?.ate > agora ? reg.ate : 0;
+    await gravarJson(caminho(chave), { erros: bloqueou ? [] : erros, ate });
+    return bloqueou;
+  } catch { return false; /* sem armazém: sem freio */ }
 }
 
 /** Entrou com sucesso: zera os erros do e-mail. */

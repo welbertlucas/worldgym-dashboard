@@ -12,6 +12,8 @@ import usuarios from "../../../api/usuarios.js";
 // @ts-expect-error módulos JS do servidor
 import senhaApi from "../../../api/senha.js";
 // @ts-expect-error módulos JS do servidor
+import * as avisos from "../../../server/avisos.js";
+// @ts-expect-error módulos JS do servidor
 import * as vis from "../../../server/visibilidade.js";
 
 const memoria = () => {
@@ -456,5 +458,105 @@ describe("troca de senha no primeiro acesso", () => {
     expect(acesso.precisaTrocarSenha({ papel: "master", trocarSenha: false })).toBe(false);
     expect(acesso.precisaTrocarSenha({ papel: "dono", trocarSenha: true })).toBe(true); // senha refeita do dono
     expect((await chama(senhaApi, { method: "POST", body: { atual: "x", nova: "y" } })).code).toBe(401);
+  });
+});
+
+
+describe("avisos de segurança por e-mail", () => {
+  const ENV = { SMTP_USUARIO: "atlas@exemplo.com", SMTP_SENHA: "x" };
+  const UA_MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+  const UA_IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+  let enviados: { para: string; assunto: string; html: string }[];
+  const enviar = async (m: any) => { enviados.push(m); };
+  const ctx = (aparelho: string, ua = UA_MAC) => ({ aparelho, ua, ip: "177.1.2.3", headers: { "x-vercel-ip-city": encodeURIComponent("Águas Claras"), "x-vercel-ip-country-region": "DF", "x-vercel-ip-country": "BR" } });
+
+  beforeEach(() => {
+    process.env.DASHBOARD_PASSWORD = "senha-unica-de-teste";
+    definirArmazem(memoria());
+    acesso.limparCache();
+    acesso.limparFreio();
+    enviados = [];
+  });
+  afterEach(() => { delete process.env.DASHBOARD_PASSWORD; definirArmazem(null); acesso.limparCache(); });
+
+  it("reconhece o navegador e o local aproximado a partir do que a Vercel informa", () => {
+    expect(avisos.resumoDoNavegador(UA_MAC)).toBe("Chrome em macOS");
+    expect(avisos.resumoDoNavegador(UA_IPHONE)).toBe("Safari em iPhone/iPad");
+    expect(avisos.localAproximado(ctx("x").headers)).toBe("Águas Claras, DF");
+    expect(avisos.localAproximado({})).toBeNull();
+  });
+
+  it("aparelho: o primeiro acesso de conta antiga só registra; o seguinte, de aparelho diferente, avisa a pessoa", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const { usuario } = await acesso.criarUsuario({ nome: "Maria Souza", email: "maria@exemplo.com", papel: "unidades", unidades: ["Gama"] });
+    const antiga = { ...usuario, criadoEm: "2026-01-01T00:00:00Z" }; // conta de antes do recurso
+    const agora = Date.parse("2026-11-20T10:00:00Z");
+    expect((await avisos.avisarAcesso(antiga, ctx("aparelho-aaaaaaaaaaaaaaaa"), { agora, env: ENV, enviar })).enviados).toBe(0); // semeia
+    expect(enviados).toHaveLength(0);
+    expect((await avisos.avisarAcesso(antiga, ctx("aparelho-aaaaaaaaaaaaaaaa"), { agora: agora + 1000, env: ENV, enviar })).enviados).toBe(0); // conhecido
+    const r = await avisos.avisarAcesso(antiga, ctx("aparelho-bbbbbbbbbbbbbbbb", UA_IPHONE), { agora: agora + 3 * 3600e3, env: ENV, enviar });
+    expect(r.enviados).toBe(1);
+    expect(enviados).toHaveLength(1); // unidades: só a própria pessoa, não o dono
+    expect(enviados[0].para).toBe("maria@exemplo.com");
+    expect(enviados[0].assunto).toContain("Novo acesso");
+    expect(enviados[0].html).toContain("Safari em iPhone/iPad");
+    expect(enviados[0].html).toContain("Águas Claras, DF");
+    expect(enviados[0].html).toContain("177.1.2.3");
+    expect(dono.papel).toBe("dono");
+  });
+
+  it("conta de Master: aparelho novo avisa a pessoa e o dono; sem código de aparelho não há aviso; throttle de 30 minutos", async () => {
+    await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const { usuario } = await acesso.criarUsuario({ nome: "Ana Júlia", email: "ana@exemplo.com", papel: "master" });
+    const ana = { ...usuario, criadoEm: "2026-01-01T00:00:00Z" };
+    const agora = Date.parse("2026-11-20T10:00:00Z");
+    await avisos.avisarAcesso(ana, ctx("aparelho-aaaaaaaaaaaaaaaa"), { agora, env: ENV, enviar });
+    await avisos.avisarAcesso(ana, ctx("aparelho-bbbbbbbbbbbbbbbb"), { agora: agora + 3600e3, env: ENV, enviar });
+    expect(enviados.map((e) => e.para).sort()).toEqual(["ana@exemplo.com", "dono@exemplo.com"]);
+    expect(enviados.find((e) => e.para === "dono@exemplo.com")!.assunto).toContain("Ana Júlia");
+    enviados.length = 0;
+    // outro aparelho novo logo em seguida (dentro de 30 minutos): registra, mas não manda de novo
+    await avisos.avisarAcesso(ana, ctx("aparelho-cccccccccccccccc"), { agora: agora + 3600e3 + 60e3, env: ENV, enviar });
+    expect(enviados).toHaveLength(0);
+    // sem código de aparelho (navegador que não guarda nada): não dá para saber, não avisa
+    expect((await avisos.avisarAcesso(ana, { ...ctx(""), aparelho: "" }, { agora: agora + 9e6, env: ENV, enviar })).enviados).toBe(0);
+    expect(enviados).toHaveLength(0);
+  });
+
+  it("conta criada há pouco entrando pela primeira vez avisa só o dono; e sem SMTP configurado nada é enviado nem quebra", async () => {
+    await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const { usuario } = await acesso.criarUsuario({ nome: "Bia", email: "bia@exemplo.com", papel: "unidades", unidades: ["Gama"] });
+    const r = await avisos.avisarAcesso(usuario, ctx("aparelho-aaaaaaaaaaaaaaaa"), { env: ENV, enviar });
+    expect(r.enviados).toBe(1);
+    expect(enviados[0].para).toBe("dono@exemplo.com");
+    expect(enviados[0].assunto).toContain("primeira vez");
+    const { usuario: outra } = await acesso.criarUsuario({ nome: "Caio", email: "caio@exemplo.com", papel: "unidades", unidades: ["Gama"] });
+    enviados.length = 0;
+    expect((await avisos.avisarAcesso(outra, ctx("aparelho-zzzzzzzzzzzzzzzz"), { env: {}, enviar })).enviados).toBe(0); // sem SMTP
+    expect(enviados).toHaveLength(0);
+  });
+
+  it("bloqueio avisa a pessoa e o dono; senha alterada avisa a pessoa; e o login por e-mail dispara o aviso sem falhar", async () => {
+    await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const { usuario } = await acesso.criarUsuario({ nome: "Maria", email: "maria@exemplo.com", papel: "unidades", unidades: ["Gama"] });
+    const b = await avisos.avisarBloqueio(usuario, ctx("x"), 15, { env: ENV, enviar });
+    expect(b.enviados).toBe(2);
+    expect(enviados.map((e) => e.para).sort()).toEqual(["dono@exemplo.com", "maria@exemplo.com"]);
+    enviados.length = 0;
+    expect((await avisos.avisarSenhaAlterada(usuario, ctx("x"), { env: ENV, enviar })).enviados).toBe(1);
+    expect(enviados[0].para).toBe("maria@exemplo.com");
+    expect(enviados[0].html).not.toMatch(/senha-nova|provis/i);
+
+    // o login de verdade (sem SMTP no teste) continua funcionando com o código de aparelho no corpo
+    const { senhaProvisoria } = await acesso.criarUsuario({ nome: "Duda", email: "duda@exemplo.com", papel: "master" });
+    const ok = await chama(login, { method: "POST", headers: { "x-real-ip": "8.8.8.8", "user-agent": UA_MAC }, body: { email: "duda@exemplo.com", senha: senhaProvisoria, aparelho: "aparelho-aaaaaaaaaaaaaaaa" } });
+    expect(ok.code).toBe(200);
+  }, 20000);
+
+  it("o freio avisa quando a tentativa é a que bloqueia", async () => {
+    const { anotarErro } = await import("../../../server/freio.js" as any);
+    const r: boolean[] = [];
+    for (let i = 0; i < 5; i++) r.push(await anotarErro("email:teste@x.com", "email", 1_000_000 + i));
+    expect(r).toEqual([false, false, false, false, true]);
   });
 });

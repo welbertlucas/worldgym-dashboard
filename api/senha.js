@@ -3,6 +3,7 @@
 import { cors, sessaoDaRequisicao } from "./_auth.js";
 import { definirNovaSenha, publico, listarUsuarios, ErroAcesso } from "../server/acesso.js";
 import { bloqueadoPor, anotarErro, zerarErros, enderecoDe } from "../server/freio.js";
+import { avisarSenhaAlterada } from "../server/avisos.js";
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const doCorpo = (req) => (typeof req.body === "string" ? safeJson(req.body) : req.body ?? {});
@@ -26,6 +27,7 @@ export default async function handler(req, res) {
     try {
       const u = await definirNovaSenha(sessao.id, atual, nova);
       await zerarErros(chaveUsuario);
+      await avisarSenhaAlterada(u, { ua: req.headers?.["user-agent"], ip: enderecoDe(req), headers: req.headers ?? {} });
       return res.status(200).json({ ok: true, usuario: u });
     } catch (e) {
       if (e instanceof ErroAcesso && e.status === 401) {
