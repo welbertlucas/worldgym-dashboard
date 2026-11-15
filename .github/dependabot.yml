@@ -1,0 +1,21 @@
+# Atualizações automáticas: toda semana o GitHub confere as dependências do npm e das ações dos workflows
+# e abre um pedido (PR) quando há versão nova ou correção de segurança. Nada entra sem passar pelos testes e pela sua aprovação.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      desenvolvimento:
+        dependency-type: development
+      producao-menores:
+        dependency-type: production
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

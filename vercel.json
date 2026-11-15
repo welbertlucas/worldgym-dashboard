@@ -1,8 +1,48 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/despertador?rotina=evo-sync", "schedule": "37 3 * * *" },
-    { "path": "/api/despertador?rotina=meta-sync", "schedule": "30 9 * * *" },
-    { "path": "/api/despertador?rotina=resumo-diario", "schedule": "47 9 * * *" }
+    {
+      "path": "/api/despertador?rotina=evo-sync",
+      "schedule": "37 3 * * *"
+    },
+    {
+      "path": "/api/despertador?rotina=meta-sync",
+      "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/despertador?rotina=resumo-diario",
+      "schedule": "47 9 * * *"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'none'"
+        }
+      ]
+    }
   ]
 }
