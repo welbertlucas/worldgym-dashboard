@@ -1,3 +1,4 @@
+import { Abertura } from "@/components/Abertura";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
@@ -216,32 +217,7 @@ const Index = () => {
     return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   };
 
-  if (!fullMonthData.month) {
-    return (
-      <div className="min-h-screen bg-background lg:flex" role="status" aria-live="polite" aria-label="Carregando os dados do dashboard">
-        <div className="hidden lg:block w-64 shrink-0 border-r border-border p-4 space-y-3" aria-hidden>
-          {Array.from({ length: 8 }, (_, i) => <div key={i} className="h-9 rounded-lg bg-secondary animate-pulse motion-reduce:animate-none" />)}
-        </div>
-        <div className="flex-1 min-w-0 px-3 sm:px-6 lg:px-8 py-5 space-y-6" aria-hidden>
-          <div className="h-8 w-64 rounded-lg bg-secondary animate-pulse motion-reduce:animate-none" />
-          <div className="flex gap-3">
-            <div className="h-9 w-48 rounded-lg bg-secondary animate-pulse motion-reduce:animate-none" />
-            <div className="h-9 w-48 rounded-lg bg-secondary animate-pulse motion-reduce:animate-none" />
-          </div>
-          <div className="card-surface grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 8 }, (_, i) => (
-              <div key={i} className="p-5 flex flex-col items-center gap-3">
-                <div className="h-4 w-24 rounded bg-secondary animate-pulse motion-reduce:animate-none self-start" />
-                <div className="h-24 w-40 rounded-t-full bg-secondary animate-pulse motion-reduce:animate-none" />
-                <div className="h-5 w-32 rounded-full bg-secondary animate-pulse motion-reduce:animate-none" />
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-muted-foreground">Carregando dados...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!fullMonthData.month) return <Abertura mensagem="Carregando os resultados da rede" />;
 
   return (
     <UnitNavProvider value={openUnit}>
