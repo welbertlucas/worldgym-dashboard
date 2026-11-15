@@ -131,11 +131,11 @@ export function Sidebar({ collapsed, onToggleCollapsed, ...nav }: SidebarProps) 
           type="button"
           onClick={onToggleCollapsed}
           aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+          title={collapsed ? "Expandir menu" : "Recolher menu"}
           aria-expanded={!collapsed}
           className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {collapsed ? <PanelLeftOpen className="w-[18px] h-[18px]" aria-hidden /> : <PanelLeftClose className="w-[18px] h-[18px]" aria-hidden />}
-          {!collapsed && <span>Recolher menu</span>}
         </button>
       </div>
     </aside>
