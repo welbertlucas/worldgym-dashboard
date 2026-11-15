@@ -69,9 +69,9 @@ describe("despertador da Vercel (api/despertador)", () => {
     expect(r.code).toBe(502);
   });
 
-  it("vercel.json agenda as três rotinas nos horários de Brasília (UTC-3)", () => {
+  it("vercel.json agenda as rotinas nos horários de Brasília (UTC-3)", () => {
     const porRotina = Object.fromEntries(vercel.crons.map((c: { path: string; schedule: string }) => [new URL(c.path, "http://x").searchParams.get("rotina"), c.schedule]));
-    expect(porRotina).toEqual({ "evo-sync": "37 3 * * *", "meta-sync": "30 9 * * *", "resumo-diario": "47 9 * * *" });
+    expect(porRotina).toEqual({ "evo-sync": "37 3 * * *", "meta-sync": "30 9 * * *", "resumo-diario": "47 9 * * *", "backup-usuarios": "20 6 * * *" });
   });
 });
 

@@ -2,7 +2,7 @@
 // na hora. Existe porque o agendador do próprio GitHub atrasa de 8 a 10 horas (novembro/2026), enquanto o "rodar agora"
 // (workflow_dispatch) começa em segundos. O trabalho pesado continua no GitHub: leva horas, mais que uma função da Vercel.
 //
-// GET /api/despertador?rotina=evo-sync | meta-sync | resumo-diario
+// GET /api/despertador?rotina=evo-sync | meta-sync | resumo-diario | backup-usuarios
 // Só a Vercel chama: ela manda "Authorization: Bearer <CRON_SECRET>". Variáveis (Vercel, produção):
 //   CRON_SECRET            segredo que a própria Vercel envia nas chamadas agendadas
 //   GITHUB_DISPATCH_TOKEN  chave do GitHub com permissão só de "Actions: leitura e escrita" neste repositório
@@ -13,6 +13,7 @@ export const ROTINAS = {
   "evo-sync": "evo-sync.yml",
   "meta-sync": "meta-sync.yml",
   "resumo-diario": "resumo-diario.yml",
+  "backup-usuarios": "backup-usuarios.yml",
 };
 
 function autorizado(header) {

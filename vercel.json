@@ -12,6 +12,10 @@
     {
       "path": "/api/despertador?rotina=resumo-diario",
       "schedule": "47 9 * * *"
+    },
+    {
+      "path": "/api/despertador?rotina=backup-usuarios",
+      "schedule": "20 6 * * *"
     }
   ],
   "headers": [

@@ -1,0 +1,39 @@
+name: Backup dos usuários
+
+# Copia a lista de usuários do Atlas, criptografada, para os arquivos desta execução (guardados por 90 dias).
+# Roda todo dia às 03:20 de Brasília (06:20 UTC), disparado pelo despertador da Vercel (vercel.json -> /api/despertador);
+# o agendamento abaixo fica de reserva. O arquivo só abre com a senha BACKUP_SENHA (segredo do GitHub, cópia no Keychain/gerenciador do dono).
+# Para restaurar: scripts/restaurar-usuarios.mjs.
+on:
+  schedule:
+    - cron: "20 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-usuarios
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Criar backup criptografado
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+        run: node scripts/backup-usuarios.mjs backup
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-usuarios
+          path: backup/*.enc
+          retention-days: 90
+          if-no-files-found: error
