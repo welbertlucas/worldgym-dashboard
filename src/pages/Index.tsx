@@ -2,6 +2,7 @@ import { Abertura, seguirComAbeturaAzul } from "@/components/Abertura";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
+import { FaturamentoProjecao } from "@/components/FaturamentoProjecao";
 import { VendasPorDia } from "@/components/VendasPorDia";
 import { Abas, abaAtiva } from "@/components/Abas";
 import { SaldoDevedorCard } from "@/components/SaldoDevedor";
@@ -426,6 +427,7 @@ const Index = () => {
             {aba === "resumo" && (<>
               {/* Adimplentes e inadimplência ficam junto com os cards do financeiro, todos do mesmo tamanho */}
               <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[...financeiroSpecs, ...retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")]} columns="lg:grid-cols-3 xl:grid-cols-5" /></div>
+              <div className="mb-6"><FaturamentoProjecao total={kpiCtx.cur.total} month={fullMonthData.month} partial={partialSelected} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} metas={metasData} /></div>
               <div className="grid grid-cols-1 gap-6 mb-10">
                 <RevenueChart selectedUnit={selectedUnit} />
                 <InadimplenciaChart selectedUnit={selectedUnit} />
