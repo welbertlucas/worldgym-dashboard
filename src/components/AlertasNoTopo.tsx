@@ -42,14 +42,19 @@ export function AlertasNoTopo({ alertas, onVerTodos }: { alertas: Alert[]; onVer
         aria-expanded={aberto}
         title={rotulo}
         className={cn(
-          "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary shadow-sm transition-colors hover:border-foreground/25 hover:bg-secondary",
+          "flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold shadow-sm transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          aberto && "bg-secondary",
+          // Com críticos o botão chama a atenção (vermelho claro); sem nenhum, volta ao estilo neutro dos outros botões.
+          criticos > 0
+            ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+            : "border-border bg-card text-muted-foreground hover:border-foreground/25 hover:bg-secondary",
+          aberto && "ring-2 ring-primary/30",
         )}
       >
         <TriangleAlert className="h-4 w-4" aria-hidden />
+        <span className="hidden sm:inline">Alertas</span>
         {criticos > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 min-w-[1.1rem] rounded-full bg-primary px-1 py-0.5 text-center text-[10px] font-semibold leading-none text-primary-foreground" aria-hidden>
+          <span className="min-w-[1.25rem] rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-primary-foreground" aria-hidden>
             {criticos}
           </span>
         )}
