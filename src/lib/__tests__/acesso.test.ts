@@ -4,7 +4,7 @@ import { definirArmazem } from "../../../server/armazem.js";
 // @ts-expect-error módulos JS do servidor
 import * as acesso from "../../../server/acesso.js";
 // @ts-expect-error módulos JS do servidor
-import { criarToken, criarTokenUsuario, lerToken, exigirLogin, sessaoDaRequisicao, INATIVIDADE_MS } from "../../../api/_auth.js";
+import { criarToken, criarTokenUsuario, lerToken, exigirLogin, sessaoDaRequisicao, INATIVIDADE_MS, INATIVIDADE_UNIDADES_MS, TETO_SESSAO_MS } from "../../../api/_auth.js";
 // @ts-expect-error módulos JS do servidor
 import login from "../../../api/login.js";
 // @ts-expect-error módulos JS do servidor
@@ -190,6 +190,51 @@ describe("acessos, níveis e registro", () => {
     const longo = criarTokenUsuario(dono.id, t0 + 30 * 24 * h - 12 * h).token; // vence 30 dias depois de t0
     expect(await sessaoDaRequisicao(com(longo), r3, t0)).toBeTruthy();
     expect(lerToken(r3.headers["X-Atlas-Token"], t0 + 12 * h)).toBeNull();
+  });
+
+  it("prazos: unidades caem com 4 horas sem uso; dono e Master, com 12; e há um teto de 7 dias desde a entrada", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const { usuario: uni } = await acesso.criarUsuario({ nome: "Gestor", email: "g@exemplo.com", papel: "unidades", unidades: ["Gama"] });
+    const h = 3600 * 1000, d = 24 * h, t0 = Date.parse("2026-11-10T08:00:00Z");
+    expect(INATIVIDADE_UNIDADES_MS).toBe(4 * h);
+    expect(TETO_SESSAO_MS).toBe(7 * d);
+
+    const tUni = criarTokenUsuario(uni.id, t0, { papel: "unidades" }).token;
+    expect(lerToken(tUni, t0 + 4 * h - 1)).toBeTruthy();
+    expect(lerToken(tUni, t0 + 4 * h)).toBeNull();
+    const tDono = criarTokenUsuario(dono.id, t0, { papel: "dono" }).token;
+    expect(lerToken(tDono, t0 + 12 * h - 1)).toBeTruthy();
+    expect(lerToken(tDono, t0 + 12 * h)).toBeNull();
+
+    // Uso renova pelo prazo do nível: unidades ganham mais 4 horas, não 12.
+    const r1 = res();
+    expect(await sessaoDaRequisicao(com(tUni), r1, t0 + 3.5 * h)).toBeTruthy();
+    const renovado = r1.headers["X-Atlas-Token"];
+    expect(lerToken(renovado, t0 + 7.5 * h - 1)).toBeTruthy();
+    expect(lerToken(renovado, t0 + 7.5 * h)).toBeNull();
+
+    // Teto: usando sem parar, a sessão acaba 7 dias depois da entrada, mesmo com o token renovado.
+    let token = criarTokenUsuario(dono.id, t0, { papel: "dono" }).token;
+    for (let t = t0 + 11 * h; t < t0 + 7 * d - h; t += 11 * h) {
+      const r = res();
+      expect(await sessaoDaRequisicao(com(token), r, t)).toBeTruthy();
+      token = r.headers["X-Atlas-Token"] ?? token;
+    }
+    expect(lerToken(token, t0 + 7 * d - 1)).toBeTruthy();
+    expect(lerToken(token, t0 + 7 * d)).toBeNull();
+    expect(await sessaoDaRequisicao(com(token), res(), t0 + 7 * d)).toBeNull();
+
+    // Token de antes do teto (sem início): no primeiro uso o relógio de 7 dias começa.
+    const corpo = Buffer.from(JSON.stringify({ u: dono.id, e: t0 + 12 * h })).toString("base64url");
+    const { createHmac } = await import("node:crypto");
+    const chave = createHmac("sha256", "worldgym-dashboard-v2").update(process.env.SESSAO_SEGREDO || process.env.DASHBOARD_PASSWORD || "").digest();
+    const antigo = `v2.${corpo}.${createHmac("sha256", chave).update(corpo).digest("base64url")}`;
+    const r2 = res();
+    expect(await sessaoDaRequisicao(com(antigo), r2, t0 + h)).toBeTruthy();
+    const carimbado = r2.headers["X-Atlas-Token"];
+    expect(carimbado).toBeTruthy();
+    const inicio = JSON.parse(Buffer.from(carimbado.split(".")[1], "base64url").toString()).c;
+    expect(inicio).toBe(t0 + h); // o relógio de 7 dias começou neste primeiro uso
   });
 
   it("desativar vale na hora; reativar e redefinir senha funcionam; a senha provisória antiga morre", async () => {

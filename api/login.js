@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     }
     await zerarErros(chaveEmail);
     await registrarAcesso({ email: u.email, usuarioId: u.id, nome: u.nome, ok: true }).catch(() => {}); // o registro não derruba o login
-    return res.status(200).json({ ...criarTokenUsuario(u.id), usuario: publico(u) });
+    return res.status(200).json({ ...criarTokenUsuario(u.id, Date.now(), { papel: u.papel }), usuario: publico(u) });
   } catch (e) {
     return res.status(500).json({ error: "não consegui entrar agora" });
   }

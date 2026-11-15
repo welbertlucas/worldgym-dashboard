@@ -17,7 +17,7 @@ export default function App() {
     return () => window.removeEventListener(AUTH_REQUIRED_EVENT, pedir);
   }, []);
 
-  // Logado: 12 horas sem mexer no Atlas e ele volta para a tela de login.
+  // Logado: sem mexer no Atlas por 12 horas (4 para quem vê só algumas unidades), ou 7 dias depois de entrar, e ele volta para a tela de login.
   useEffect(() => (estado === "pronto" ? vigiarSessao() : undefined), [estado]);
 
   if (estado === "verificando") return <Abertura />;

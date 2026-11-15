@@ -58,7 +58,7 @@ export function sair() {
   window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
 }
 
-// Login por inatividade: o token vence 12 horas depois do último uso. O servidor manda um token novo neste cabeçalho
+// Login por inatividade: o token vence 12 horas depois do último uso (4 horas para quem vê só algumas unidades) e, de qualquer jeito, 7 dias depois da entrada. O servidor manda um token novo neste cabeçalho
 // (no máximo a cada 5 minutos) e o navegador troca o seu.
 const CABECALHO_TOKEN = "X-Atlas-Token";
 /** Troca o token pelo renovado, se veio um (e se a pessoa não saiu enquanto o pedido estava no ar). */
@@ -82,7 +82,7 @@ export function vencimentoDoToken(t = getToken()): number | null {
 const RENOVAR_POR_USO_MS = 10 * 60 * 1000;
 /**
  * Enquanto o Atlas está aberto: mexer na tela (clique, tecla, rolagem) renova o login no servidor, no máximo a cada
- * 10 minutos; e, se o token vencer (12 horas sem uso), volta sozinho para a tela de login, mesmo sem nenhum clique.
+ * 10 minutos; e, se o token vencer (sem uso por 12 horas, ou 4 para unidades; ou 7 dias desde a entrada), volta sozinho para a tela de login, mesmo sem nenhum clique.
  * Devolve a função que desliga a vigia.
  */
 export function vigiarSessao(agora: () => number = Date.now): () => void {

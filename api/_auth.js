@@ -1,8 +1,9 @@
 // Autenticação do dashboard. O prefixo "_" faz a Vercel NÃO expor este arquivo como rota.
 //
 // Como funciona: quem entra em /api/login (e-mail + senha) recebe um token assinado (HMAC) que só diz QUEM é a pessoa
-// e vence após 12 horas SEM USO: cada pedido aceito devolve um token novo no cabeçalho X-Atlas-Token (no máximo a cada
-// 5 minutos), e o navegador troca o seu. Quem fica 12 horas sem mexer no Atlas precisa entrar de novo. O nível e as unidades vêm da lista de usuários a cada pedido, então desativar um acesso ou
+// e vence após um tempo SEM USO (12 horas para dono e Master, 4 horas para quem vê só algumas unidades): cada pedido aceito
+// devolve um token novo no cabeçalho X-Atlas-Token (no máximo a cada 5 minutos), e o navegador troca o seu. Além disso há um
+// teto de 7 dias desde a entrada: mesmo usando todo dia, depois disso a pessoa entra de novo. O nível e as unidades vêm da lista de usuários a cada pedido, então desativar um acesso ou
 // trocar o nível vale na hora (até 1 minuto por instância, por causa do cache).
 //
 // Transição: enquanto NÃO existe nenhum usuário, continua valendo a senha única (DASHBOARD_PASSWORD) e os tokens
@@ -14,8 +15,12 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { listarUsuarios, gerenciaAcessos } from "../server/acesso.js";
 import { UNIT_NAMES } from "../server/units.js";
 
-/** Tempo sem uso até o login cair. */
+/** Tempo sem uso até o login cair: 12 horas para dono e Master (aparelho próprio), 4 horas para quem vê só algumas unidades (computador de recepção, em geral compartilhado). */
 export const INATIVIDADE_MS = 12 * 3600 * 1000;
+export const INATIVIDADE_UNIDADES_MS = 4 * 3600 * 1000;
+/** Desde a entrada, mesmo usando sem parar: depois disso entra de novo (limita o estrago de um token roubado). */
+export const TETO_SESSAO_MS = 7 * 24 * 3600 * 1000;
+export const inatividadeDe = (papel) => (papel === "unidades" ? INATIVIDADE_UNIDADES_MS : INATIVIDADE_MS);
 /** Só troca o token se o atual tiver mais que isto (evita gerar um token a cada pedido). */
 const RENOVAR_APOS_MS = 5 * 60 * 1000;
 export const CABECALHO_TOKEN = "X-Atlas-Token";
@@ -44,14 +49,18 @@ export function criarToken(agora = Date.now()) {
   return { token: `${corpo}.${assinar(chaveLegado(), corpo)}`, expiraEm: exp };
 }
 
-/** Token de uma pessoa: só guarda quem é (id) e quando vence. */
-export function criarTokenUsuario(usuarioId, agora = Date.now()) {
-  const exp = agora + INATIVIDADE_MS;
-  const corpo = Buffer.from(JSON.stringify({ u: usuarioId, e: exp })).toString("base64url");
+/**
+ * Token de uma pessoa: guarda quem é (id), quando vence por falta de uso (e) e quando a sessão começou (c, para o teto de 7 dias).
+ * `papel` define o tempo sem uso; `desde` é o início da sessão (na renovação continua o mesmo; no login é agora).
+ */
+export function criarTokenUsuario(usuarioId, agora = Date.now(), { papel, desde } = {}) {
+  const c = desde ?? agora;
+  const exp = Math.min(agora + inatividadeDe(papel), c + TETO_SESSAO_MS);
+  const corpo = Buffer.from(JSON.stringify({ u: usuarioId, e: exp, c })).toString("base64url");
   return { token: `v2.${corpo}.${assinar(chaveUsuario(), corpo)}`, expiraEm: exp };
 }
 
-/** { tipo: "legado" } | { tipo: "usuario", uid, exp } | null (assinatura errada, vencido ou lixo). */
+/** { tipo: "legado" } | { tipo: "usuario", uid, exp, desde } | null (assinatura errada, vencido, passou do teto ou lixo). */
 export function lerToken(token, agora = Date.now()) {
   if (typeof token !== "string") return null;
   const partes = token.split(".");
@@ -59,8 +68,10 @@ export function lerToken(token, agora = Date.now()) {
     const [, corpo, assinatura] = partes;
     if (!corpo || !assinatura || !segredo() || !iguais(assinatura, assinar(chaveUsuario(), corpo))) return null;
     try {
-      const { u, e } = JSON.parse(Buffer.from(corpo, "base64url").toString());
-      return u && Number(e) > agora ? { tipo: "usuario", uid: u, exp: Number(e) } : null;
+      const { u, e, c } = JSON.parse(Buffer.from(corpo, "base64url").toString());
+      const desde = Number(c) || null; // tokens de antes do teto não têm início: o relógio de 7 dias começa na primeira renovação
+      if (desde && agora >= desde + TETO_SESSAO_MS) return null;
+      return u && Number(e) > agora ? { tipo: "usuario", uid: u, exp: Number(e), desde } : null;
     } catch {
       return null;
     }
@@ -99,7 +110,7 @@ export function aplicarVerComo(sessao, pedido, nomesValidos = Object.values(UNIT
 const pedidoVerComo = (req) => req.headers?.[CABECALHO_VER_COMO.toLowerCase()];
 
 /** Quem está fazendo o pedido, ou null. Confere o usuário na lista a cada vez (desativado = fora).
- *  Com `res`, renova o login (mais 12 horas a partir de agora) mandando o token novo no cabeçalho X-Atlas-Token. */
+ *  Com `res`, renova o login (mais o tempo sem uso do nível, a partir de agora, até o teto) mandando o token novo no cabeçalho X-Atlas-Token. */
 export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
   const t = lerToken(tokenDaRequisicao(req), agora);
   if (!t) return null;
@@ -107,9 +118,13 @@ export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
   if (t.tipo === "legado") return lista.length === 0 ? SESSAO_LEGADO : null;
   const u = lista.find((x) => x.id === t.uid && x.ativo !== false);
   if (!u) return null;
-  // Renova quando o token tem mais de 5 minutos. Tokens antigos de 30 dias (resta mais que 12 horas) viram de 12 horas no primeiro uso.
+  // Renova quando o token tem mais de 5 minutos (e o teto ainda não limitou o vencimento). Tokens mais longos que o devido (antigos de 30 dias, ou de
+  // quem passou a ver só algumas unidades) são encurtados no primeiro uso. O início da sessão (desde) segue o mesmo na renovação.
+  const inat = inatividadeDe(u.papel);
+  const desde = t.desde ?? agora;
+  const noTeto = t.exp >= desde + TETO_SESSAO_MS;
   const resta = t.exp - agora;
-  if (res && (resta <= INATIVIDADE_MS - RENOVAR_APOS_MS || resta > INATIVIDADE_MS)) res.setHeader(CABECALHO_TOKEN, criarTokenUsuario(u.id, agora).token);
+  if (res && !noTeto && (resta <= inat - RENOVAR_APOS_MS || resta > inat || !t.desde)) res.setHeader(CABECALHO_TOKEN, criarTokenUsuario(u.id, agora, { papel: u.papel, desde }).token);
   return aplicarVerComo(sessaoDe(u), pedidoVerComo(req));
 }
 

@@ -3,7 +3,7 @@ import { vencimentoDoToken } from "@/lib/auth";
 // Tela de abertura enquanto o app confere se a pessoa já entrou ou carrega os dados. Repete a do index.html (mostrada antes do JavaScript
 // carregar), para não piscar entre uma e outra. Quem já tem sessão guardada vê a versão clara, que combina com o painel; quem não tem vê a
 // azul, que é a do login. Com `mensagem`, mostra também a barra de progresso e a frase.
-// Sessão guardada e ainda dentro do prazo: token vencido (12 horas sem uso) leva ao login, então fica a abertura azul.
+// Sessão guardada e ainda dentro do prazo: token vencido (sem uso ou passou do teto) leva ao login, então fica a abertura azul.
 const sessaoGuardada = () => { try { const v = vencimentoDoToken(); return v !== null && v > Date.now(); } catch { return false; } };
 
 // Quem acabou de entrar pelo login (azul) segue vendo a tela azul até o painel aparecer, para não virar de azul para claro no meio do caminho.
