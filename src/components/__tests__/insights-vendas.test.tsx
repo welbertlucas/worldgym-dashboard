@@ -356,6 +356,11 @@ describe("oportunidades: tempo até converter, consultores e por unidade", () =>
     const { ConsultoresConversao } = await import("@/components/ConsultoresConversao");
     const h = limpo(renderToString(<ConsultoresConversao total={total} monthLabel="Outubro de 2026" partial={false} unitLabel="Rede" />));
     expect(h.indexOf("Bia Lima")).toBeLessThan(h.indexOf("Caio Reis"));
+    // o usuário de suporte do EVO não é consultor: fica fora do ranking, mesmo nos meses gravados antes do filtro
+    const comSuporte = { ...total, consultores: [["SUPORTEEVO", 296, "Gama"], ["Bia Lima", 20, "Asa Norte"], ["Suporte Evo", 5, "Gama"]] } as unknown as UnitData;
+    const semSuporte = limpo(renderToString(<ConsultoresConversao total={comSuporte} monthLabel="x" partial={false} unitLabel="Rede" />));
+    expect(semSuporte).toContain("Bia Lima");
+    expect(semSuporte.replace("O usuário de suporte do EVO não aparece", "")).not.toMatch(/SUPORTEEVO/);
     expect(h).toContain("Asa Norte");
     expect(h).toContain("não informa quem cadastrou");
     const uma = limpo(renderToString(<ConsultoresConversao total={{ ...total, consultores: [["Bia Lima", 20, "Asa Norte"]] } as unknown as UnitData} monthLabel="x" partial={false} unitLabel="Asa Norte" />));

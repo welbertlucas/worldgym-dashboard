@@ -686,9 +686,12 @@ export function somarTempoConversao(us: Pick<UnitData, "tempoConversao">[]): Tem
   return out;
 }
 
+/** Usuário interno do suporte do EVO (faz conversões por baixo dos panos): não é consultor da unidade e fica fora do ranking. */
+export const ehUsuarioDeSistema = (nome: string) => /^suporte\s*evo$/i.test(String(nome ?? "").trim());
+
 /** Junta os consultores de várias unidades (com a unidade ao lado do nome) e devolve os 10 que mais converteram. */
 export function somarConsultores(us: Pick<UnitData, "name" | "consultores">[]): [string, number, string?][] {
-  return us.flatMap((u) => (u.consultores ?? []).map(([nome, n]) => [nome, n, u.name] as [string, number, string]))
+  return us.flatMap((u) => (u.consultores ?? []).filter(([nome]) => !ehUsuarioDeSistema(nome)).map(([nome, n]) => [nome, n, u.name] as [string, number, string]))
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, 10);
 }
 

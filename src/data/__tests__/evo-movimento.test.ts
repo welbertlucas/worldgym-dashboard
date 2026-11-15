@@ -244,6 +244,9 @@ describe("conversão de cadastros (prospects do EVO)", () => {
       l("03/10/2026", "20/10/2026", "Bia"), l("04/10/2026", "", ""), l("05/10/2026", "07/10/2026", ""),
     ], "2026-10-01", "2026-10-31")["Asa Norte"];
     expect(r.consultores).toEqual([["Bia", 3], ["Caio", 1]]);
+    const comSuporte = resumirProspects([l("01/10/2026", "01/10/2026", "SUPORTEEVO"), l("01/10/2026", "02/10/2026", "Suporte Evo"), l("01/10/2026", "02/10/2026", "Bia")], "2026-10-01", "2026-10-31")["Asa Norte"];
+    expect(comSuporte.consultores).toEqual([["Bia", 1]]); // o usuário de suporte do EVO não é consultor
+    expect(comSuporte.conversoes).toBe(3); // mas a conversão continua contando no total
     expect(r.tempoConversao).toEqual({ n: 5, soma: 0 + 1 + 7 + 17 + 2, f: [1, 2, 1, 1, 0] });
   });
   it("mergeEvo: taxa por unidade e total ponderado; mês sem prospects mantém a planilha", () => {

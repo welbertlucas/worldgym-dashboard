@@ -22,6 +22,8 @@ export const FAIXAS_TEMPO = ["No mesmo dia", "1 a 3 dias", "4 a 7 dias", "8 a 30
 const faixaDoTempo = (dias) => (dias <= 0 ? 0 : dias <= 3 ? 1 : dias <= 7 ? 2 : dias <= 30 ? 3 : 4);
 const diasEntre = (de, ate) => Math.round((new Date(`${ate}T00:00:00Z`) - new Date(`${de}T00:00:00Z`)) / 86400000);
 const MAX_CONSULTORES = 10;
+/** Usuário interno do suporte do EVO: faz conversões por baixo dos panos e não é consultor da unidade, então não entra no ranking. */
+export const ehUsuarioDeSistema = (nome) => /^suporte\s*evo$/i.test(String(nome ?? "").trim());
 
 const iso = (d) => (/^\d\d\/\d\d\/\d{4}$/.test(d) ? d.split("/").reverse().join("-") : "");
 
@@ -46,7 +48,7 @@ export function resumirProspects(rows, de, ate) {
     if (conv && conv >= de && conv <= ate) {
       u.conversoes += 1; o[1] += 1;
       const quem = String(r.ConvertidoPor ?? "").replace(/\s+/g, " ").trim();
-      if (quem) u._consultores.set(quem, (u._consultores.get(quem) ?? 0) + 1);
+      if (quem && !ehUsuarioDeSistema(quem)) u._consultores.set(quem, (u._consultores.get(quem) ?? 0) + 1);
       const dias = Math.max(0, diasEntre(cad, conv));
       u.tempoConversao.n += 1; u.tempoConversao.soma += dias; u.tempoConversao.f[faixaDoTempo(dias)] += 1;
     }
