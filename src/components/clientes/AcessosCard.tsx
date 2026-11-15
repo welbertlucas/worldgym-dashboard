@@ -6,8 +6,8 @@ import { formatMonthLong } from "@/data/periods";
 
 export const FAIXAS = [
   { rotulo: "Até 7 dias", cor: "bg-success" },
-  { rotulo: "8 a 14 dias", cor: "bg-success/50" },
-  { rotulo: "15 a 30 dias", cor: "bg-warning" },
+  { rotulo: "8 a 15 dias", cor: "bg-success/50" },
+  { rotulo: "16 a 30 dias", cor: "bg-warning" },
   { rotulo: "31 a 60 dias", cor: "bg-destructive/50" },
   { rotulo: "Mais de 60 dias", cor: "bg-destructive/80" },
   { rotulo: "Nunca acessou", cor: "bg-foreground/40" },
@@ -16,8 +16,8 @@ export const FAIXAS = [
 const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1).replace(".", ",")}%` : "—");
 const soma = (a: number[]) => a.reduce((n, v) => n + v, 0);
 
-/** Alunos ativos "sumidos": sem acesso há mais de 30 dias (faixas 31–60, mais de 60 e nunca). */
-export const semAcessoHa30 = (a: number[]) => soma(a.slice(3));
+/** Alunos ativos "sumidos": sem acesso há mais de 15 dias (faixas 16–30, 31–60, mais de 60 e nunca). */
+export const semAcessoHa15 = (a: number[]) => soma(a.slice(2));
 
 function Barra({ a }: { a: number[] }) {
   const t = soma(a);
@@ -37,7 +37,7 @@ export function AcessosCard({ total, month, monthLabel, unit }: { total: UnitDat
   if (!a || soma(a) === 0) return <ChartCard title="Último check-in dos alunos" subtitle={subtitle}><ChartEmpty>O último acesso é uma foto de hoje e só existe para o mês em andamento; ela passa a aparecer conforme os dias são registrados.</ChartEmpty></ChartCard>;
   const t = soma(a);
   const doMes = reserva ? reserva.unidades : (getDataByMonth(month)?.units ?? []);
-  const unidades = unit ? [] : doMes.filter((u) => u.acessos && soma(u.acessos) > 0).sort((x, y) => semAcessoHa30(y.acessos!) / soma(y.acessos!) - semAcessoHa30(x.acessos!) / soma(x.acessos!));
+  const unidades = unit ? [] : doMes.filter((u) => u.acessos && soma(u.acessos) > 0).sort((x, y) => semAcessoHa15(y.acessos!) / soma(y.acessos!) - semAcessoHa15(x.acessos!) / soma(x.acessos!));
   return (
     <ChartCard
       title="Último check-in dos alunos"
@@ -45,7 +45,7 @@ export function AcessosCard({ total, month, monthLabel, unit }: { total: UnitDat
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
           <HeadlineStat label="Vieram nos últimos 7 dias" value={pct(a[0], t)} swatch={<span className="h-2 w-2 rounded-full bg-success" />} />
-          <HeadlineStat label="Sem vir há mais de 30 dias" value={pct(semAcessoHa30(a), t)} swatch={<span className="h-2 w-2 rounded-full bg-destructive/70" />} />
+          <HeadlineStat label="Sem vir há mais de 15 dias" value={pct(semAcessoHa15(a), t)} swatch={<span className="h-2 w-2 rounded-full bg-destructive/70" />} />
         </div>
       }
     >
@@ -54,17 +54,17 @@ export function AcessosCard({ total, month, monthLabel, unit }: { total: UnitDat
         {FAIXAS.map((f, i) => <li key={f.rotulo} className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${f.cor}`} />{f.rotulo}: <span className="font-semibold tabular-nums text-foreground">{a[i].toLocaleString("pt-BR")}</span></li>)}
       </ul>
       {unidades.length > 0 && (
-        <ul className="mt-4 space-y-2" aria-label="Alunos sem vir há mais de 30 dias por unidade, da maior para a menor parcela">
+        <ul className="mt-4 space-y-2" aria-label="Alunos sem vir há mais de 15 dias por unidade, da maior para a menor parcela">
           {unidades.map((u) => (
             <li key={u.name} className="grid grid-cols-[8rem_minmax(0,1fr)_3.5rem] items-center gap-3 text-sm sm:grid-cols-[11rem_minmax(0,1fr)_4rem]">
               <span className="truncate font-medium text-foreground"><UnitLink name={u.name} /></span>
               <Barra a={u.acessos!} />
-              <span className="text-right font-semibold tabular-nums text-foreground">{pct(semAcessoHa30(u.acessos!), soma(u.acessos!))}</span>
+              <span className="text-right font-semibold tabular-nums text-foreground">{pct(semAcessoHa15(u.acessos!), soma(u.acessos!))}</span>
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-3 text-xs text-muted-foreground">Alunos ativos de hoje, pelo último acesso registrado na catraca. A coluna da direita é a parcela sem vir há mais de 30 dias (quanto maior, mais alunos em risco de cancelar).</p>
+      <p className="mt-3 text-xs text-muted-foreground">Alunos ativos de hoje, pelo último acesso registrado na catraca. A coluna da direita é a parcela sem vir há mais de 15 dias (quanto maior, mais alunos em risco de cancelar).</p>
     </ChartCard>
   );
 }

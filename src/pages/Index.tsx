@@ -13,6 +13,9 @@ import { BotaoUnidade, DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
+import { TempoParaConverter } from "@/components/TempoParaConverter";
+import { ConsultoresConversao } from "@/components/ConsultoresConversao";
+import { OportunidadesPorUnidade } from "@/components/OportunidadesPorUnidade";
 import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components/ContratosVendidos";
 import { BandeirasCartao, FormasPagamento, GatewaysCartao } from "@/components/FormasPagamento";
 import { CampanhasTab } from "@/components/tabs/CampanhasTab";
@@ -90,9 +93,9 @@ const Index = () => {
   // A aba fica no endereço (#campanhas, #financeiro...): recarregar a página volta para ela, o link leva direto e o "voltar" do navegador funciona.
   const [activeTab, setActiveTab] = useState(() => abaDoEndereco() ?? "executiva");
   const [subAba, setSubAba] = useState<string | null>(() => subDoEndereco());
-  /** Telas com filtro próprio no lugar do filtro do topo: Campanhas e Anúncios (Leads usa o do topo). */
+  /** Telas com filtro próprio no lugar do filtro do topo: Campanhas e Anúncios. */
   const abaMarketing = activeTab === "campanhas" ? abaAtiva(SUBMENUS.campanhas, subAba) : null;
-  const seletorProprio = abaMarketing !== null && abaMarketing !== "leads" && abaMarketing !== "instagram";
+  const seletorProprio = abaMarketing !== null && abaMarketing !== "instagram";
   /** Telas que não dependem do mês (o Instagram mostra o que está guardado, pelos últimos dias). */
   const semMes = abaMarketing === "instagram";
   useEffect(() => {
@@ -367,6 +370,15 @@ const Index = () => {
               <div className="mb-6"><VendasPorDia total={kpiCtx.cur.total} month={fullMonthData.month} partial={partialSelected} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} metas={metasData} /></div>
               <div className="mb-6"><ContratosVendidos total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} porFamilia={!selectedUnit} /></div>
             </>)}
+            {aba === "oportunidades" && (<>
+              <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} /></div>
+              <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} /></div>
+              <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+                <TempoParaConverter total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
+                <ConsultoresConversao total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
+              </div>
+              {!selectedUnit && <div className="mb-6"><OportunidadesPorUnidade units={getDataByMonth(fullMonthData.month)?.units ?? []} monthLabel={mes} partial={partialSelected} /></div>}
+            </>)}
             {aba === "complementares" && (<>
               <SectionTitle hint={selectedUnit ? `Soma das receitas complementares de ${selectedUnit}` : "Soma das receitas complementares da rede; escolha uma unidade no filtro para ver só ela"}>Receitas complementares</SectionTitle>
               <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={complementaresSpecs} columns="xl:grid-cols-4" /></div>
@@ -458,10 +470,6 @@ const Index = () => {
             month={fullMonthData.month}
             aba={subAba}
             onAba={(s) => changeTab(`campanhas/${s}`)}
-            leads={<>
-              <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
-              <div className="mb-6"><PerfilOportunidades total={kpiCtx.cur.total} monthLabel={formatMonthLong(fullMonthData.month)} partial={partialSelected} unitLabel={selectedUnit ?? "Rede"} /></div>
-            </>}
             instagram={<InstagramTab unit={selectedUnit} />}
           />
         )}

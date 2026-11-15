@@ -152,12 +152,15 @@ describe("OndeMoramAlunos", () => {
 });
 
 describe("AcessosCard", () => {
-  it("mostra a parcela que veio na última semana e a sem vir há mais de 30 dias", async () => {
+  it("mostra a parcela que veio na última semana e a sem vir há mais de 15 dias", async () => {
     const { AcessosCard } = await import("@/components/clientes/AcessosCard");
     const total = { name: "Rede", faturamento: 0, recebimento: 0, acessos: [60, 10, 10, 10, 5, 5] } as never;
     const html = renderToString(<AcessosCard total={total} month="2026-11" monthLabel="novembro de 2026" unit="Itapoã" />);
     expect(html).toMatch(/60,0%/);
-    expect(html).toMatch(/20,0%/);
+    expect(html).toMatch(/30,0%/); // 10 + 10 + 5 + 5 de 100: sem vir há mais de 15 dias
+    expect(html).toContain("Sem vir há mais de 15 dias");
+    expect(html).toContain("8 a 15 dias");
+    expect(html).toContain("16 a 30 dias");
   });
   it("sem foto, orienta", async () => {
     const { AcessosCard } = await import("@/components/clientes/AcessosCard");
@@ -279,7 +282,7 @@ describe("busca do menu", () => {
     expect(busca("catraca")).toContain("catraca/frequencia");
     expect(busca("liberacoes")).toContain("catraca/liberacoes");
     expect(busca("mapa dos alunos")).toEqual(["alunos/onde-moram"]);
-    expect(busca("oportunidades")).toContain("campanhas/leads");
+    expect(busca("oportunidades")).toContain("comercial/oportunidades");
     expect(busca("benchmark")).toContain("benchmark/posicao");
     expect(busca("saldo devedor")).toEqual(["financeiro/cobranca"]);
     expect(busca("renovacao")[0]).toBe("retencao/renovacao");

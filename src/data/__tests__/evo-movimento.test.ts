@@ -226,16 +226,25 @@ describe("taxa de personal (vendas do EVO)", () => {
 });
 
 describe("conversão de cadastros (prospects do EVO)", () => {
-  const linha = (IdFilial: string, DtCadastro: string, DtConversao: string) => ({ IdFilial, DtCadastro, DtConversao });
+  const linha = (IdFilial: string, DtCadastro: string, DtConversao: string, ConvertidoPor = "") => ({ IdFilial, DtCadastro, DtConversao, ConvertidoPor });
   it("cadastrados no mês e, desses, convertidos dentro do mês; conversões de cadastros antigos ou futuras ficam de fora", () => {
     const por = resumirProspects([
-      linha("5", "02/10/2026", "05/10/2026"), // conta: cadastro e conversão no mês
+      linha("5", "02/10/2026", "05/10/2026", "Ana  Souza"), // conta: cadastro e conversão no mês
       linha("5", "10/10/2026", ""), // cadastro sem conversão
       linha("5", "20/10/2026", "03/11/2026"), // converteu depois do mês: só cadastro
       linha("5", "15/09/2026", "04/10/2026"), // cadastro anterior: não entra
       linha("9", "02/10/2026", "05/10/2026"), // unidade fora do dashboard
     ], "2026-10-01", "2026-10-31");
-    expect(por).toEqual({ "Asa Norte": { oportunidades: 3, conversoes: 1, origens: { "Sem origem": [3, 1] } } });
+    expect(por).toEqual({ "Asa Norte": { oportunidades: 3, conversoes: 1, origens: { "Sem origem": [3, 1] }, consultores: [["Ana Souza", 1]], tempoConversao: { n: 1, soma: 3, f: [0, 1, 0, 0, 0] } } });
+  });
+  it("consultores (quem converteu) em ordem e tempo até converter por faixa", () => {
+    const l = (cad: string, conv: string, por = "") => ({ IdFilial: "5", DtCadastro: cad, DtConversao: conv, ConvertidoPor: por });
+    const r = resumirProspects([
+      l("01/10/2026", "01/10/2026", "Bia"), l("02/10/2026", "03/10/2026", "Bia"), l("02/10/2026", "09/10/2026", "Caio"),
+      l("03/10/2026", "20/10/2026", "Bia"), l("04/10/2026", "", ""), l("05/10/2026", "07/10/2026", ""),
+    ], "2026-10-01", "2026-10-31")["Asa Norte"];
+    expect(r.consultores).toEqual([["Bia", 3], ["Caio", 1]]);
+    expect(r.tempoConversao).toEqual({ n: 5, soma: 0 + 1 + 7 + 17 + 2, f: [1, 2, 1, 1, 0] });
   });
   it("mergeEvo: taxa por unidade e total ponderado; mês sem prospects mantém a planilha", () => {
     const data = [month("2026-10", [unit("Asa Norte", { icv: 10 }), unit("Gama", { icv: 20 }), unit("Itapoã", { icv: 30 })])];

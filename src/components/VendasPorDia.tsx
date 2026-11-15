@@ -90,8 +90,8 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
           <HeadlineStat label={partial ? "Novos contratos até agora" : "Novos contratos no mês"} value={int(realizado)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
           {proj && <HeadlineStat label="Projeção para o fechamento" value={`≈ ${int(proj.valor)}`} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />}
           {nivel && <HeadlineStat label="No ritmo, a meta fecha em" value={TIER_LABEL[nivel]} swatch={<span className={`h-2 w-2 rounded-full ${nivel === "abaixo" ? "bg-destructive" : "bg-primary/60"}`} />} />}
-          {melhorMes !== null
-            ? <HeadlineStat label={`Dia que mais vendeu em ${mesNome}${partial ? " (até agora)" : ""}`} value={maiusc(NOME_LONGO[melhorMes])} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
+          {Math.max(...visiveis, 0) > 0
+            ? <HeadlineStat label={`Dia que mais vendeu em ${mesNome}${partial ? " (até agora)" : ""}`} value={`${maiusc(NOME_LONGO[diaDaSemana(month, melhorDia + 1)])}, ${melhorDia + 1}/${month.slice(5)}`} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
             : melhorRef !== null && <HeadlineStat label={`Dia que mais vendia antes (${refNome})`} value={maiusc(NOME_LONGO[melhorRef])} swatch={<span className="h-2 w-2 rounded-full bg-foreground/40" />} />}
         </div>
       }

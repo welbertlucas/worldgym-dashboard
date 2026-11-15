@@ -34,8 +34,8 @@ export function rotulo(nome) {
   return `Unidade ${hash(chaveAnon(), n).slice(0, 4).toUpperCase()}`; // nome fora da tabela: código curto
 }
 
-// Campos que identificam a unidade sem usar o nome: número no EVO, nome original, coordenadas e bairros dos alunos.
-const IDENTIFICAM = new Set(["idBranch", "evoName", "latitude", "longitude", "local", "bairros", "semBairro", "bairrosInativos", "semBairroInativos"]);
+// Campos que identificam a unidade sem usar o nome: número no EVO, nome original, coordenadas e bairros dos alunos; e nomes de funcionários (consultores).
+const IDENTIFICAM = new Set(["idBranch", "evoName", "latitude", "longitude", "local", "bairros", "semBairro", "bairrosInativos", "semBairroInativos", "consultores"]);
 
 /** Unidade de outra pessoa: só números, com o nome trocado. Qualquer texto solto sai (podia ser o nome verdadeiro). */
 export function esconderUnidade(u) {

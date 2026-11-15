@@ -17,9 +17,20 @@ export function origemDaOportunidade(marketing) {
   return t.toLowerCase().replace(/(^|[\s/])(\p{L})/gu, (_m, sep, c) => sep + c.toUpperCase());
 }
 
+/** Faixas do tempo entre o cadastro e a conversão, em dias: mesmo dia, 1 a 3, 4 a 7, 8 a 30 e mais de 30. */
+export const FAIXAS_TEMPO = ["No mesmo dia", "1 a 3 dias", "4 a 7 dias", "8 a 30 dias", "Mais de 30 dias"];
+const faixaDoTempo = (dias) => (dias <= 0 ? 0 : dias <= 3 ? 1 : dias <= 7 ? 2 : dias <= 30 ? 3 : 4);
+const diasEntre = (de, ate) => Math.round((new Date(`${ate}T00:00:00Z`) - new Date(`${de}T00:00:00Z`)) / 86400000);
+const MAX_CONSULTORES = 10;
+
 const iso = (d) => (/^\d\d\/\d\d\/\d{4}$/.test(d) ? d.split("/").reverse().join("-") : "");
 
-/** Resume as linhas do relatório: { [unidade]: { oportunidades, conversoes } } para o período [de, ate]. */
+/**
+ * Resume as linhas do relatório: { [unidade]: { oportunidades, conversoes, origens, consultores, tempoConversao } } para o período [de, ate].
+ *  - consultores = [[nome, convertidas]] de quem converteu (coluna "ConvertidoPor": o relatório não diz quem cadastrou), os 10 maiores;
+ *  - tempoConversao = { n, soma, f } dos que viraram cliente no período: quantos, soma dos dias do cadastro à conversão e a contagem por faixa.
+ * Só entram os cadastrados no período, então o tempo é o das oportunidades do mês que converteram no próprio mês.
+ */
 export function resumirProspects(rows, de, ate) {
   const por = {};
   for (const r of rows) {
@@ -27,12 +38,22 @@ export function resumirProspects(rows, de, ate) {
     if (!nome) continue;
     const cad = iso(r.DtCadastro);
     if (!cad || cad < de || cad > ate) continue;
-    const u = (por[nome] ??= { oportunidades: 0, conversoes: 0, origens: {} });
+    const u = (por[nome] ??= { oportunidades: 0, conversoes: 0, origens: {}, _consultores: new Map(), tempoConversao: { n: 0, soma: 0, f: FAIXAS_TEMPO.map(() => 0) } });
     u.oportunidades += 1;
     const o = (u.origens[origemDaOportunidade(r.Marketing)] ??= [0, 0]); // [cadastradas, convertidas no mês]
     o[0] += 1;
     const conv = iso(r.DtConversao);
-    if (conv && conv >= de && conv <= ate) { u.conversoes += 1; o[1] += 1; }
+    if (conv && conv >= de && conv <= ate) {
+      u.conversoes += 1; o[1] += 1;
+      const quem = String(r.ConvertidoPor ?? "").replace(/\s+/g, " ").trim();
+      if (quem) u._consultores.set(quem, (u._consultores.get(quem) ?? 0) + 1);
+      const dias = Math.max(0, diasEntre(cad, conv));
+      u.tempoConversao.n += 1; u.tempoConversao.soma += dias; u.tempoConversao.f[faixaDoTempo(dias)] += 1;
+    }
+  }
+  for (const u of Object.values(por)) {
+    u.consultores = [...u._consultores].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, MAX_CONSULTORES);
+    delete u._consultores;
   }
   return por;
 }

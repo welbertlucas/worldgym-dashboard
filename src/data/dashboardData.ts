@@ -98,6 +98,10 @@ export interface UnitData {
   canceladosPlanos?: [string, number][];
   /** Origem das oportunidades do mês: [cadastradas, convertidas no mês] por origem (EVO). */
   origens?: Record<string, [number, number]>;
+  /** Quem converteu as oportunidades do mês: [nome, convertidas] (os 10 maiores; o EVO só informa quem converteu, não quem cadastrou). Na soma de várias unidades, o 3º item é a unidade. */
+  consultores?: [string, number, string?][];
+  /** Tempo do cadastro à conversão das oportunidades do mês que converteram no próprio mês: quantas, soma dos dias e contagem por faixa (mesmo dia, 1-3, 4-7, 8-30, mais de 30). */
+  tempoConversao?: TempoConversao;
   /** Cobranças que falharam no vencimento (mês do vencimento): recuperadas e em aberto, com valores (EVO). */
   cobrancas?: Cobrancas;
   /** Motivo da última recusa do cartão nessas cobranças: total e ainda em aberto. */
@@ -182,6 +186,8 @@ export interface UnitData {
 }
 
 /** [quantidade, valor] por tipo de venda. `auto` (parte de `renov`) = renovação automática de plano de recorrência mensal; meses antigos não têm. */
+export type TempoConversao = { n: number; soma: number; f: number[] };
+
 export type TipoVenda = { novo: [number, number]; remat: [number, number]; renov: [number, number]; auto?: [number, number] };
 
 export interface MonthData {
@@ -440,7 +446,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -673,6 +679,19 @@ export function somarOrigens(us: Pick<UnitData, "origens">[]): Record<string, [n
   return out;
 }
 
+/** Soma o tempo até converter de várias unidades. */
+export function somarTempoConversao(us: Pick<UnitData, "tempoConversao">[]): TempoConversao {
+  const out: TempoConversao = { n: 0, soma: 0, f: [0, 0, 0, 0, 0] };
+  for (const u of us) { const t = u.tempoConversao; if (!t) continue; out.n += t.n; out.soma += t.soma; t.f.forEach((v, i) => { out.f[i] += v; }); }
+  return out;
+}
+
+/** Junta os consultores de várias unidades (com a unidade ao lado do nome) e devolve os 10 que mais converteram. */
+export function somarConsultores(us: Pick<UnitData, "name" | "consultores">[]): [string, number, string?][] {
+  return us.flatMap((u) => (u.consultores ?? []).map(([nome, n]) => [nome, n, u.name] as [string, number, string]))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, 10);
+}
+
 export function somarCobrancas(us: Pick<UnitData, "cobrancas">[]): Cobrancas {
   const z: Cobrancas = { falhas: 0, recuperadas: 0, abertas: 0, valorAberto: 0, valorRecuperado: 0 };
   for (const u of us) if (u.cobrancas) {
@@ -790,6 +809,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.canceladosPlanos) unit.canceladosPlanos = e.canceladosPlanos;
       // Origem das oportunidades, cobranças com falha e treinos (EVO).
       if (e.origens !== undefined) unit.origens = e.origens;
+      if (e.consultores !== undefined) unit.consultores = e.consultores;
+      if (e.tempoConversao !== undefined) unit.tempoConversao = e.tempoConversao;
       if (e.cobrancas !== undefined) { unit.cobrancas = e.cobrancas; unit.recusaMotivos = e.recusaMotivos ?? {}; }
       if (e.acessos !== undefined) unit.acessos = e.acessos;
       if (e.perfil !== undefined) unit.perfil = e.perfil;
@@ -887,6 +908,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(md.units.some((u) => u.motivosCancel !== undefined) ? { motivosCancel: somarMotivos(md.units) } : {}),
       ...(md.units.some((u) => u.canceladosTipos) ? { canceladosTipos: somarMapas(md.units.map((u) => u.canceladosTipos)) } : {}),
       ...(md.units.some((u) => u.origens !== undefined) ? { origens: somarOrigens(md.units) } : {}),
+      ...(md.units.some((u) => u.consultores !== undefined) ? { consultores: somarConsultores(md.units) } : {}),
+      ...(md.units.some((u) => u.tempoConversao !== undefined) ? { tempoConversao: somarTempoConversao(md.units) } : {}),
       ...(md.units.some((u) => u.cobrancas !== undefined) ? { cobrancas: somarCobrancas(md.units), recusaMotivos: somarRecusa(md.units) } : {}),
       ...(md.units.some((u) => u.acessos !== undefined)
         ? { acessos: [0, 1, 2, 3, 4, 5].map((i) => md.units.reduce((n, u) => n + (u.acessos?.[i] ?? 0), 0)) }

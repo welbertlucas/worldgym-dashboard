@@ -14,7 +14,7 @@ describe("navegação", () => {
   it("endereços antigos levam para o lugar novo", () => {
     expect(enderecoAtual("mapa")).toBe("alunos/onde-moram");
     expect(enderecoAtual("alunos/frequencia")).toBe("catraca/frequencia");
-    expect(enderecoAtual("comercial/oportunidades")).toBe("campanhas/leads");
+    expect(enderecoAtual("campanhas/leads")).toBe("comercial/oportunidades");
     expect(enderecoAtual("unidades")).toBe("benchmark/posicao");
     expect(enderecoAtual("financeiro/notas")).toBe("financeiro/notas");
   });

@@ -239,7 +239,7 @@ describe("o que o nível 'unidades' enxerga", () => {
     month: "2026-10",
     units: [
       { name: "Itapoã", faturamento: 100, idBranch: 7, evoName: "WORLD GYM ITAPOÃ", latitude: -15.7, longitude: -47.7, bairros: [["Itapoã"]] },
-      { name: "Gama", faturamento: 200, idBranch: 6, evoName: "WORLD GYM GAMA", latitude: -16, longitude: -48, local: [-16, -48], bairros: [["Gama"]], semBairro: 3, nps: 70 },
+      { name: "Gama", faturamento: 200, idBranch: 6, evoName: "WORLD GYM GAMA", latitude: -16, longitude: -48, local: [-16, -48], bairros: [["Gama"]], semBairro: 3, nps: 70, consultores: [["Fulana de Tal", 9]], tempoConversao: { n: 4, soma: 8, f: [1, 1, 1, 1, 0] } },
     ],
   };
 
@@ -250,7 +250,8 @@ describe("o que o nível 'unidades' enxerga", () => {
     expect(gama.name).toMatch(/^Unidade \d{2}$/);
     expect(gama).toMatchObject({ faturamento: 200, nps: 70 });
     const texto = JSON.stringify(gama);
-    for (const pista of ["Gama", "GAMA", "idBranch", "evoName", "latitude", "longitude", "bairros", "local", "semBairro"]) expect(texto).not.toContain(pista);
+    for (const pista of ["Gama", "GAMA", "idBranch", "evoName", "latitude", "longitude", "bairros", "local", "semBairro", "consultores", "Fulana"]) expect(texto).not.toContain(pista);
+    expect(gama.tempoConversao).toEqual({ n: 4, soma: 8, f: [1, 1, 1, 1, 0] }); // só números: segue
   });
 
   it("o rótulo é fixo para a mesma unidade, diferente entre unidades, e não segue a ordem alfabética", () => {

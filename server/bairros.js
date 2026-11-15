@@ -55,7 +55,7 @@ export function saiuNosUltimos12Meses(contratos, hoje) {
   return ultima >= umAnoAntes(hoje) && ultima < hoje;
 }
 
-/** Faixas do último acesso (catraca) dos alunos ativos hoje: até 7 dias, 8–14, 15–30, 31–60, mais de 60 e nunca acessou. */
+/** Faixas do último acesso (catraca) dos alunos ativos hoje: até 7 dias, 8–15, 16–30, 31–60, mais de 60 e nunca acessou (o corte de 15 dias é o de "sem vir há mais de 15 dias"). */
 export const FAIXAS_ACESSO = 6;
 export function contarUltimoAcesso(membros, hoje) {
   const faixas = Array(FAIXAS_ACESSO).fill(0);
@@ -65,7 +65,7 @@ export function contarUltimoAcesso(membros, hoje) {
     const a = m.lastAccessDate?.slice(0, 10);
     if (!a) { faixas[5]++; continue; }
     const dias = Math.max(0, Math.round((t0 - new Date(`${a}T00:00:00Z`)) / 86400000));
-    faixas[dias <= 7 ? 0 : dias <= 14 ? 1 : dias <= 30 ? 2 : dias <= 60 ? 3 : 4]++;
+    faixas[dias <= 7 ? 0 : dias <= 15 ? 1 : dias <= 30 ? 2 : dias <= 60 ? 3 : 4]++;
   }
   return faixas;
 }

@@ -337,3 +337,55 @@ describe("card de quem treina em outra unidade", () => {
       .toEqual([["Gama", "Itapoã", 30, 90], ["Itapoã", "Gama", 8, 10], ["Asa Norte", "Gama", 5, 9]]);
   });
 });
+
+describe("oportunidades: tempo até converter, consultores e por unidade", () => {
+  const total = {
+    oportunidades: 100, conversoes: 60,
+    tempoConversao: { n: 60, soma: 120, f: [30, 15, 8, 5, 2] },
+    consultores: [["Bia Lima", 20, "Asa Norte"], ["Caio Reis", 12, "Gama"]],
+  } as unknown as UnitData;
+  it("tempo até converter mostra a média, o mesmo dia e as faixas", async () => {
+    const { TempoParaConverter } = await import("@/components/TempoParaConverter");
+    const h = limpo(renderToString(<TempoParaConverter total={total} monthLabel="Outubro de 2026" partial={false} unitLabel="Rede" />));
+    expect(h).toContain("2 dias"); // 120 ÷ 60
+    expect(h).toContain("50%"); // 30 de 60 no mesmo dia
+    for (const f of ["No mesmo dia", "1 a 3 dias", "4 a 7 dias", "8 a 30 dias", "Mais de 30 dias"]) expect(h).toContain(f);
+    expect(limpo(renderToString(<TempoParaConverter total={{} as UnitData} monthLabel="x" partial={false} unitLabel="Rede" />))).toContain("Sem conversões com o tempo calculado");
+  });
+  it("consultores: ordem, unidade só na rede e aviso de que o EVO não informa quem cadastrou", async () => {
+    const { ConsultoresConversao } = await import("@/components/ConsultoresConversao");
+    const h = limpo(renderToString(<ConsultoresConversao total={total} monthLabel="Outubro de 2026" partial={false} unitLabel="Rede" />));
+    expect(h.indexOf("Bia Lima")).toBeLessThan(h.indexOf("Caio Reis"));
+    expect(h).toContain("Asa Norte");
+    expect(h).toContain("não informa quem cadastrou");
+    const uma = limpo(renderToString(<ConsultoresConversao total={{ ...total, consultores: [["Bia Lima", 20, "Asa Norte"]] } as unknown as UnitData} monthLabel="x" partial={false} unitLabel="Asa Norte" />));
+    expect(uma).not.toContain("· Asa Norte");
+  });
+  it("por unidade: ordena pelas cadastradas e mostra conversão, tempo e a origem principal sem contar 'Sem origem'", async () => {
+    const { OportunidadesPorUnidade } = await import("@/components/OportunidadesPorUnidade");
+    const us = [
+      { name: "Gama", oportunidades: 50, conversoes: 10, origens: { "Sem origem": [30, 4], Instagram: [20, 6] }, tempoConversao: { n: 10, soma: 25, f: [0, 0, 0, 0, 0] } },
+      { name: "Asa Norte", oportunidades: 80, conversoes: 40, origens: { "Sem origem": [10, 5], "Totem/Site": [70, 35] } },
+    ] as unknown as UnitData[];
+    const h = limpo(renderToString(<OportunidadesPorUnidade units={us} monthLabel="Outubro de 2026" partial={false} />));
+    expect(h.indexOf("Asa Norte")).toBeLessThan(h.indexOf("Gama"));
+    expect(h).toContain("50,0%");
+    expect(h).toContain("Totem/Site");
+    expect(h).toContain("Instagram");
+    expect(h).toContain("2,5 d");
+  });
+});
+
+describe("vendas por dia: destaque", () => {
+  it("o destaque é o dia do mês que mais vendeu (com o dia da semana), e não o dia da semana de maior soma", async () => {
+    const { VendasPorDia } = await import("@/components/VendasPorDia");
+    // outubro de 2026 começa numa quinta: dia 13 é terça. Três sextas somam mais que a terça, mas o maior dia é o 13.
+    const vendasDia = Array(31).fill(0);
+    vendasDia[1] = 3; vendasDia[8] = 3; vendasDia[15] = 3; vendasDia[22] = 3; // sextas 2, 9, 16, 23: soma 12
+    vendasDia[12] = 8; // terça 13: o maior dia
+    const total = { vendasDia } as unknown as UnitData;
+    const h = limpo(renderToString(<VendasPorDia total={total} month="2026-10" partial={false} unit={null} atualizadoEm={null} metas={[]} />));
+    expect(h).toContain("Dia que mais vendeu em outubro");
+    expect(h).toContain("Terça, 13/10");
+  });
+});

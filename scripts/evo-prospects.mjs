@@ -1,4 +1,4 @@
-// Grava por unidade, nos meses já calculados: `oportunidades` (cadastrados) e `conversoes` (convertidos no mês).
+// Grava por unidade, nos meses já calculados: `oportunidades` (cadastrados) `conversoes` (convertidos no mês), `origens`, `consultores` (quem converteu) e `tempoConversao`.
 // Uso: node --env-file=.env.local scripts/evo-prospects.mjs 2026-10 2026-11
 import { hojeBR } from "../server/evo.js";
 import { prospectsDoMes } from "../server/prospects.js";
@@ -16,7 +16,7 @@ for (const ym of process.argv.slice(2)) {
     for (const u of blob.units) {
       const a = por[u.name];
       if (!a || !Object.values(UNIT_NAMES).includes(u.name)) continue;
-      u.oportunidades = a.oportunidades; u.conversoes = a.conversoes; u.origens = a.origens; n++;
+      u.oportunidades = a.oportunidades; u.conversoes = a.conversoes; u.origens = a.origens; u.consultores = a.consultores; u.tempoConversao = a.tempoConversao; n++;
     }
     blob.prospectsEm = new Date().toISOString();
     await saveMonth(blob);

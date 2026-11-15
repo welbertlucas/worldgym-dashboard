@@ -29,12 +29,12 @@ export const itensDoMenu = (gerirAcessos: boolean): NavItem[] =>
 
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
 export const SUBMENUS: Record<string, Aba[]> = {
-  comercial: [{ id: "resumo", rotulo: "Resumo" }, { id: "vendas", rotulo: "Vendas" }, { id: "complementares", rotulo: "Receitas complementares" }],
+  comercial: [{ id: "resumo", rotulo: "Resumo" }, { id: "vendas", rotulo: "Vendas" }, { id: "oportunidades", rotulo: "Oportunidades" }, { id: "complementares", rotulo: "Receitas complementares" }],
   financeiro: [{ id: "resumo", rotulo: "Resumo" }, { id: "recebimento", rotulo: "Recebimento" }, { id: "cobranca", rotulo: "Inadimplência" }, { id: "notas", rotulo: "Notas fiscais" }],
   alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "onde-moram", rotulo: "Onde moram" }],
   catraca: [{ id: "frequencia", rotulo: "Frequência" }, { id: "liberacoes", rotulo: "Liberações" }, { id: "outras-unidades", rotulo: "Outras unidades" }],
   retencao: [{ id: "cancelamentos", rotulo: "Cancelamentos" }, { id: "renovacao", rotulo: "Renovação" }, { id: "satisfacao", rotulo: "Satisfação" }],
-  campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "leads", rotulo: "Leads" }, { id: "instagram", rotulo: "Instagram" }],
+  campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "instagram", rotulo: "Instagram" }],
   benchmark: [{ id: "posicao", rotulo: "Posição e destaques" }, { id: "evolucao", rotulo: "Evolução da unidade" }, { id: "comparar", rotulo: "Comparar unidades" }, { id: "contratos", rotulo: "Contratos ativos" }, { id: "tabela", rotulo: "Tabela completa" }],
 };
 
@@ -42,7 +42,7 @@ export const SUBMENUS: Record<string, Aba[]> = {
 const ENDERECOS_ANTIGOS: Record<string, string> = {
   mapa: "alunos/onde-moram",
   "alunos/frequencia": "catraca/frequencia",
-  "comercial/oportunidades": "campanhas/leads",
+  "campanhas/leads": "comercial/oportunidades",
   unidades: "benchmark/posicao",
 };
 export const enderecoAtual = (endereco: string) => ENDERECOS_ANTIGOS[endereco] ?? endereco;
@@ -77,7 +77,7 @@ const PALAVRAS: Record<string, string> = {
   campanhas: "trafego pago meta facebook instagram",
   "campanhas/campanhas": "investimento alertas evolucao cac pixel compras",
   "campanhas/anuncios": "anuncios contato mais barato horarios dos contatos campanhas no ar veiculando",
-  "campanhas/leads": "oportunidades leads origem perfil prospects cadastros",
+  "comercial/oportunidades": "oportunidades leads origem perfil prospects cadastros consultor tempo converter conversao unidade",
   "campanhas/instagram": "instagram feed stories posts seguidores redes sociais perfil postagem",
   riscos: "alertas riscos recomendacoes atencao critico",
   acessos: "usuarios senha permissoes login niveis quem entra no painel",
