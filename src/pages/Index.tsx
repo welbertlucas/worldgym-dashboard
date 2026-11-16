@@ -1,5 +1,5 @@
 import { Abertura, seguirComAbeturaAzul } from "@/components/Abertura";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentType, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
 import { MarcaDagua } from "@/components/MarcaDagua";
@@ -23,23 +23,14 @@ import { ConsultoresConversao } from "@/components/ConsultoresConversao";
 import { OportunidadesPorUnidade } from "@/components/OportunidadesPorUnidade";
 import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components/ContratosVendidos";
 import { BandeirasCartao, FormasPagamento, GatewaysCartao } from "@/components/FormasPagamento";
-import { CampanhasTab } from "@/components/tabs/CampanhasTab";
-import { InstagramTab } from "@/components/tabs/InstagramTab";
 import { InadPerfilCard } from "@/components/clientes/CancelPerfilCard";
 import { AvisoVerComo, VerComo } from "@/components/VerComo";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
-import { AlunosTab } from "@/components/tabs/AlunosTab";
-import { RetencaoTab } from "@/components/tabs/RetencaoTab";
-import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
-import { CatracaTab } from "@/components/tabs/CatracaTab";
 import { PlanoAcaoTab } from "@/components/tabs/PlanoAcaoTab";
 import { UnitNavProvider } from "@/components/UnitLink";
 import { enderecoAtual, NAV_ITEMS, SUBMENUS } from "@/components/nav";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
-import { RiscosTab } from "@/components/tabs/RiscosTab";
-import { MetasTab } from "@/components/tabs/MetasTab";
-import { AcessosTab } from "@/components/tabs/AcessosTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
 import { comercialSpecs, complementaresSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { viewFor } from "@/data/kpiView";
@@ -64,6 +55,34 @@ import {
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { getToken, getUsuario, podeAtualizar, podeGerirAcessos, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
+
+// Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
+// Se o Atlas foi publicado de novo com a página aberta, o arquivo antigo da tela some: recarrega uma vez para pegar a versão nova.
+const RECARREGOU = "atlas-recarregou-tela";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function telaSobDemanda<K extends string, M extends Record<K, ComponentType<any>>>(carregar: () => Promise<M>, nome: K) {
+  return lazy<M[K]>(async () => {
+    try {
+      const m = await carregar();
+      try { sessionStorage.removeItem(RECARREGOU); } catch { /* sem armazenamento */ }
+      return { default: m[nome] };
+    } catch (e) {
+      let ja = false;
+      try { ja = sessionStorage.getItem(RECARREGOU) === "1"; sessionStorage.setItem(RECARREGOU, "1"); } catch { ja = true; }
+      if (!ja) { window.location.reload(); return new Promise<never>(() => {}); }
+      throw e;
+    }
+  });
+}
+const CampanhasTab = telaSobDemanda(() => import("@/components/tabs/CampanhasTab"), "CampanhasTab");
+const InstagramTab = telaSobDemanda(() => import("@/components/tabs/InstagramTab"), "InstagramTab");
+const AlunosTab = telaSobDemanda(() => import("@/components/tabs/AlunosTab"), "AlunosTab");
+const RetencaoTab = telaSobDemanda(() => import("@/components/tabs/RetencaoTab"), "RetencaoTab");
+const BenchmarkTab = telaSobDemanda(() => import("@/components/tabs/BenchmarkTab"), "BenchmarkTab");
+const CatracaTab = telaSobDemanda(() => import("@/components/tabs/CatracaTab"), "CatracaTab");
+const RiscosTab = telaSobDemanda(() => import("@/components/tabs/RiscosTab"), "RiscosTab");
+const MetasTab = telaSobDemanda(() => import("@/components/tabs/MetasTab"), "MetasTab");
+const AcessosTab = telaSobDemanda(() => import("@/components/tabs/AcessosTab"), "AcessosTab");
 
 /** Intervalo da atualização automática dos dados (planilha e metas). */
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -339,6 +358,7 @@ const Index = () => {
           onCompareMonthChange={setCompareMonth}
         />}
 
+        <Suspense fallback={<p className="py-10 text-center text-sm text-muted-foreground">Carregando a tela…</p>}>
         {/* Comparativo */}
         {comparison && !seletorProprio && !semMes && activeTab !== "acessos" && (
           <section>
@@ -515,6 +535,7 @@ const Index = () => {
         })()}
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
+        </Suspense>
         </main>
       </div>
     </div>
