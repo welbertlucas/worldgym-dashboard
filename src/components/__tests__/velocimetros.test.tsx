@@ -83,7 +83,7 @@ describe("faixas dos velocímetros = regras de cor existentes", () => {
 });
 
 describe("Visão Executiva em meias-luas", () => {
-  const props = { alerts: [], evalMonth: "2026-09", deltas: [], metas: [], onOpenPlano: () => {}, onOpenUnidades: () => {} };
+  const props = { vigentes: { month: null, dias: 0, comRitmo: false, alertas: [] }, evalMonth: "2026-09", deltas: [], metas: [], onOpenPlano: () => {}, onOpenUnidades: () => {} };
 
   it("cartão: número dentro do arco, chips de comparação e aviso de parcial", () => {
     const html = renderToString(<KpiGaugeCard title="Churn" value="3,0%" fill={0.25} marker={0.4} tone="good" partial

@@ -44,6 +44,8 @@ import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
 import { comercialSpecs, complementaresSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { viewFor } from "@/data/kpiView";
 import { computeAlerts, sameMonthLastYear } from "@/data/alerts";
+import { computeAlertasVigentes } from "@/data/alertasVigentes";
+import { AlertasVigentesLista } from "@/components/AlertasVigentes";
 import { computeUnitDeltas } from "@/data/unitMetrics";
 import { metasData, metasRede, syncMetasFromSheets } from "@/data/metas";
 import { formatMonthLong, getLastClosedMonth, getMonthToOpen, isPartialMonth } from "@/data/periods";
@@ -185,6 +187,8 @@ const Index = () => {
   const alerts = soAsProprias
     ? computeAlerts(dashboardData, metasData.filter((m) => m.unit !== "TOTAL")).filter((a) => a.unit !== "Rede")
     : computeAlerts(dashboardData, metasData);
+  // Alertas do mês em andamento (o que fazer agora): base do Plano de ação, do Overview e do botão de alertas do topo.
+  const vigentes = computeAlertasVigentes(dashboardData, soAsProprias ? metasData.filter((m) => m.unit !== "TOTAL") : metasData, { atualizadoEm: evoAtualizadoEm, incluirRede: !soAsProprias });
   const evalIdx = evalMonth ? months.indexOf(evalMonth) : -1;
   const unitDeltas = evalIdx > 0 ? computeUnitDeltas(dashboardData[evalIdx], dashboardData[evalIdx - 1]) : [];
   // A Visão Executiva e o Benchmark olham a rede inteira (para quem tem acesso só a algumas unidades, as outras vêm com o nome escondido).
@@ -285,7 +289,7 @@ const Index = () => {
             {/* Unidade ou rede: um botão só, no canto do cabeçalho, para todas as telas que filtram por unidade. */}
             {comBotaoDeUnidade && <BotaoUnidade id="filtro-unidade" className="hidden sm:flex" value={selectedUnit} onChange={setSelectedUnit} />}
             <VerComo className="hidden xl:flex" />
-            <AlertasNoTopo alertas={alerts} mes={evalMonth} onVerTodos={() => changeTab("riscos")} />
+            <AlertasNoTopo alertas={vigentes.alertas} mes={vigentes.month} onVerTodos={() => changeTab("riscos/mes")} />
             {getUsuario() && !getUsuario()!.legado && (
               <button
                 type="button"
@@ -364,7 +368,7 @@ const Index = () => {
               ? { month: fullMonthData, prev: compareMonth ? getDataByMonth(compareMonth) ?? prevMonthData : prevMonthData, evalMonth, deltas: unitDeltas, metas: metasData, serie: dashboardData, unidades: soAsProprias }
               : { month: redeMonthData, prev: compareMonth ? getDataByMonthRede(compareMonth) ?? redePrevMonthData : redePrevMonthData, evalMonth: evalMonthRede, deltas: unitDeltasRede, metas: metasRede, serie: dashboardDataRede })}
             comparaMesEscolhido={!!compareMonth}
-            alerts={alerts}
+            vigentes={vigentes}
             onOpenPlano={() => changeTab("plano")}
             onOpenUnidades={() => changeTab("benchmark")}
             onOpenMetas={() => changeTab("metas")}
@@ -496,9 +500,19 @@ const Index = () => {
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} />}
 
-        {activeTab === "plano" && <PlanoAcaoTab alerts={alerts} evalMonth={evalMonth} deltas={unitDeltas} unit={selectedUnit} onOpenAlertas={() => changeTab("riscos")} />}
+        {activeTab === "plano" && <PlanoAcaoTab res={vigentes} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} onAbrirTela={changeTab} onOpenAlertas={() => changeTab("riscos/mes")} />}
 
-        {activeTab === "riscos" && <RiscosTab alerts={alerts} evalMonth={evalMonth} unit={selectedUnit} />}
+        {activeTab === "riscos" && (() => {
+          const aba = abaAtiva(SUBMENUS.riscos, subAba);
+          return (
+            <section>
+              <Abas tela="riscos" titulo="Alertas" abas={SUBMENUS.riscos} ativa={aba} onChange={(s) => changeTab(`riscos/${s}`)} />
+              {aba === "mes"
+                ? <div className="space-y-4"><SectionTitle>{vigentes.month ? `Alertas de ${formatMonthLong(vigentes.month)}` : "Alertas do mês em andamento"}</SectionTitle><AlertasVigentesLista res={vigentes} unit={selectedUnit} onAbrirTela={changeTab} /></div>
+                : <RiscosTab alerts={alerts} evalMonth={evalMonth} unit={selectedUnit} />}
+            </section>
+          );
+        })()}
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
         </main>

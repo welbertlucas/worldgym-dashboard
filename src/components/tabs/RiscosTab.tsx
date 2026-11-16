@@ -28,8 +28,8 @@ export function RiscosTab({ alerts: todos, evalMonth, unit = null }: { alerts: A
 
   return (
     <div className="space-y-4">
-      <SectionTitle>{evalMonth ? `Alertas de ${formatMonthLong(evalMonth)}` : "Alertas"}</SectionTitle>
-      {evalMonth && <AvisoMesFechado evalMonth={evalMonth} oQue="alertas" />}
+      <SectionTitle>{evalMonth ? `Fechamento de ${formatMonthLong(evalMonth)}` : "Fechamento do mês anterior"}</SectionTitle>
+      {evalMonth && <AvisoMesFechado evalMonth={evalMonth} />}
       <p className="text-sm text-muted-foreground">
         {evalMonth ? <>Cada mês fechado é comparado ao anterior.</> : "Ainda não há mês fechado para avaliar."}{" "}
         Cada item separa o <b>fato</b> (calculado dos dados do EVO e da planilha) das <b>hipóteses</b> (causas a verificar — o dashboard não conhece as causas).

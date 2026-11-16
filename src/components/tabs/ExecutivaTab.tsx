@@ -6,10 +6,9 @@ import { TopUnits } from "@/components/executiva/TopUnits";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { oportunidadesCadastradas } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard, type RedeGoal } from "@/components/executiva/MetasKpiCard";
-import { RecommendationCard } from "@/components/tabs/RecommendationCard";
-import { type MonthData, dashboardData, dashboardDataRede } from "@/data/dashboardData";
-import { type Alert } from "@/data/alerts";
-import { buildRecommendations } from "@/data/recommendations";
+import { ItemVigente, periodoVigente } from "@/components/AlertasVigentes";
+import { type ResultadoVigente } from "@/data/alertasVigentes";
+import { type MonthData, dashboardDataRede } from "@/data/dashboardData";
 import { type UnitDelta } from "@/data/unitMetrics";
 import { formatMetaValue, highestTier, isSingleGoal, progressToNext, resolveGoal, tierReached, TIER_LABEL, type Meta, type MetaKey } from "@/data/metas";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
@@ -21,7 +20,8 @@ interface Props {
   prev?: MonthData;
   /** Há um mês marcado em "Comparar com": os velocímetros mostram só ele, sem o chip do ano anterior. */
   comparaMesEscolhido?: boolean;
-  alerts: Alert[];
+  /** Alertas do mês em andamento (o plano de ação). */
+  vigentes: ResultadoVigente;
   evalMonth: string | null;
   deltas: UnitDelta[];
   metas: Meta[];
@@ -36,7 +36,7 @@ interface Props {
 
 const pctText = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
 
-export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMonth, deltas, metas, onOpenPlano, onOpenUnidades, onOpenMetas, serie = dashboardDataRede, unidades = null }: Props) {
+export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalMonth, deltas, metas, onOpenPlano, onOpenUnidades, onOpenMetas, serie = dashboardDataRede, unidades = null }: Props) {
   const umaUnidade = unidades?.length === 1 ? unidades[0] : null;
   const escopo = !unidades ? "da rede" : umaUnidade ? "da unidade" : "das suas unidades";
   // Meta de um indicador no mês: a da rede (linha TOTAL), a da unidade, ou a soma das metas das unidades da pessoa
@@ -47,9 +47,12 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
     : resolveGoal(metas.filter((m) => m.unit !== "TOTAL" && m.unit !== "REDE"), month, month.month, null, key);
   const partial = isPartialMonth(month.month);
   const t = month.total;
-  const critical = alerts.filter((a) => a.severity === "critical").length;
-  const attention = alerts.filter((a) => a.severity === "attention").length;
-  const recs = buildRecommendations(alerts.filter((a) => a.severity !== "info"), dashboardData).slice(0, 5);
+  // Plano de ação do mês em andamento: os mais urgentes (com nível primeiro; sem nenhum, as pendências do dia).
+  const doEscopo = vigentes.alertas;
+  const critical = doEscopo.filter((a) => a.severity === "critical").length;
+  const attention = doEscopo.filter((a) => a.severity === "attention").length;
+  const comNivel = doEscopo.filter((a) => a.severity !== "info");
+  const urgentes = (comNivel.length ? comNivel : doEscopo.filter((a) => a.tipo === "pendencia")).slice(0, 5);
 
   // Metas no mês exibido (da rede ou das unidades da pessoa): progresso rumo ao próximo nível e nível atingido
   const chaves = [...new Set(metas.filter((m) => m.month === month.month && (unidades ? unidades.includes(m.unit) : m.unit === "TOTAL")).map((m) => m.key as MetaKey))];
@@ -106,7 +109,7 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
       {partial && (
         <Notice>
           <b>{formatMonthLong(month.month)} está em andamento</b> — os valores são parciais e a comparação com o mês anterior é provisória.
-          {evalMonth && <> O plano de ação, os alertas e a comparação entre unidades abaixo são de <b>{formatMonthLong(evalMonth)}</b>, o último mês fechado: mostram o que aconteceu. Para o ritmo de {formatMonthLong(month.month)}, veja as Metas.</>}
+          {evalMonth && <> O plano de ação abaixo é de {formatMonthLong(month.month)}; a comparação entre unidades é de <b>{formatMonthLong(evalMonth)}</b>, o último mês fechado.</>}
         </Notice>
       )}
 
@@ -130,8 +133,8 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
       <section aria-labelledby="prioridades-titulo" className="card-surface overflow-hidden">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 sm:p-6">
           <div className="flex-1 min-w-[14rem]">
-            <h3 id="prioridades-titulo" className="text-base font-semibold text-foreground">{evalMonth ? `Plano de ação com base em ${formatMonthLong(evalMonth)}` : "Plano de ação"}</h3>
-            <p className="text-sm text-muted-foreground">Os cinco itens mais urgentes{evalMonth ? ` de ${formatMonthLong(evalMonth)}, o último mês fechado` : " do último mês fechado"}</p>
+            <h3 id="prioridades-titulo" className="text-base font-semibold text-foreground">{vigentes.month ? `Plano de ação de ${formatMonthLong(vigentes.month)}` : "Plano de ação"}</h3>
+            <p className="text-sm text-muted-foreground">{vigentes.month ? `Os itens mais urgentes do mês em andamento, com os dados de ${periodoVigente(vigentes)}` : "O mês atual ainda não foi lido do EVO"}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="rounded-full bg-destructive/10 text-destructive font-semibold px-3 py-1">{critical} críticos</span>
@@ -139,10 +142,10 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, alerts, evalMon
             <button type="button" onClick={onOpenPlano} className="rounded-lg text-primary-ink font-semibold underline underline-offset-4 hover:text-primary-ink/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver o plano completo</button>
           </div>
         </div>
-        {recs.length ? (
-          <div className="divide-y divide-border border-t border-border">{recs.map((r) => <RecommendationCard key={r.id} rec={r} flat evalMonth={evalMonth} />)}</div>
+        {urgentes.length ? (
+          <ul className="divide-y divide-border border-t border-border">{urgentes.map((a) => <li key={a.id} className="p-5 sm:px-6"><ItemVigente a={a} /></li>)}</ul>
         ) : (
-          <p className="border-t border-border p-5 text-sm text-muted-foreground">{evalMonth ? `Nenhum alerta crítico ou de atenção em ${formatMonthLong(evalMonth)}, o último mês fechado.` : "Nenhum alerta crítico ou de atenção no último mês fechado."}</p>
+          <p className="border-t border-border p-5 text-sm text-muted-foreground">{vigentes.month ? `Nada pendente em ${formatMonthLong(vigentes.month)} até agora.` : "O plano aparece depois da primeira leitura do mês no EVO."}</p>
         )}
       </section>
 
