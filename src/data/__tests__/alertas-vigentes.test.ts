@@ -16,7 +16,7 @@ const fechados = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-1
 const vendasDia = Array.from({ length: 30 }, (_, i) => (i < 14 ? 3 : 0));
 
 describe("alertas do mês vigente", () => {
-  it("pendências: inadimplência e cartões só informativos; detratores e liberações com nível", () => {
+  it("pendências: sem a base do mesmo dia, inadimplência e cartões só informativos; detratores com nível", () => {
     const nov = mes("2026-11", [
       u("A", { inadimplentes: 80, inadimplenciaPerc: 12, cobrancas: { falhas: 50, recuperadas: 10, abertas: 40, valorAberto: 9000, valorRecuperado: 1 } as any, npsDetratores: 5, npsRespostas: 20, previsaoFaturamento: 200000 }),
       u("B", { npsDetratores: 1, npsRespostas: 30, previsaoFaturamento: 200000 }),
@@ -30,6 +30,29 @@ describe("alertas do mês vigente", () => {
     expect(de("A", "detratores")?.severity).toBe("critical"); // 25%
     expect(de("B", "detratores")?.severity).toBe("info"); // 1 detrator: só para fazer
     expect(de("A", "inadAberta")?.tipo).toBe("pendencia");
+  });
+
+  it("com a base do mesmo dia: inadimplência e cartões ganham nível; recebido não vira alerta", () => {
+    const md = { dia: 15, meses: ["2026-10", "2026-09", "2026-08"], inadimplenciaPerc: 9, recebidoSobreFaturado: 96, cartaoSobrePrevisao: 3 };
+    const nov = mes("2026-11", [
+      // A: 14% contra 9% (+5 p.p.) = crítico; cartões 4,5% da previsão (+1,5 p.p.) = sem nível; recebido 80% contra 96%: sem alerta
+      u("A", { mesmoDia: md, inadimplentes: 80, inadimplenciaPerc: 14, recebimento: 80000, previsaoFaturamento: 200000,
+        cobrancas: { falhas: 50, recuperadas: 10, abertas: 40, valorAberto: 9000, valorRecuperado: 1 } as any }),
+      // B: 12,1% contra 9% = atenção; cartões 9% da previsão (+6 p.p.) = crítico
+      u("B", { mesmoDia: md, inadimplentes: 50, inadimplenciaPerc: 12.1, recebimento: 93000, previsaoFaturamento: 200000,
+        cobrancas: { falhas: 50, recuperadas: 10, abertas: 40, valorAberto: 18000, valorRecuperado: 1 } as any }),
+      // C: 11,5% contra 9% (+2,5 p.p.) = dentro da variação normal
+      u("C", { mesmoDia: md, inadimplentes: 50, inadimplenciaPerc: 11.5, previsaoFaturamento: 200000 }),
+    ]);
+    const r = computeAlertasVigentes([...fechados, nov], [], { atualizadoEm: lido, now, incluirRede: false });
+    const de = (unit: string, kind: string) => r.alertas.find((a) => a.unit === unit && a.kind === kind);
+    expect(de("A", "inadAberta")?.severity).toBe("critical");
+    expect(de("A", "inadAberta")?.fact).toContain("No dia 15 dos 3 meses anteriores a unidade costumava ter 9,0%");
+    expect(de("B", "inadAberta")?.severity).toBe("attention");
+    expect(de("C", "inadAberta")?.severity).toBe("info");
+    expect(de("A", "cartaoRecusado")?.severity).toBe("info");
+    expect(de("B", "cartaoRecusado")?.severity).toBe("critical");
+    expect(r.alertas.some((a) => (a.kind as string) === "recebimento")).toBe(false);
   });
 
   it("ritmo: só a partir do dia 10; contratos abaixo do bronze e cancelamentos acima do normal", () => {

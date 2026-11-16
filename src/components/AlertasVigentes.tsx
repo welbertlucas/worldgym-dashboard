@@ -15,9 +15,9 @@ export const SEV_VIGENTE: Record<SeveridadeVigente, [string, string]> = {
 export const periodoVigente = (res: ResultadoVigente) =>
   res.month ? `${formatMonthLong(res.month)}${res.dias ? `, até ${res.dias}/${res.month.slice(5)}` : ""}` : "";
 
-/** Nota que explica por que inadimplência e cartões ainda não têm nível. */
+/** Nota que explica como inadimplência e cartões ganham nível. */
 export const NOTA_SEM_NIVEL =
-  "Inadimplência e cartões recusados aparecem como “para fazer”, sem nível: no meio do mês o que está em aberto ainda inclui quem paga com alguns dias de atraso. Eles ganham nível quando a comparação for com o mesmo dia dos meses anteriores.";
+  "Inadimplência e cartões recusados são comparados com o mesmo dia dos 3 meses anteriores: no meio do mês o que está em aberto ainda inclui quem paga com alguns dias de atraso. Dentro do normal da unidade eles aparecem como “para fazer”, sem nível.";
 
 /** Um alerta do mês vigente: unidade, nível, o fato, o que fazer e o atalho para a tela com o detalhe. */
 export function ItemVigente({ a, comUnidade = true, onAbrirTela }: { a: AlertaVigente; comUnidade?: boolean; onAbrirTela?: (tela: string) => void }) {

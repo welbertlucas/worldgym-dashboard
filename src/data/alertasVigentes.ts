@@ -15,9 +15,14 @@ export const LIMIARES_VIGENTES = {
   mesesBase: 6,
   /** Meses fechados para a média de comparação do ritmo sem meta. */
   mesesMedia: 3,
-  // Inadimplência (1,5 p.p. acima do normal, mínimo 4%, crítico 8%) e cartão recusado (5% e 8% da previsão do mês) ganham nível quando a
-  // comparação for com o mesmo dia dos meses anteriores; até lá são informativos (só o valor mínimo vale).
-  cartao: { minimoValor: 1000 },
+  // Inadimplência e cartões comparam com o MESMO DIA dos 3 meses anteriores (u.mesmoDia, server/mesmoDia.js):
+  // no meio do mês o "em aberto" ainda inclui quem paga com alguns dias de atraso, então o fechamento não serve de régua.
+  // Sem a base do mesmo dia, ficam só informativos. O recebido não vira alerta: inclui cobranças antecipadas do cartão e
+  // atrasados do mês anterior, então passa de 100% em algumas unidades e muda com o dia da recorrência (decisão do dono, 15/11/2026).
+  // Calibrado em 15/11/2026 com ago–out/2026 no dia 15: a variação típica de uma unidade entre meses é de 2 p.p. na
+  // inadimplência (10% das vezes passa de 4) e 1,2 p.p. nos cartões (2,3).
+  inadimplencia: { atencaoPP: 3, minimoPct: 4, criticoPP: 5, criticoMinPct: 8 },
+  cartao: { minimoValor: 1000, atencaoPP: 2, criticoPP: 4 },
   detratores: { minRespostas: 10, minDetratores: 3, atencaoPct: 17, criticoPct: 25 },
   /** Ritmo com meta: abaixo do nível mais baixo = atenção; abaixo desta fração dele = crítico. */
   meta: { criticoFracao: 0.75 },
@@ -131,20 +136,29 @@ export function computeAlertasVigentes(
     const weight = (u.previsaoFaturamento ?? u.faturamento ?? 0) / totalPrev;
 
     // ---------- pendências ----------
-    // 1 e 2. Inadimplência e cartões recusados em aberto: por enquanto só informativos. No meio do mês o "em aberto" ainda inclui
-    // quem paga com alguns dias de atraso, então não dá para comparar com o fechamento dos meses anteriores (com nov/2026 no dia 14,
-    // 18 unidades passariam do nível crítico). O nível volta quando a comparação for com o mesmo dia dos meses anteriores.
-    if (typeof u.inadimplenciaPerc === "number" && u.inadimplentes > 0) push({
-      unit: nome, kind: "inadAberta", severity: "info", weight, tela: "financeiro/cobranca",
-      fact: `${int(u.inadimplentes)} ${u.inadimplentes === 1 ? "pessoa está" : "pessoas estão"} com mensalidade vencida neste mês e ainda não paga (${pct(u.inadimplenciaPerc)} de quem tinha mensalidade vencida).`,
-      action: "Cobrar quem está com mensalidade vencida e não paga, começando por quem ainda treina. A lista com nomes está no relatório de inadimplentes do EVO.",
-    });
+    // 1 e 2. Inadimplência e cartões recusados, contra o mesmo dia dos 3 meses anteriores.
+    const md = u.mesmoDia && u.mesmoDia.meses.length ? u.mesmoDia : null;
+    const noMesmoDia = md ? ` No dia ${md.dia} dos ${md.meses.length === 1 ? "mês anterior" : `${md.meses.length} meses anteriores`} a unidade costumava ter` : "";
+    if (typeof u.inadimplenciaPerc === "number" && u.inadimplentes > 0) {
+      const I = L.inadimplencia, p = u.inadimplenciaPerc;
+      const severity: SeveridadeVigente = !md ? "info"
+        : p >= md.inadimplenciaPerc + I.criticoPP && p >= I.criticoMinPct ? "critical"
+        : p >= md.inadimplenciaPerc + I.atencaoPP && p >= I.minimoPct ? "attention" : "info";
+      push({
+        unit: nome, kind: "inadAberta", severity, weight, tela: "financeiro/cobranca",
+        fact: `${int(u.inadimplentes)} ${u.inadimplentes === 1 ? "pessoa está" : "pessoas estão"} com mensalidade vencida neste mês e ainda não paga (${pct(p)} de quem tinha mensalidade vencida).${md ? `${noMesmoDia} ${pct(md.inadimplenciaPerc)}.` : ""}`,
+        action: "Cobrar quem está com mensalidade vencida e não paga, começando por quem ainda treina. A lista com nomes está no relatório de inadimplentes do EVO.",
+      });
+    }
     const c = u.cobrancas;
     if (c && c.abertas > 0 && c.valorAberto >= L.cartao.minimoValor) {
       const motivo = Object.entries(u.recusaMotivos ?? {}).sort((x, y) => y[1].abertas - x[1].abertas)[0];
+      const prev = u.previsaoFaturamento ?? 0, share = prev > 0 ? (c.valorAberto / prev) * 100 : null;
+      const acima = md && share !== null ? share - md.cartaoSobrePrevisao : null;
+      const severity: SeveridadeVigente = acima === null ? "info" : acima >= L.cartao.criticoPP ? "critical" : acima >= L.cartao.atencaoPP ? "attention" : "info";
       push({
-        unit: nome, kind: "cartaoRecusado", severity: "info", weight, tela: "financeiro/cobranca",
-        fact: `${int(c.abertas)} ${c.abertas === 1 ? "cobrança recusada" : "cobranças recusadas"} no cartão ainda em aberto, ${brl(c.valorAberto)}${motivo ? `. Motivo mais comum: “${motivo[0]}”` : ""}.`,
+        unit: nome, kind: "cartaoRecusado", severity, weight, tela: "financeiro/cobranca",
+        fact: `${int(c.abertas)} ${c.abertas === 1 ? "cobrança recusada" : "cobranças recusadas"} no cartão ainda em aberto, ${brl(c.valorAberto)}${share !== null && md ? ` (${pct(share)} da previsão de faturamento do mês)` : ""}${motivo ? `. Motivo mais comum: “${motivo[0]}”` : ""}.${md && share !== null ? `${noMesmoDia} ${pct(md.cartaoSobrePrevisao)}.` : ""}`,
         action: "Falar com cada aluno para atualizar o cartão ou pagar por Pix. As cobranças recusadas, com nomes, estão no EVO.",
       });
     }
