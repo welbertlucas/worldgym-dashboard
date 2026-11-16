@@ -14,6 +14,8 @@ export interface RitmoAlunos {
   dia: number; cancelados: number; churnPct: number; venceram: number; naoRenovados: number; naoRenovadosPct: number; vencem7: number;
   base: { meses: number; churnPct: number; naoRenovadosPct: number; venceram: number };
 }
+/** Conversão das oportunidades até ontem no mês em andamento, contra o mesmo dia dos 3 meses anteriores (server/prospects.js). */
+export interface RitmoConversao { dia: number; oportunidades: number; conversoes: number; taxa: number; base: { meses: number; taxa: number } }
 export interface MotivoRecusa { n: number; abertas: number; valorAberto: number }
 
 /**
@@ -113,6 +115,7 @@ export interface UnitData {
   cobrancas?: Cobrancas;
   mesmoDia?: MesmoDia;
   ritmoAlunos?: RitmoAlunos;
+  ritmoConversao?: RitmoConversao;
   /** Motivo da última recusa do cartão nessas cobranças: total e ainda em aberto. */
   recusaMotivos?: Record<string, MotivoRecusa>;
   /** Treinos dos alunos ativos hoje (foto do EVO, só no mês corrente): ativo, vencido e com início no futuro. */
@@ -455,7 +458,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -826,6 +829,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.cobrancas !== undefined) { unit.cobrancas = e.cobrancas; unit.recusaMotivos = e.recusaMotivos ?? {}; }
       if (e.mesmoDia) unit.mesmoDia = e.mesmoDia;
       if (e.ritmoAlunos) unit.ritmoAlunos = e.ritmoAlunos;
+      if (e.ritmoConversao) unit.ritmoConversao = e.ritmoConversao;
       if (e.acessos !== undefined) unit.acessos = e.acessos;
       if (e.perfil !== undefined) unit.perfil = e.perfil;
       if (e.perfilOport !== undefined) unit.perfilOport = e.perfilOport;

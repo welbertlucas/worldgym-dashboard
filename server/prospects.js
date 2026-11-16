@@ -60,9 +60,40 @@ export function resumirProspects(rows, de, ate) {
   return por;
 }
 
+/** Linhas do relatório do EVO (todas as unidades) com cadastro entre o dia 1 do mês e `ate`. */
+export async function linhasDoMes(ym, ate) {
+  return lerXlsx(await evoBuffer(`/api/v2/management/prospects?dtStart=${ym}-01&dtEnd=${ate}`));
+}
+
 export async function prospectsDoMes(ym, hoje) {
   const ate = diaDeCorte(ym, hoje);
-  const de = `${ym}-01`;
-  const rows = lerXlsx(await evoBuffer(`/api/v2/management/prospects?dtStart=${de}&dtEnd=${ate}`));
-  return resumirProspects(rows, de, ate);
+  return resumirProspects(await linhasDoMes(ym, ate), `${ym}-01`, ate);
+}
+
+/** Dia `dia` do mês `ym`, limitado ao último dia do mês (dia 31 em fevereiro vira 28/29). */
+const diaNoMes = (ym, dia) => {
+  const [y, m] = ym.split("-").map(Number);
+  return `${ym}-${String(Math.min(dia, new Date(Date.UTC(y, m, 0)).getUTCDate())).padStart(2, "0")}`;
+};
+
+/**
+ * Conversão até o dia `dia` no mês em andamento, contra o mesmo dia dos meses anteriores:
+ * { [unidade]: { dia, oportunidades, conversoes, taxa, base: { meses, taxa } } }.
+ * `atual` = linhas do mês em andamento; `anteriores` = [[ym, linhas]] dos meses fechados. Na base só entram os meses em que a
+ * unidade tinha ao menos `minimo` cadastros até o dia (com poucos cadastros, um aluno muda a taxa em vários pontos).
+ */
+export function ritmoConversao(ym, atual, anteriores, dia, minimo = 20) {
+  const ate = diaNoMes(ym, dia);
+  const agora = resumirProspects(atual, `${ym}-01`, ate);
+  const antes = anteriores.map(([m, linhas]) => resumirProspects(linhas, `${m}-01`, diaNoMes(m, dia)));
+  const taxa = (x) => Math.round((x.conversoes / x.oportunidades) * 1000) / 10;
+  const out = {};
+  for (const [nome, u] of Object.entries(agora)) {
+    const base = antes.map((p) => p[nome]).filter((x) => x && x.oportunidades >= minimo).map(taxa);
+    out[nome] = {
+      dia, oportunidades: u.oportunidades, conversoes: u.conversoes, taxa: u.oportunidades ? taxa(u) : 0,
+      base: { meses: base.length, taxa: base.length ? Math.round((base.reduce((a, b) => a + b, 0) / base.length) * 10) / 10 : 0 },
+    };
+  }
+  return out;
 }

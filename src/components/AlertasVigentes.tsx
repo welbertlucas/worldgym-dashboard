@@ -90,7 +90,7 @@ export function AlertasVigentesLista({ res, unit = null, onAbrirTela }: { res: R
       />
       <Bloco
         titulo="Acelerar o mês"
-        descricao={res.comRitmo ? "Se o mês vai fechar bem: a projeção de faturamento e de novos contratos contra a meta (ou contra a média dos 3 meses anteriores, sem meta) e os cancelamentos até agora contra o mesmo dia dos meses anteriores." : `As regras de ritmo começam no dia ${DIAS_MINIMOS}: antes disso a projeção do mês erra demais.`}
+        descricao={res.comRitmo ? "Se o mês vai fechar bem: a projeção de faturamento e de novos contratos contra a meta (ou contra a média dos 3 meses anteriores, sem meta) e os cancelamentos e a conversão das oportunidades até agora contra o mesmo dia dos meses anteriores." : `As regras de ritmo começam no dia ${DIAS_MINIMOS}: antes disso a projeção do mês erra demais.`}
         itens={ritmo}
         onAbrirTela={onAbrirTela}
         vazio={res.comRitmo ? "Nenhuma unidade fora do ritmo." : `Aparecem a partir do dia ${DIAS_MINIMOS}.`}

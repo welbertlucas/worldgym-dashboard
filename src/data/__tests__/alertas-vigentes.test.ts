@@ -91,6 +91,24 @@ describe("alertas do mês vigente", () => {
     expect(de("A", "sumidos")?.fact).toContain("150 alunos ativos não vêm à academia há 16 a 60 dias");
   });
 
+  it("conversão das oportunidades contra o mesmo dia: só com 40 ou mais oportunidades", () => {
+    const rc = (oportunidades: number, conversoes: number, taxa: number) => ({ dia: 15, oportunidades, conversoes, taxa, base: { meses: 3, taxa: 75 } });
+    const nov = mes("2026-11", [
+      u("A", { ritmoConversao: rc(80, 40, 50) }), // −25 p.p.
+      u("B", { ritmoConversao: rc(100, 60, 60) }), // −15 p.p.
+      u("C", { ritmoConversao: rc(100, 68, 68) }), // −7 p.p.: normal
+      u("D", { ritmoConversao: rc(30, 10, 33.3) }), // poucas oportunidades
+    ]);
+    const r = computeAlertasVigentes([...fechados, nov], [], { atualizadoEm: lido, now, incluirRede: false });
+    const de = (unit: string) => r.alertas.find((a) => a.unit === unit && a.kind === "conversao");
+    expect(de("A")).toMatchObject({ severity: "critical", tipo: "ritmo", tela: "comercial/oportunidades" });
+    expect(de("A")?.fact).toContain("40 de 80 oportunidades");
+    expect(de("A")?.fact).toContain("convertia 75,0%");
+    expect(de("B")?.severity).toBe("attention");
+    expect(de("C")).toBeUndefined();
+    expect(de("D")).toBeUndefined();
+  });
+
   it("sem o mês corrente nos dados: nada", () => {
     expect(computeAlertasVigentes(fechados, [], { atualizadoEm: lido, now }).month).toBeNull();
   });

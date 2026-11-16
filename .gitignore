@@ -13,3 +13,6 @@ backups/
 .vercel
 .env*
 server/gerado/
+
+# Prévias do resumo diário (scripts/resumo-diario.mjs --previa): têm e-mails e números das unidades
+previa-resumo/

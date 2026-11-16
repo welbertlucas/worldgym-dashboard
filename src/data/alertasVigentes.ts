@@ -35,6 +35,10 @@ export const LIMIARES_VIGENTES = {
   cancelamentos: { criticoPct: 8, atencaoPP: 1.5, criticoPP: 2.2 },
   /** Só com 10 ou mais contratos vencidos no mês. */
   renovacao: { minVenceram: 10, atencaoPP: 14, criticoPP: 20 },
+  // Conversão das oportunidades (cadastradas no mês e convertidas no mês) contra o mesmo dia dos 3 meses anteriores (u.ritmoConversao).
+  // Calibrado em 16/11/2026 com mai–out/2026 nos dias 7 a 25 (629 casos): cai 13 p.p. ou mais em 10% das vezes e 20 ou mais em 5%.
+  /** Só com 40 ou mais oportunidades no mês até o dia (com menos, um aluno muda a taxa em vários pontos). */
+  conversao: { minOportunidades: 40, atencaoPP: 13, criticoPP: 20 },
   /** Alunos ativos que não vêm há 16 a 60 dias (último acesso): ainda dá para trazer de volta. Informativo até haver histórico. */
   sumidos: { minimo: 10 },
 } as const;
@@ -43,7 +47,7 @@ export type TipoVigente = "pendencia" | "ritmo";
 export type SeveridadeVigente = "critical" | "attention" | "info";
 export type KindVigente =
   | "inadAberta" | "cartaoRecusado" | "detratores" | "liberacoes" | "renovacao" | "sumidos"
-  | "fatRitmo" | "contratosRitmo" | "cancelRitmo";
+  | "fatRitmo" | "contratosRitmo" | "cancelRitmo" | "conversao";
 
 export interface AlertaVigente {
   id: string;
@@ -73,6 +77,7 @@ export const TITULO_VIGENTE: Record<KindVigente, string> = {
   fatRitmo: "Faturamento no ritmo do mês",
   contratosRitmo: "Novos contratos no ritmo do mês",
   cancelRitmo: "Cancelamentos acima do normal",
+  conversao: "Conversão de oportunidades abaixo do normal",
 };
 
 const brl = (v: number) => formatMetaValue("faturamento", v);
@@ -119,7 +124,7 @@ export function computeAlertasVigentes(
   const fracaoDias = dias / diasNoMes(month);
   const alertas: AlertaVigente[] = [];
   const push = (a: Omit<AlertaVigente, "id" | "month" | "title" | "tipo"> & { tipo?: TipoVigente }) => {
-    const tipo = a.tipo ?? (["fatRitmo", "contratosRitmo", "cancelRitmo"].includes(a.kind) ? "ritmo" : "pendencia");
+    const tipo = a.tipo ?? (["fatRitmo", "contratosRitmo", "cancelRitmo", "conversao"].includes(a.kind) ? "ritmo" : "pendencia");
     alertas.push({ ...a, tipo, id: `${month}|${a.unit}|${a.kind}`, month, title: TITULO_VIGENTE[a.kind] });
   };
 
@@ -267,6 +272,16 @@ export function computeAlertasVigentes(
         unit: nome, kind: "cancelRitmo", severity: critico ? "critical" : "attention", weight, tela: "retencao/cancelamentos",
         fact: `${int(u.cancelados)} cancelamentos até agora (${pct(u.churn)} da base do início do mês)${med !== null ? `: já passou do que a unidade costuma cancelar num mês inteiro (${pct(med)})` : ""}.`,
         action: "Ver os motivos dos cancelamentos do mês (Retenção → Cancelamentos) e oferecer alternativa antes do cancelamento: troca de plano, suspensão ou horário.",
+      });
+    }
+    // 10. Conversão das oportunidades do mês contra o mesmo dia dos 3 meses anteriores.
+    const rc = u.ritmoConversao, V = L.conversao;
+    if (rc && rc.base.meses > 0 && rc.oportunidades >= V.minOportunidades) {
+      const queda = rc.base.taxa - rc.taxa;
+      if (queda >= V.atencaoPP) push({
+        unit: nome, kind: "conversao", severity: queda >= V.criticoPP ? "critical" : "attention", weight, tela: "comercial/oportunidades",
+        fact: `${int(rc.conversoes)} de ${int(rc.oportunidades)} oportunidades cadastradas no mês viraram aluno até agora (${pct(rc.taxa)}). No dia ${rc.dia} dos ${rc.base.meses} meses anteriores a unidade convertia ${pct(rc.base.taxa)}.`,
+        action: "Retomar as oportunidades do mês que ainda não fecharam: ligar ou mandar mensagem, oferecer aula experimental e conferir se o cadastro está sendo convertido no EVO na hora da venda.",
       });
     }
   }
