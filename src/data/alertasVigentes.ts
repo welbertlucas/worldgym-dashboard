@@ -28,10 +28,13 @@ export const LIMIARES_VIGENTES = {
   meta: { criticoFracao: 0.75 },
   faturamentoSemMeta: { atencaoPct: -7, criticoPct: -12 },
   contratosSemMeta: { atencaoPct: -20, criticoPct: -35 },
-  /** Cancelados até hoje contra o mesmo dia dos 3 meses anteriores (u.ritmoAlunos); sem a base, a regra antiga (mês inteiro típico). */
-  cancelamentos: { criticoPct: 8, atencaoPP: 1, criticoPP: 2 },
-  /** Contratos de prazo fixo vencidos sem renovar até hoje (% dos que venceram), contra o mesmo dia; só com 10 ou mais vencidos. */
-  renovacao: { minVenceram: 10, atencaoPP: 15, criticoPP: 25 },
+  // Cancelamentos e renovação contra o mesmo dia dos 3 meses anteriores (u.ritmoAlunos). Calibrado em 16/11/2026 com mai–out/2026
+  // no dia 15 (23 unidades): o churn até o dia sobe mais de 1,5 p.p. sobre a média em 10% das vezes e mais de 2,2 em 5%;
+  // os não renovados (% dos que venceram), mais de 14 p.p. em 10% das vezes e mais de 17 em 5%.
+  /** Sem a base do mesmo dia, a regra antiga (já passou do churn de um mês inteiro típico). */
+  cancelamentos: { criticoPct: 8, atencaoPP: 1.5, criticoPP: 2.2 },
+  /** Só com 10 ou mais contratos vencidos no mês. */
+  renovacao: { minVenceram: 10, atencaoPP: 14, criticoPP: 20 },
   /** Alunos ativos que não vêm há 16 a 60 dias (último acesso): ainda dá para trazer de volta. Informativo até haver histórico. */
   sumidos: { minimo: 10 },
 } as const;
