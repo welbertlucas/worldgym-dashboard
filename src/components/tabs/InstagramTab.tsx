@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Heart, Image as ImageIcon, MessageCircle, Reply } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
-import { carregarInstagram, contasDaEscolha, imagemInstagram, NOME_DO_TIPO, resumoDasContas, storiesPorDia, type DadosInstagram, type PostInstagram, type StoryInstagram } from "@/data/instagram";
+import { carregarInstagram, contasDaEscolha, imagemInstagram, NOME_DO_TIPO, resumoDasContas, storiesDasUltimas, storiesPorDia, type DadosInstagram, type PostInstagram, type StoryInstagram } from "@/data/instagram";
 import { cn } from "@/lib/utils";
 import { DesempenhoPorTipo } from "@/components/DesempenhoPorTipo";
 
@@ -68,20 +68,24 @@ function Story({ s, mostrarConta }: { s: StoryInstagram; mostrarConta: boolean }
   );
 }
 
+const JANELA_STORIES = { 24: "últimas 24 horas", 168: "últimos 7 dias", 720: "últimos 30 dias" } as const;
+
 /**
  * Instagram das unidades: perfis (seguidores e ritmo de postagem), o feed e os stories guardados. Segue o botão de
  * unidade do alto: na rede mostra todas as contas (a Institucional primeiro); com uma unidade, só a conta dela.
  */
 export function InstagramTab({ unit }: { unit: string | null }) {
   const [d, setD] = useState<DadosInstagram | null | undefined>(undefined);
-  const [diasStories, setDiasStories] = useState(7);
+  /** Janela dos stories: abre nas últimas 24 horas (o que está no ar); os botões ampliam para 7 e 30 dias. */
+  const [horasStories, setHorasStories] = useState<24 | 168 | 720>(24);
   const [maisPosts, setMaisPosts] = useState(false);
   useEffect(() => { let vivo = true; carregarInstagram().then((x) => vivo && setD(x)); return () => { vivo = false; }; }, []);
   const contas = useMemo(() => (d ? contasDaEscolha(d, unit) : []), [d, unit]);
   const usuarios = useMemo(() => new Set(contas.map((c) => c.usuario)), [contas]);
   const resumo = useMemo(() => (d ? resumoDasContas(d, contas) : []), [d, contas]);
   const posts = useMemo(() => (d ? d.posts.filter((p) => usuarios.has(p.conta)) : []), [d, usuarios]);
-  const dias = useMemo(() => (d ? storiesPorDia(d.stories.filter((s) => usuarios.has(s.conta))) : []), [d, usuarios]);
+  const doQuem = useMemo(() => (d ? d.stories.filter((s) => usuarios.has(s.conta)) : []), [d, usuarios]);
+  const dias = useMemo(() => storiesPorDia(storiesDasUltimas(doQuem, horasStories)), [doQuem, horasStories]);
   const quem = unit ?? "Rede";
   const atualizado = d?.geradoEm ? ` • atualizado em ${quando(d.geradoEm)}` : "";
 
@@ -135,18 +139,26 @@ export function InstagramTab({ unit }: { unit: string | null }) {
 
       <DesempenhoPorTipo posts={posts} quem={quem} />
 
-      <ChartCard title="Stories" subtitle={<>{quem} • {diasStories === 7 ? "últimos 7 dias" : "últimos 30 dias"}</>}>
-        {dias.length === 0 ? <ChartEmpty>Nenhum story guardado ainda.</ChartEmpty> : (
-          <div className="space-y-4">
-            {dias.slice(0, diasStories).map(([dia, lista]) => (
+      <ChartCard title="Stories" subtitle={<>{quem} • {JANELA_STORIES[horasStories]}</>}>
+        <div className="space-y-4">
+          {doQuem.length === 0 ? <ChartEmpty>Nenhum story guardado ainda.</ChartEmpty>
+            : dias.length === 0 ? <ChartEmpty>Nenhum story {horasStories === 24 ? "nas últimas 24 horas" : `nos ${JANELA_STORIES[horasStories]}`}.</ChartEmpty>
+            : dias.map(([dia, lista]) => (
               <section key={dia} aria-label={`Stories de ${diaLongo(dia)}`}>
                 <h4 className="mb-2 text-xs font-medium text-muted-foreground first-letter:uppercase">{diaLongo(dia)} · {lista.length} {lista.length === 1 ? "story" : "stories"}</h4>
                 <ul className="flex gap-3 overflow-x-auto pb-1">{lista.map((s) => <Story key={s.id} s={s} mostrarConta={varias} />)}</ul>
               </section>
             ))}
-            {dias.length > 7 && <button type="button" onClick={() => setDiasStories(diasStories === 7 ? 30 : 7)} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">{diasStories === 7 ? "Ver os últimos 30 dias" : "Ver só os últimos 7 dias"}</button>}
-          </div>
-        )}
+          {doQuem.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {([24, 168, 720] as const).filter((h) => h !== horasStories).map((h) => (
+                <button key={h} type="button" onClick={() => setHorasStories(h)} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">
+                  {h === 24 ? "Ver só as últimas 24 horas" : `Ver os ${JANELA_STORIES[h]}`}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </ChartCard>
 
       <ChartCard title="Feed" subtitle={<>{quem} • posts mais recentes</>}>

@@ -52,7 +52,9 @@ export function contasDaEscolha(d: DadosInstagram, unit: string | null): ContaIn
 }
 
 const DIA = 86400000;
-const diaBrasilia = (iso: string) => new Date(Date.parse(iso) - 3 * 3600000).toISOString().slice(0, 10);
+/** Data do Meta em milissegundos. O Meta manda o fuso sem dois-pontos ("+0000"), que nem todo navegador lê. */
+export const instante = (iso: string) => Date.parse(iso.replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
+const diaBrasilia = (iso: string) => new Date(instante(iso) - 3 * 3600000).toISOString().slice(0, 10);
 
 export interface ResumoConta {
   conta: ContaInstagram;
@@ -87,6 +89,12 @@ export function resumoDasContas(d: DadosInstagram, contas: ContaInstagram[], ago
       mediaVisualizacoes: comNumero.length ? Math.round(comNumero.reduce((s, p) => s + (p.visualizacoes ?? 0), 0) / comNumero.length) : null,
     };
   });
+}
+
+/** Stories publicados nas últimas `horas` horas (24 = o que ainda está no ar). */
+export function storiesDasUltimas(stories: StoryInstagram[], horas: number, agora = new Date()): StoryInstagram[] {
+  const desde = agora.getTime() - horas * 3600000;
+  return stories.filter((s) => s.data && instante(s.data) >= desde);
 }
 
 /** Stories agrupados por dia (de Brasília), mais recentes primeiro. */

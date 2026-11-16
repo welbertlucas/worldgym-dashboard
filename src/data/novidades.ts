@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-16-stories-24h", data: "2026-11-16", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "campanhas/instagram", artigo: "tela-marketing",
+    titulo: "Marketing: stories das últimas 24 horas",
+    texto: "Para saber se a unidade postou hoje, era preciso rolar uma semana de stories. Agora o Instagram abre com o que está no ar, das últimas 24 horas. Os botões abaixo mostram os últimos 7 e 30 dias.",
+  },
+  {
     id: "2026-11-16-central-de-ajuda", data: "2026-11-16", tipo: "novo", publico: "todos", autora: AUTORA, tela: "ajuda",
     titulo: "Central de ajuda: um guia de cada tela",
     texto: "Bateu a dúvida sobre um número ou sobre onde fica alguma coisa? A Central de ajuda, no rodapé do menu, explica cada tela e cada indicador, com busca. As novidades também ganharam lugar próprio, logo acima dela.",

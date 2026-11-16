@@ -5,7 +5,7 @@ import { renderToString } from "react-dom/server";
 import { CONTAS_IG, descobrirContas, imagemDe, insightsDe, mesclar, postDoGraph, postsDesde, storyDoGraph, valoresDeInsights } from "../../../server/instagram.js";
 // @ts-expect-error módulo JS do servidor
 import { filtrarInstagram } from "../../../server/visibilidade.js";
-import { contasDaEscolha, resumoDasContas, storiesPorDia, type DadosInstagram } from "@/data/instagram";
+import { contasDaEscolha, instante, resumoDasContas, storiesDasUltimas, storiesPorDia, type DadosInstagram } from "@/data/instagram";
 import { InstagramTab } from "@/components/tabs/InstagramTab";
 
 const conta = { id: "1", usuario: "worldgym.gama", nome: "World Gym Gama", seguidores: 5400, posts: 300, foto: null };
@@ -127,5 +127,19 @@ describe("Instagram: tela", () => {
 
   it("sem leitura ainda, a tela explica o que falta", () => {
     expect(renderToString(createElement(InstagramTab, { unit: null }))).toContain("Carregando");
+  });
+});
+
+describe("Instagram: janela dos stories", () => {
+  const st = (id: string, data: string) => ({ id, conta: "worldgym.gama", unidade: "Gama", tipo: "IMAGE", link: null, data, visualizacoes: null, alcance: null, respostas: null, compartilhamentos: null, interacoes: null });
+  const agora = new Date("2026-11-16T22:00:00Z");
+  const lista = [st("a", "2026-11-16T12:00:00+0000"), st("b", "2026-11-15T23:00:00+0000"), st("c", "2026-11-15T21:00:00+0000"), st("d", "2026-11-10T12:00:00+0000")];
+  it("lê o fuso do Meta sem dois-pontos", () => {
+    expect(instante("2026-11-16T12:00:00+0000")).toBe(Date.parse("2026-11-16T12:00:00Z"));
+    expect(instante("2026-11-16T12:00:00-0300")).toBe(Date.parse("2026-11-16T15:00:00Z"));
+  });
+  it("24 horas pega só o que ainda está no ar; 7 dias, o resto da semana", () => {
+    expect(storiesDasUltimas(lista, 24, agora).map((s) => s.id)).toEqual(["a", "b"]);
+    expect(storiesDasUltimas(lista, 168, agora).map((s) => s.id)).toEqual(["a", "b", "c", "d"]);
   });
 });
