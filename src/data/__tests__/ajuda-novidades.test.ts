@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ARTIGOS, artigosPara, buscarAjuda, SECOES, secoesPara } from "@/data/ajuda";
-import { NOVIDADES, naoVistas, novidadesPara } from "@/data/novidades";
+import { buscarNovidades, NOVIDADES, naoVistas, novidadesPara } from "@/data/novidades";
 import { itensDoMenu, NAV_RODAPE, ondeFica } from "@/components/nav";
 
 describe("central de ajuda", () => {
@@ -60,5 +60,13 @@ describe("novidades", () => {
       const ids = new Set(artigosPara(dono).map((a) => a.id));
       for (const n of novidadesPara(dono)) if (n.artigo) expect(ids.has(n.artigo), n.id).toBe(true);
     }
+  });
+
+  it("busca nas novidades sem acento; vazia mostra todas", () => {
+    const todos = novidadesPara(false);
+    expect(buscarNovidades(todos, "")).toEqual(todos);
+    expect(buscarNovidades(todos, "conversao").some((n) => n.id === "2026-11-16-alerta-conversao")).toBe(true);
+    expect(buscarNovidades(todos, "melhoria").every((n) => n.tipo === "melhoria" || /melhoria/i.test(n.texto))).toBe(true);
+    expect(buscarNovidades(todos, "xyzabc")).toEqual([]);
   });
 });

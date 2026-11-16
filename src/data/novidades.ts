@@ -98,3 +98,12 @@ export const naoVistas = (lista: Novidade[], vistas: Iterable<string>): number =
   const v = new Set(vistas);
   return lista.filter((n) => !v.has(n.id)).length;
 };
+
+const semAcento = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/** Busca nas novidades: todas as palavras precisam aparecer no título, no texto ou no tipo (novo, melhoria). */
+export const buscarNovidades = (lista: Novidade[], consulta: string): Novidade[] => {
+  const termos = semAcento(consulta).split(/\s+/).filter(Boolean);
+  if (!termos.length) return lista;
+  return lista.filter((n) => { const tudo = semAcento(`${n.titulo} ${n.texto} ${n.tipo}`); return termos.every((t) => tudo.includes(t)); });
+};

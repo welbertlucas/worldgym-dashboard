@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, ChevronRight, CircleHelp, ImageIcon, KeyRound, LayoutDashboard, MapPin, Rocket, Search, ShieldAlert, type LucideIcon } from "lucide-react";
 import { lerVistas, marcarVistas } from "@/lib/novidadesVistas";
-import { novidadesPara, type Novidade } from "@/data/novidades";
+import { buscarNovidades, novidadesPara, type Novidade } from "@/data/novidades";
 import { cn } from "@/lib/utils";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ondeFica } from "@/components/nav";
@@ -110,7 +110,7 @@ function Artigo({ artigo, relacionados, onAba, onAbrirTela }: { artigo: ArtigoAj
             <span><span className="font-semibold">Onde fica:</span> {ondeFica(artigo.tela)}</span>
           </p>
           <button type="button" onClick={() => onAbrirTela(artigo.tela!)} className={cn("rounded-full border border-border bg-card px-3.5 py-1.5 text-sm font-semibold text-primary-ink shadow-sm hover:bg-secondary", foco)}>
-            Abrir esta tela →
+            Abrir esta tela
           </button>
         </div>
       )}
@@ -219,8 +219,8 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{n.texto}</p>
       {(n.artigo || n.tela) && (
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-          {n.artigo && <button type="button" onClick={() => onAbrirTela(`ajuda/${n.artigo}`)} className={cn("rounded text-sm font-semibold text-primary-ink hover:underline", foco)}>Saiba mais →</button>}
-          {n.tela && <button type="button" onClick={() => onAbrirTela(n.tela!)} className={cn("rounded text-sm font-semibold text-primary-ink hover:underline", foco)}>Ver na tela →</button>}
+          {n.artigo && <button type="button" onClick={() => onAbrirTela(`ajuda/${n.artigo}`)} className={cn("rounded text-sm font-semibold text-primary-ink hover:underline", foco)}>Saiba mais</button>}
+          {n.tela && <button type="button" onClick={() => onAbrirTela(n.tela!)} className={cn("rounded text-sm font-semibold text-primary-ink hover:underline", foco)}>Ver na tela</button>}
         </div>
       )}
     </li>
@@ -231,15 +231,29 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
 export function NovidadesTab({ onAbrirTela }: { onAbrirTela: (destino: string) => void }) {
   const [lista] = useState(() => novidadesPara(ehDono()));
   const [novas] = useState(() => { const v = new Set(lerVistas()); return new Set(lista.filter((n) => !v.has(n.id)).map((n) => n.id)); });
+  const [consulta, setConsulta] = useState("");
   useEffect(() => { marcarVistas(lista.map((n) => n.id)); }, [lista]);
-  const meses = [...new Set(lista.map((n) => n.data.slice(0, 7)))];
+  const achadas = buscarNovidades(lista, consulta);
+  const meses = [...new Set(achadas.map((n) => n.data.slice(0, 7)))];
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <SectionTitle level="page" hint="O que mudou no Atlas, do mais novo para o mais antigo.">Novidades</SectionTitle>
+      <label className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm focus-within:ring-2 focus-within:ring-ring">
+        <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
+        <input
+          type="search"
+          value={consulta}
+          onChange={(e) => setConsulta(e.target.value)}
+          placeholder="Buscar nas novidades: alerta, metas, celular…"
+          aria-label="Buscar nas novidades"
+          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+      </label>
+      {!achadas.length && <p className="text-sm text-muted-foreground">Nenhuma novidade com "{consulta}". Tente outra palavra.</p>}
       {meses.map((m) => (
         <section key={m} className="space-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{nomeDoMes(m)}</h3>
-          <ul className="space-y-3">{lista.filter((n) => n.data.startsWith(m)).map((n) => <CartaoNovidade key={n.id} n={n} nova={novas.has(n.id)} onAbrirTela={onAbrirTela} />)}</ul>
+          <ul className="space-y-3">{achadas.filter((n) => n.data.startsWith(m)).map((n) => <CartaoNovidade key={n.id} n={n} nova={novas.has(n.id)} onAbrirTela={onAbrirTela} />)}</ul>
         </section>
       ))}
     </div>

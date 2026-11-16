@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react";
 import { UnitLink } from "@/components/UnitLink";
 import { formatMonthLong } from "@/data/periods";
 import { type AlertaVigente, type ResultadoVigente, type SeveridadeVigente } from "@/data/alertasVigentes";
@@ -33,7 +32,7 @@ export function ItemVigente({ a, comUnidade = true, onAbrirTela }: { a: AlertaVi
       <p className="text-sm text-muted-foreground"><b className="font-medium text-foreground">O que fazer:</b> {a.action}</p>
       {onAbrirTela && (
         <button type="button" onClick={() => onAbrirTela(a.tela)} className="inline-flex items-center gap-1 text-xs font-medium text-primary-ink underline-offset-4 hover:underline">
-          Ver o detalhe <ArrowRight className="h-3 w-3" aria-hidden />
+          Ver o detalhe
         </button>
       )}
     </div>
