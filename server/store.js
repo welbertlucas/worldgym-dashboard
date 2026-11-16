@@ -106,3 +106,15 @@ export async function loadMidiaInstagram(id) {
 export async function apagarMidiasInstagram(ids) {
   if (ids.length) await del(ids.map(midiaPath));
 }
+
+// Prints das telas da central de ajuda (números fictícios). Ficam aqui, e não no repositório público, e só saem com login.
+const imagemAjudaPath = (nome) => `ajuda/imagens/${nome}.png`;
+
+export async function saveImagemAjuda(nome, png) {
+  await put(imagemAjudaPath(nome), png, { access: "private", contentType: "image/png", addRandomSuffix: false, allowOverwrite: true });
+}
+
+export async function loadImagemAjuda(nome) {
+  const r = await get(imagemAjudaPath(nome), { access: "private" });
+  return r?.statusCode === 200 ? r.stream : null;
+}

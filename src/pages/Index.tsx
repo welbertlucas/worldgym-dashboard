@@ -16,6 +16,7 @@ import { BotaoUnidade, DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { TrocarSenha } from "@/components/TrocarSenha";
 import { AlertasNoTopo } from "@/components/AlertasNoTopo";
+import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
 import { TempoParaConverter } from "@/components/TempoParaConverter";
@@ -83,6 +84,7 @@ const CatracaTab = telaSobDemanda(() => import("@/components/tabs/CatracaTab"), 
 const RiscosTab = telaSobDemanda(() => import("@/components/tabs/RiscosTab"), "RiscosTab");
 const MetasTab = telaSobDemanda(() => import("@/components/tabs/MetasTab"), "MetasTab");
 const AcessosTab = telaSobDemanda(() => import("@/components/tabs/AcessosTab"), "AcessosTab");
+const AjudaTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "AjudaTab");
 
 /** Intervalo da atualização automática dos dados (planilha e metas). */
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -132,6 +134,8 @@ const Index = () => {
   }, []);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  /** Novidades não vistas: bolinha no botão do menu do celular (no menu, o número fica em "Ajuda e novidades"). */
+  const novidadesNovas = useNovidadesNaoVistas();
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem("wg-sidebar-collapsed") === "1"; } catch { return false; }
@@ -196,7 +200,9 @@ const Index = () => {
   // unidades da pessoa (nada da rede). O Benchmark mostra sempre todas; a unidade do filtro só fica destacada nele.
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = activeTab === "executiva";
-  const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && activeTab !== "acessos";
+  /** Telas sem mês nem unidade: Usuários e Ajuda. */
+  const semFiltros = activeTab === "acessos" || activeTab === "ajuda";
+  const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
   const months = dashboardData.map((d) => d.month);
@@ -279,11 +285,12 @@ const Index = () => {
               <button
                 type="button"
                 onClick={() => setDrawerOpen(true)}
-                aria-label="Abrir menu de navegação"
+                aria-label={novidadesNovas > 0 ? "Abrir menu de navegação (há novidades)" : "Abrir menu de navegação"}
                 aria-haspopup="dialog"
-                className="lg:hidden rounded-xl p-2 -ml-1 text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="relative lg:hidden rounded-xl p-2 -ml-1 text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Menu className="w-5 h-5" aria-hidden />
+                {novidadesNovas > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" aria-hidden />}
               </button>
               <div className="min-w-0">
                 <h1 className="text-base sm:text-xl font-semibold tracking-tight text-foreground leading-tight sm:truncate">
@@ -351,7 +358,7 @@ const Index = () => {
 
         <main ref={mainRef} className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 sm:space-y-8 max-w-[1600px] scroll-mt-20">
         {/* Filtros */}
-        {!seletorProprio && !semMes && activeTab !== "acessos" && <DateFilter
+        {!seletorProprio && !semMes && !semFiltros && <DateFilter
           selectedMonth={fullMonthData.month}
           compareMonth={compareMonth}
           onMonthChange={setSelectedMonth}
@@ -360,7 +367,7 @@ const Index = () => {
 
         <Suspense fallback={<p className="py-10 text-center text-sm text-muted-foreground">Carregando a tela…</p>}>
         {/* Comparativo */}
-        {comparison && !seletorProprio && !semMes && activeTab !== "acessos" && (
+        {comparison && !seletorProprio && !semMes && !semFiltros && (
           <section>
             <SectionTitle>Comparativo de períodos</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -378,7 +385,7 @@ const Index = () => {
           </section>
         )}
 
-        {partialSelected && activeTab !== "executiva" && !seletorProprio && !semMes && activeTab !== "acessos" && (
+        {partialSelected && activeTab !== "executiva" && !seletorProprio && !semMes && !semFiltros && (
           <Notice><b>{formatDate(fullMonthData.month)}</b> está em andamento — os valores são parciais.</Notice>
         )}
 
@@ -535,6 +542,8 @@ const Index = () => {
         })()}
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
+
+        {activeTab === "ajuda" && <AjudaTab aba={subAba} onAba={(id) => changeTab(id ? `ajuda/${id}` : "ajuda")} onAbrirTela={changeTab} />}
         </Suspense>
         </main>
       </div>

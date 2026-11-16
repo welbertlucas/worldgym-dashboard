@@ -3,6 +3,7 @@ import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buscarNoMenu, itensDeBusca, itensDoMenu } from "@/components/nav";
 import { podeGerirAcessos } from "@/lib/auth";
+import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import wgLogo from "@/assets/wg-logo.png";
 
 interface NavProps {
@@ -65,6 +66,7 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
 
 function NavList({ active, onChange, collapsed = false }: NavProps & { collapsed?: boolean }) {
   const itens = itensDoMenu(podeGerirAcessos());
+  const novas = useNovidadesNaoVistas();
   return (
     <>
     {!collapsed && <BuscaMenu onChange={onChange} />}
@@ -89,6 +91,14 @@ function NavList({ active, onChange, collapsed = false }: NavProps & { collapsed
               >
                 <Icon className="w-[18px] h-[18px] shrink-0 text-primary" aria-hidden />
                 <span className={cn("flex-1 text-left", collapsed && "sr-only")}>{item.label}</span>
+                {item.id === "ajuda" && novas > 0 && (
+                  <span
+                    className={cn("rounded-full bg-primary text-center text-[10px] font-semibold leading-none text-primary-foreground", collapsed ? "absolute right-1.5 top-1 h-2 w-2" : "min-w-[1.1rem] px-1.5 py-0.5")}
+                    aria-label={`${novas} ${novas === 1 ? "novidade" : "novidades"}`}
+                  >
+                    {!collapsed && (novas > 9 ? "9+" : novas)}
+                  </span>
+                )}
               </button>
             </li>
           );

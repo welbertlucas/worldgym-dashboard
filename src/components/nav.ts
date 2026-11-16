@@ -1,4 +1,4 @@
-import { KeyRound, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
+import { KeyRound, LifeBuoy, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
@@ -19,12 +19,16 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "retencao", label: "Retenção", icon: UserCheck },
   { id: "campanhas", label: "Marketing", icon: Megaphone },
   { id: "benchmark", label: "Ranking da rede", icon: BarChart3 },
+  { id: "ajuda", label: "Ajuda e novidades", icon: LifeBuoy },
 ];
 
 /** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. `comOcultos` serve à busca, que ainda acha as telas fora da barra lateral. */
 export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false): NavItem[] => {
   const base = comOcultos ? NAV_ITEMS : NAV_ITEMS.filter((i) => !i.oculto);
-  return gerirAcessos ? [...base, { id: "acessos", label: "Usuários", icon: KeyRound }] : base;
+  if (!gerirAcessos) return base;
+  // Usuários entra antes da Ajuda, que fica sempre por último.
+  const usuarios: NavItem = { id: "acessos", label: "Usuários", icon: KeyRound };
+  return [...base.filter((i) => i.id !== "ajuda"), usuarios, ...base.filter((i) => i.id === "ajuda")];
 };
 
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
@@ -83,6 +87,7 @@ const PALAVRAS: Record<string, string> = {
   riscos: "alertas riscos recomendacoes atencao critico",
   "riscos/mes": "alertas do mes atual em andamento pendencias ritmo cobrar cartao detratores renovacao projecao",
   "riscos/fechamento": "fechamento mes anterior fechado o que aconteceu hipoteses comparativo anual",
+  ajuda: "ajuda novidades o que mudou central duvidas como usar perguntas frequentes glossario o que significa senha tutorial novidades",
   acessos: "usuarios senha permissoes login niveis quem entra no painel",
 };
 
