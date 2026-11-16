@@ -128,75 +128,99 @@ function Artigo({ artigo, relacionados, onAba, onAbrirTela }: { artigo: ArtigoAj
   );
 }
 
-/** Central de ajuda: cartões por seção, com busca. `aba` é a seção ou o artigo aberto (#ajuda/<seção ou artigo>). */
+/** Campo de busca da Central de ajuda (na página inicial, em cada assunto e em cada artigo). */
+function CampoDeBusca({ consulta, onConsulta }: { consulta: string; onConsulta: (v: string) => void }) {
+  return (
+    <label className="flex max-w-3xl items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm focus-within:ring-2 focus-within:ring-ring">
+      <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
+      <input
+        type="search"
+        value={consulta}
+        onChange={(e) => onConsulta(e.target.value)}
+        placeholder="Buscar artigos: churn, senha, alerta…"
+        aria-label="Buscar na ajuda"
+        className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+      />
+    </label>
+  );
+}
+
+/** Central de ajuda: cartões por seção, com busca em todas as páginas. `aba` é a seção ou o artigo aberto (#ajuda/<seção ou artigo>).
+ *  O campo de busca fica sempre na mesma posição da árvore, para não perder o foco quando o conteúdo abaixo dele troca. */
 export function AjudaTab({ aba, onAba, onAbrirTela }: { aba: string | null; onAba: (id: string | null) => void; onAbrirTela: (destino: string) => void }) {
   const dono = ehDono();
   const artigos = artigosPara(dono);
   const secoes = secoesPara(dono);
   const [consulta, setConsulta] = useState("");
   const daSecao = (id: SecaoAjuda) => artigos.filter((x) => x.secao === id);
-
+  /** Abrir um artigo ou seção limpa a busca. */
+  const ir = (id: string | null) => { setConsulta(""); onAba(id); };
+  const buscando = consulta.trim() !== "";
   const aberto = aba ? artigos.find((x) => x.id === aba) : undefined;
-  if (aberto) return <Artigo artigo={aberto} relacionados={daSecao(aberto.secao).filter((x) => x.id !== aberto.id).slice(0, 5)} onAba={onAba} onAbrirTela={onAbrirTela} />;
+  const secaoAberta = aberto ? undefined : secoes.find((s) => s.id === aba);
+  /** Página inicial (com ou sem busca): título no topo. Dentro de um assunto ou artigo, a busca leva o caminho de volta. */
+  const inicio = !aberto && !secaoAberta;
 
-  const secaoAberta = secoes.find((s) => s.id === aba);
-  if (secaoAberta) {
-    const lista = daSecao(secaoAberta.id);
-    return (
+  let conteudo;
+  if (buscando) {
+    const achados = buscarAjuda(artigos, consulta);
+    conteudo = (
       <div className="max-w-3xl space-y-4">
-        <Caminho partes={[{ rotulo: "Central de ajuda", onClick: () => onAba(null) }]} />
+        {!inicio && <Caminho partes={[{ rotulo: "Central de ajuda", onClick: () => ir(null) }]} />}
+        {achados.length ? (
+          <>
+            <p className="text-sm text-muted-foreground">{achados.length} {achados.length === 1 ? "artigo encontrado" : "artigos encontrados"}</p>
+            <ul className="rounded-xl border border-border bg-card p-1 shadow-sm">{achados.map((x) => <ItemDaLista key={x.id} x={x} onAbrir={ir} />)}</ul>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nada encontrado para "{consulta}". Tente outra palavra.</p>
+        )}
+      </div>
+    );
+  } else if (aberto) {
+    conteudo = <Artigo artigo={aberto} relacionados={daSecao(aberto.secao).filter((x) => x.id !== aberto.id).slice(0, 5)} onAba={ir} onAbrirTela={onAbrirTela} />;
+  } else if (secaoAberta) {
+    const lista = daSecao(secaoAberta.id);
+    conteudo = (
+      <div className="max-w-3xl space-y-4">
+        <Caminho partes={[{ rotulo: "Central de ajuda", onClick: () => ir(null) }]} />
         <SectionTitle level="page" hint={secaoAberta.descricao}>{secaoAberta.titulo}</SectionTitle>
         <Autoras lista={lista} />
-        <ul className="rounded-xl border border-border bg-card p-1 shadow-sm">{lista.map((x) => <ItemDaLista key={x.id} x={x} onAbrir={onAba} />)}</ul>
+        <ul className="rounded-xl border border-border bg-card p-1 shadow-sm">{lista.map((x) => <ItemDaLista key={x.id} x={x} onAbrir={ir} />)}</ul>
       </div>
+    );
+  } else {
+    conteudo = (
+      <ul className="grid gap-3 lg:grid-cols-2">
+        {secoes.map((s) => {
+          const lista = daSecao(s.id);
+          if (!lista.length) return null;
+          const Icone = ICONE_DA_SECAO[s.id];
+          return (
+            <li key={s.id}>
+              <button type="button" onClick={() => ir(s.id)} className={cn("flex h-full w-full items-start gap-4 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:border-foreground/20 hover:bg-secondary/40", foco)}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icone className="h-5 w-5" aria-hidden /></span>
+                <span className="min-w-0 flex-1 space-y-1.5">
+                  <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+                    {s.titulo}
+                    {s.publico === "dono" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só você vê</span>}
+                  </span>
+                  <span className="block text-sm text-muted-foreground">{s.descricao}</span>
+                  <Autoras lista={lista} />
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 
-  const achados = buscarAjuda(artigos, consulta);
   return (
     <div className="space-y-5">
-      <SectionTitle level="page" hint="Como usar cada tela, o que significa cada número e as dúvidas mais comuns.">Central de ajuda</SectionTitle>
-      <label className="flex max-w-xl items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm focus-within:ring-2 focus-within:ring-ring">
-        <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
-        <input
-          type="search"
-          value={consulta}
-          onChange={(e) => setConsulta(e.target.value)}
-          placeholder="Buscar artigos: churn, senha, alerta…"
-          aria-label="Buscar na ajuda"
-          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
-      </label>
-      {consulta.trim() ? (
-        achados.length ? (
-          <ul className="max-w-3xl rounded-xl border border-border bg-card p-1">{achados.map((x) => <ItemDaLista key={x.id} x={x} onAbrir={onAba} />)}</ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nada encontrado para "{consulta}". Tente outra palavra.</p>
-        )
-      ) : (
-        <ul className="grid gap-3 lg:grid-cols-2">
-          {secoes.map((s) => {
-            const lista = daSecao(s.id);
-            if (!lista.length) return null;
-            const Icone = ICONE_DA_SECAO[s.id];
-            return (
-              <li key={s.id}>
-                <button type="button" onClick={() => onAba(s.id)} className={cn("flex h-full w-full items-start gap-4 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:border-foreground/20 hover:bg-secondary/40", foco)}>
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icone className="h-5 w-5" aria-hidden /></span>
-                  <span className="min-w-0 flex-1 space-y-1.5">
-                    <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-                      {s.titulo}
-                      {s.publico === "dono" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só você vê</span>}
-                    </span>
-                    <span className="block text-sm text-muted-foreground">{s.descricao}</span>
-                    <Autoras lista={lista} />
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {inicio && <SectionTitle level="page" hint="Como usar cada tela, o que significa cada número e as dúvidas mais comuns.">Central de ajuda</SectionTitle>}
+      <CampoDeBusca consulta={consulta} onConsulta={setConsulta} />
+      {conteudo}
     </div>
   );
 }
