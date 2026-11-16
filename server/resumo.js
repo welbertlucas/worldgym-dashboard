@@ -324,17 +324,21 @@ const dataCurta = (ms) => { const d = new Date(ms); return `${pad(d.getUTCDate()
 export function assunto(r) {
   if (r.desatualizado) return `World Gym Atlas · resumo de ${dataCurta(r.ateDia)}`;
   const quem = r.unidade ?? (r.maisDeUma ? "Suas unidades" : "Rede World Gym");
-  const fat = r.dia ? `${brl(r.dia.faturamento)} ontem` : `${brl(r.total.faturamento)} no mês`;
-  const m = r.metas?.faturamento;
-  const meta = !m || m.semMeta ? "" : m.topo.falta > 0 ? ` · faltam ${brl(m.topo.falta)} para a meta ouro` : " · meta ouro atingida";
-  return `${quem}: ${fat}${meta}`;
+  return `${quem}: ${r.dia ? `${brl(r.dia.faturamento)} ontem` : `${brl(r.total.faturamento)} no mês`}`;
 }
 
-/** Texto de prévia (a linha cinza ao lado do assunto): completa o assunto com o acumulado do mês e os alertas. */
+/** Quanto falta para a meta ouro de faturamento ("" sem meta). Vai na prévia, não no assunto (o assunto ficava longo demais). */
+function textoMeta(r) {
+  const m = r.metas?.faturamento;
+  return !m || m.semMeta ? "" : m.topo.falta > 0 ? `faltam ${brl(m.topo.falta)} para a meta ouro` : "meta ouro atingida";
+}
+
+/** Texto de prévia (a linha cinza ao lado do assunto): o acumulado do mês, a meta e os alertas. */
 export function textoPrevia(r) {
   const d = r.desatualizado ? null : delta(r.total.faturamento, r.totalRef?.faturamento);
   const n = r.alertas.length;
-  const mes = `${brl(r.total.faturamento)} no mês${d && d.curto !== "igual" ? ` (${d.curto} contra o mesmo dia do mês passado)` : ""}.`;
+  const meta = r.desatualizado ? "" : textoMeta(r);
+  const mes = `${brl(r.total.faturamento)} no mês${d && d.curto !== "igual" ? ` (${d.curto} contra o mesmo dia do mês passado)` : ""}${meta ? ` · ${meta}` : ""}.`;
   return `${mes} ${n ? `${n} ${n === 1 ? "alerta pede" : "alertas pedem"} atenção.` : "Nenhum alerta hoje."}`;
 }
 

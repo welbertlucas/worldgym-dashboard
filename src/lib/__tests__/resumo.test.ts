@@ -231,18 +231,18 @@ describe("resumo diário", () => {
     expect(so.metas.faturamento).toEqual({ semMeta: true, aviso: "nem todas as suas unidades cadastraram meta" });
     expect(montarResumo(meses, usr, "2026-11-10", null, []).metas.faturamento.aviso).toBe("suas unidades não cadastraram meta");
   });
-  it("assunto traz o número do dia e a meta; a prévia completa com o mês e os alertas", () => {
+  it("assunto curto (unidade e número do dia); a prévia traz o mês, a meta e os alertas", () => {
     const usr = { papel: "unidades", unidades: ["Gama"], nome: "B" };
     const ontem = { dia: "x", units: { Gama: fotoDe({ units: [un("Gama", { faturamento: 700 })] }, "x").units.Gama } };
     const metas = parseMetas([["Mês", "Unidade", "Indicador", "Bronze", "Prata", "Ouro"], ["2026-11", "Gama", "Faturamento", "800", "1.200", "1.500"]], 2026);
     const r = montarResumo(meses, usr, "2026-11-10", ref, metas, ontem); // Gama: 900 no mês, 700 até anteontem, 1000 no mesmo dia do mês passado
-    expect(assunto(r)).toBe("Gama: R$ 200 ontem · faltam R$ 600 para a meta ouro");
-    expect(textoPrevia(r)).toBe("R$ 900 no mês (▼ 10% contra o mesmo dia do mês passado). 2 alertas pedem atenção.");
+    expect(assunto(r)).toBe("Gama: R$ 200 ontem");
+    expect(textoPrevia(r)).toBe("R$ 900 no mês (▼ 10% contra o mesmo dia do mês passado) · faltam R$ 600 para a meta ouro. 2 alertas pedem atenção.");
     expect(renderizarEmail(r, usr)).toContain("R$&nbsp;900 no mês (▼ 10% contra o mesmo dia do mês passado)"); // texto de prévia escondido no topo
     // sem foto de ontem e sem metas legíveis: só o acumulado, sem afirmar meta
     const simples = montarResumo(meses, { papel: "master" }, "2026-11-10");
     expect(assunto(simples)).toBe("Rede World Gym: R$ 2.400 no mês");
-    expect(assunto(montarResumo(meses, { papel: "unidades", unidades: ["Itapoã"] }, "2026-11-10", null, parseMetas([["Mês", "Unidade", "Indicador", "Bronze", "Prata", "Ouro"], ["2026-11", "Itapoã", "Faturamento", "500", "800", "900"]], 2026)))).toBe("Itapoã: R$ 1.000 no mês · meta ouro atingida");
+    expect(assunto(montarResumo(meses, { papel: "unidades", unidades: ["Itapoã"] }, "2026-11-10", null, parseMetas([["Mês", "Unidade", "Indicador", "Bronze", "Prata", "Ouro"], ["2026-11", "Itapoã", "Faturamento", "500", "800", "900"]], 2026)))).toBe("Itapoã: R$ 1.000 no mês");
     // EVO não atualizou esta madrugada: o assunto não afirma número
     const velho = montarResumo([{ ...meses[0], generatedAt: "2026-11-09T04:00:00.000Z" }], usr, "2026-11-10", ref, metas, ontem);
     expect(assunto(velho)).toBe("World Gym Atlas · resumo de 09/11");
