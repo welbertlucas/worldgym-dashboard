@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Copy, KeyRound, ShieldCheck } from "lucide-react";
-import { nomeDaTela } from "@/components/nav";
+import { Copy, KeyRound, Search, ShieldCheck } from "lucide-react";
+import { nomeDaTela, normalizar } from "@/components/nav";
 import { formatMonthLong } from "@/data/periods";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
@@ -17,6 +17,15 @@ const NIVEL: Record<Papel, string> = { dono: "Dono", master: "Master", unidades:
 const campo = "h-10 w-full rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 export { nomeDaTela };
 
+/** Acessos mostrados de cada vez (o botão "Ver mais" traz mais esta quantidade). */
+export const ACESSOS_POR_VEZ = 10;
+/** Busca na lista de acessos: todas as palavras precisam aparecer no nome, e-mail, nível ou unidades (sem acento). */
+export function filtrarAcessos(lista: UsuarioApi[], consulta: string): UsuarioApi[] {
+  const termos = normalizar(consulta).split(/\s+/).filter(Boolean);
+  if (!termos.length) return lista;
+  return lista.filter((u) => { const tudo = normalizar(`${u.nome} ${u.email} ${NIVEL[u.papel]} ${u.unidades.join(" ")}`); return termos.every((t) => tudo.includes(t)); });
+}
+
 const quando = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 /** Gestão de acessos: o dono e o Master que ele liberou ("Pode gerenciar acessos"). O servidor confere as mesmas regras. */
@@ -28,6 +37,8 @@ export function AcessosTab() {
   const [erro, setErro] = useState("");
   const [senhaNova, setSenhaNova] = useState<{ nome: string; senha: string; email?: EmailDeAcesso } | null>(null);
   const [editando, setEditando] = useState<UsuarioApi | null>(null);
+  const [consulta, setConsulta] = useState("");
+  const [quantos, setQuantos] = useState(ACESSOS_POR_VEZ);
 
   const carregar = useCallback(async () => {
     const [a, r, at] = await Promise.all([listarAcessos(), lerRegistro(), ehDono() ? lerAtividade() : Promise.resolve(null)]);
@@ -50,6 +61,10 @@ export function AcessosTab() {
   if (!dados) return <div><SectionTitle level="page">Acessos</SectionTitle><p className="text-sm text-muted-foreground">Carregando...</p></div>;
   if (dados.legado) return <PrimeiroDono />;
 
+  // 10 de cada vez ("Ver mais"); com busca, todos os encontrados.
+  const achados = filtrarAcessos(dados.usuarios, consulta);
+  const mostrados = consulta.trim() ? achados : achados.slice(0, quantos);
+  const restantes = achados.length - mostrados.length;
   const mostrarSenha = (nome: string, senha: string, email?: EmailDeAcesso) => setSenhaNova({ nome, senha, email });
   const souDono = ehDono();
   const meuEmail = getUsuario()?.email ?? "";
@@ -86,14 +101,20 @@ export function AcessosTab() {
       )}
 
       <section aria-labelledby="ac-lista" className="card-surface overflow-hidden">
-        <h3 id="ac-lista" className="px-5 pt-5 text-base font-semibold text-foreground">Acessos criados</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
+          <h3 id="ac-lista" className="text-base font-semibold text-foreground">Acessos criados <span className="font-normal text-muted-foreground">({dados.usuarios.length})</span></h3>
+          <label className="flex w-full max-w-xs items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-ring">
+            <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <input type="search" value={consulta} onChange={(e) => setConsulta(e.target.value)} placeholder="Buscar por nome, e-mail ou unidade" aria-label="Buscar acessos" className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
+          </label>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm mt-3">
             <thead className="text-left text-xs text-muted-foreground">
               <tr><th className="px-5 py-2 font-medium">Nome</th><th className="px-3 py-2 font-medium">Nível</th><th className="px-3 py-2 font-medium">Unidades</th><th className="px-3 py-2 font-medium">Último acesso</th><th className="px-3 py-2 font-medium">Resumo diário</th><th className="px-5 py-2 font-medium text-right">Ações</th></tr>
             </thead>
             <tbody>
-              {dados.usuarios.map((u) => (
+              {mostrados.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
                   <td className="px-5 py-3"><div className="font-medium text-foreground"><button type="button" onClick={() => setDetalhe(u)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" title="Ver último acesso e histórico">{u.nome}</button>{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
                   <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}</td>
@@ -138,6 +159,14 @@ export function AcessosTab() {
             </tbody>
           </table>
         </div>
+        {!achados.length && <p className="px-5 pb-5 text-sm text-muted-foreground">Nenhum acesso com "{consulta}".</p>}
+        {restantes > 0 && (
+          <div className="border-t border-border px-5 py-3">
+            <Button variant="outline" size="sm" className="w-full" onClick={() => setQuantos((q) => q + ACESSOS_POR_VEZ)}>
+              Ver mais acessos ({restantes} {restantes === 1 ? "restante" : "restantes"})
+            </Button>
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="ac-form" className="card-surface p-5">

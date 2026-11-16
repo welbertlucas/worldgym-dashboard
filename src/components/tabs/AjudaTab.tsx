@@ -225,6 +225,8 @@ export function AjudaTab({ aba, onAba, onAbrirTela }: { aba: string | null; onAb
   );
 }
 
+/** Novidades mostradas de cada vez (o botão "Ver mais" traz mais esta quantidade). */
+const POR_VEZ = 10;
 const ROTULO_DO_TIPO = { novo: "Novo", melhoria: "Melhoria" } as const;
 const nomeDoMes = (aaaaMm: string) => { const t = new Date(`${aaaaMm}-15T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }); return t[0].toUpperCase() + t.slice(1); };
 
@@ -251,14 +253,19 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
   );
 }
 
-/** Novidades: da mais nova para a mais antiga, agrupadas por mês. As não vistas ficam marcadas enquanto a tela está aberta, e o número do menu some. */
+/** Novidades: da mais nova para a mais antiga, agrupadas por mês, 10 de cada vez ("Ver mais"); com busca, todos os resultados. As não vistas ficam marcadas enquanto a tela está aberta, e o número do menu some. */
 export function NovidadesTab({ onAbrirTela }: { onAbrirTela: (destino: string) => void }) {
   const [lista] = useState(() => novidadesPara(ehDono()));
   const [novas] = useState(() => { const v = new Set(lerVistas()); return new Set(lista.filter((n) => !v.has(n.id)).map((n) => n.id)); });
   const [consulta, setConsulta] = useState("");
+  // 10 de cada vez; as não lidas aparecem sempre, mesmo que passem de 10.
+  const [quantas, setQuantas] = useState(() => Math.max(POR_VEZ, ...lista.map((n, i) => (novas.has(n.id) ? i + 1 : 0))));
   useEffect(() => { marcarVistas(lista.map((n) => n.id)); }, [lista]);
+  const buscando = consulta.trim() !== "";
   const achadas = buscarNovidades(lista, consulta);
-  const meses = [...new Set(achadas.map((n) => n.data.slice(0, 7)))];
+  const mostradas = buscando ? achadas : achadas.slice(0, quantas);
+  const restantes = achadas.length - mostradas.length;
+  const meses = [...new Set(mostradas.map((n) => n.data.slice(0, 7)))];
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <SectionTitle level="page" hint="O que mudou no Atlas, do mais novo para o mais antigo.">Novidades</SectionTitle>
@@ -277,9 +284,14 @@ export function NovidadesTab({ onAbrirTela }: { onAbrirTela: (destino: string) =
       {meses.map((m) => (
         <section key={m} className="space-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{nomeDoMes(m)}</h3>
-          <ul className="space-y-3">{achadas.filter((n) => n.data.startsWith(m)).map((n) => <CartaoNovidade key={n.id} n={n} nova={novas.has(n.id)} onAbrirTela={onAbrirTela} />)}</ul>
+          <ul className="space-y-3">{mostradas.filter((n) => n.data.startsWith(m)).map((n) => <CartaoNovidade key={n.id} n={n} nova={novas.has(n.id)} onAbrirTela={onAbrirTela} />)}</ul>
         </section>
       ))}
+      {restantes > 0 && (
+        <button type="button" onClick={() => setQuantas((q) => q + POR_VEZ)} className={cn("w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-primary-ink shadow-sm hover:bg-secondary", foco)}>
+          Ver mais novidades ({restantes} {restantes === 1 ? "restante" : "restantes"})
+        </button>
+      )}
     </div>
   );
 }

@@ -10,7 +10,7 @@ vi.mock("@/lib/auth", () => ({
 
 import { registrarTela, registrarExportacao, enviarAgora, ENVIAR_A_CADA_MS, _limpar } from "@/lib/atividade";
 import { MarcaDagua } from "@/components/MarcaDagua";
-import { nomeDaTela, DetalheDoAcesso } from "@/components/tabs/AcessosTab";
+import { nomeDaTela, DetalheDoAcesso, filtrarAcessos } from "@/components/tabs/AcessosTab";
 
 describe("registro de atividade (cliente)", () => {
   beforeEach(() => { enviados.length = 0; _limpar(); });
@@ -77,5 +77,20 @@ describe("detalhe do acesso (clicar no nome)", () => {
     const h = renderToString(<DetalheDoAcesso usuario={u} entradas={[]} atividade={null} onFechar={() => {}} />).replace(/<!-- -->/g, "");
     expect(h).toContain("nunca entrou");
     expect(h).not.toContain("Telas abertas e exportações");
+  });
+});
+
+describe("busca na lista de acessos", () => {
+  const base = { ativo: true, resumo: true, criadoEm: "2026-11-01" };
+  const lista = [
+    { ...base, id: "1", nome: "Maria Souza", email: "maria@x.com", papel: "unidades" as const, unidades: ["Itapoã"] },
+    { ...base, id: "2", nome: "João Lima", email: "joao@x.com", papel: "master" as const, unidades: [] },
+  ];
+  it("acha por nome, e-mail, nível ou unidade, sem acento; vazia mostra todos", () => {
+    expect(filtrarAcessos(lista, "")).toHaveLength(2);
+    expect(filtrarAcessos(lista, "joao").map((u) => u.id)).toEqual(["2"]);
+    expect(filtrarAcessos(lista, "itapoa").map((u) => u.id)).toEqual(["1"]);
+    expect(filtrarAcessos(lista, "master").map((u) => u.id)).toEqual(["2"]);
+    expect(filtrarAcessos(lista, "ninguem")).toEqual([]);
   });
 });
