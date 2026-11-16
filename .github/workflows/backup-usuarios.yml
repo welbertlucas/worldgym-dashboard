@@ -31,7 +31,7 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
         run: node scripts/backup-usuarios.mjs backup
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: backup-usuarios
           path: backup/*.enc
