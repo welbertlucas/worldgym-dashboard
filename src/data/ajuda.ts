@@ -164,8 +164,11 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O botão Ver como, no cabeçalho, mostra o Atlas exatamente como outro nível vê. Vale só na aba do navegador em que foi ligado.",
     "Enquanto estiver vendo como outro nível, o que é só seu (como esta seção) some da tela.",
   ]),
-  a("dono", "dono-uso-do-plano", "Quem está usando o plano", "Adoção do Plano de ação por unidade.", [
-    "No Plano de ação, com a rede selecionada, o quadro mostra quantos itens cada unidade marcou como feitos no mês e quando foi a última marcação. As unidades que nunca marcaram aparecem primeiro.",
+  a("dono", "dono-uso-do-plano", "Quem está usando o plano", "Ranking do mês e uso do Plano de ação por unidade.", [
+    "No Plano de ação, com a rede selecionada, o quadro tem duas visões. \"Uso por unidade\" mostra quantos itens cada unidade marcou como feitos no mês e quando foi a última marcação; as que nunca marcaram aparecem primeiro.",
+    "\"Ranking do mês\" mede quanto do plano cada unidade resolveu: itens marcados como feitos cujo alerta saiu da leitura do EVO, sobre o total de itens (resolvidos mais pendentes). Vale a proporção, não a quantidade, para a unidade com poucos problemas não ficar atrás da que tem muitos.",
+    "Marcado como feito com o alerta ainda no EVO fica \"aguardando o EVO\" até a leitura seguinte; se o alerta continuar, volta a pendente. Item que sumiu sem ninguém marcar não conta a favor nem contra. Só entra na disputa quem teve 3 itens ou mais no mês: com menos, a unidade aparece em \"Poucos itens\". Unidade sem nenhum item aparece em \"Plano limpo\", fora da disputa e nunca abaixo de quem tem itens.",
+    "O ranking recomeça todo mês. Está visível só para você, em teste por um mês (até 16/12/2026), para ver como as unidades se distribuem antes de decidir se a rede também vê.",
   ], { tela: "plano" }),
   a("dono", "dono-rotinas", "Rotinas automáticas e avisos", "O que roda sozinho e quando você é avisado.", [
     "De madrugada o Atlas lê o EVO; de manhã lê o Meta e envia o resumo por e-mail; o Instagram é lido a cada 4 horas; a lista de usuários tem backup diário.",

@@ -528,7 +528,7 @@ const Index = () => {
 
         {activeTab === "metas" && <MetasTab data={dashboardData} metas={metasData} month={fullMonthData.month} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} />}
 
-        {activeTab === "plano" && <PlanoAcaoTab res={vigentes} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} onAbrirTela={changeTab} onOpenAlertas={() => changeTab("riscos/mes")} />}
+        {activeTab === "plano" && <PlanoAcaoTab res={vigentes} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} unidades={dashboardData.find((d) => d.month === vigentes.month)?.units.map((u) => u.name) ?? []} onAbrirTela={changeTab} onOpenAlertas={() => changeTab("riscos/mes")} />}
 
         {activeTab === "riscos" && (() => {
           const aba = abaAtiva(SUBMENUS.riscos, subAba);

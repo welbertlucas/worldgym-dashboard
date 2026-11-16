@@ -73,6 +73,11 @@ export const NOVIDADES: Novidade[] = [
 
   // Só o dono
   {
+    id: "2026-11-16-ranking-plano", data: "2026-11-16", tipo: "novo", publico: "dono", autora: AUTORA, tela: "plano", artigo: "dono-uso-do-plano",
+    titulo: "Plano de ação: ranking de quem mais resolveu",
+    texto: "Saber quais unidades agem sobre o plano exigia comparar à mão, e contar só os itens marcados favorecia quem tinha mais problemas. No quadro Quem está usando o plano, o novo Ranking do mês ordena pela proporção resolvida, deixa as unidades sem pendência à parte em \"Plano limpo\" e recomeça todo mês. Só você vê, em teste até 16/12.",
+  },
+  {
     id: "2026-11-16-uso-do-plano", data: "2026-11-16", tipo: "novo", publico: "dono", autora: AUTORA, tela: "plano", artigo: "dono-uso-do-plano",
     titulo: "Plano de ação: quem está usando",
     texto: "Para saber se as unidades seguem o plano, era preciso perguntar. No Plano de ação, com a rede selecionada, você vê quantos itens cada unidade marcou como feitos no mês e quando foi a última marcação.",
