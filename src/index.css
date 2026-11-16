@@ -123,3 +123,12 @@
 .login-campo:focus-within input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset;
 }
+
+/* Nome de unidade (botão do UnitLink) dentro de um espaço com `truncate`: termina em reticências em vez de ser cortado no meio
+   (o botão é inline-block, então o "..." do pai não vale para ele). */
+.truncate > button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}

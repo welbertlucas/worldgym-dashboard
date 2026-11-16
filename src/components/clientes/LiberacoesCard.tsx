@@ -99,9 +99,9 @@ export function LiberacoesCard({ total, month, monthLabel, partial, unit }: { to
                 const tot = u.liberacoes ?? 0, rec = liberacoesDeReceita(u) ?? 0, a = emAlerta.get(u.name);
                 return (
                   <li key={u.name} className="text-sm">
-                    <div className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_9rem] items-center gap-3">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_9rem]">
                       <span className="truncate"><UnitLink name={u.name} /></span>
-                      <span className="flex h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
+                      <span className="hidden h-2.5 overflow-hidden rounded-full bg-secondary sm:flex" aria-hidden>
                         <span className={`block h-full ${a ? "bg-destructive" : "bg-destructive/60"}`} style={{ width: `${(rec / maiorUnid) * 100}%` }} />
                         <span className="block h-full bg-foreground/40" style={{ width: `${((tot - rec) / maiorUnid) * 100}%` }} />
                       </span>

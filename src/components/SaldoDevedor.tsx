@@ -59,9 +59,9 @@ export function SaldoDevedorCard({ total, month, monthLabel, partial, unit }: { 
             {FAIXAS.map((f, k) => {
               const [v, p] = s.faixas[k] ?? [0, 0];
               return (
-                <li key={f} className="grid grid-cols-[7.5rem_minmax(0,1fr)_11.5rem] items-center gap-3 text-sm">
+                <li key={f} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm sm:grid-cols-[7.5rem_minmax(0,1fr)_11.5rem]">
                   <span className="truncate text-foreground">{f}</span>
-                  <span className="h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
+                  <span className="hidden h-2.5 overflow-hidden rounded-full bg-secondary sm:block" aria-hidden>
                     <span className={`block h-full rounded-full ${k <= 2 ? "bg-primary" : "bg-foreground/40"}`} style={{ width: `${(v / maiorFaixa) * 100}%` }} />
                   </span>
                   <span className="text-right tabular-nums text-muted-foreground"><span className="font-semibold text-foreground">{brl(v)}</span> · {int(p)} pess.</span>
@@ -79,9 +79,9 @@ export function SaldoDevedorCard({ total, month, monthLabel, partial, unit }: { 
               {unidades.map((u) => {
                 const [v, p] = u.saldoDevedor!.ativos!;
                 return (
-                  <li key={u.name} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_11.5rem] items-center gap-3 text-sm">
+                  <li key={u.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_11.5rem]">
                     <span className="truncate"><UnitLink name={u.name} /></span>
-                    <span className="h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
+                    <span className="hidden h-2.5 overflow-hidden rounded-full bg-secondary sm:block" aria-hidden>
                       <span className="block h-full rounded-full bg-primary/80" style={{ width: `${(v / maiorUnid) * 100}%` }} />
                     </span>
                     <span className="text-right tabular-nums text-muted-foreground"><span className="font-semibold text-foreground">{brl(v)}</span> · {int(p)} pess.</span>

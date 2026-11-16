@@ -77,9 +77,9 @@ export function NotasFiscaisCard({ total, month, monthLabel, partial, unit }: { 
               const c = cobertura(u.notas!)!;
               const falta = Math.max(0, u.notas!.cobertura[1] - u.notas!.cobertura[0]);
               return (
-                <li key={u.name} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_9rem] items-center gap-3 text-sm">
+                <li key={u.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_9rem] gap-3 text-sm">
                   <span className="truncate"><UnitLink name={u.name} /></span>
-                  <span className="h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
+                  <span className="hidden h-2.5 overflow-hidden rounded-full bg-secondary sm:block" aria-hidden>
                     <span className={`block h-full rounded-full ${c < COBERTURA_MINIMA ? "bg-destructive/75" : "bg-foreground/55"}`} style={{ width: `${Math.min(100, c)}%` }} />
                   </span>
                   <span className="text-right tabular-nums text-muted-foreground"><span className="font-semibold text-foreground">{pct1(c)}</span>{falta >= 1 ? ` · falta ${brl(falta)}` : ""}</span>
