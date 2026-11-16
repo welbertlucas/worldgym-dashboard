@@ -1,6 +1,4 @@
-import { registrarExportacao } from "@/lib/atividade";
-import { useEffect, useState } from "react";
-import { Printer } from "lucide-react";
+import { useState } from "react";
 import { type UnitData } from "@/data/dashboardData";
 import { type ContratosView, contratosView, pctTexto, somaContratos } from "@/data/contratosAtivos";
 import { ContratosTiles, COR_LOCAL, COR_REDE } from "@/components/unidades/ContratosTiles";
@@ -41,34 +39,10 @@ function BarraAlcance({ v }: { v: ContratosView }) {
 
 /**
  * Contratos ativos hoje: totais da rede (ou da unidade em `foco`, com o percentual da rede ao lado) e um cartão por
- * unidade, com a do foco destacada. Só aparece quando o EVO trouxe a foto do dia.
+ * unidade, com a do foco destacada e em primeiro. Só aparece quando o EVO trouxe a foto do dia.
  */
-export function ContratosAtivos({ units, foco = null, mes = null }: { units: UnitData[]; foco?: string | null; /** Mês mostrado (AAAA-MM), só para o registro de atividade. */ mes?: string | null }) {
+export function ContratosAtivos({ units, foco = null }: { units: UnitData[]; foco?: string | null }) {
   const [ordem, setOrdem] = useState<Ordem>("especiais");
-  // Exporta só esta seção: durante a impressão, tudo fora dela vira display:none (visibility deixaria páginas em branco) e a página fica em retrato.
-  useEffect(() => {
-    const limpar = () => {
-      document.querySelectorAll(".print-oculto").forEach((el) => el.classList.remove("print-oculto"));
-      document.getElementById("contratos-page-style")?.remove();
-    };
-    window.addEventListener("afterprint", limpar);
-    return () => { window.removeEventListener("afterprint", limpar); limpar(); };
-  }, []);
-  const exportar = () => {
-    const alvo = document.getElementById("contratos-ativos");
-    if (!alvo) return;
-    for (let el: HTMLElement | null = alvo; el && el !== document.body; el = el.parentElement) {
-      el.parentElement?.childNodes.forEach((irmao) => {
-        if (irmao !== el && irmao instanceof HTMLElement) irmao.classList.add("print-oculto");
-      });
-    }
-    const st = document.createElement("style");
-    st.id = "contratos-page-style";
-    st.textContent = "@page { size: A4 portrait; margin: 12mm; }";
-    document.head.appendChild(st);
-    registrarExportacao("benchmark/contratos", { unidade: foco, mes });
-    window.print();
-  };
   const rede = somaContratos(units);
   if (!rede) return null;
 
@@ -83,14 +57,7 @@ export function ContratosAtivos({ units, foco = null, mes = null }: { units: Uni
   return (
     <section id="contratos-ativos" aria-labelledby="contratos-titulo" className="space-y-4">
       <div className="relative">
-        <button
-          type="button"
-          onClick={exportar}
-          className="no-print absolute right-0 top-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Printer className="h-3.5 w-3.5" aria-hidden /> Exportar PDF
-        </button>
-        <h3 id="contratos-titulo" className="pr-32 text-base font-semibold text-foreground">Contratos ativos: especiais, personal e plano local ou rede</h3>
+        <h3 id="contratos-titulo" className="text-base font-semibold text-foreground">Contratos ativos: especiais, personal e plano local ou rede</h3>
         <p className="hidden text-xs text-muted-foreground print:block">World Gym · emitido em {new Date().toLocaleDateString("pt-BR")}</p>
         <p className="text-sm text-muted-foreground">
           {daUnidade
@@ -123,7 +90,8 @@ export function ContratosAtivos({ units, foco = null, mes = null }: { units: Uni
       </div>
 
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {lista.map(({ u, v }) => (
+        {/* A unidade selecionada vem no primeiro card; as outras seguem a ordem escolhida. */}
+        {(daUnidade ? [daUnidade, ...lista.filter((x) => x !== daUnidade)] : lista).map(({ u, v }) => (
           <li key={u.name} className={cn("card-surface p-4", u.name === foco && "ring-2 ring-primary")} aria-current={u.name === foco ? "true" : undefined}>
             <div className="flex items-baseline justify-between gap-2">
               <h5 className="truncate text-sm font-semibold text-foreground"><UnitLink name={u.name} /></h5>

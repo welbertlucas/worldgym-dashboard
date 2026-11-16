@@ -93,19 +93,6 @@
   }
 }
 
-/* Exportar só "Contratos ativos": o resto da página é removido do fluxo (classe aplicada por ContratosAtivos). */
-@media print {
-  .print-oculto {
-    display: none !important;
-  }
-  #contratos-ativos {
-    break-inside: auto !important;
-  }
-  #contratos-ativos .card-surface {
-    break-inside: avoid;
-  }
-}
-
 /* Tela de login: estrelas piscam e brilham; o globo já abre inteiro e flutua devagar. */
 .ceu-estrela { animation: ceu-pisca 3.2s ease-in-out infinite alternate; }
 @keyframes ceu-pisca { from { opacity: 0.25; } to { opacity: 1; } }

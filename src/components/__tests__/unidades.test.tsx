@@ -203,7 +203,7 @@ describe("Unidades: um menu só", () => {
     expect(html).toContain("Posição de A na rede");
   });
 
-  it("Ranking da rede traz as abas de evolução e comparação e o botão de PDF; o Raio-X deixou de existir", async () => {
+  it("Ranking da rede traz as abas de evolução e comparação, sem botão de PDF; o Raio-X deixou de existir", async () => {
     const { BenchmarkTab } = await import("@/components/tabs/BenchmarkTab");
     const meses = [month("2026-08", [unit("A", { faturamento: 300 }), unit("B", { faturamento: 200 })]), month("2026-09", [unit("A", { faturamento: 330 }), unit("B", { faturamento: 210 })])];
     dashboardData.push(...meses);
@@ -213,7 +213,7 @@ describe("Unidades: um menu só", () => {
     expect(bench).toContain("Desempenho por unidade");
     expect(bench).toContain("Evolução da unidade");
     expect(bench).toContain("Comparar unidades");
-    expect(bench).toContain("Exportar PDF");
+    expect(bench).not.toContain("Exportar PDF");
     const evolucao = renderToString(<BenchmarkTab {...props} unit="A" aba="evolucao" />).replace(/<!-- -->/g, "");
     expect(evolucao).toContain("Evolução de A");
     expect(evolucao).toContain("Comparar com");
