@@ -16,6 +16,8 @@ export function montarFoto(mes, dia) {
     const f = {};
     for (const c of CAMPOS_DA_FOTO) if (typeof u[c] === "number") f[c] = u[c];
     if (u.cobrancas) { f.cartaoAbertas = u.cobrancas.abertas; f.cartaoValorAberto = u.cobrancas.valorAberto; }
+    // Último acesso dos ativos (faixas de server/bairros.js): sem histórico no EVO, a foto é a única forma de comparar depois.
+    if (Array.isArray(u.acessos)) f.acessos = u.acessos;
     units[u.name] = f;
   }
   return { mes: mes.month, dia, units };

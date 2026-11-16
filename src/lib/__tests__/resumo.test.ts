@@ -18,6 +18,27 @@ describe("resumo diário", () => {
     expect(unidadesDoUsuario({ papel: "dono" }).length).toBeGreaterThan(20);
   });
 
+  it("com os alertas do mês em andamento: as mesmas regras do Atlas, filtradas por quem recebe", () => {
+    const al = (unit: string, kind: string, severity: string, title: string) => ({ id: `${unit}|${kind}`, unit, kind, severity, title, fact: "f", action: "a", tipo: "pendencia", month: "2026-11", tela: "x", weight: 1 });
+    const vigentes = { month: "2026-11", dias: 9, comRitmo: false, alertas: [
+      al("Gama", "inadAberta", "critical", "Inadimplência em aberto"), al("Gama", "sumidos", "info", "Alunos sem vir"),
+      al("Asa Norte", "cartaoRecusado", "attention", "Cartões recusados em aberto"), al("Rede", "fatRitmo", "attention", "Faturamento no ritmo do mês"),
+      al("Itapoã", "renovacao", "info", "Renovações do mês"),
+    ] };
+    const gestor = montarResumo(meses, { papel: "unidades", unidades: ["Gama"], nome: "Beto" }, "2026-11-10", ref, null, null, [], null, vigentes);
+    expect(gestor.alertas.map((a: any) => [a.quem, a.gravidade, a.titulo])).toEqual([["Gama", "critico", "Inadimplência em aberto"]]);
+    expect(gestor).toMatchObject({ paraFazer: 1, paraFazerTipos: ["alunos sem vir"], mesAlertas: "2026-11" });
+    const html = renderizarEmail(gestor, { nome: "Beto" }).replace(/&nbsp;/g, " ").replace(/<[^>]+>/g, "");
+    expect(html).toContain("pedindo atenção em novembro");
+    expect(html).toContain("1 item para fazer sem nível de alerta (alunos sem vir)");
+    expect(renderizarEmail(gestor, { nome: "Beto" })).toContain("#plano");
+    const dono = montarResumo(meses, { papel: "dono", nome: "Ana" }, "2026-11-10", ref, null, null, [], null, vigentes);
+    expect(dono.alertas.map((a: any) => a.quem).sort()).toEqual(["A rede", "Asa Norte", "Gama"]);
+    expect(dono.paraFazer).toBe(2);
+    // Sem os alertas do Atlas, o e-mail segue com as regras antigas (e sem o mês na frase).
+    expect(montarResumo(meses, { papel: "dono" }, "2026-11-10", ref).mesAlertas).toBeNull();
+  });
+
   it("NPS, renovação e inadimplência do total saem das somas, não de médias", () => {
     const t = totalizar([{ ...un("A"), complementar: 0 }, { ...un("B", { npsPromotores: 0, npsDetratores: 10 }), complementar: 0 }].map((x: any) => ({ ...x, ...{ ativos: 1 } })));
     expect(t.nps).toBe(Math.round(((8 - 2 + 0 - 10) / 20) * 100));

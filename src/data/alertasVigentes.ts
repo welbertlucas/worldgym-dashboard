@@ -28,13 +28,18 @@ export const LIMIARES_VIGENTES = {
   meta: { criticoFracao: 0.75 },
   faturamentoSemMeta: { atencaoPct: -7, criticoPct: -12 },
   contratosSemMeta: { atencaoPct: -20, criticoPct: -35 },
-  cancelamentos: { criticoPct: 8 },
+  /** Cancelados até hoje contra o mesmo dia dos 3 meses anteriores (u.ritmoAlunos); sem a base, a regra antiga (mês inteiro típico). */
+  cancelamentos: { criticoPct: 8, atencaoPP: 1, criticoPP: 2 },
+  /** Contratos de prazo fixo vencidos sem renovar até hoje (% dos que venceram), contra o mesmo dia; só com 10 ou mais vencidos. */
+  renovacao: { minVenceram: 10, atencaoPP: 15, criticoPP: 25 },
+  /** Alunos ativos que não vêm há 16 a 60 dias (último acesso): ainda dá para trazer de volta. Informativo até haver histórico. */
+  sumidos: { minimo: 10 },
 } as const;
 
 export type TipoVigente = "pendencia" | "ritmo";
 export type SeveridadeVigente = "critical" | "attention" | "info";
 export type KindVigente =
-  | "inadAberta" | "cartaoRecusado" | "detratores" | "liberacoes" | "renovacao"
+  | "inadAberta" | "cartaoRecusado" | "detratores" | "liberacoes" | "renovacao" | "sumidos"
   | "fatRitmo" | "contratosRitmo" | "cancelRitmo";
 
 export interface AlertaVigente {
@@ -61,6 +66,7 @@ export const TITULO_VIGENTE: Record<KindVigente, string> = {
   detratores: "Detratores do NPS",
   liberacoes: "Liberações sem pagamento",
   renovacao: "Renovações do mês",
+  sumidos: "Alunos sem vir",
   fatRitmo: "Faturamento no ritmo do mês",
   contratosRitmo: "Novos contratos no ritmo do mês",
   cancelRitmo: "Cancelamentos acima do normal",
@@ -193,22 +199,45 @@ export function computeAlertasVigentes(
       }
     }
 
-    // 5. Renovação (só informativo: o EVO não dá o dia de cada vencimento)
-    if ((u.aVencer ?? 0) > 0 && (u.naoRenovados ?? 0) > 0) push({
+    // 5. Renovação: o que venceu sem renovar até hoje (contra o mesmo dia dos meses anteriores) e o que vence nos próximos 7 dias.
+    const ra = u.ritmoAlunos;
+    if (ra && (ra.naoRenovados > 0 || ra.vencem7 > 0)) {
+      const R = L.renovacao, dif = ra.naoRenovadosPct - ra.base.naoRenovadosPct;
+      const severity: SeveridadeVigente = ra.venceram < R.minVenceram || ra.base.meses === 0 ? "info" : dif >= R.criticoPP ? "critical" : dif >= R.atencaoPP ? "attention" : "info";
+      const partes = [
+        ra.naoRenovados > 0 ? `${int(ra.naoRenovados)} de ${int(ra.venceram)} ${ra.venceram === 1 ? "contrato que venceu" : "contratos que venceram"} neste mês ainda não renovaram (${pct(ra.naoRenovadosPct)}; no dia ${ra.dia} dos meses anteriores eram ${pct(ra.base.naoRenovadosPct)}).` : "",
+        ra.vencem7 > 0 ? `${int(ra.vencem7)} ${ra.vencem7 === 1 ? "contrato vence" : "contratos vencem"} nos próximos 7 dias e ainda não ${ra.vencem7 === 1 ? "foi renovado" : "foram renovados"}.` : "",
+      ].filter(Boolean);
+      push({
+        unit: nome, kind: "renovacao", severity, weight, tela: "retencao/renovacao", fact: partes.join(" "),
+        action: "Ligar antes de vencer para quem vence nos próximos 7 dias e para quem já venceu e não renovou. As listas estão nos relatórios de contratos a vencer e não renovados do EVO.",
+      });
+    } else if (!ra && (u.aVencer ?? 0) > 0 && (u.naoRenovados ?? 0) > 0) push({
       unit: nome, kind: "renovacao", severity: "info", weight, tela: "retencao/renovacao",
       fact: `${int(u.naoRenovados!)} ${u.naoRenovados === 1 ? "contrato venceu" : "contratos venceram"} neste mês sem renovar, de ${int(u.aVencer!)} que vencem no mês.`,
       action: "Ligar para quem venceu e não renovou e para quem ainda vai vencer até o fim do mês. As listas estão nos relatórios de contratos a vencer e não renovados do EVO.",
     });
 
+    // 6. Alunos sem vir: ativos com último acesso entre 16 e 60 dias (ainda dá para trazer de volta). Sem nível até haver histórico.
+    const ac = u.acessos;
+    if (ac && ac.length >= 4) {
+      const sumidos = ac[2] + ac[3], total = ac.reduce((a, b) => a + b, 0);
+      if (sumidos >= L.sumidos.minimo) push({
+        unit: nome, kind: "sumidos", severity: "info", weight, tela: "catraca/frequencia",
+        fact: `${int(sumidos)} alunos ativos não vêm à academia há 16 a 60 dias (${pct((sumidos / (total || 1)) * 100)} dos ativos)${ac[4] ? `; outros ${int(ac[4])} não vêm há mais de 60 dias` : ""}.`,
+        action: "Mandar mensagem ou ligar convidando para voltar (aula, avaliação ou troca de horário). A lista sai no EVO pelo filtro de último acesso dos clientes ativos.",
+      });
+    }
+
     if (!comRitmo) continue;
     // ---------- ritmo (a partir do dia 10) ----------
-    // 6. Faturamento
+    // 7. Faturamento
     const pf = projecaoFaturamento(u, month, true, nome, atualizadoEm);
     if (pf) {
       const r = ritmo(nome, "faturamento", pf.estimativa, L.faturamentoSemMeta, media(hist(nome, L.mesesMedia, (x) => x.faturamento)), brl);
       if (r) push({ unit: nome, kind: "fatRitmo", weight, tela: "financeiro/resumo", ...r, action: "Puxar vendas e cobrança nos dias que faltam: matrículas, rematrículas de quem saiu e cobrança das mensalidades vencidas. A conta da projeção está em Financeiro → Resumo." });
     }
-    // 7. Novos contratos
+    // 8. Novos contratos
     const pc = projecaoContratos(u, month, true, nome, atualizadoEm);
     if (pc) {
       const meta = getMeta(metas, month, nome, "novosContratos");
@@ -218,10 +247,19 @@ export function computeAlertasVigentes(
       const r = ritmo(nome, "novosContratos", pc.valor, L.contratosSemMeta, media(hist(nome, L.mesesMedia, (x) => x.novosContratos)), int, extra);
       if (r) push({ unit: nome, kind: "contratosRitmo", weight, tela: "comercial/vendas", ...r, action: "Reforçar a venda nos dias que faltam: retomar as oportunidades em aberto, ligar para ex-alunos e usar os dias que mais vendem (Comercial → Vendas)." });
     }
-    // 8. Cancelamentos: no meio do mês já passou do churn de um mês inteiro típico
-    if (u.ativosIni && typeof u.churn === "number") {
+    // 9. Cancelamentos: com o histórico de contratos, contra o mesmo dia dos 3 meses anteriores; sem ele, a regra antiga.
+    const C = L.cancelamentos;
+    if (ra && ra.base.meses > 0) {
+      const dif = ra.churnPct - ra.base.churnPct;
+      const critico = ra.churnPct >= C.criticoPct || dif >= C.criticoPP;
+      if (critico || dif >= C.atencaoPP) push({
+        unit: nome, kind: "cancelRitmo", severity: critico ? "critical" : "attention", weight, tela: "retencao/cancelamentos",
+        fact: `${int(ra.cancelados)} cancelamentos até agora (${pct(ra.churnPct)} da base do início do mês). No dia ${ra.dia} dos ${ra.base.meses} meses anteriores a unidade costumava estar em ${pct(ra.base.churnPct)}.`,
+        action: "Ver os motivos dos cancelamentos do mês (Retenção → Cancelamentos) e oferecer alternativa antes do cancelamento: troca de plano, suspensão ou horário.",
+      });
+    } else if (u.ativosIni && typeof u.churn === "number") {
       const med = mediana(hist(nome, L.mesesBase, (x) => (x.ativosIni ? x.churn : null)));
-      const critico = u.churn >= L.cancelamentos.criticoPct;
+      const critico = u.churn >= C.criticoPct;
       if (critico || (med !== null && u.churn > med)) push({
         unit: nome, kind: "cancelRitmo", severity: critico ? "critical" : "attention", weight, tela: "retencao/cancelamentos",
         fact: `${int(u.cancelados)} cancelamentos até agora (${pct(u.churn)} da base do início do mês)${med !== null ? `: já passou do que a unidade costuma cancelar num mês inteiro (${pct(med)})` : ""}.`,

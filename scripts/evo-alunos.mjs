@@ -3,6 +3,7 @@
 //  - a foto de hoje: bairros, quem saiu, último acesso e perfil (como evo-bairros.mjs);
 //  - os contratos ativos de hoje: especiais/VIP, personal, local × rede (como evo-contratos.mjs);
 //  - o saldo devedor em aberto no fim de cada mês (títulos "Balance due", cruzados com quem é aluno ativo);
+//  - o ritmo do mês em andamento (cancelados e renovações até hoje, o mesmo dia dos 3 meses anteriores e o que vence em 7 dias);
 //  - o mapa temporário "aluno → unidade de origem" para a etapa das entradas (server/origem.js; não vai para o painel).
 // Antes eram duas varreduras completas dos alunos (cerca de 75 minutos cada).
 // Uso: node --env-file=.env.local scripts/evo-alunos.mjs 2026-10 2026-11
@@ -14,6 +15,7 @@ import { anotarOrigem, salvarMapa } from "../server/origem.js";
 import { aplicarBairros, fotoDosAlunos } from "../server/bairros.js";
 import { contratosUnidade } from "../server/contratos.js";
 import { relatorioNaoRenovados } from "../server/renovacao.js";
+import { ritmoAlunosDoMes } from "../server/ritmoAlunos.js";
 import { loadGeo, loadMonth, saveGeo, saveMonth } from "../server/store.js";
 
 const meses = process.argv.slice(2);
@@ -50,6 +52,11 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
 
   const u = fotoHoje?.units.find((x) => x.name === nome);
   if (!u) continue;
+  try {
+    u.ritmoAlunos = ritmoAlunosDoMes(membros.map(resumoAluno), hoje);
+  } catch (e) {
+    console.log(nome, `ritmo com erro: ${e.message}`);
+  }
   try {
     const c = await contratosUnidade(Number(id), membros);
     Object.assign(u, c);

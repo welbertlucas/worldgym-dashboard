@@ -83,14 +83,14 @@ export function AlertasVigentesLista({ res, unit = null, onAbrirTela }: { res: R
       </p>
       <Bloco
         titulo="Resolver agora"
-        descricao="O que está em aberto e dá para resolver já: cobrança, cartões, retorno aos detratores, renovações e liberações na catraca."
+        descricao="O que está em aberto e dá para resolver já: cobrança, cartões, retorno aos detratores, renovações (as que venceram e as que vencem em 7 dias), alunos que pararam de vir e liberações na catraca."
         itens={pend}
         onAbrirTela={onAbrirTela}
         vazio="Nada em aberto que peça ação agora."
       />
       <Bloco
         titulo="Acelerar o mês"
-        descricao={res.comRitmo ? "Se o mês vai fechar bem: a projeção de faturamento e de novos contratos contra a meta (ou contra a média dos 3 meses anteriores, sem meta) e os cancelamentos até agora." : `As regras de ritmo começam no dia ${DIAS_MINIMOS}: antes disso a projeção do mês erra demais.`}
+        descricao={res.comRitmo ? "Se o mês vai fechar bem: a projeção de faturamento e de novos contratos contra a meta (ou contra a média dos 3 meses anteriores, sem meta) e os cancelamentos até agora contra o mesmo dia dos meses anteriores." : `As regras de ritmo começam no dia ${DIAS_MINIMOS}: antes disso a projeção do mês erra demais.`}
         itens={ritmo}
         onAbrirTela={onAbrirTela}
         vazio={res.comRitmo ? "Nenhuma unidade fora do ritmo." : `Aparecem a partir do dia ${DIAS_MINIMOS}.`}

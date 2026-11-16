@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:vigentes": "esbuild src/data/vigentesServidor.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=server/gerado/vigentes.mjs --log-level=warning"
   },
   "dependencies": {
     "@vercel/blob": "^2.9.0",

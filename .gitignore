@@ -12,3 +12,4 @@ backups/
 .claude/settings.local.json
 .vercel
 .env*
+server/gerado/

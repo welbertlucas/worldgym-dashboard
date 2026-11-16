@@ -256,9 +256,26 @@ export function resumoDoMeta(metaMes, nomes, atuais) {
   return { investimento, contatos, compras, valorCompras, pctFaturamento: faturamento > 0 ? (investimento / faturamento) * 100 : null };
 }
 
+/**
+ * Alertas do mês em andamento que cabem a quem recebe: as unidades dele e, para dono e master, os da rede.
+ * Devolve os que têm nível (crítico ou atenção) no formato do e-mail e quantos itens "para fazer" (sem nível) existem.
+ */
+export function vigentesDoUsuario(vigentes, nomes, papel) {
+  if (!vigentes?.month) return null;
+  const meus = vigentes.alertas.filter((a) => nomes.has(a.unit) || (a.unit === "Rede" && papel !== "unidades"));
+  return {
+    month: vigentes.month,
+    alertas: meus.filter((a) => a.severity !== "info").map((a) => ({ quem: a.unit === "Rede" ? "A rede" : a.unit, gravidade: a.severity === "critical" ? "critico" : "atencao", titulo: a.title, fato: a.fact, acao: a.action })),
+    paraFazer: meus.filter((a) => a.severity === "info").length,
+    paraFazerTipos: [...new Set(meus.filter((a) => a.severity === "info").map((a) => TIPOS_PARA_FAZER[a.kind] ?? a.title.toLowerCase()))],
+  };
+}
+const TIPOS_PARA_FAZER = { inadAberta: "cobranças", cartaoRecusado: "cartões recusados", renovacao: "renovações", sumidos: "alunos sem vir", detratores: "retorno aos detratores", liberacoes: "liberações na catraca" };
+
 /** `alertasMeta`: alertas do tráfego pago (server/alertasMeta.js) da rede toda; cada pessoa recebe só os das unidades dela
  *  (e os da conta Institucional, se for dono ou master). */
-export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas = null, ontem = null, alertasMeta = [], metaMeses = null) {
+/** `vigentes`: alertas do mês em andamento (src/data/vigentesServidor.ts, as mesmas regras do Atlas). Sem eles, as regras antigas do e-mail. */
+export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas = null, ontem = null, alertasMeta = [], metaMeses = null, vigentes = null) {
   const ateDia = diaAnterior(hoje);
   const ym = ateDia.slice(0, 7); // no dia 1º, o resumo é o fechamento do mês que acabou
   const mes = meses.find((x) => x.month === ym);
@@ -272,14 +289,16 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   const total = totalizar(atuais);
   const totalRef = refs.length ? totalizar(refs) : null;
   const multi = atuais.length > 1;
-  const alertas = alertasDe(total, totalRef, multi ? (usuario.papel === "unidades" ? "Suas unidades" : "A rede") : atuais[0].nome);
-  if (multi) for (const u of atuais) alertas.push(...alertasDe({ ...u, renovacao: taxaRenovacao(u.aVencer, u.naoRenovados), nps: npsDe(u) }, refs.find((r) => r.nome === u.nome) ?? null, u.nome));
+  const ve = vigentesDoUsuario(vigentes, nomes, usuario.papel);
+  const alertas = ve ? ve.alertas : alertasDe(total, totalRef, multi ? (usuario.papel === "unidades" ? "Suas unidades" : "A rede") : atuais[0].nome);
+  if (!ve && multi) for (const u of atuais) alertas.push(...alertasDe({ ...u, renovacao: taxaRenovacao(u.aVencer, u.naoRenovados), nps: npsDe(u) }, refs.find((r) => r.nome === u.nome) ?? null, u.nome));
   alertas.push(...alertasMeta.filter((a) => nomes.has(a.quem) || (usuario.papel !== "unidades" && a.quem === "Institucional")));
   // Último mês fechado: o anterior ao do resumo, ou o próprio no dia 1º (o resumo é o fechamento dele). A tela Alertas usa o mesmo.
   const ultimoFechado = hoje.endsWith("-01") ? ym : mesAnterior(ym);
   const notas = resumoDeNotas(meses, ultimoFechado, nomes);
   alertas.push(...alertasDeNotas(notas));
-  alertas.push(...alertasLiberacoes(meses, ultimoFechado, nomes).map(({ quem, gravidade, titulo, fato, acao }) => ({ quem, gravidade, titulo, fato, acao })));
+  // As liberações do mês em andamento já vêm nos alertas do Atlas; só sem eles fica a regra do mês fechado.
+  if (!ve) alertas.push(...alertasLiberacoes(meses, ultimoFechado, nomes).map(({ quem, gravidade, titulo, fato, acao }) => ({ quem, gravidade, titulo, fato, acao })));
   const linhas = atuais.map((x) => ({ nome: x.nome, recebimento: x.recebimento, faturamento: x.faturamento, inadimplenciaPerc: pctInad(x), ativos: x.ativos, aVencer: x.aVencer, cancelados: x.cancelados, novosContratos: x.novosContratos, nps: npsDe(x) })).sort((a, b) => b.faturamento - a.faturamento);
   // No dia 1º, o "dia" é o mês inteiro (base zero); nos outros, precisa da foto de anteontem.
   const ontemDoUsuario = ontem ? Object.entries(ontem.units ?? {}).filter(([n]) => nomes.has(n)).map(([nome, v]) => ({ nome, ...v })) : [];
@@ -287,7 +306,7 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   const dia = valoresDoDia(total, base);
   const metasDoMes = resumirMetas(metas, ym, usuario, total, atuais);
   const destaquesUnidades = maisDeUma ? destaquesDasUnidades(atuais, refs) : null;
-  return { destaquesUnidades, notas, mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" && !maisDeUma ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
+  return { destaquesUnidades, notas, mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" && !maisDeUma ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), paraFazer: ve?.paraFazer ?? 0, paraFazerTipos: ve?.paraFazerTipos ?? [], mesAlertas: ve?.month ?? null, desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
 }
 
 // ---------- e-mail ----------
@@ -536,9 +555,13 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
     const titulo = /^\p{Lu}\p{Lu}/u.test(g.titulo) ? g.titulo : g.titulo.charAt(0).toLowerCase() + g.titulo.slice(1);
     return `${i > 0 && i === todos.length - 1 ? "e " : ""}${b(titulo)}${onde.length ? ` ${esc(juntar(onde))}` : ""}`;
   });
+  // Com os alertas do mês em andamento (os mesmos do Atlas), a seção diz o mês e quantos itens "para fazer" o plano tem.
+  const doMes = r.mesAlertas ? ` em ${MESES[Number(r.mesAlertas.slice(5)) - 1]}` : "";
+  const pf = r.paraFazer ?? 0;
+  const paraFazer = pf ? ` ${n ? "Além disso, o" : "O"} plano de ação tem ${b(`${int(pf)} ${pf === 1 ? "item" : "itens"} para fazer`)} sem nível de alerta${r.paraFazerTipos?.length ? ` (${esc(juntar(r.paraFazerTipos))})` : ""}.` : "";
   const alertas = n
-    ? secao("Alertas", "🚨", `<p style="${P}">Você tem ${b(`${n} ${n === 1 ? "alerta" : "alertas"}`)} pedindo atenção${crit ? (crit === n ? (n === 1 ? ", e ele é crítico" : ", todos críticos") : `, ${crit} ${crit === 1 ? "crítico" : "críticos"}`) : ""}: ${quaisAlertas.join("; ")}. Os detalhes e as ações sugeridas estão no Atlas.</p>`)
-    : secao("Alertas", "✅", `<p style="${P}">Nenhum alerta hoje: os indicadores estão dentro do esperado.</p>`);
+    ? secao("Alertas", "🚨", `<p style="${P}">Você tem ${b(`${n} ${n === 1 ? "alerta" : "alertas"}`)} pedindo atenção${doMes}${crit ? (crit === n ? (n === 1 ? ", e ele é crítico" : ", todos críticos") : `, ${crit} ${crit === 1 ? "crítico" : "críticos"}`) : ""}: ${quaisAlertas.join("; ")}.${paraFazer} Os detalhes e o que fazer estão no Plano de ação do Atlas.</p>`)
+    : secao("Alertas", "✅", `<p style="${P}">Nenhum alerta${doMes || " hoje"}: os indicadores estão dentro do esperado.${paraFazer}</p>`);
 
   const rodape = ["Você recebe este e-mail porque tem acesso ao World Gym Atlas.", contato ? `Dúvidas ou sugestões: <a href="mailto:${esc(contato)}" style="color:#7a7a85">${esc(contato)}</a>.` : ""].filter(Boolean).join("<br>");
 
@@ -560,7 +583,7 @@ ${topo}
 ${nps}
 ${trafego}
 ${alertas}
-<p style="margin:36px 0 0" align="center"><a href="${esc(url)}" style="display:inline-block;background:${VERMELHO};color:#ffffff;text-decoration:none;font-family:${sans};font-size:15px;font-weight:600;padding:14px 34px;border-radius:10px">${n ? "Ver alertas no Atlas" : "Abrir o Atlas"}</a></p>
+<p style="margin:36px 0 0" align="center"><a href="${esc(r.mesAlertas && (n || r.paraFazer) ? `${url}/#plano` : url)}" style="display:inline-block;background:${VERMELHO};color:#ffffff;text-decoration:none;font-family:${sans};font-size:15px;font-weight:600;padding:14px 34px;border-radius:10px">${r.mesAlertas && (n || r.paraFazer) ? "Ver o plano de ação no Atlas" : n ? "Ver alertas no Atlas" : "Abrir o Atlas"}</a></p>
 ${blocoAssinatura(assinatura)}
 </td></tr>
 <tr><td style="padding:22px 8px 0;font-family:${sans};font-size:12px;line-height:1.7;color:#9a9aa5;text-align:center">${rodape}</td></tr>

@@ -25,6 +25,10 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      # As regras de alerta do mês em andamento são as do Atlas (TypeScript): empacota para o Node antes do envio.
+      - name: Empacotar os alertas do Atlas
+        continue-on-error: true
+        run: npm run build:vigentes
       - name: Enviar resumos
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}

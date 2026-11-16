@@ -67,12 +67,23 @@ if (!previa) console.log(`envio pelo ${smtpConfigurado() ? "Zoho" : "Resend"}`);
 const enviados = previa || reenviar || teste ? new Set() : await lerEnviados(ateDia);
 const PAUSA_MS = smtpConfigurado() ? 2000 : 300; // Resend: 10 por segundo; Zoho limita envios em rajada, então vai com calma
 
+// Alertas do mês em andamento com as regras do Atlas (pacote gerado por `npm run build:vigentes`). Sem o pacote ou com erro,
+// o e-mail cai nas regras antigas dele, em vez de sair sem alertas.
+let vigentes = null;
+try {
+  const { alertasVigentesDoResumo } = await import("../server/gerado/vigentes.mjs");
+  vigentes = alertasVigentesDoResumo(meses, metas, hoje);
+  console.log(`alertas do mês ${vigentes.month}: ${vigentes.alertas.length} itens, ${vigentes.alertas.filter((a) => a.severity !== "info").length} com nível`);
+} catch (e) {
+  console.log(`alertas do mês indisponíveis (regras antigas do e-mail): ${e.message}`);
+}
+
 let ok = 0, falhas = 0, sem = 0, ja = 0;
 try {
   for (const u of usuarios) {
     const email = String(u.email).toLowerCase();
     if (enviados.has(email)) { ja++; console.log(`já enviado hoje: ${u.email}`); continue; }
-    const r = montarResumo(meses, u, hoje, ref, metas, ontem, alertasDoMeta, metaMesesDoResumo);
+    const r = montarResumo(meses, u, hoje, ref, metas, ontem, alertasDoMeta, metaMesesDoResumo, vigentes);
     if (!r) { sem++; console.log(`sem dados: ${u.email}`); continue; }
     const html = renderizarEmail(r, u, { url: process.env.ATLAS_URL || undefined, urlWehelp: process.env.WEHELP_URL || undefined, contato: process.env.RESUMO_CONTATO || undefined, banner: previa ? "banner-resumo.png" : `${IMAGENS}/banner-resumo.png`, assinatura: previa ? undefined : { logo: `${IMAGENS}/assinatura-logo.png`, selo: `${IMAGENS}/assinatura-selo.png` } });
     try {

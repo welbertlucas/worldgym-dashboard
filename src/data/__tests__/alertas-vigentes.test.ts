@@ -73,6 +73,24 @@ describe("alertas do mês vigente", () => {
     expect(cedo.alertas.some((x) => x.tipo === "ritmo")).toBe(false);
   });
 
+  it("cancelamentos e renovação contra o mesmo dia; alunos sem vir como item para fazer", () => {
+    const base = { meses: 3, churnPct: 2, naoRenovadosPct: 40, venceram: 30 };
+    const nov = mes("2026-11", [
+      u("A", { ritmoAlunos: { dia: 15, cancelados: 40, churnPct: 4, venceram: 30, naoRenovados: 21, naoRenovadosPct: 70, vencem7: 12, base }, acessos: [800, 100, 90, 60, 40, 5] }),
+      u("B", { ritmoAlunos: { dia: 15, cancelados: 25, churnPct: 2.5, venceram: 30, naoRenovados: 13, naoRenovadosPct: 43.3, vencem7: 0, base } }),
+    ]);
+    const r = computeAlertasVigentes([...fechados, nov], [], { atualizadoEm: lido, now, incluirRede: false });
+    const de = (unit: string, kind: string) => r.alertas.find((a) => a.unit === unit && a.kind === kind);
+    expect(de("A", "cancelRitmo")?.severity).toBe("critical"); // +2 p.p.
+    expect(de("A", "cancelRitmo")?.fact).toContain("costumava estar em 2,0%");
+    expect(de("B", "cancelRitmo")).toBeUndefined(); // +0,5 p.p.
+    expect(de("A", "renovacao")?.severity).toBe("critical"); // 70% contra 40%
+    expect(de("A", "renovacao")?.fact).toContain("12 contratos vencem nos próximos 7 dias");
+    expect(de("B", "renovacao")?.severity).toBe("info");
+    expect(de("A", "sumidos")).toMatchObject({ severity: "info", tipo: "pendencia" });
+    expect(de("A", "sumidos")?.fact).toContain("150 alunos ativos não vêm à academia há 16 a 60 dias");
+  });
+
   it("sem o mês corrente nos dados: nada", () => {
     expect(computeAlertasVigentes(fechados, [], { atualizadoEm: lido, now }).month).toBeNull();
   });
