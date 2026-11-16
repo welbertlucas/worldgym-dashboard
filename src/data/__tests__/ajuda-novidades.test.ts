@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ARTIGOS, artigosPara, buscarAjuda, secoesPara } from "@/data/ajuda";
+import { ARTIGOS, artigosPara, buscarAjuda, SECOES, secoesPara } from "@/data/ajuda";
 import { NOVIDADES, naoVistas, novidadesPara } from "@/data/novidades";
-import { itensDoMenu } from "@/components/nav";
+import { itensDoMenu, NAV_RODAPE, ondeFica } from "@/components/nav";
 
 describe("central de ajuda", () => {
   it("quem não é dono não vê artigos nem a seção do dono", () => {
@@ -30,9 +30,18 @@ describe("central de ajuda", () => {
     expect(buscarAjuda(artigosPara(false), "   ")).toEqual([]);
   });
 
-  it("Ajuda fica por último no menu, depois de Usuários", () => {
-    expect(itensDoMenu(true).slice(-2).map((i) => i.id)).toEqual(["acessos", "ajuda"]);
-    expect(itensDoMenu(false).at(-1)!.id).toBe("ajuda");
+  it("Novidades e Central de ajuda ficam no rodapé do menu, fora da lista das telas", () => {
+    expect(NAV_RODAPE.map((i) => i.id)).toEqual(["novidades", "ajuda"]);
+    expect(itensDoMenu(true).some((i) => i.id === "ajuda" || i.id === "novidades")).toBe(false);
+    expect(itensDoMenu(true).at(-1)!.id).toBe("acessos");
+  });
+
+  it("seção e artigo não dividem o mesmo endereço; onde fica cada tela", () => {
+    const ids = new Set(ARTIGOS.map((a) => a.id));
+    expect(SECOES.some((s) => ids.has(s.id))).toBe(false);
+    expect(ondeFica("comercial/oportunidades")).toBe("Menu › Comercial › Oportunidades");
+    expect(ondeFica("riscos/mes")).toBe("Botão Alertas, no cabeçalho › Mês em andamento");
+    expect(ondeFica("novidades")).toBe("Novidades, no rodapé do menu");
   });
 });
 
@@ -44,5 +53,12 @@ describe("novidades", () => {
     expect(novidadesPara(true).length).toBe(NOVIDADES.length);
     expect(naoVistas(todos, [todos[0].id])).toBe(todos.length - 1);
     expect(new Set(NOVIDADES.map((n) => n.id)).size).toBe(NOVIDADES.length);
+  });
+
+  it("\"Saiba mais\" leva a um artigo que a mesma pessoa pode abrir", () => {
+    for (const dono of [false, true]) {
+      const ids = new Set(artigosPara(dono).map((a) => a.id));
+      for (const n of novidadesPara(dono)) if (n.artigo) expect(ids.has(n.artigo), n.id).toBe(true);
+    }
   });
 });

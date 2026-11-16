@@ -7,7 +7,7 @@ const noop = () => {};
 
 describe("navegação", () => {
   it("menu numa sequência só (os ids antigos continuam, o mapa virou aba de Alunos)", () => {
-    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "plano", "metas", "riscos", "comercial", "financeiro", "alunos", "catraca", "retencao", "campanhas", "benchmark", "ajuda"]);
+    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "plano", "metas", "riscos", "comercial", "financeiro", "alunos", "catraca", "retencao", "campanhas", "benchmark"]);
   });
 
   it("endereços antigos levam para o lugar novo", () => {

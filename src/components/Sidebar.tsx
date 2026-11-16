@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { buscarNoMenu, itensDeBusca, itensDoMenu } from "@/components/nav";
+import { buscarNoMenu, itensDeBusca, itensDoMenu, NAV_RODAPE, type NavItem } from "@/components/nav";
 import { podeGerirAcessos } from "@/lib/auth";
 import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import wgLogo from "@/assets/wg-logo.png";
@@ -20,7 +20,7 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   const [consulta, setConsulta] = useState("");
   const [sel, setSel] = useState(0);
   const campo = useRef<HTMLInputElement>(null);
-  const resultados = buscarNoMenu(itensDeBusca(itensDoMenu(podeGerirAcessos(), true)), consulta);
+  const resultados = buscarNoMenu(itensDeBusca([...itensDoMenu(podeGerirAcessos(), true), ...NAV_RODAPE]), consulta);
   const abrir = (destino: string) => { setConsulta(""); campo.current?.blur(); onChange(destino); };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, resultados.length - 1)); }
@@ -64,45 +64,51 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   );
 }
 
+function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: NavItem; active: string; onChange: (id: string) => void; collapsed: boolean; numero?: number }) {
+  const Icon = item.icon;
+  const isActive = active === item.id;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onChange(item.id)}
+        aria-current={isActive ? "page" : undefined}
+        title={collapsed ? item.label : undefined}
+        className={cn(
+          "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors motion-reduce:transition-none",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          collapsed && "justify-center px-0",
+          isActive ? "bg-foreground/[0.07] text-foreground font-semibold" : "text-muted-foreground font-medium hover:bg-secondary/70 hover:text-foreground"
+        )}
+      >
+        <Icon className="w-[18px] h-[18px] shrink-0 text-primary" aria-hidden />
+        <span className={cn("flex-1 text-left", collapsed && "sr-only")}>{item.label}</span>
+        {numero > 0 && (
+          <span
+            className={cn("rounded-full bg-primary text-center text-[10px] font-semibold leading-none text-primary-foreground", collapsed ? "absolute right-1.5 top-1 h-2 w-2" : "min-w-[1.1rem] px-1.5 py-0.5")}
+            aria-label={`${numero} ${numero === 1 ? "novidade" : "novidades"}`}
+          >
+            {!collapsed && (numero > 9 ? "9+" : numero)}
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}
+
+/** Telas de trabalho em cima; Novidades e Central de ajuda no rodapé do menu. */
 function NavList({ active, onChange, collapsed = false }: NavProps & { collapsed?: boolean }) {
   const itens = itensDoMenu(podeGerirAcessos());
   const novas = useNovidadesNaoVistas();
   return (
     <>
     {!collapsed && <BuscaMenu onChange={onChange} />}
-    <nav aria-label="Seções do dashboard" className="flex-1 overflow-y-auto px-3 py-2">
+    <nav aria-label="Seções do dashboard" className="flex flex-1 flex-col overflow-y-auto px-3 py-2">
       <ul className="space-y-0.5">
-        {itens.map((item) => {
-          const Icon = item.icon;
-          const isActive = active === item.id;
-          return (
-            <li key={item.id}>
-              <button
-                type="button"
-                onClick={() => onChange(item.id)}
-                aria-current={isActive ? "page" : undefined}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors motion-reduce:transition-none",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  collapsed && "justify-center px-0",
-                  isActive ? "bg-foreground/[0.07] text-foreground font-semibold" : "text-muted-foreground font-medium hover:bg-secondary/70 hover:text-foreground"
-                )}
-              >
-                <Icon className="w-[18px] h-[18px] shrink-0 text-primary" aria-hidden />
-                <span className={cn("flex-1 text-left", collapsed && "sr-only")}>{item.label}</span>
-                {item.id === "ajuda" && novas > 0 && (
-                  <span
-                    className={cn("rounded-full bg-primary text-center text-[10px] font-semibold leading-none text-primary-foreground", collapsed ? "absolute right-1.5 top-1 h-2 w-2" : "min-w-[1.1rem] px-1.5 py-0.5")}
-                    aria-label={`${novas} ${novas === 1 ? "novidade" : "novidades"}`}
-                  >
-                    {!collapsed && (novas > 9 ? "9+" : novas)}
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
+        {itens.map((item) => <ItemDoMenu key={item.id} item={item} active={active} onChange={onChange} collapsed={collapsed} />)}
+      </ul>
+      <ul className="mt-auto space-y-0.5 border-t border-border pt-2" aria-label="Novidades e ajuda">
+        {NAV_RODAPE.map((item) => <ItemDoMenu key={item.id} item={item} active={active} onChange={onChange} collapsed={collapsed} numero={item.id === "novidades" ? novas : 0} />)}
       </ul>
     </nav>
     </>

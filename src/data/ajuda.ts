@@ -22,13 +22,13 @@ export interface ArtigoAjuda {
 
 export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "dono";
 
-export const SECOES: { id: SecaoAjuda; titulo: string; publico: Publico }[] = [
-  { id: "comecando", titulo: "Primeiros passos", publico: "todos" },
-  { id: "telas", titulo: "As telas do Atlas", publico: "todos" },
-  { id: "alertas", titulo: "Alertas e plano de ação", publico: "todos" },
-  { id: "duvidas", titulo: "Dúvidas frequentes", publico: "todos" },
-  { id: "indicadores", titulo: "O que significa cada indicador", publico: "todos" },
-  { id: "dono", titulo: "Só você vê", publico: "dono" },
+export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; publico: Publico }[] = [
+  { id: "comecando", titulo: "Primeiros passos", descricao: "O que é o Atlas, como escolher a unidade e o mês e como achar uma tela.", publico: "todos" },
+  { id: "telas", titulo: "As telas do Atlas", descricao: "Para que serve cada tela e o que tem em cada aba.", publico: "todos" },
+  { id: "alertas", titulo: "Alertas e plano de ação", descricao: "Como os alertas são decididos e como usar o plano com a equipe.", publico: "todos" },
+  { id: "duvidas", titulo: "Dúvidas frequentes", descricao: "Senha, números diferentes do EVO, resumo por e-mail e mais.", publico: "todos" },
+  { id: "indicadores", titulo: "O que significa cada indicador", descricao: "Churn, inadimplência, ticket médio e os outros números do Atlas.", publico: "todos" },
+  { id: "dono", titulo: "Só você vê", descricao: "Usuários, rotinas automáticas e o que só você acompanha.", publico: "dono" },
 ];
 
 const DATA = "2026-11-16";
@@ -40,7 +40,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   a("comecando", "o-que-e-o-atlas", "O que é o Atlas", "O painel de resultados da rede World Gym.", [
     "O Atlas reúne num lugar só os números das academias: faturamento, recebimento, inadimplência, vendas, oportunidades, alunos, acessos na catraca, retenção, metas e marketing.",
     "Os números vêm do EVO, das contas de anúncio do Meta, das pesquisas de satisfação e da planilha de metas. Você não precisa lançar nada no Atlas: ele lê essas fontes sozinho.",
-    "A primeira tela é o Overview, com os principais números do mês. As outras telas ficam no menu lateral (no celular, no botão de três linhas no canto de cima).",
+    "A primeira tela é o Overview, com os principais números do mês. As outras telas ficam no menu lateral (no celular, no botão de três linhas no canto de cima). No rodapé do menu ficam as Novidades e esta Central de ajuda.",
   ], { tela: "executiva", imagem: "overview" }),
   a("comecando", "unidade-e-mes", "Como escolher a unidade e o mês", "O botão de unidade fica no cabeçalho; o mês, no topo de cada tela.", [
     "O botão de unidade, no canto do cabeçalho, filtra as telas para uma unidade. Escolhida a unidade, ela vale em todas as telas até você trocar. No celular, o botão fica logo abaixo do título.",
@@ -55,9 +55,10 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O mês que ainda não terminou mostra o que aconteceu até agora. Por isso o faturamento, as vendas e o recebimento parecem menores do que nos meses fechados.",
     "Para comparar de forma justa, os alertas do mês em andamento olham o mesmo dia dos meses anteriores. As Metas mostram a projeção de fechamento no ritmo atual.",
   ]),
-  a("comecando", "novidades", "Novidades", "O que mudou no Atlas fica em Ajuda e novidades.", [
-    "Quando o Atlas ganha algo novo, o item \"Ajuda e novidades\" do menu mostra um número (no celular, uma bolinha no botão do menu). As novidades aparecem no topo da tela; quando houver, use \"Ver na tela\" para ir direto ao lugar.",
-  ], { tela: "ajuda" }),
+  a("comecando", "novidades", "Novidades", "O que mudou no Atlas fica em Novidades, no rodapé do menu.", [
+    "Quando o Atlas ganha algo novo, o item Novidades, no rodapé do menu, mostra um número (no celular, uma bolinha no botão do menu).",
+    "Cada novidade diz se é algo novo ou uma melhoria. \"Saiba mais\" abre o artigo da Central de ajuda sobre o assunto e \"Ver na tela\" leva direto ao lugar.",
+  ], { tela: "novidades" }),
 
   // Telas
   a("telas", "tela-overview", "Overview", "Os principais números do mês, num olhar.", [
@@ -173,7 +174,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   a("dono", "dono-atualizar", "Atualizar da planilha", "O botão de setas no cabeçalho.", [
     "O botão de setas no cabeçalho busca de novo a planilha de metas e os números guardados, sem esperar a atualização automática.",
   ]),
-  a("dono", "dono-ajuda-novidades", "Ajuda e novidades só para você", "O que fica fora da vista dos outros usuários.", [
+  a("dono", "dono-ajuda-novidades", "Central de ajuda e novidades só para você", "O que fica fora da vista dos outros usuários.", [
     "Artigos e novidades sobre controles seus (usuários, atividade, uso do plano, avisos de rotinas) só aparecem para você. Os outros usuários veem só o uso das telas.",
   ]),
 ];

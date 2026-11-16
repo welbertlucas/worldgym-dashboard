@@ -1,4 +1,4 @@
-// Novidades já vistas neste navegador (ids). O número no menu ("Ajuda e novidades") lê daqui e some ao abrir a tela.
+// Novidades já vistas neste navegador (ids). O número no menu ("Novidades") lê daqui e some ao abrir a tela.
 import { useSyncExternalStore } from "react";
 import { ehDono } from "@/lib/auth";
 import { naoVistas, novidadesPara } from "@/data/novidades";

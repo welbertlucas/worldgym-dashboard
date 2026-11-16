@@ -1,4 +1,4 @@
-import { KeyRound, LifeBuoy, LayoutDashboard, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
+import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
@@ -19,17 +19,38 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "retencao", label: "Retenção", icon: UserCheck },
   { id: "campanhas", label: "Marketing", icon: Megaphone },
   { id: "benchmark", label: "Ranking da rede", icon: BarChart3 },
-  { id: "ajuda", label: "Ajuda e novidades", icon: LifeBuoy },
 ];
+
+/** Rodapé do menu, fora da sequência das telas de trabalho: Novidades (com o número das não vistas) e a Central de ajuda. */
+export const NAV_RODAPE: NavItem[] = [
+  { id: "novidades", label: "Novidades", icon: Sparkles },
+  { id: "ajuda", label: "Central de ajuda", icon: LifeBuoy },
+];
+const USUARIOS: NavItem = { id: "acessos", label: "Usuários", icon: KeyRound };
+/** Todos os menus que têm endereço (#id). */
+export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, ...NAV_RODAPE, USUARIOS];
 
 /** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. `comOcultos` serve à busca, que ainda acha as telas fora da barra lateral. */
 export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false): NavItem[] => {
   const base = comOcultos ? NAV_ITEMS : NAV_ITEMS.filter((i) => !i.oculto);
-  if (!gerirAcessos) return base;
-  // Usuários entra antes da Ajuda, que fica sempre por último.
-  const usuarios: NavItem = { id: "acessos", label: "Usuários", icon: KeyRound };
-  return [...base.filter((i) => i.id !== "ajuda"), usuarios, ...base.filter((i) => i.id === "ajuda")];
+  return gerirAcessos ? [...base, USUARIOS] : base;
 };
+
+/** "comercial/vendas" → "Comercial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
+export function nomeDaTela(tela: string): string {
+  const [menu, aba] = tela.split("/");
+  const item = TODOS_OS_MENUS.find((i) => i.id === menu);
+  const sub = aba ? SUBMENUS[menu]?.find((a) => a.id === aba) : null;
+  return item ? (sub ? `${item.label} › ${sub.rotulo}` : item.label) : tela;
+}
+
+/** Onde a tela fica, para quem procura: os Alertas não estão no menu, e sim no botão do cabeçalho. */
+export function ondeFica(tela: string): string {
+  const nome = nomeDaTela(tela);
+  if (tela.split("/")[0] === "riscos") return `Botão ${nome.replace(/^Alertas/, "Alertas, no cabeçalho")}`;
+  if (NAV_RODAPE.some((i) => i.id === tela.split("/")[0])) return `${nome}, no rodapé do menu`;
+  return `Menu › ${nome}`;
+}
 
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
 export const SUBMENUS: Record<string, Aba[]> = {
@@ -87,7 +108,8 @@ const PALAVRAS: Record<string, string> = {
   riscos: "alertas riscos recomendacoes atencao critico",
   "riscos/mes": "alertas do mes atual em andamento pendencias ritmo cobrar cartao detratores renovacao projecao",
   "riscos/fechamento": "fechamento mes anterior fechado o que aconteceu hipoteses comparativo anual",
-  ajuda: "ajuda novidades o que mudou central duvidas como usar perguntas frequentes glossario o que significa senha tutorial novidades",
+  ajuda: "ajuda central duvidas como usar perguntas frequentes glossario o que significa senha tutorial manual",
+  novidades: "novidades o que mudou novo melhoria atualizacoes lancamentos",
   acessos: "usuarios senha permissoes login niveis quem entra no painel",
 };
 

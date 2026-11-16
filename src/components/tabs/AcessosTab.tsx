@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Copy, KeyRound, ShieldCheck } from "lucide-react";
-import { NAV_ITEMS, SUBMENUS } from "@/components/nav";
+import { nomeDaTela } from "@/components/nav";
 import { formatMonthLong } from "@/data/periods";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
@@ -15,13 +15,7 @@ import {
 
 const NIVEL: Record<Papel, string> = { dono: "Dono", master: "Master", unidades: "Unidades" };
 const campo = "h-10 w-full rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
-/** "comercial/vendas" → "Comercial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
-export function nomeDaTela(tela: string): string {
-  const [menu, aba] = tela.split("/");
-  const item = NAV_ITEMS.find((i) => i.id === menu);
-  const sub = aba ? SUBMENUS[menu]?.find((a) => a.id === aba) : null;
-  return item ? (sub ? `${item.label} › ${sub.rotulo}` : item.label) : tela;
-}
+export { nomeDaTela };
 
 const quando = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 

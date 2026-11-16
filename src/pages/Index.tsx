@@ -29,7 +29,7 @@ import { AvisoVerComo, VerComo } from "@/components/VerComo";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { PlanoAcaoTab } from "@/components/tabs/PlanoAcaoTab";
 import { UnitNavProvider } from "@/components/UnitLink";
-import { enderecoAtual, NAV_ITEMS, SUBMENUS } from "@/components/nav";
+import { enderecoAtual, SUBMENUS, TODOS_OS_MENUS } from "@/components/nav";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
@@ -85,12 +85,13 @@ const RiscosTab = telaSobDemanda(() => import("@/components/tabs/RiscosTab"), "R
 const MetasTab = telaSobDemanda(() => import("@/components/tabs/MetasTab"), "MetasTab");
 const AcessosTab = telaSobDemanda(() => import("@/components/tabs/AcessosTab"), "AcessosTab");
 const AjudaTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "AjudaTab");
+const NovidadesTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "NovidadesTab");
 
 /** Intervalo da atualização automática dos dados (planilha e metas). */
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 /** Aba guardada no endereço (#id), se for uma aba que existe. "acessos" só abre para o dono (a tela confere de novo). */
-const ABAS = new Set([...NAV_ITEMS.map((n) => n.id), "acessos"]);
+const ABAS = new Set(TODOS_OS_MENUS.map((n) => n.id));
 const ABAS_COMERCIAL = SUBMENUS.comercial, ABAS_FINANCEIRO = SUBMENUS.financeiro;
 function abaDoEndereco(): string | null {
   try {
@@ -134,7 +135,7 @@ const Index = () => {
   }, []);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  /** Novidades não vistas: bolinha no botão do menu do celular (no menu, o número fica em "Ajuda e novidades"). */
+  /** Novidades não vistas: bolinha no botão do menu do celular (no menu, o número fica em "Novidades"). */
   const novidadesNovas = useNovidadesNaoVistas();
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -200,8 +201,8 @@ const Index = () => {
   // unidades da pessoa (nada da rede). O Benchmark mostra sempre todas; a unidade do filtro só fica destacada nele.
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = activeTab === "executiva";
-  /** Telas sem mês nem unidade: Usuários e Ajuda. */
-  const semFiltros = activeTab === "acessos" || activeTab === "ajuda";
+  /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
+  const semFiltros = activeTab === "acessos" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
@@ -543,6 +544,7 @@ const Index = () => {
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
 
+        {activeTab === "novidades" && <NovidadesTab onAbrirTela={changeTab} />}
         {activeTab === "ajuda" && <AjudaTab aba={subAba} onAba={(id) => changeTab(id ? `ajuda/${id}` : "ajuda")} onAbrirTela={changeTab} />}
         </Suspense>
         </main>
