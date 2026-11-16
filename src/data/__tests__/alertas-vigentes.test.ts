@@ -136,3 +136,17 @@ describe("plano do mês vigente", () => {
     expect(continuaFeito(undefined, null)).toBe(false);
   });
 });
+
+describe("uso do plano", () => {
+  it("quem nunca marcou vem primeiro; conta marcados e a última marcação; a Rede fica de fora", async () => {
+    const { usoDoPlano } = await import("@/data/planoVigente");
+    const a = (unit: string, kind: string, severity = "attention") => ({ unit, kind, severity, tipo: "pendencia", weight: 1 }) as unknown as import("@/data/alertasVigentes").AlertaVigente;
+    const { gruposVigentes } = await import("@/data/planoVigente");
+    const grupos = gruposVigentes([a("Rede", "fatRitmo"), a("A", "inadAberta"), a("A", "renovacao"), a("B", "inadAberta", "critical"), a("C", "renovacao")]);
+    const feitos = { "A|inadAberta": { por: "Ana Souza", em: "2026-11-10T12:00:00Z" }, "C|renovacao": { por: "Caio", em: "2026-11-12T12:00:00Z" }, "A|antigo": { por: "Bia", em: "2026-11-14T12:00:00Z" } };
+    const u = usoDoPlano(grupos, feitos);
+    expect(u.map((x) => x.unit)).toEqual(["B", "A", "C"]);
+    expect(u[0]).toMatchObject({ marcados: 0, itens: 1, ultima: null });
+    expect(u[1]).toMatchObject({ marcados: 1, itens: 2, ultima: { por: "Bia" } });
+  });
+});

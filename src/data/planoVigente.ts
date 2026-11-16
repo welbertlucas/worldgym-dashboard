@@ -50,3 +50,19 @@ export function resumoVigenteTexto(grupos: GrupoVigente[], month: string, dias: 
   }
   return partes.join("\n");
 }
+
+/** Uso do plano por unidade (visão do dono): quantos itens, quantos já foram marcados como feitos e a última marcação. */
+export interface UsoDoPlano { unit: string; itens: number; criticos: number; marcados: number; ultima: { por: string; em: string } | null }
+
+/**
+ * Para cada unidade do plano (sem a Rede): itens do mês, itens marcados (mesmo os que voltaram a pendente depois da leitura
+ * do EVO: o que conta aqui é se a unidade usa o plano) e a marcação mais recente, de qualquer item da unidade no mês.
+ * Quem nunca marcou nada vem primeiro (os com mais críticos antes); depois, a menor parte marcada.
+ */
+export function usoDoPlano(grupos: GrupoVigente[], feitos: Record<string, { por: string; em: string }>): UsoDoPlano[] {
+  const ultimaDe = (unit: string) => Object.entries(feitos).filter(([k]) => k.startsWith(`${unit}|`)).map(([, f]) => f).sort((a, b) => b.em.localeCompare(a.em))[0] ?? null;
+  return grupos
+    .filter((g) => g.unit !== "Rede")
+    .map((g) => ({ unit: g.unit, itens: g.itens.length, criticos: g.criticos, marcados: g.itens.filter((a) => feitos[`${g.unit}|${a.kind}`]).length, ultima: ultimaDe(g.unit) }))
+    .sort((a, b) => Number(!!a.ultima) - Number(!!b.ultima) || a.marcados / a.itens - b.marcados / b.itens || b.criticos - a.criticos || a.unit.localeCompare(b.unit, "pt-BR"));
+}

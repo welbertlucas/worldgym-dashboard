@@ -5,7 +5,8 @@ import { UnitLink } from "@/components/UnitLink";
 import { BotaoCopiar } from "@/components/tabs/ShareButtons";
 import { ItemVigente, NOTA_SEM_NIVEL, periodoVigente } from "@/components/AlertasVigentes";
 import { type AlertaVigente, type ResultadoVigente } from "@/data/alertasVigentes";
-import { continuaFeito, gruposVigentes, planoVigenteTexto, resumoVigenteTexto } from "@/data/planoVigente";
+import { continuaFeito, gruposVigentes, planoVigenteTexto, resumoVigenteTexto, usoDoPlano } from "@/data/planoVigente";
+import { ehDono } from "@/lib/auth";
 import { carregarFeitos, chaveFeito, marcarFeito, type Feito } from "@/data/planoFeitos";
 import { formatMonthLong } from "@/data/periods";
 import { toast } from "@/hooks/use-toast";
@@ -122,10 +123,45 @@ export function PlanoAcaoTab({ res, unit = null, atualizadoEm, onAbrirTela, onOp
         </div>
       )}
 
+      {!unit && ehDono() && grupos.length > 1 && <UsoDoPlanoCard grupos={grupos} feitos={feitos} />}
+
       <p className="text-xs text-muted-foreground">
         “Feito” vale para {formatMonthLong(month)}: se o alerta continuar na leitura seguinte do EVO, o item volta como pendente. {NOTA_SEM_NIVEL}
         {onOpenAlertas && <> <button type="button" onClick={onOpenAlertas} className="font-medium text-primary-ink underline underline-offset-4 hover:text-primary-ink/80">Ver os alertas</button></>}
       </p>
     </div>
+  );
+}
+
+/** Só o dono vê: quais unidades estão marcando os itens do plano como feitos e quais não mexeram nele no mês. */
+function UsoDoPlanoCard({ grupos, feitos }: { grupos: ReturnType<typeof gruposVigentes>; feitos: Record<string, Feito> }) {
+  const uso = usoDoPlano(grupos, feitos);
+  const semUso = uso.filter((u) => !u.ultima).length;
+  const quando = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return (
+    <details className="group card-surface">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl p-4 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <h3 className="text-sm font-semibold text-foreground">Quem está usando o plano</h3>
+        <span className="text-xs text-muted-foreground">Só você vê · {semUso === 0 ? "todas as unidades marcaram algum item" : `${semUso} de ${uso.length} ${uso.length === 1 ? "unidade" : "unidades"} sem nenhum item marcado no mês`}</span>
+        <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden />
+      </summary>
+      <div className="border-t border-border p-4 sm:p-5">
+        <ul className="space-y-2" aria-label="Uso do plano por unidade">
+          <li aria-hidden className="grid grid-cols-[minmax(0,1fr)_3.5rem_5.5rem] gap-3 text-[11px] uppercase tracking-wide text-muted-foreground sm:grid-cols-[minmax(0,1fr)_6rem_minmax(0,12rem)]">
+            <span>Unidade</span><span className="text-right">Marcados</span><span className="text-right">Última marcação</span>
+          </li>
+          {uso.map((u) => (
+            <li key={u.unit} className="grid grid-cols-[minmax(0,1fr)_3.5rem_5.5rem] items-center gap-3 text-sm sm:grid-cols-[minmax(0,1fr)_6rem_minmax(0,12rem)]">
+              <span className="truncate"><UnitLink name={u.unit} /></span>
+              <span className={cn("text-right tabular-nums", u.marcados === 0 ? "text-muted-foreground" : "font-semibold text-foreground")}>{u.marcados} de {u.itens}</span>
+              <span className={cn("truncate text-right text-xs", u.ultima ? "text-muted-foreground" : "font-medium text-destructive")}>
+                {u.ultima ? `${quando(u.ultima.em)} · ${u.ultima.por.split(" ")[0]}` : "nunca marcou"}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-muted-foreground">Conta os itens do mês marcados como feitos, mesmo os que voltaram a pendente porque o alerta continuou no EVO: aqui a pergunta é se a unidade usa o plano.</p>
+      </div>
+    </details>
   );
 }
