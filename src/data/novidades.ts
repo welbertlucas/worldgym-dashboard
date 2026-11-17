@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-17-relatorios", data: "2026-11-17", tipo: "novo", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
+    titulo: "Relatórios: apresentação em PowerPoint",
+    texto: "Montar o Report Operacional do mês levava horas de cópia de números. Agora o menu Relatórios gera os slides (capa, números gerais e rankings por unidade) a partir do que o Atlas já guarda, num arquivo editável. Você escolhe o mês, as unidades e os indicadores, e libera o menu para quem quiser em Usuários.",
+  },
+  {
     id: "2026-11-16-stories-24h", data: "2026-11-16", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "campanhas/instagram", artigo: "tela-marketing",
     titulo: "Marketing: stories das últimas 24 horas",
     texto: "Para saber se a unidade postou hoje, era preciso rolar uma semana de stories. Agora o Instagram abre com o que está no ar, das últimas 24 horas. Os botões abaixo mostram os últimos 7 e 30 dias.",

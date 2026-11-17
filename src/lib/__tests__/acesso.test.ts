@@ -174,6 +174,27 @@ describe("acessos, níveis e registro", () => {
     expect((await chama(usuarios, com(tokenDono, { method: "POST", body: { acao: "criar", nome: "Outro", email: "outro@exemplo.com", papel: "dono" } }))).code).toBe(400);
   });
 
+  it("só o dono libera 'gerar relatórios'; quem gerencia acessos não dá nem tira, e o login informa a permissão", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
+    const criadaAna = (await post(tokenDono, { acao: "criar", nome: "Ana Júlia", email: "ana@exemplo.com", papel: "master" })).body;
+    const ana = criadaAna.usuario;
+    await trocaSenha(ana.id, criadaAna.senhaProvisoria);
+    const tokenAna = criarTokenUsuario(ana.id).token;
+    expect(ana.geraRelatorios).toBe(false);
+    expect((await chama(login, com(tokenAna, { method: "GET" }))).body.usuario.geraRelatorios).toBe(false);
+    expect((await post(tokenDono, { acao: "atualizar", id: ana.id, geraRelatorios: true })).body.usuario.geraRelatorios).toBe(true);
+    expect((await chama(login, com(tokenAna, { method: "GET" }))).body.usuario.geraRelatorios).toBe(true);
+    // o dono sempre gera
+    expect((await chama(login, com(tokenDono, { method: "GET" }))).body.usuario.geraRelatorios).toBe(true);
+    // quem só gerencia acessos não mexe nessa permissão
+    await post(tokenDono, { acao: "atualizar", id: ana.id, gerenciaAcessos: true });
+    const bia = (await post(tokenDono, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master" })).body.usuario;
+    expect((await post(tokenAna, { acao: "atualizar", id: bia.id, geraRelatorios: true })).code).toBe(403);
+    expect((await post(tokenAna, { acao: "criar", nome: "Caio", email: "caio@exemplo.com", papel: "master", geraRelatorios: true })).code).toBe(403);
+  });
+
   it("Master liberado pelo dono gerencia acessos, mas não mexe no dono, não passa a permissão adiante nem muda o próprio nível", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;

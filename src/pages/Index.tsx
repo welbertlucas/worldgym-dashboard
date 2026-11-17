@@ -54,7 +54,7 @@ import {
   RefreshCw, LogOut, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
-import { getToken, getUsuario, podeAtualizar, podeGerirAcessos, sair, unidadesProprias } from "@/lib/auth";
+import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -84,6 +84,7 @@ const CatracaTab = telaSobDemanda(() => import("@/components/tabs/CatracaTab"), 
 const RiscosTab = telaSobDemanda(() => import("@/components/tabs/RiscosTab"), "RiscosTab");
 const MetasTab = telaSobDemanda(() => import("@/components/tabs/MetasTab"), "MetasTab");
 const AcessosTab = telaSobDemanda(() => import("@/components/tabs/AcessosTab"), "AcessosTab");
+const RelatoriosTab = telaSobDemanda(() => import("@/components/tabs/RelatoriosTab"), "RelatoriosTab");
 const AjudaTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "AjudaTab");
 const NovidadesTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "NovidadesTab");
 
@@ -202,7 +203,7 @@ const Index = () => {
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = activeTab === "executiva";
   /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
-  const semFiltros = activeTab === "acessos" || activeTab === "ajuda" || activeTab === "novidades";
+  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
@@ -543,6 +544,8 @@ const Index = () => {
         })()}
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
+
+        {activeTab === "relatorios" && podeGerarRelatorios() && <RelatoriosTab dados={dashboardData} />}
 
         {activeTab === "novidades" && <NovidadesTab onAbrirTela={changeTab} />}
         {activeTab === "ajuda" && <AjudaTab aba={subAba} onAba={(id) => changeTab(id ? `ajuda/${id}` : "ajuda")} onAbrirTela={changeTab} />}

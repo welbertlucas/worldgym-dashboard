@@ -1,4 +1,4 @@
-import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, type LucideIcon } from "lucide-react";
+import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, Presentation, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
@@ -27,13 +27,15 @@ export const NAV_RODAPE: NavItem[] = [
   { id: "ajuda", label: "Central de ajuda", icon: LifeBuoy },
 ];
 const USUARIOS: NavItem = { id: "acessos", label: "Usuários", icon: KeyRound };
+/** Só aparece para quem o dono liberou (e para o dono). */
+const RELATORIOS: NavItem = { id: "relatorios", label: "Relatórios", icon: Presentation };
 /** Todos os menus que têm endereço (#id). */
-export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, ...NAV_RODAPE, USUARIOS];
+export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, RELATORIOS, ...NAV_RODAPE, USUARIOS];
 
 /** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. `comOcultos` serve à busca, que ainda acha as telas fora da barra lateral. */
-export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false): NavItem[] => {
+export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorios = false): NavItem[] => {
   const base = comOcultos ? NAV_ITEMS : NAV_ITEMS.filter((i) => !i.oculto);
-  return gerirAcessos ? [...base, USUARIOS] : base;
+  return [...base, ...(relatorios ? [RELATORIOS] : []), ...(gerirAcessos ? [USUARIOS] : [])];
 };
 
 /** "comercial/vendas" → "Comercial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
@@ -110,6 +112,7 @@ const PALAVRAS: Record<string, string> = {
   "riscos/fechamento": "fechamento mes anterior fechado o que aconteceu hipoteses comparativo anual",
   ajuda: "ajuda central duvidas como usar perguntas frequentes glossario o que significa senha tutorial manual",
   novidades: "novidades o que mudou novo melhoria atualizacoes lancamentos",
+  relatorios: "relatorio apresentacao pptx powerpoint slides exportar baixar report operacional",
   acessos: "usuarios senha permissoes login niveis quem entra no painel",
 };
 

@@ -47,12 +47,14 @@ export const limparCache = () => { memo = null; };
 export const recebeResumo = (u) => u.ativo !== false && u.resumo !== false;
 /** Master a quem o dono liberou criar e alterar acessos (só vale para Master). */
 export const gerenciaAcessos = (u) => u?.papel === "master" && u.gerenciaAcessos === true;
+/** Quem gera apresentações no menu Relatórios: o dono e quem ele liberou (qualquer nível). */
+export const geraRelatorios = (u) => u?.papel === "dono" || u?.geraRelatorios === true;
 /**
  * Quem ainda usa a senha provisória precisa escolher uma só sua. Vale para toda senha gerada pelo sistema (acesso novo ou "nova senha") e,
  * como migração, para os acessos criados antes desta regra (sem o campo), exceto o dono, que escolheu a própria senha ao criar a conta.
  */
 export const precisaTrocarSenha = (u) => u?.trocarSenha === true || (u?.trocarSenha === undefined && u?.papel !== "dono");
-export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
+export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel !== "dono" && geraRelatorios(u), trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
 
 /**
  * Quem não é dono, mas gerencia acessos (ator com gerenciaAcessos), não mexe na conta do dono nem na de outro que
@@ -63,6 +65,7 @@ function conferirAtor(ator, alvo, campos = {}) {
   if (alvo?.papel === "dono") throw new ErroAcesso("Só o dono altera a conta do dono.", 403);
   if (alvo && alvo.id !== ator.id && gerenciaAcessos(alvo)) throw new ErroAcesso("Só o dono altera quem também gerencia acessos.", 403);
   if (campos.gerenciaAcessos !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de gerenciar acessos.", 403);
+  if (campos.geraRelatorios !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de gerar relatórios.", 403);
   if (alvo?.id === ator.id && ((campos.papel !== undefined && campos.papel !== alvo.papel) || campos.ativo === false)) {
     throw new ErroAcesso("Você não pode mudar o seu próprio nível nem se desativar.", 403);
   }
@@ -115,16 +118,16 @@ export async function criarDono({ nome, email, senha }) {
 }
 
 /** Cria um acesso com senha provisória (mostrada uma única vez ao dono). */
-export async function criarUsuario({ nome, email, papel, unidades, resumo = true, gerenciaAcessos: gerencia }, ator = null) {
+export async function criarUsuario({ nome, email, papel, unidades, resumo = true, gerenciaAcessos: gerencia, geraRelatorios: relatorios }, ator = null) {
   const lista = await lerFresco();
   if (papel === "dono" || !PAPEIS.includes(papel)) throw new ErroAcesso("Nível inválido.");
-  conferirAtor(ator, null, { gerenciaAcessos: gerencia || undefined });
+  conferirAtor(ator, null, { gerenciaAcessos: gerencia || undefined, geraRelatorios: relatorios || undefined });
   const dados = validarBasico({ nome, email }, lista);
   const senhaProvisoria = gerarSenhaProvisoria();
   const u = {
     id: randomUUID(), ...dados, papel,
     unidades: papel === "unidades" ? validarUnidades(unidades) : [],
-    ativo: true, resumo: resumo !== false, ...(papel === "master" && gerencia === true ? { gerenciaAcessos: true } : {}),
+    ativo: true, resumo: resumo !== false, ...(papel === "master" && gerencia === true ? { gerenciaAcessos: true } : {}), ...(relatorios === true ? { geraRelatorios: true } : {}),
     hash: hashSenha(senhaProvisoria), trocarSenha: true, criadoEm: new Date().toISOString(),
   };
   await salvar([...lista, u]);
@@ -172,6 +175,8 @@ export async function atualizarUsuario(id, campos, ator = null) {
   if (campos.resumo !== undefined) u.resumo = Boolean(campos.resumo);
   if (campos.gerenciaAcessos !== undefined) u.gerenciaAcessos = Boolean(campos.gerenciaAcessos);
   if (u.papel !== "master") delete u.gerenciaAcessos; // a permissão só vale para Master
+  if (campos.geraRelatorios !== undefined) u.geraRelatorios = Boolean(campos.geraRelatorios);
+  if (u.papel === "dono") delete u.geraRelatorios; // o dono sempre gera
   await salvar(lista);
   return publico(u);
 }

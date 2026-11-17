@@ -12,7 +12,7 @@
 // Segredo de assinatura: SESSAO_SEGREDO (Vercel); se não existir, deriva de DASHBOARD_PASSWORD. Sem nenhum dos dois a
 // proteção fica desligada, MAS se já existem usuários o servidor recusa tudo (nunca abre por esquecimento de variável).
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { listarUsuarios, gerenciaAcessos, precisaTrocarSenha } from "../server/acesso.js";
+import { listarUsuarios, gerenciaAcessos, geraRelatorios, precisaTrocarSenha } from "../server/acesso.js";
 import { UNIT_NAMES } from "../server/units.js";
 
 /** Tempo sem uso até o login cair: 12 horas para dono e Master (aparelho próprio), 4 horas para quem vê só algumas unidades (computador de recepção, em geral compartilhado). */
@@ -88,7 +88,7 @@ export const tokenDaRequisicao = (req) => String(req.headers.authorization ?? ""
 const SESSAO_LEGADO = Object.freeze({ id: "legado", nome: "Senha única", email: "", papel: "dono", unidades: [], legado: true });
 const SESSAO_ABERTA = Object.freeze({ id: "aberto", nome: "Sem proteção", email: "", papel: "dono", unidades: [], legado: true });
 
-export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], gerenciaAcessos: gerenciaAcessos(u), trocarSenha: precisaTrocarSenha(u), legado: false });
+export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: geraRelatorios(u), trocarSenha: precisaTrocarSenha(u), legado: false });
 
 /**
  * "Ver como": o dono pode olhar o painel como Master ou como o acesso de algumas unidades, para conferir o que cada
@@ -100,12 +100,12 @@ export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel:
 export const CABECALHO_VER_COMO = "X-Atlas-Ver-Como";
 export function aplicarVerComo(sessao, pedido, nomesValidos = Object.values(UNIT_NAMES)) {
   if (!sessao || sessao.papel !== "dono" || typeof pedido !== "string" || !pedido) return sessao;
-  if (pedido === "master") return { ...sessao, papel: "master", unidades: [], gerenciaAcessos: false, papelReal: "dono" };
+  if (pedido === "master") return { ...sessao, papel: "master", unidades: [], gerenciaAcessos: false, geraRelatorios: false, papelReal: "dono" };
   if (!pedido.startsWith("unidades:")) return sessao;
   let nomes = [];
   try { nomes = decodeURIComponent(pedido.slice(9)).split("|").map((n) => n.trim()); } catch { return sessao; }
   const unidades = [...new Set(nomes.filter((n) => nomesValidos.includes(n)))];
-  return unidades.length ? { ...sessao, papel: "unidades", unidades, gerenciaAcessos: false, papelReal: "dono" } : sessao;
+  return unidades.length ? { ...sessao, papel: "unidades", unidades, gerenciaAcessos: false, geraRelatorios: false, papelReal: "dono" } : sessao;
 }
 const pedidoVerComo = (req) => req.headers?.[CABECALHO_VER_COMO.toLowerCase()];
 
