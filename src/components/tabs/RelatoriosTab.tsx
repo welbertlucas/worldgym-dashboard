@@ -19,7 +19,6 @@ export function RelatoriosTab({ dados }: { dados: MonthData[] }) {
   const [escopo, setEscopo] = useState<"todas" | "algumas">("todas");
   const [marcadas, setMarcadas] = useState<string[]>([]);
   const [indicadores, setIndicadores] = useState<string[]>(INDICADORES_PADRAO);
-  const [titulo, setTitulo] = useState("SEMANAL");
   const [gerando, setGerando] = useState(false);
 
   if (!podeGerarRelatorios()) return <Notice>Esta tela não está liberada para o seu acesso.</Notice>;
@@ -37,7 +36,7 @@ export function RelatoriosTab({ dados }: { dados: MonthData[] }) {
     setGerando(true);
     try {
       const { gerarApresentacao } = await import("@/lib/relatorioPptx");
-      await gerarApresentacao(modelo, { email: getUsuario()?.email ?? "", titulo });
+      await gerarApresentacao(modelo, { email: getUsuario()?.email ?? "" });
       registrarExportacao("relatorios", { unidade: unidades?.length === 1 ? unidades[0] : null, mes });
       toast({ title: "Apresentação gerada", description: "O arquivo foi baixado. Abra no PowerPoint ou no Keynote para editar." });
     } catch {
@@ -60,10 +59,7 @@ export function RelatoriosTab({ dados }: { dados: MonthData[] }) {
                 {meses.map((m) => <option key={m} value={m}>{formatMonthLong(m)}</option>)}
               </Select>
             </label>
-            <label className="mt-3 block space-y-1.5 text-sm font-medium text-foreground">Título da capa
-              <input className="h-10 w-full rounded-xl border border-input bg-white px-3 text-sm uppercase text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={16} autoComplete="off" />
-            </label>
-            <p className="mt-2 text-xs text-muted-foreground">Na capa vai o período escolhido{modelo ? ` (${modelo.periodo})` : ""}. Por enquanto só meses fechados. Períodos livres (do dia 1 ao 9, por exemplo) vêm numa próxima etapa.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Na capa vão o nome da unidade (ou da rede) e o período{modelo ? `: ${modelo.periodo}` : ""}. Por enquanto só meses fechados. Períodos livres (do dia 1 ao 9, por exemplo) vêm numa próxima etapa.</p>
           </section>
 
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">

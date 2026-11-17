@@ -13,6 +13,12 @@ describe("ver como (dono simulando outro nível)", () => {
       .toMatchObject({ papel: "unidades", unidades: ["Itapoã"], papelReal: "dono" });
   });
 
+  it("o dono simulando continua vendo o menu Relatórios (com os dados do nível simulado)", () => {
+    const comRelatorios = { ...dono, geraRelatorios: true, gerenciaAcessos: true };
+    expect(aplicarVerComo(comRelatorios, "master", nomes)).toMatchObject({ geraRelatorios: true, gerenciaAcessos: false });
+    expect(aplicarVerComo(comRelatorios, "unidades:Gama", nomes)).toMatchObject({ papel: "unidades", geraRelatorios: true, gerenciaAcessos: false });
+  });
+
   it("ignora pedido inválido e quem não é dono não consegue simular", () => {
     expect(aplicarVerComo(dono, "unidades:Inventada", nomes)).toBe(dono);
     expect(aplicarVerComo(dono, "admin", nomes)).toBe(dono);

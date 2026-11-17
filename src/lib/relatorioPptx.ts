@@ -16,8 +16,6 @@ const FORMATO_EXCEL: Record<Formato, string> = { brl: '"R$ "#,##0', brl2: '"R$ "
 export interface OpcoesGeracao {
   /** E-mail de quem gera, para o rodapé (rastreio). */
   email: string;
-  /** Palavra grande da capa (ex.: SEMANAL). */
-  titulo?: string;
   /** Data e hora da geração. */
   em?: Date;
 }
@@ -54,9 +52,11 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     const s = pptx.addSlide(); s.background = { color: "000000" };
     s.addImage({ data: capa, x: 0, y: 0, w: 13.333, h: 7.5 });
     s.addText("REPORT", { x: 0, y: 1.65, w: 13.33, h: 0.7, fontFace: TIT, fontSize: 48, color: "FFFFFF", align: "center" });
-    s.addText((op.titulo?.trim() || "SEMANAL").toUpperCase(), { x: 0, y: 2.1, w: 13.33, h: 2.2, fontFace: TIT, fontSize: 130, color: "A50001", align: "center" });
-    s.addText(m.periodo, { x: 0, y: 4.15, w: 13.33, h: 0.7, fontFace: TIT, fontSize: 40, color: "FFFFFF", align: "center" });
-    if (m.escopo !== "Rede") s.addText(m.escopo.toUpperCase(), { x: 0, y: 5.0, w: 13.33, h: 0.5, fontFace: TXT, fontSize: 20, color: "FFFFFF", align: "center" });
+    // Capa: REPORT, o nome da unidade (ou da rede) em destaque e o período escolhido logo abaixo.
+    const nome = (m.escopo === "Rede" ? "Rede World Gym" : m.escopo).toUpperCase();
+    const tam = Math.min(130, Math.floor((12.3 * 72) / (nome.length * 0.56))); // nomes longos encolhem para caber na largura
+    s.addText(nome, { x: 0.5, y: 2.1, w: 12.33, h: 2.2, fontFace: TIT, fontSize: tam, color: "A50001", align: "center", valign: "middle" });
+    s.addText(m.periodo, { x: 0, y: 4.35, w: 13.33, h: 0.7, fontFace: TIT, fontSize: 40, color: "FFFFFF", align: "center" });
     s.addImage({ data: logo, x: 5.3, y: 6.5, w: 2.72, h: 0.63 });
   }
 
