@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-17-relatorios-para-todos", data: "2026-11-17", tipo: "novo", publico: "todos", autora: AUTORA, tela: "relatorios", artigo: "tela-relatorios",
+    titulo: "Relatórios: a apresentação da reunião semanal em PowerPoint",
+    texto: "Montar os números da reunião semanal exigia copiar valores de várias telas. O novo menu Relatórios gera uma apresentação em PowerPoint, no modelo do Report Operacional, com a semana ou o mês fechado, as unidades e os indicadores que você escolher, incluindo o mês até aqui, a evolução dos últimos 6 períodos e o plano de ação da unidade. Está disponível para quem recebeu o acesso.",
+  },
+  {
     id: "2026-11-17-relatorios-plano-mes", data: "2026-11-17", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
     titulo: "Relatórios: plano de ação também no relatório do mês",
     texto: "O slide do plano de ação só aparecia no relatório da semana, e o relatório de um mês fechado ficava sem o que fazer. Agora o relatório de uma unidade, de semana ou de mês fechado, pode levar o plano de ação atual da unidade, com o mês do plano e a data dos dados escritos no slide.",

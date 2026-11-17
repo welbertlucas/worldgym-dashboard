@@ -5,8 +5,11 @@ import { buscarNovidades, novidadesPara, type Novidade } from "@/data/novidades"
 import { cn } from "@/lib/utils";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ondeFica } from "@/components/nav";
-import { API_BASE, authFetch, ehDono } from "@/lib/auth";
+import { API_BASE, authFetch, ehDono, podeGerarRelatorios } from "@/lib/auth";
 import { artigosPara, buscarAjuda, secoesPara, SECOES, type ArtigoAjuda, type SecaoAjuda } from "@/data/ajuda";
+
+/** O botão que abre a tela só aparece se a pessoa tem a tela (o menu Relatórios é liberado por pessoa). */
+const telaLiberada = (tela: string) => tela.split("/")[0] !== "relatorios" || podeGerarRelatorios();
 
 const imagens = new Map<string, Promise<string | null>>();
 /** Print da tela ou foto de quem escreve (a rota exige login, então vem por fetch e vira um endereço local do navegador). */
@@ -103,7 +106,7 @@ function Artigo({ artigo, relacionados, onAba, onAbrirTela }: { artigo: ArtigoAj
           </p>
         </div>
       </header>
-      {artigo.tela && (
+      {artigo.tela && telaLiberada(artigo.tela) && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-secondary/40 px-4 py-3">
           <p className="flex items-center gap-2 text-sm text-foreground">
             <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
@@ -246,7 +249,7 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
       {(n.artigo || n.tela) && (
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
           {n.artigo && <button type="button" onClick={() => onAbrirTela(`ajuda/${n.artigo}`)} className={cn("rounded text-sm font-semibold text-primary-ink hover:underline", foco)}>Saiba mais</button>}
-          {n.tela && <button type="button" onClick={() => onAbrirTela(n.tela!)} className={cn("rounded text-sm font-semibold text-primary-ink hover:underline", foco)}>Ver na tela</button>}
+          {n.tela && telaLiberada(n.tela) && <button type="button" onClick={() => onAbrirTela(n.tela!)} className={cn("rounded text-sm font-semibold text-primary-ink hover:underline", foco)}>Ver na tela</button>}
         </div>
       )}
     </li>

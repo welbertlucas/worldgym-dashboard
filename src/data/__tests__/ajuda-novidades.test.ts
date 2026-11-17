@@ -69,4 +69,14 @@ describe("novidades", () => {
     expect(buscarNovidades(todos, "melhoria").every((n) => n.tipo === "melhoria" || /melhoria/i.test(n.texto))).toBe(true);
     expect(buscarNovidades(todos, "xyzabc")).toEqual([]);
   });
+
+  it("Relatórios: Master e Unidades veem a novidade e o artigo de uso; o que é controle do dono fica só com ele", () => {
+    const para = novidadesPara(false).filter((n) => n.id.includes("relatorios")).map((n) => n.id);
+    expect(para).toEqual(["2026-11-17-relatorios-para-todos"]);
+    expect(artigosPara(false).some((a) => a.id === "tela-relatorios")).toBe(true);
+    expect(artigosPara(false).some((a) => a.id === "dono-relatorios")).toBe(false);
+    expect(novidadesPara(true).filter((n) => n.id.includes("relatorios")).length).toBeGreaterThan(1);
+    const texto = [...novidadesPara(false).filter((n) => n.id.includes("relatorios")), ...artigosPara(false).filter((a) => a.id === "tela-relatorios")].map((x) => JSON.stringify(x)).join(" ");
+    expect(texto).not.toMatch(/Pode gerar relatórios|em Usuários|libera|registro/i);
+  });
 });

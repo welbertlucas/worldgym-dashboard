@@ -107,6 +107,13 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Campanhas: investimento no Meta, custo por contato e evolução. Anúncios: os que trazem contato mais barato e os horários dos contatos.",
     "Instagram: posts, stories e seguidores das contas das unidades.",
   ], { tela: "campanhas" }),
+  a("telas", "tela-relatorios", "Relatórios", "Gerar os slides do Report Operacional com os dados que você já vê no Atlas.", [
+    "O menu Relatórios monta uma apresentação em PowerPoint (.pptx), no modelo do Report Operacional, com os dados do Atlas: capa, números gerais, o mês até aqui e um slide por indicador. Os gráficos são do próprio PowerPoint, então dá para ajustar valores e textos depois.",
+    "Escolha o período: uma semana (semana 1 = dias 1 a 7, 2 = 8 a 14, 3 = 15 a 21, 4 = 22 a 28 e, quando existir, a 5 = 29 em diante) ou um mês fechado. A semana compara com a mesma semana do mês anterior; o mês fechado compara com o mesmo mês do ano anterior. Depois escolha as unidades e os indicadores: a lista ao lado mostra os slides que vão sair.",
+    "No relatório de uma unidade só, cada indicador mostra o valor e a variação em cima e as colunas dos últimos 6 períodos embaixo, com a meta do mês como linha. Dá para incluir também o slide Plano de ação, com os itens em aberto do plano da unidade.",
+    "Na semana, todo percentual vem com a base (por exemplo, conversão de 4 de 12 oportunidades), porque em 7 dias poucos casos mudam muito o percentual. Os dados vão até a véspera: a semana em andamento sai sem comparação. Ticket médio, inadimplência, churn e notas são do mês e não entram na semana.",
+    "O relatório traz só as unidades que você enxerga, e o rodapé de cada slide leva o seu e-mail e a data. Se o menu Relatórios não aparece para você, peça o acesso a quem administra o Atlas.",
+  ], { tela: "relatorios" }),
   a("telas", "tela-ranking", "Ranking da rede", "Como cada unidade está em relação às outras.", [
     "Posição e destaques, evolução da unidade mês a mês, comparação lado a lado entre duas unidades, contratos ativos e a tabela completa com todos os indicadores.",
   ], { tela: "benchmark", imagem: "ranking" }),
