@@ -89,4 +89,13 @@ describe("relatório", () => {
     expect(m.rankings[0].cartao!.serie!.metaLinha).toEqual({ valor: 220000, rotulo: "Meta ouro: R$ 220.000" });
     expect(montarRelatorio(meses, "2026-10", ["fat"], ["Asa Sul"])!.rankings[0].cartao!.serie!.metaLinha).toBeUndefined();
   });
+
+  it("escopo da capa: rede só quando é a rede; uma unidade leva o nome dela, mesmo que seja a única da lista", () => {
+    expect(montarRelatorio(dados, "2026-10", ["fat"], null)!.escopo).toBe("Rede");
+    expect(montarRelatorio(dados, "2026-10", ["fat"], ["Asa Sul"])!.escopo).toBe("Asa Sul");
+    const so = [month("2026-10", [unit("Itapoã")])];
+    expect(montarRelatorio(so, "2026-10", ["fat"], ["Itapoã"])!.escopo).toBe("Itapoã"); // quem vê uma unidade só
+    expect(montarRelatorio(dados, "2026-10", ["fat"], ["Asa Sul", "Gama"])!.escopo).toBe("2 unidades");
+    expect(montarRelatorio(dados, "2026-10", ["fat"], ["Asa Sul", "Gama", "Nova"])!.escopo).toBe("Rede"); // todas as do mês
+  });
 });

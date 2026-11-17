@@ -179,7 +179,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
     if (oportunidades <= 0) { oportunidades = null; convertidas = null; }
   }
 
-  const escopo = !unidades || unidades.length >= m.units.length ? "Rede" : unidades.length === 1 ? unidades[0] : `${unidades.length} unidades`;
+  const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].u.name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
   const parcialAte = estado === "andamento" ? `${dd(fechados)}/${mes.slice(5, 7)}` : null;
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,

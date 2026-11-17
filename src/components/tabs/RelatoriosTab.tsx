@@ -11,7 +11,7 @@ import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { diasFechados } from "@/data/vendasDia";
 import { ID_BIG, INDICADORES_PADRAO, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
 import { ID_CONVERSAO, INDICADORES_SEMANA_PADRAO, SEMANAIS, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
-import { getUsuario, podeGerarRelatorios } from "@/lib/auth";
+import { getUsuario, podeGerarRelatorios, unidadesProprias } from "@/lib/auth";
 import { registrarExportacao } from "@/lib/atividade";
 
 const ESTADO: Record<string, string> = { fechada: "", andamento: " (em andamento)", futura: " (ainda não começou)" };
@@ -27,7 +27,9 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
   /** Semana que abre sozinha: a mais recente que já começou. */
   const padraoSemana = (m: string) => { for (let n = semanasNoMes(m); n >= 1; n--) if (estadoDaSemana(m, n, fechadosDe(m)) !== "futura") return n; return 1; };
   const [semana, setSemana] = useState(() => (mesesSemana[0] ? padraoSemana(mesesSemana[0]) : 1));
-  const nomes = useMemo(() => dados.find((d) => d.month === (tipo === "mes" ? mes : mesSem))?.units.map((u) => u.name) ?? [], [dados, tipo, mes, mesSem]);
+  // Quem vê só algumas unidades recebe, nos dados, as outras com o nome escondido ("Unidade 07"): o relatório fica só com as unidades da própria pessoa.
+  const proprias = unidadesProprias();
+  const nomes = useMemo(() => (dados.find((d) => d.month === (tipo === "mes" ? mes : mesSem))?.units.map((u) => u.name) ?? []).filter((n) => !proprias || proprias.includes(n)), [dados, tipo, mes, mesSem, proprias]);
   const [escopo, setEscopo] = useState<"todas" | "algumas">("todas");
   const [marcadas, setMarcadas] = useState<string[]>([]);
   const [indMes, setIndMes] = useState<string[]>(INDICADORES_PADRAO);
@@ -39,7 +41,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
 
   const indicadores = tipo === "mes" ? indMes : indSem;
   const setIndicadores = tipo === "mes" ? setIndMes : setIndSem;
-  const unidades = escopo === "algumas" ? marcadas : null;
+  const unidades = escopo === "algumas" ? marcadas : proprias ? nomes : null;
   const umaUnidade = escopo === "algumas" ? marcadas.length === 1 : nomes.length === 1;
   const prefixo = umaUnidade ? "" : "Ranking: ";
   const modelo: ModeloRelatorio | null = tipo === "mes"

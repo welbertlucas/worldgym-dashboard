@@ -288,7 +288,7 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
   }
 
   const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant) : null;
-  const escopo = !unidades || unidades.length >= m.units.length ? "Rede" : unidades.length === 1 ? unidades[0] : `${unidades.length} unidades`;
+  const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
   return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings };
 }
 
