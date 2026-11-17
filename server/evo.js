@@ -45,6 +45,28 @@ export function transitorio(status, texto = "") {
   return status === 401 && /timeout|login process|connection was successfully established/i.test(texto);
 }
 
+// Contador de chamadas ao EVO (a API Pro cobra por uso: R$ 250/mês de teto em nov/2026). Conta cada tentativa que saiu daqui,
+// inclusive as repetidas por 429/5xx, porque o EVO pode cobrar essas também. Só totais, nada de dado pessoal.
+// Ao fim de cada script, no GitHub (ou com CONTAR_EVO=1), uma linha "EVO: N chamadas" vai para o log da execução.
+const consumo = { total: 0, rotas: {}, status: {} };
+export function registrarChamada(path, status) {
+  const rota = String(path).split("?")[0].replace(/\/\d+(?=\/|$)/g, "/:id");
+  consumo.total += 1;
+  consumo.rotas[rota] = (consumo.rotas[rota] ?? 0) + 1;
+  const faixa = typeof status === "number" ? (status >= 500 ? "5xx" : String(status)) : "rede";
+  consumo.status[faixa] = (consumo.status[faixa] ?? 0) + 1;
+}
+export const consumoEvo = () => ({ total: consumo.total, rotas: { ...consumo.rotas }, status: { ...consumo.status } });
+export function zerarConsumoEvo() { consumo.total = 0; consumo.rotas = {}; consumo.status = {}; }
+export function linhaDeConsumo(c = consumo) {
+  const top = Object.entries(c.rotas).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([r, n]) => `${r} ${n}`).join("; ");
+  const st = Object.entries(c.status).map(([k, n]) => `${k}: ${n}`).join(", ");
+  return `EVO: ${c.total} chamadas (${st}) | ${top}`;
+}
+if (process.env.GITHUB_ACTIONS || process.env.CONTAR_EVO) {
+  process.on("exit", () => { if (consumo.total) console.log(linhaDeConsumo()); });
+}
+
 export async function evoGet(path, tries = TENTATIVAS) {
   let last = "";
   for (let i = 0; i < tries; i++) {
@@ -52,7 +74,9 @@ export async function evoGet(path, tries = TENTATIVAS) {
     let res;
     try {
       res = await fetch(urlDe(path), { headers: { Authorization: auth() } });
+      registrarChamada(path, res.status);
     } catch (e) {
+      if (!res) registrarChamada(path, null);
       // Queda de rede (fetch failed): vale tentar de novo, como 429 e 5xx.
       last = `rede ${e.cause?.code || e.message}`;
       await espera(i);
@@ -82,6 +106,7 @@ export async function evoBuffer(path, tries = TENTATIVAS) {
     await throttle();
     try {
       const res = await fetch(BASE.replace(/\/api\/v1$/, "") + path, { headers: { Authorization: auth() } });
+      registrarChamada(path, res.status);
       if (res.ok) return Buffer.from(await res.arrayBuffer());
       last = `${res.status}`;
       if (res.status < 500 && res.status !== 429 && res.status !== 401) break;
