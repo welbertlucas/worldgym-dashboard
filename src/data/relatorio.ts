@@ -104,6 +104,27 @@ export interface SlideRanking {
   cartao?: Cartao;
 }
 
+/** Slide "O mês até aqui" (relatório semanal): acumulado do mês até o fim da semana, contra a meta e contra o mesmo ponto do mês anterior. */
+export interface ItemMesAteAqui {
+  nome: string;
+  valor: string;
+  /** Variação contra o mesmo ponto do mês anterior (%), ou null sem comparação. */
+  variacao: number | null;
+  anterior: string | null;
+  /** Meta do mês (nível mais alto cadastrado): quanto já foi feito e onde o ritmo do mês deveria estar. */
+  meta?: { pct: number; texto: string; ritmo: number };
+}
+export interface MesAteAqui {
+  /** "1-14 nov/26". */
+  periodo: string;
+  /** Dias do mês já contados. */
+  dias: number;
+  diasMes: number;
+  /** Parte do mês que já passou (0 a 100): o ritmo esperado se o mês fosse linear. */
+  ritmo: number;
+  itens: ItemMesAteAqui[];
+}
+
 export interface ModeloRelatorio {
   mes: string;
   /** "OUT/2026". */
@@ -124,6 +145,8 @@ export interface ModeloRelatorio {
   tipo?: "mes" | "semana";
   /** Semana em andamento: "dados até DD/MM". */
   parcialAte?: string | null;
+  /** Slide "O mês até aqui" (só no relatório semanal). */
+  mesAteAqui?: MesAteAqui | null;
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -294,5 +317,5 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
 
 /** O que o menu mostra de cada slide, antes de gerar. */
 export function resumoDosSlides(modelo: ModeloRelatorio): string[] {
-  return ["Capa", ...(modelo.big ? ["Números gerais"] : []), ...modelo.rankings.map((r) => r.titulo.replace("*", "")), "Encerramento"];
+  return ["Capa", ...(modelo.big ? ["Números gerais"] : []), ...(modelo.mesAteAqui ? ["O mês até aqui"] : []), ...modelo.rankings.map((r) => r.titulo.replace("*", "")), "Encerramento"];
 }

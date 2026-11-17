@@ -90,6 +90,30 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     rodape(s);
   }
 
+  // O mês até aqui (relatório semanal): acumulado do mês contra a meta e contra o mesmo ponto do mês anterior
+  if (m.mesAteAqui) {
+    const a = m.mesAteAqui;
+    const s = slideDeDados();
+    s.addText("O MÊS ATÉ AQUI", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(`acumulado de ${a.periodo}${m.parcialAte ? ` (dados até ${m.parcialAte})` : ""} · ${Math.round(a.ritmo)}% do mês já passou`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    a.itens.forEach((it, i) => {
+      const x = 0.7 + (i % 2) * 6.2, y = 1.4 + Math.floor(i / 2) * 2.8, larg = 5.6;
+      s.addText(it.nome, { x, y, w: larg, h: 0.45, fontFace: TIT, fontSize: 22, color: VINHO });
+      s.addText(it.valor, { x, y: y + 0.4, w: larg, h: 0.85, fontFace: TIT, fontSize: it.valor.length > 11 ? 36 : 44, color: PRETO, valign: "middle" });
+      if (it.variacao !== null) s.addText(sinal(it.variacao), { x, y: y + 1.2, w: 1.6, h: 0.4, fontFace: TXT, fontSize: 16, bold: true, color: it.variacao >= 0 ? VERDE : VERM });
+      if (it.anterior) s.addText(it.anterior, { x: x + (it.variacao !== null ? 1.6 : 0), y: y + 1.2, w: larg - (it.variacao !== null ? 1.6 : 0), h: 0.4, fontFace: TXT, fontSize: 12, color: CINZA, valign: "middle" });
+      if (it.meta) {
+        s.addShape(pptx.ShapeType.roundRect, { x, y: y + 1.75, w: larg, h: 0.18, fill: { color: "D9D3CF" }, line: { color: "D9D3CF", width: 0 }, rectRadius: 0.08 });
+        const w = Math.max(0, Math.min(1, it.meta.pct / 100)) * larg;
+        if (w > 0.05) s.addShape(pptx.ShapeType.roundRect, { x, y: y + 1.75, w, h: 0.18, fill: { color: VINHO }, line: { color: VINHO, width: 0 }, rectRadius: 0.08 });
+        // traço do ritmo esperado (onde o acumulado estaria se o mês fosse linear)
+        s.addShape(pptx.ShapeType.rect, { x: x + (it.meta.ritmo / 100) * larg - 0.015, y: y + 1.68, w: 0.03, h: 0.32, fill: { color: PRETO }, line: { color: PRETO, width: 0 } });
+        s.addText(`${it.meta.texto}  ·  traço: ritmo esperado`, { x, y: y + 2.0, w: larg, h: 0.35, fontFace: TXT, fontSize: 12, color: CINZA });
+      } else s.addText("Meta do mês não cadastrada", { x, y: y + 1.75, w: larg, h: 0.35, fontFace: TXT, fontSize: 12, italic: true, color: CINZA });
+    });
+    rodape(s);
+  }
+
   // Rankings (gráfico de barras nativo)
   for (const r of m.rankings) {
     const s = slideDeDados();

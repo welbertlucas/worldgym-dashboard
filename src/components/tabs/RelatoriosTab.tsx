@@ -10,7 +10,7 @@ import type { Meta } from "@/data/metas";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { diasFechados } from "@/data/vendasDia";
 import { ID_BIG, INDICADORES_PADRAO, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
-import { ID_CONVERSAO, INDICADORES_SEMANA_PADRAO, SEMANAIS, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
+import { ID_CONVERSAO, ID_MES_ATE_AQUI, INDICADORES_SEMANA_PADRAO, SEMANAIS, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
 import { getUsuario, podeGerarRelatorios, unidadesProprias } from "@/lib/auth";
 import { registrarExportacao } from "@/lib/atividade";
 
@@ -46,7 +46,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
   const prefixo = umaUnidade ? "" : "Ranking: ";
   const modelo: ModeloRelatorio | null = tipo === "mes"
     ? montarRelatorio(dados, mes, indicadores, unidades, metas)
-    : montarRelatorioSemanal(dados, mesSem, semana, indicadores, unidades, fechadosDe(mesSem));
+    : montarRelatorioSemanal(dados, mesSem, semana, indicadores, unidades, fechadosDe(mesSem), metas);
   const mesDoRelatorio = tipo === "mes" ? mes : mesSem;
   const alternar = (id: string) => setIndicadores((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
   const alternarUnidade = (u: string) => setMarcadas((l) => (l.includes(u) ? l.filter((x) => x !== u) : [...l, u]));
@@ -133,7 +133,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-foreground">Indicadores</h3>
               <div className="flex gap-3 text-xs">
-                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id)] : [ID_BIG, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO])}>Marcar todos</button>
+                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id)] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO])}>Marcar todos</button>
                 <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores([])}>Limpar</button>
               </div>
             </div>
@@ -142,6 +142,12 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
                 <input type="checkbox" checked={indicadores.includes(ID_BIG)} onChange={() => alternar(ID_BIG)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
                 {tipo === "mes" ? "Números gerais (faturamento, adimplentes, contratos, ticket, inadimplência, vendas online e conversão)" : "Números gerais (faturamento, recebimento, contratos, vendas online, oportunidades, cancelamentos e conversão)"}
               </label>
+              {tipo === "semana" && (
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input type="checkbox" checked={indicadores.includes(ID_MES_ATE_AQUI)} onChange={() => alternar(ID_MES_ATE_AQUI)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+                  O mês até aqui (acumulado contra a meta e contra o mesmo ponto do mês anterior)
+                </label>
+              )}
               {(tipo === "mes" ? RANKINGS : [...SEMANAIS.slice(0, 6), { id: ID_CONVERSAO, rotulo: "Conversão (com a base: convertidas de cadastradas)" }, ...SEMANAIS.slice(6)]).map((r) => (
                 <label key={r.id} className="flex items-center gap-2 text-sm text-foreground">
                   <input type="checkbox" checked={indicadores.includes(r.id)} onChange={() => alternar(r.id)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />{prefixo}{r.rotulo}

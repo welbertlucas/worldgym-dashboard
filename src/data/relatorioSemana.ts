@@ -1,7 +1,8 @@
 // Relatório semanal: semanas fixas do mês (1: dias 1-7, 2: 8-14, 3: 15-21, 4: 22-28, 5: 29 ao fim), comparadas com a MESMA semana do mês anterior.
 // Os números de cada semana vêm de `semanas` de cada unidade (gravados pelas leituras do EVO que já existem). Todo percentual leva a base ("4 de 12").
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
-import { ID_BIG, PERIODOS_NA_EVOLUCAO, mesCurto, type BigNumero, type Cartao, type Formato, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
+import type { Meta, MetaKey } from "@/data/metas";
+import { ID_BIG, PERIODOS_NA_EVOLUCAO, mesCurto, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -19,6 +20,12 @@ export function rotuloDaSemana(mes: string, n: number): string {
   const l = limitesDaSemana(mes, n);
   const [y, m] = mes.split("-").map(Number);
   return l ? `${l.de}-${l.ate} ${MESES[m - 1]}/${String(y).slice(2)}` : "";
+}
+
+/** "1-14 nov/26": o mês do dia 1 até o dia `dias`. */
+export function rotuloAcumulado(mes: string, dias: number): string {
+  const [y, m] = mes.split("-").map(Number);
+  return `1-${dias} ${MESES[m - 1]}/${String(y).slice(2)}`;
 }
 
 export type EstadoDaSemana = "fechada" | "andamento" | "futura";
@@ -55,8 +62,14 @@ export const SEMANAIS: DefSemana[] = [
   { id: "coq", rotulo: "Coqueteleiras", titulo: "Coqueteleiras", formato: "brl", campo: (s) => s.coqueteleiras },
 ];
 export const ID_CONVERSAO = "conv";
-export const INDICADORES_SEMANA_PADRAO = [ID_BIG, "fat", "nc", "op", ID_CONVERSAO, "canc"];
-export const TODOS_SEMANA = [ID_BIG, "fat", "rec", "nc", "vo", "op", ID_CONVERSAO, "canc", "di", "pers", "cam", "coq"];
+/** Slide "O mês até aqui". */
+export const ID_MES_ATE_AQUI = "mes";
+/** Indicadores acumulados do mês que têm meta na planilha. */
+const ACUMULADOS: { id: string; chave: MetaKey }[] = [
+  { id: "fat", chave: "faturamento" }, { id: "rec", chave: "recebimento" }, { id: "nc", chave: "novosContratos" }, { id: "vo", chave: "vendasOnline" },
+];
+export const INDICADORES_SEMANA_PADRAO = [ID_BIG, ID_MES_ATE_AQUI, "fat", "nc", "op", ID_CONVERSAO, "canc"];
+export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "vo", "op", ID_CONVERSAO, "canc", "di", "pers", "cam", "coq"];
 /** Abaixo disso a conversão da semana vale pouco (um aluno muda vários pontos): o slide avisa. */
 export const BASE_PEQUENA = 10;
 
@@ -95,6 +108,34 @@ export function serieSemanal(meses: MonthData[], mes: string, semana: number, un
   };
 }
 
+/** Soma das semanas 1 a `ate` do mês nas unidades de `nomes`; null se faltar número em alguma semana (a soma ficaria menor que a real). */
+function acumulado(m: MonthData | undefined, ate: number, nomes: string[], campo: (s: SemanaDoMes) => number | undefined): number | null {
+  const us = (m?.units ?? []).filter((u) => nomes.includes(u.name));
+  if (!us.length) return null;
+  let total = 0;
+  for (const u of us) for (let n = 1; n <= ate; n++) {
+    const v = u.semanas?.[n - 1] ? campo(u.semanas[n - 1]) : undefined;
+    if (typeof v !== "number" || !Number.isFinite(v)) return null;
+    total += v;
+  }
+  return total;
+}
+
+/** Meta do mês para o conjunto de unidades: a da rede (TOTAL) quando é a rede; senão a soma das metas das unidades, no nível mais alto que todas cadastraram. */
+export function metaDoEscopo(metas: Meta[], mes: string, chave: MetaKey, nomes: string[], rede: boolean): { nivel: "ouro" | "prata" | "bronze"; alvo: number } | undefined {
+  const doMes = metas.filter((m) => m.month === mes && m.key === chave);
+  const niveis = ["ouro", "prata", "bronze"] as const;
+  if (rede) {
+    const total = doMes.find((m) => m.unit === "TOTAL" || m.unit === "Rede");
+    const n = total ? niveis.find((x) => typeof total[x] === "number" && (total[x] as number) > 0) : undefined;
+    if (total && n) return { nivel: n, alvo: total[n] as number };
+  }
+  const ms = nomes.map((nome) => doMes.find((m) => m.unit === nome));
+  if (!ms.length || ms.some((m) => !m)) return undefined;
+  for (const nivel of niveis) if (ms.every((m) => typeof m![nivel] === "number" && (m![nivel] as number) > 0)) return { nivel, alvo: ms.reduce((s, m) => s + (m![nivel] as number), 0) };
+  return undefined;
+}
+
 interface Dados { u: UnitData; s: SemanaDoMes }
 const daSemana = (m: MonthData | undefined, n: number, nomes: string[] | null): Dados[] =>
   (m?.units ?? []).filter((u) => !nomes || nomes.includes(u.name)).flatMap((u) => (u.semanas?.[n - 1] ? [{ u, s: u.semanas[n - 1] }] : []));
@@ -104,7 +145,7 @@ const somaCampo = (l: Dados[], f: (s: SemanaDoMes) => number | undefined) => l.r
  * Relatório de uma semana do mês. `fechados` = dias fechados do mês (para saber se a semana já terminou). Semana em andamento sai sem
  * comparação (comparar uma semana pela metade com a semana inteira do mês anterior enganaria). Devolve null se a semana não tem dados.
  */
-export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: number, selecionados: string[], unidades: string[] | null, fechados: number): ModeloRelatorio | null {
+export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: number, selecionados: string[], unidades: string[] | null, fechados: number, metas: Meta[] = []): ModeloRelatorio | null {
   const lim = limitesDaSemana(mes, semana);
   const m = meses.find((x) => x.month === mes);
   if (!lim || !m) return null;
@@ -179,10 +220,35 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
     if (oportunidades <= 0) { oportunidades = null; convertidas = null; }
   }
 
+  // "O mês até aqui": acumulado das semanas 1 a N (a semana em andamento entra até onde os dados chegaram), contra a meta e contra o mesmo ponto do mês anterior
+  let mesAteAqui: MesAteAqui | null = null;
+  if (escolheu.has(ID_MES_ATE_AQUI)) {
+    const nomes = atual.map((d) => d.u.name);
+    const rede = !unidades || unidades.length >= m.units.length;
+    const dias = estado === "fechada" ? lim.ate : fechados;
+    const diasMes = diasDoMes(mes);
+    const ritmo = Math.min(100, (dias / diasMes) * 100);
+    const itens: ItemMesAteAqui[] = [];
+    for (const { id, chave } of ACUMULADOS) {
+      const def = SEMANAIS.find((d) => d.id === id)!;
+      const v = acumulado(m, semana, nomes, def.campo);
+      if (v === null) continue;
+      const b = temAnt ? acumulado(mAnt, semana, nomes, def.campo) : null;
+      const alvo = metaDoEscopo(metas, mes, chave, nomes, rede);
+      const pct = alvo ? (v / alvo.alvo) * 100 : null;
+      itens.push({
+        nome: def.titulo, valor: fmt(def.formato, v), variacao: b !== null ? variacao(v, b) : null,
+        anterior: b !== null && b > 0 && rotuloAnt ? `${fmt(def.formato, b)} no mesmo ponto de ${rotuloAnt.split(" ")[1]}` : null,
+        meta: alvo && pct !== null ? { pct, texto: `${Math.round(pct).toLocaleString("pt-BR")}% da meta ${alvo.nivel} · ${fmt(def.formato, alvo.alvo)}`, ritmo } : undefined,
+      });
+    }
+    if (itens.length) mesAteAqui = { periodo: rotuloAcumulado(mes, dias), dias, diasMes, ritmo, itens };
+  }
+
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].u.name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
   const parcialAte = estado === "andamento" ? `${dd(fechados)}/${mes.slice(5, 7)}` : null;
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,
-    tipo: "semana", parcialAte,
+    tipo: "semana", parcialAte, mesAteAqui,
   };
 }

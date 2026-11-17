@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-17-relatorios-mes-ate-aqui", data: "2026-11-17", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
+    titulo: "Relatórios: o mês até aqui",
+    texto: "Na reunião semanal, a pergunta é se o mês vai fechar. O relatório da semana agora traz o slide O mês até aqui: faturamento, recebimento, novos contratos e vendas online acumulados do dia 1 até o fim da semana, contra a meta do mês e contra o mesmo ponto do mês anterior.",
+  },
+  {
     id: "2026-11-17-relatorios-semana", data: "2026-11-17", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
     titulo: "Relatórios: apresentação da semana",
     texto: "A reunião semanal precisava dos números da semana, e o relatório só tinha o mês. Agora dá para escolher a semana (1 a 7, 8 a 14, 15 a 21, 22 a 28 e 29 em diante) e comparar com a mesma semana do mês anterior. Todo percentual vem com a base, como 4 de 12 oportunidades.",

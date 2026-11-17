@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
 import { limitesDaSemana as limitesServidor, semanasNoMes as semanasServidor } from "../../../server/semanas.js";
-import { BASE_PEQUENA, ID_CONVERSAO, serieSemanal, estadoDaSemana, limitesDaSemana, mesAnterior, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
+import { BASE_PEQUENA, ID_CONVERSAO, ID_MES_ATE_AQUI, metaDoEscopo, serieSemanal, estadoDaSemana, limitesDaSemana, mesAnterior, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
 import { ID_BIG } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
@@ -111,5 +111,36 @@ describe("relatório semanal", () => {
     const parcial = serieSemanal(meses, "2026-11", 2, "Asa Norte", (x) => x.faturamento, 10)!;
     expect(parcial.parcial).toBe(true);
     expect(serieSemanal(meses, "2026-11", 3, "Asa Norte", (x) => x.faturamento, 30)).toBeUndefined(); // sem número na semana pedida
+  });
+
+  it("O mês até aqui: acumulado das semanas contra o mesmo ponto do mês anterior e contra a meta (soma das unidades), com o ritmo do mês", () => {
+    const metas = [
+      { month: "2026-11", unit: "Asa Norte", key: "faturamento", prata: 4000, ouro: 5000 },
+      { month: "2026-11", unit: "Gama", key: "faturamento", ouro: 3000 },
+    ] as never[];
+    const m = montarRelatorioSemanal(meses, "2026-11", 2, [ID_MES_ATE_AQUI], null, 30, metas)!;
+    const a = m.mesAteAqui!;
+    expect(a.periodo).toBe("1-14 nov/26");
+    expect(a.dias).toBe(14);
+    expect(a.ritmo).toBeCloseTo(46.67, 1);
+    const fat = a.itens.find((i) => i.nome === "Faturamento")!;
+    expect(fat.valor).toBe("R$ 3.100"); // 1100+900 + 450+650
+    expect(fat.variacao).toBeCloseTo(-26.19, 1); // contra 4.200 (1000+2000+500+700)
+    expect(fat.anterior).toBe("R$ 4.200 no mesmo ponto de out/26");
+    expect(fat.meta!.texto).toBe("39% da meta ouro · R$ 8.000");
+    expect(a.itens.find((i) => i.nome === "Novos contratos")!.meta).toBeUndefined(); // sem meta cadastrada
+    expect(m.rankings).toHaveLength(0);
+    // uma unidade só usa a meta dela; semana em andamento conta até onde os dados vão e não compara
+    const um = montarRelatorioSemanal(meses, "2026-11", 2, [ID_MES_ATE_AQUI], ["Asa Norte"], 10, metas)!.mesAteAqui!;
+    expect(um.dias).toBe(10);
+    expect(um.itens[0].variacao).toBeNull();
+    expect(um.itens[0].meta!.texto).toBe("40% da meta ouro · R$ 5.000");
+  });
+
+  it("meta do escopo: TOTAL para a rede; soma das unidades no nível que todas têm; nada se faltar uma", () => {
+    const base = { month: "2026-11", key: "faturamento" };
+    expect(metaDoEscopo([{ ...base, unit: "TOTAL", ouro: 9000 }] as never[], "2026-11", "faturamento", ["A", "B"], true)).toEqual({ nivel: "ouro", alvo: 9000 });
+    expect(metaDoEscopo([{ ...base, unit: "A", ouro: 1, prata: 1 }, { ...base, unit: "B", prata: 2 }] as never[], "2026-11", "faturamento", ["A", "B"], false)).toEqual({ nivel: "prata", alvo: 3 });
+    expect(metaDoEscopo([{ ...base, unit: "A", ouro: 1 }] as never[], "2026-11", "faturamento", ["A", "B"], false)).toBeUndefined();
   });
 });
