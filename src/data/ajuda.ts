@@ -41,7 +41,8 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O Atlas reúne num lugar só os números das academias: faturamento, recebimento, inadimplência, vendas, oportunidades, alunos, acessos na catraca, retenção, metas e marketing.",
     "Os números vêm do EVO, das contas de anúncio do Meta, das pesquisas de satisfação e da planilha de metas. Você não precisa lançar nada no Atlas: ele lê essas fontes sozinho.",
     "A primeira tela é o Overview, com os principais números do mês. As outras telas ficam no menu lateral (no celular, no botão de três linhas no canto de cima). No rodapé do menu ficam as Novidades e esta Central de ajuda.",
-  ], { tela: "executiva", imagem: "overview" }),
+    "Quem recebeu o acesso também tem o menu Relatórios, que monta no PowerPoint a apresentação da reunião semanal, com os números da semana ou do mês.",
+  ], { tela: "executiva", imagem: "overview", atualizadoEm: "2026-11-17" }),
   a("comecando", "unidade-e-mes", "Como escolher a unidade e o mês", "O botão de unidade fica no cabeçalho; o mês, no topo de cada tela.", [
     "O botão de unidade, no canto do cabeçalho, filtra as telas para uma unidade. Escolhida a unidade, ela vale em todas as telas até você trocar. No celular, o botão fica logo abaixo do título.",
     "O mês fica no topo de cada tela. O botão Comparar coloca outro mês ao lado, para ver o que melhorou e o que piorou.",
@@ -69,7 +70,8 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O plano nasce dos alertas do mês em andamento: para cada unidade, o que resolver agora e o que fazer para o mês fechar bem.",
     "O botão Copiar leva o plano pronto para mandar no WhatsApp para o gestor, a equipe ou os sócios.",
     "Quando uma ação for feita, use \"Marcar como feito\" no item. Assim todos sabem o que já foi resolvido.",
-  ], { tela: "plano", imagem: "plano" }),
+    "O plano de uma unidade também pode ir para a apresentação da reunião: no menu Relatórios, o slide Plano de ação traz os itens em aberto.",
+  ], { tela: "plano", imagem: "plano", atualizadoEm: "2026-11-17" }),
   a("telas", "tela-metas", "Metas", "Acompanhamento das metas bronze, prata e ouro.", [
     "Mostra quanto do mês já foi atingido em cada meta e a projeção de fechamento de faturamento e de novos contratos, no ritmo atual.",
     "A meta é da unidade inteira, dividida entre a equipe.",
@@ -113,7 +115,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "No relatório de uma unidade só, cada indicador mostra o valor e a variação em cima e as colunas dos últimos 6 períodos embaixo, com a meta do mês como linha. Dá para incluir também o slide Plano de ação, com os itens em aberto do plano da unidade.",
     "Na semana, todo percentual vem com a base (por exemplo, conversão de 4 de 12 oportunidades), porque em 7 dias poucos casos mudam muito o percentual. Os dados vão até a véspera: a semana em andamento sai sem comparação. Ticket médio, inadimplência, churn e notas são do mês e não entram na semana.",
     "O relatório traz só as unidades que você enxerga, e o rodapé de cada slide leva o seu e-mail e a data. Se o menu Relatórios não aparece para você, peça o acesso a quem administra o Atlas.",
-  ], { tela: "relatorios" }),
+  ], { tela: "relatorios", atualizadoEm: "2026-11-17" }),
   a("telas", "tela-ranking", "Ranking da rede", "Como cada unidade está em relação às outras.", [
     "Posição e destaques, evolução da unidade mês a mês, comparação lado a lado entre duas unidades, contratos ativos e a tabela completa com todos os indicadores.",
   ], { tela: "benchmark", imagem: "ranking" }),
@@ -160,24 +162,24 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   a("duvidas", "resumo-email", "O resumo que chega por e-mail", "Todo dia de manhã, com os números de ontem.", [
     "Todo dia de manhã chega um resumo com o faturamento de ontem e do mês e os alertas que pedem atenção. Se não quiser receber, peça a quem liberou o seu acesso.",
     "Às vezes a atualização dos dados da madrugada não termina a tempo. Nesses dias o resumo traz um aviso no começo e mostra só o acumulado do mês, sem os números de ontem, que não chegaram. No dia seguinte, com os dados em dia, ele volta ao normal.",
-  ]),
+  ], { atualizadoEm: "2026-11-17" }),
 
   // Só o dono
   a("dono", "dono-usuarios", "Usuários e níveis de acesso", "Criar acessos, níveis e o resumo por e-mail.", [
     "Em Usuários você cria acessos de Dono, Master ou Unidades (uma ou mais). A senha provisória vai por e-mail e a pessoa escolhe a própria no primeiro acesso.",
-    "Você pode liberar um Master para gerenciar acessos e ligar ou desligar o resumo diário de cada pessoa.",
+    "Você pode liberar um Master para gerenciar acessos, liberar o menu Relatórios (Pode gerar relatórios) para qualquer Master ou gestor de unidades e ligar ou desligar o resumo diário de cada pessoa.",
     "Clique no nome de um usuário para ver o último acesso e as telas que ele abriu.",
-  ], { tela: "acessos" }),
-  a("dono", "dono-relatorios", "Relatórios: apresentação em PowerPoint", "Gerar os slides do Report Operacional com os dados do Atlas.", [
-    "O menu Relatórios monta uma apresentação (.pptx) editável com os slides do Report Operacional: capa, números gerais e um ranking por unidade para cada indicador marcado. Os gráficos são nativos do PowerPoint, então dá para ajustar valores e textos depois.",
-    "Escolha o período, as unidades e os indicadores. O período pode ser uma semana (semana 1 = dias 1 a 7, 2 = 8 a 14, 3 = 15 a 21, 4 = 22 a 28 e, quando existir, a 5 = 29 em diante) ou um mês fechado. A semana compara com a mesma semana do mês anterior; o mês fechado compara com o mesmo mês do ano anterior. No relatório da semana entra também o slide O mês até aqui: o acumulado do mês até o fim da semana, contra a meta do mês e contra o mesmo ponto do mês anterior, com um traço que marca onde o mês deveria estar se as vendas fossem lineares. Quando o relatório é de uma unidade só, cada indicador mostra o valor e a variação em cima e as colunas dos últimos 6 períodos embaixo, com a meta do mês como linha tracejada; a capa leva o nome da unidade e o período. Se o relatório for de uma unidade só (de semana ou de mês fechado), dá para incluir também o slide Plano de ação, com os itens em aberto do plano da unidade no mês em andamento (o que resolver agora e o que fazer para acelerar o mês), para a equipe discutir na reunião. O slide diz de qual mês é o plano e até que dia vão os dados. A lista ao lado mostra os slides que vão sair. Tudo vem dos totais que o Atlas já guarda: gerar o arquivo não faz nenhuma leitura nova no EVO.",
-    "Você sempre vê o menu. Para outra pessoa ver, marque Pode gerar relatórios ao criar ou editar o acesso dela em Usuários. Cada arquivo gerado aparece no registro de atividades, com quem gerou, o mês e a unidade (quando é uma só). O rodapé de cada slide leva o e-mail de quem gerou e a data.",
-    "Nos números da semana, todo percentual vem com a base (por exemplo, conversão de 4 de 12 oportunidades), porque em 7 dias poucos casos mudam muito o percentual. Os dados vão até a véspera: semana em andamento sai sem comparação. Ticket médio, inadimplência, churn e notas são do mês e não entram na semana. Os textos de análise, as avaliações dos clientes e as ações por unidade continuam sendo escritos à mão no PowerPoint.",
-  ], { tela: "relatorios" }),
+  ], { tela: "acessos", atualizadoEm: "2026-11-17" }),
+  a("dono", "dono-relatorios", "Relatórios: quem gera e o que fica registrado", "Permissão, registro e rodapé dos arquivos gerados.", [
+    "O uso do menu Relatórios (período, unidades, indicadores e o que vem em cada slide) está no artigo Relatórios, em As telas do Atlas, o mesmo que os outros usuários leem. Aqui ficam só os controles que são seus.",
+    "Você sempre vê o menu. Para outra pessoa ver, marque Pode gerar relatórios ao criar ou editar o acesso dela em Usuários. Só você dá ou tira essa permissão; quem gerencia acessos não consegue.",
+    "Cada arquivo gerado aparece no registro de atividades, com quem gerou, o mês e a unidade (quando é uma só). O rodapé de cada slide leva o e-mail de quem gerou e a data. No Ver como, o menu continua aparecendo, com os dados do nível simulado.",
+    "Os textos de análise, as avaliações dos clientes e as ações por unidade continuam sendo escritos à mão no PowerPoint.",
+  ], { tela: "relatorios", atualizadoEm: "2026-11-17" }),
   a("dono", "dono-ver-como", "Ver como", "Olhar o Atlas como um Master ou como uma unidade.", [
     "O botão Ver como, no cabeçalho, mostra o Atlas exatamente como outro nível vê. Vale só na aba do navegador em que foi ligado.",
-    "Enquanto estiver vendo como outro nível, o que é só seu (como esta seção) some da tela.",
-  ]),
+    "Enquanto estiver vendo como outro nível, o que é só seu (como esta seção) some da tela. O menu Relatórios continua aparecendo, com os dados do nível simulado, para você testar o que a pessoa receberia.",
+  ], { atualizadoEm: "2026-11-17" }),
   a("dono", "dono-uso-do-plano", "Quem está usando o plano", "Ranking do mês e uso do Plano de ação por unidade.", [
     "No Plano de ação, com a rede selecionada, o quadro tem duas visões. \"Uso por unidade\" mostra quantos itens cada unidade marcou como feitos no mês e quando foi a última marcação; as que nunca marcaram aparecem primeiro.",
     "\"Ranking do mês\" mede quanto do plano cada unidade resolveu: itens marcados como feitos cujo alerta saiu da leitura do EVO, sobre o total de itens (resolvidos mais pendentes). Vale a proporção, não a quantidade, para a unidade com poucos problemas não ficar atrás da que tem muitos.",
@@ -185,9 +187,9 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O ranking recomeça todo mês. Está visível só para você, em teste por um mês (até 16/12/2026), para ver como as unidades se distribuem antes de decidir se a rede também vê.",
   ], { tela: "plano" }),
   a("dono", "dono-rotinas", "Rotinas automáticas e avisos", "O que roda sozinho e quando você é avisado.", [
-    "De madrugada o Atlas lê o EVO; de manhã lê o Meta e envia o resumo por e-mail; o Instagram é lido a cada 4 horas; a lista de usuários tem backup diário.",
-    "Se alguma dessas rotinas falhar ou passar do tempo, chega um e-mail só para você dizendo o que deixou de ser atualizado.",
-  ]),
+    "De madrugada o Atlas lê o EVO; de manhã lê o Meta e envia o resumo por e-mail; o Instagram é lido a cada 4 horas; a lista de usuários tem backup diário. A leitura do EVO também separa os números de cada semana do mês (faturamento, recebimento, vendas, oportunidades e cancelamentos), que alimentam o relatório semanal.",
+    "Se alguma dessas rotinas falhar ou passar do tempo, chega um e-mail só para você dizendo o que deixou de ser atualizado. A etapa que lê os alunos tem limite de 150 minutos: se o EVO estiver lento, ela falha sozinha e as outras etapas (vendas, oportunidades, cancelamentos e a atualização do painel) ainda rodam.",
+  ], { atualizadoEm: "2026-11-17" }),
   a("dono", "dono-atualizar", "Atualizar da planilha", "O botão de setas no cabeçalho.", [
     "O botão de setas no cabeçalho busca de novo a planilha de metas e os números guardados, sem esperar a atualização automática.",
   ]),
