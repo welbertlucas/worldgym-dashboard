@@ -303,10 +303,12 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   // No dia 1º, o "dia" é o mês inteiro (base zero); nos outros, precisa da foto de anteontem.
   const ontemDoUsuario = ontem ? Object.entries(ontem.units ?? {}).filter(([n]) => nomes.has(n)).map(([nome, v]) => ({ nome, ...v })) : [];
   const base = ateDia.endsWith("-01") ? { ...totalizar([]), zero: true } : ontemDoUsuario.length ? totalizar(ontemDoUsuario) : null;
-  const dia = valoresDoDia(total, base);
+  // Com o EVO desta madrugada incompleto, o acumulado é o do último dia lido: "ontem" daria zero (acumulado de hoje menos o da foto de ontem, iguais). Sem dado de ontem, não mostra ontem.
+  const desatualizado = !dadosDeHoje(mes, hoje);
+  const dia = desatualizado ? null : valoresDoDia(total, base);
   const metasDoMes = resumirMetas(metas, ym, usuario, total, atuais);
   const destaquesUnidades = maisDeUma ? destaquesDasUnidades(atuais, refs) : null;
-  return { destaquesUnidades, notas, mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" && !maisDeUma ? atuais[0].nome : null, top: topContratos(total.contratos, base, totalRef?.contratos), alertas: ordenarAlertas(alertas), paraFazer: ve?.paraFazer ?? 0, paraFazerTipos: ve?.paraFazerTipos ?? [], mesAlertas: ve?.month ?? null, desatualizado: !dadosDeHoje(mes, hoje), temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
+  return { destaquesUnidades, notas, mes: ym, ateDia: new Date(ateDia + "T12:00:00Z").getTime(), papel: usuario.papel, total, totalRef, linhas, metas: metasDoMes, dia, maisDeUma, unidade: usuario.papel === "unidades" && !maisDeUma ? atuais[0].nome : null, top: topContratos(total.contratos, desatualizado ? null : base, totalRef?.contratos), alertas: ordenarAlertas(alertas), paraFazer: ve?.paraFazer ?? 0, paraFazerTipos: ve?.paraFazerTipos ?? [], mesAlertas: ve?.month ?? null, desatualizado, temRef: !!totalRef, meta: resumoDoMeta(metaMeses?.[ym], nomes, atuais) };
 }
 
 // ---------- e-mail ----------
@@ -466,8 +468,8 @@ export function renderizarEmail(r, usuario, { url = "https://atlas.worldgymacade
   const convRef = f?.oportunidades ? Math.round((f.conversoes / f.oportunidades) * 1000) / 10 : null;
   const n = r.alertas.length, crit = r.alertas.filter((a) => a.gravidade === "critico").length;
   const nota = (txt) => `<p style="margin:0 0 10px;font-family:${sans};font-size:14px;line-height:1.6;color:${SUAVE}">${txt}</p>`;
-  const avisos = (r.desatualizado ? nota("A atualização do EVO desta madrugada não terminou: os números podem ser de anteontem.") : "")
-    + (r.dia ? "" : nota("Os números de ontem aparecem a partir do segundo dia de histórico do Atlas; por enquanto vale o acumulado do mês."))
+  const avisos = (r.desatualizado ? nota("A atualização do EVO desta madrugada não terminou: os números de ontem não chegaram e o que aparece é o acumulado do mês até o último dia lido.") : "")
+    + (r.dia || r.desatualizado ? "" : nota("Os números de ontem aparecem a partir do segundo dia de histórico do Atlas; por enquanto vale o acumulado do mês."))
     + (r.temRef ? "" : nota("A comparação com o mês passado aparece quando o Atlas tiver um mês de histórico."));
 
   // ---- caixa "No resumo de hoje" (como o "Na edição de hoje" do Resumo BP)
@@ -576,7 +578,7 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
 <table role="presentation" width="100%" style="max-width:600px;border-collapse:collapse">
 <tr><td style="padding:0;font-size:0;line-height:0"><img src="${esc(banner)}" width="600" alt="World Gym" style="display:block;width:100%;max-width:600px;height:auto;border-radius:30px 30px 0 0"></td></tr>
 <tr><td class="miolo" style="background:#ffffff;padding:30px 48px 42px;border-radius:0 0 18px 18px">
-<p style="${P}">Bom dia${primeiro ? ", " + primeiro : ""}! Este é o resumo ${quem}, com os números de ontem e do mês.</p>
+<p style="${P}">Bom dia${primeiro ? ", " + primeiro : ""}! Este é o resumo ${quem}, com os números ${r.desatualizado ? "do mês" : "de ontem e do mês"}.</p>
 ${avisos}
 <p style="margin:26px 0 0;padding:12px 0;border-top:1px solid ${TRACO};border-bottom:1px solid ${TRACO};text-align:center;font-family:${sans};font-size:14px;letter-spacing:.6px;color:${SUAVE}">${data}</p>
 ${caixa}

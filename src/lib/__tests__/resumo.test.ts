@@ -71,6 +71,19 @@ describe("resumo diário", () => {
     expect(montarResumo([{ ...meses[0], generatedAt: "2026-11-09T04:00:00.000Z" }], { papel: "master" }, "2026-11-10").desatualizado).toBe(true);
   });
 
+  it("com o EVO desta madrugada incompleto não mostra 'ontem' (daria zero): só o acumulado do mês", () => {
+    const antigo = [{ ...meses[0], generatedAt: "2026-11-09T04:00:00.000Z" }];
+    const ontemIgual = { dia: "2026-11-08", units: Object.fromEntries(meses[0].units.map((u: { name: string }) => [u.name, { faturamento: 0, novosContratos: 0, vendasOnline: 0 }])) };
+    const r = montarResumo(antigo, { papel: "master" }, "2026-11-10", null, null, ontemIgual);
+    expect(r.desatualizado).toBe(true);
+    expect(r.dia).toBeNull();
+    const html = renderizarEmail(r, { nome: "Ana", papel: "master" });
+    expect(html).toContain("não terminou");
+    expect(html).not.toContain("de faturamento ontem");
+    expect(html).not.toContain("Nenhum contrato vendido");
+    expect(html).not.toContain("a partir do segundo dia de histórico");
+  });
+
   it("sem dados do mês não gera e-mail", () => {
     expect(montarResumo(meses, { papel: "master" }, "2026-12-05")).toBeNull();
   });
