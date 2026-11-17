@@ -74,6 +74,8 @@ export interface SlideRanking {
   /** Nome e valor, na ordem da leitura (maior primeiro). */
   itens: [string, number][];
   nota?: string;
+  /** Texto extra por unidade ao lado do nome no gráfico (ex.: "4 de 12"): todo percentual leva a base. */
+  bases?: Record<string, string>;
   /** Quando o relatório é de uma unidade só, o slide vira um cartão de destaque (itens fica vazio). */
   cartao?: Cartao;
 }
@@ -94,6 +96,10 @@ export interface ModeloRelatorio {
   oportunidades: number | null;
   convertidas: number | null;
   rankings: SlideRanking[];
+  /** Mês fechado (padrão) ou uma semana do mês. */
+  tipo?: "mes" | "semana";
+  /** Semana em andamento: "dados até DD/MM". */
+  parcialAte?: string | null;
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];

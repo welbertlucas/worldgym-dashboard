@@ -545,7 +545,7 @@ const Index = () => {
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
 
-        {activeTab === "relatorios" && podeGerarRelatorios() && <RelatoriosTab dados={dashboardData} />}
+        {activeTab === "relatorios" && podeGerarRelatorios() && <RelatoriosTab dados={dashboardData} atualizadoEm={evoAtualizadoEm} />}
 
         {activeTab === "novidades" && <NovidadesTab onAbrirTela={changeTab} />}
         {activeTab === "ajuda" && <AjudaTab aba={subAba} onAba={(id) => changeTab(id ? `ajuda/${id}` : "ajuda")} onAbrirTela={changeTab} />}
