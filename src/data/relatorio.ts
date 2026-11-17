@@ -44,12 +44,15 @@ export const RANKINGS: DefRanking[] = [
 /** Indicadores do relatório que têm meta na planilha (aba Metas). */
 const META_DO_INDICADOR: Record<string, MetaKey> = { fat: "faturamento", nc: "novosContratos", inad: "inadimplenciaPerc", churn: "churn", vo: "vendasOnline" };
 
+/** Slide "Plano de ação da unidade" (uma unidade só): os itens em aberto do plano do mês em andamento. */
+export const ID_PLANO = "plano";
+
 /** Id do slide dos números gerais da rede (ou das unidades escolhidas). */
 export const ID_BIG = "big";
 
 export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id)];
 /** O que já vem marcado ao abrir o menu: o miolo do Report Operacional. */
-export const INDICADORES_PADRAO = [ID_BIG, "fat", "cresc", "nc", "tk"];
+export const INDICADORES_PADRAO = [ID_BIG, "fat", "cresc", "nc", "tk", ID_PLANO];
 
 export interface BigNumero {
   nome: string;
@@ -255,7 +258,7 @@ function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNum
  * Monta o relatório de um mês fechado. `unidades` = quais entram (null = todas as que a pessoa enxerga). `meses` = o que o painel tem
  * (já filtrado pelo servidor para o nível de acesso da pessoa).
  */
-export function montarRelatorio(meses: MonthData[], mes: string, selecionados: string[], unidades: string[] | null, metas: Meta[] = []): ModeloRelatorio | null {
+export function montarRelatorio(meses: MonthData[], mes: string, selecionados: string[], unidades: string[] | null, metas: Meta[] = [], plano: PlanoDaUnidade | null = null): ModeloRelatorio | null {
   const m = meses.find((x) => x.month === mes);
   if (!m) return null;
   const noEscopo = (l: UnitData[]) => (unidades ? l.filter((u) => unidades.includes(u.name)) : l);
@@ -315,7 +318,7 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
 
   const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant) : null;
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
-  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings };
+  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
 }
 
 /** O que o menu mostra de cada slide, antes de gerar. */

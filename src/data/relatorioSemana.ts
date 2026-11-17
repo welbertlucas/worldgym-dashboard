@@ -3,7 +3,7 @@
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
 import type { Meta, MetaKey } from "@/data/metas";
 import type { PlanoDaUnidade } from "@/data/relatorioPlano";
-import { ID_BIG, PERIODOS_NA_EVOLUCAO, mesCurto, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
+import { ID_BIG, ID_PLANO, PERIODOS_NA_EVOLUCAO, mesCurto, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -65,8 +65,8 @@ export const SEMANAIS: DefSemana[] = [
 export const ID_CONVERSAO = "conv";
 /** Slide "O mês até aqui". */
 export const ID_MES_ATE_AQUI = "mes";
-/** Slide "Plano de ação da unidade" (relatório semanal de uma unidade, no mês em andamento). */
-export const ID_PLANO = "plano";
+/** Slide "Plano de ação da unidade" (relatório de uma unidade só): o mesmo id do relatório de mês. */
+export { ID_PLANO };
 /** Indicadores acumulados do mês que têm meta na planilha. */
 const ACUMULADOS: { id: string; chave: MetaKey }[] = [
   { id: "fat", chave: "faturamento" }, { id: "rec", chave: "recebimento" }, { id: "nc", chave: "novosContratos" }, { id: "vo", chave: "vendasOnline" },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ITENS_POR_SLIDE, MAX_SLIDES_PLANO, paginasDoPlano, planoDaUnidade } from "@/data/relatorioPlano";
 import { ID_PLANO, montarRelatorioSemanal } from "@/data/relatorioSemana";
-import { resumoDosSlides } from "@/data/relatorio";
+import { ID_PLANO as ID_PLANO_MES, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
 import type { AlertaVigente, ResultadoVigente } from "@/data/alertasVigentes";
 import { month, unit } from "./helpers";
 
@@ -58,5 +58,17 @@ describe("plano de ação da unidade no relatório", () => {
     expect(montarRelatorioSemanal([nov], "2026-11", 2, ["fat"], ["Gama"], 30, [], plano)!.plano).toBeNull(); // não pedido
     expect(montarRelatorioSemanal([nov], "2026-11", 2, ["fat", ID_PLANO], null, 30, [], plano)!.plano).toBeNull(); // rede: sem plano
     expect(montarRelatorioSemanal([nov], "2026-11", 2, ["fat", ID_PLANO], ["Asa Norte"], 30, [], plano)!.plano).toBeNull(); // plano de outra unidade
+  });
+
+  it("relatório de mês fechado de uma unidade também leva o plano atual (do mês em andamento)", () => {
+    const meses = [month("2026-10", [unit("Gama"), unit("Asa Norte")])];
+    const plano = planoDaUnidade(res([alerta("Gama", "a", "pendencia", "critical", "Cartões recusados")]), "Gama", "2026-11", {}, null)!;
+    expect(plano.mes).toBe("2026-11");
+    const m = montarRelatorio(meses, "2026-10", ["fat", ID_PLANO_MES], ["Gama"], [], plano)!;
+    expect(m.plano?.mes).toBe("2026-11");
+    expect(resumoDosSlides(m)).toContain("Plano de ação");
+    expect(montarRelatorio(meses, "2026-10", ["fat"], ["Gama"], [], plano)!.plano).toBeNull(); // não pedido
+    expect(montarRelatorio(meses, "2026-10", ["fat", ID_PLANO_MES], null, [], plano)!.plano).toBeNull(); // rede: sem plano
+    expect(montarRelatorio(meses, "2026-10", ["fat", ID_PLANO_MES], ["Asa Norte"], [], plano)!.plano).toBeNull(); // plano de outra unidade
   });
 });

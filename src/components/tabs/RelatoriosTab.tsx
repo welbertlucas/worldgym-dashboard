@@ -41,7 +41,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
   // Feitos do plano do mês em andamento (para o slide do plano de ação)
   const [feitos, setFeitos] = useState<Record<string, Feito>>({});
   const mesDoPlano = vigentes?.month ?? null;
-  useEffect(() => { let vivo = true; if (mesDoPlano && tipo === "semana") carregarFeitos(mesDoPlano).then((f) => vivo && setFeitos(f)); return () => { vivo = false; }; }, [mesDoPlano, tipo]);
+  useEffect(() => { let vivo = true; if (mesDoPlano) carregarFeitos(mesDoPlano).then((f) => vivo && setFeitos(f)); return () => { vivo = false; }; }, [mesDoPlano]);
 
   if (!podeGerarRelatorios()) return <Notice>Esta tela não está liberada para o seu acesso.</Notice>;
   if (!meses.length && !mesesSemana.length) return <div><SectionTitle level="page">Relatórios</SectionTitle><Notice>Ainda não há dados para gerar o relatório.</Notice></div>;
@@ -52,10 +52,12 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
   const umaUnidade = escopo === "algumas" ? marcadas.length === 1 : nomes.length === 1;
   const prefixo = umaUnidade ? "" : "Ranking: ";
   const unidadeUnica = escopo === "algumas" ? (marcadas.length === 1 ? marcadas[0] : null) : nomes.length === 1 ? nomes[0] : null;
-  const plano = tipo === "semana" && vigentes && unidadeUnica ? planoDaUnidade(vigentes, unidadeUnica, mesSem, feitos, atualizadoEm) : null;
-  const motivoSemPlano = !unidadeUnica ? "escolha uma unidade só" : mesSem !== mesDoPlano ? "só no mês em andamento" : "";
+  // O plano é do mês em andamento: na semana só vale se a semana é desse mês; no relatório de mês fechado entra o plano atual (o slide diz de qual mês é)
+  const mesDoRelatorioPlano = tipo === "semana" ? mesSem : mesDoPlano ?? "";
+  const plano = vigentes && unidadeUnica && mesDoPlano ? planoDaUnidade(vigentes, unidadeUnica, mesDoRelatorioPlano, feitos, atualizadoEm) : null;
+  const motivoSemPlano = !unidadeUnica ? "escolha uma unidade só" : !mesDoPlano ? "o plano do mês em andamento ainda não foi lido" : tipo === "semana" && mesSem !== mesDoPlano ? "só no mês em andamento" : "";
   const modelo: ModeloRelatorio | null = tipo === "mes"
-    ? montarRelatorio(dados, mes, indicadores, unidades, metas)
+    ? montarRelatorio(dados, mes, indicadores, unidades, metas, plano)
     : montarRelatorioSemanal(dados, mesSem, semana, indicadores, unidades, fechadosDe(mesSem), metas, plano);
   const mesDoRelatorio = tipo === "mes" ? mes : mesSem;
   const alternar = (id: string) => setIndicadores((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
@@ -143,7 +145,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-foreground">Indicadores</h3>
               <div className="flex gap-3 text-xs">
-                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id)] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO, ID_PLANO])}>Marcar todos</button>
+                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id), ID_PLANO] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO, ID_PLANO])}>Marcar todos</button>
                 <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores([])}>Limpar</button>
               </div>
             </div>
@@ -163,12 +165,10 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
                   <input type="checkbox" checked={indicadores.includes(r.id)} onChange={() => alternar(r.id)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />{prefixo}{r.rotulo}
                 </label>
               ))}
-              {tipo === "semana" && (
-                <label className={`flex items-center gap-2 text-sm ${plano || !motivoSemPlano ? "text-foreground" : "text-muted-foreground"}`}>
-                  <input type="checkbox" checked={indicadores.includes(ID_PLANO)} onChange={() => alternar(ID_PLANO)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                  Plano de ação da unidade (itens em aberto do mês){motivoSemPlano ? ` · ${motivoSemPlano}` : ""}
-                </label>
-              )}
+              <label className={`flex items-center gap-2 text-sm ${plano || !motivoSemPlano ? "text-foreground" : "text-muted-foreground"}`}>
+                <input type="checkbox" checked={indicadores.includes(ID_PLANO)} onChange={() => alternar(ID_PLANO)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+                Plano de ação da unidade (itens em aberto do mês em andamento){motivoSemPlano ? ` · ${motivoSemPlano}` : ""}
+              </label>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">{tipo === "mes"
               ? `${umaUnidade ? "Cada indicador vira um slide com o valor em destaque." : "Cada ranking vira um slide, com gráfico editável."} Notas (NPS, Google e Reclame Aqui) só entram nas unidades que têm nota no mês.`

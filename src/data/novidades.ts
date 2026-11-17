@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-17-relatorios-plano-mes", data: "2026-11-17", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
+    titulo: "Relatórios: plano de ação também no relatório do mês",
+    texto: "O slide do plano de ação só aparecia no relatório da semana, e o relatório de um mês fechado ficava sem o que fazer. Agora o relatório de uma unidade, de semana ou de mês fechado, pode levar o plano de ação atual da unidade, com o mês do plano e a data dos dados escritos no slide.",
+  },
+  {
     id: "2026-11-17-resumo-sem-ontem-zerado", data: "2026-11-17", tipo: "melhoria", publico: "todos", autora: AUTORA, artigo: "resumo-email",
     titulo: "Resumo por e-mail: sem \"R$ 0 de ontem\" quando os dados atrasam",
     texto: "Em um dia em que a atualização da madrugada não terminou, o resumo chegou com o faturamento e os contratos de ontem zerados, como se nada tivesse acontecido. Agora, nesses dias, o resumo avisa no começo e mostra só o acumulado do mês, sem inventar um \"ontem\" vazio.",

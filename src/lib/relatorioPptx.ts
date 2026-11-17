@@ -182,7 +182,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     const { paginas, excedente } = paginasDoPlano(p);
     const cabecalho = (s: ReturnType<typeof pptx.addSlide>, parte: string) => {
       s.addText("PLANO DE AÇÃO", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
-      s.addText(`${p.unidade} · ${p.mes.slice(5)}/${p.mes.slice(0, 4)} · dados até ${p.dias}/${p.mes.slice(5)}${parte}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+      s.addText(`${p.unidade} · plano de ${p.mes.slice(5)}/${p.mes.slice(0, 4)} (mês em andamento) · dados até ${p.dias}/${p.mes.slice(5)}${parte}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
     };
     const rodapeFeitos = (s: ReturnType<typeof pptx.addSlide>) => {
       const extra = [excedente ? `+${excedente} ${excedente === 1 ? "item" : "itens"} no plano do Atlas` : "", p.feitos.length ? `Já feito: ${p.feitos.join("; ")}` : ""].filter(Boolean).join("   ·   ");
