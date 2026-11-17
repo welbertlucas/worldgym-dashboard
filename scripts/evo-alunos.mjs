@@ -7,7 +7,7 @@
 //  - o mapa temporário "aluno → unidade de origem" para a etapa das entradas (server/origem.js; não vai para o painel).
 // Antes eram duas varreduras completas dos alunos (cerca de 75 minutos cada).
 // Uso: node --env-file=.env.local scripts/evo-alunos.mjs 2026-10 2026-11
-import { fetchAll, hojeBR, listBranches } from "../server/evo.js";
+import { consumoEntre, consumoEvo, fetchAll, hojeBR, listBranches } from "../server/evo.js";
 import { ativosDaUnidade, resumoAluno, UNIDADES } from "../server/ativos.js";
 import { inadimplenciaPorPerfil, lerPagadores } from "../server/inadPerfil.js";
 import { titulosDeSaldo } from "../server/saldo.js";
@@ -34,13 +34,25 @@ const geo = await loadGeo();
 const locais = new Map((await listBranches()).map((b) => [b.idBranch, [b.latitude, b.longitude]]));
 
 const mapaOrigem = {};
+// Grava os meses de vez em quando durante a rodada: se a etapa estourar o tempo (o EVO lento fez isso em 17/11/2026), as unidades já lidas não se perdem.
+// Os `ativosEm`/`bairrosEm`/`contratosEm` só são marcados no fim, quando a leitura de todas as unidades termina.
+const SALVAR_A_CADA = 4;
+let lidas = 0;
+const salvarParcial = async () => { for (const ym of Object.keys(blobs)) if (blobs[ym] && (meses.includes(ym) || ym === ymHoje)) await saveMonth(blobs[ym]); };
 for (const [id, nome] of Object.entries(UNIDADES)) {
+  // Cronômetro por fase e consumo do EVO de cada unidade, para o log dizer onde o tempo vai (membros, saldo, contratos, bairros...).
+  const inicioUnidade = Date.now(), consumoAntes = consumoEvo(), fases = [];
+  let inicioFase = Date.now();
+  const fase = (rotulo) => { fases.push(`${rotulo} ${Math.round((Date.now() - inicioFase) / 1000)}s`); inicioFase = Date.now(); };
   const membros = await fetchAll(`/members?idBranch=${id}`);
+  fase(`membros (${membros.length})`);
   anotarOrigem(mapaOrigem, membros, id);
   // Saldo devedor: se a leitura falhar, os ativos seguem sem ele (a próxima noite tenta de novo).
   const titulos = await titulosDeSaldo(Number(id)).catch((e) => { console.log(nome, `saldo devedor com erro: ${e.message}`); return null; });
 
+  fase("saldo devedor");
   const por = await ativosDaUnidade(Number(id), meses, hoje, membros, titulos);
+  fase("ativos");
   for (const ym of meses) {
     const u = blobs[ym].units.find((x) => x.name === nome);
     const r = naoRenov[ym].get(Number(id));
@@ -51,12 +63,13 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
   console.log(nome, JSON.stringify(por));
 
   const u = fotoHoje?.units.find((x) => x.name === nome);
-  if (!u) continue;
+  if (!u) { console.log(`${nome} · ${Math.round((Date.now() - inicioUnidade) / 1000)}s · ${fases.join(", ")} · EVO ${consumoEntre(consumoAntes)}`); continue; }
   try {
     u.ritmoAlunos = ritmoAlunosDoMes(membros.map(resumoAluno), hoje);
   } catch (e) {
     console.log(nome, `ritmo com erro: ${e.message}`);
   }
+  fase("ritmo");
   try {
     const c = await contratosUnidade(Number(id), membros);
     Object.assign(u, c);
@@ -71,6 +84,9 @@ for (const [id, nome] of Object.entries(UNIDADES)) {
   } catch (e) {
     console.log(nome, `bairros com erro: ${e.message}`); // não derruba os ativos
   }
+  fase("contratos e bairros");
+  console.log(`${nome} · ${Math.round((Date.now() - inicioUnidade) / 1000)}s · ${fases.join(", ")} · EVO ${consumoEntre(consumoAntes)}`);
+  if (++lidas % SALVAR_A_CADA === 0) await salvarParcial();
 }
 
 salvarMapa(mapaOrigem);

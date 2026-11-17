@@ -49,23 +49,35 @@ export function transitorio(status, texto = "") {
 // Contador de chamadas ao EVO (a API Pro cobra por uso: R$ 250/mês de teto em nov/2026). Conta cada tentativa que saiu daqui,
 // inclusive as repetidas por 429/5xx, porque o EVO pode cobrar essas também. Só totais, nada de dado pessoal.
 // Ao fim de cada script, no GitHub (ou com CONTAR_EVO=1), uma linha "EVO: N chamadas" vai para o log da execução.
-const consumo = { total: 0, rotas: {}, status: {} };
-export function registrarChamada(path, status) {
+const consumo = { total: 0, rotas: {}, status: {}, ms: 0, comTempo: 0, msMax: 0 };
+/** `ms`: quanto a resposta demorou (só o tempo da chamada, sem as esperas entre tentativas). Serve para saber se o EVO está lento ou se o tempo vai em esperas. */
+export function registrarChamada(path, status, ms) {
   const rota = String(path).split("?")[0].replace(/\/\d+(?=\/|$)/g, "/:id");
   consumo.total += 1;
   consumo.rotas[rota] = (consumo.rotas[rota] ?? 0) + 1;
   const faixa = typeof status === "number" ? (status >= 500 ? "5xx" : String(status)) : "rede";
   consumo.status[faixa] = (consumo.status[faixa] ?? 0) + 1;
+  if (typeof ms === "number" && Number.isFinite(ms)) { consumo.ms += ms; consumo.comTempo += 1; consumo.msMax = Math.max(consumo.msMax, ms); }
 }
-export const consumoEvo = () => ({ total: consumo.total, rotas: { ...consumo.rotas }, status: { ...consumo.status } });
-export function zerarConsumoEvo() { consumo.total = 0; consumo.rotas = {}; consumo.status = {}; }
+export const consumoEvo = () => ({ total: consumo.total, rotas: { ...consumo.rotas }, status: { ...consumo.status }, ms: consumo.ms, comTempo: consumo.comTempo, msMax: consumo.msMax });
+export function zerarConsumoEvo() { consumo.total = 0; consumo.rotas = {}; consumo.status = {}; consumo.ms = 0; consumo.comTempo = 0; consumo.msMax = 0; }
+const textoStatus = (s) => Object.entries(s).map(([k, n]) => `${k}: ${n}`).join(", ");
+const textoTempo = (ms, n, max) => (n ? ` | resposta em média ${Math.round(ms / n)} ms${max ? `, a mais lenta ${Math.round(max)} ms` : ""}` : "");
 export function linhaDeConsumo(c = consumo) {
   const top = Object.entries(c.rotas).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([r, n]) => `${r} ${n}`).join("; ");
-  const st = Object.entries(c.status).map(([k, n]) => `${k}: ${n}`).join(", ");
-  return `EVO: ${c.total} chamadas (${st}) | ${top}`;
+  return `EVO: ${c.total} chamadas (${textoStatus(c.status)}) | ${top}${textoTempo(c.ms, c.comTempo, c.msMax)}`;
+}
+/** O que aconteceu entre duas fotos do contador (para o log de cada unidade): "12 chamadas (200: 12), resposta em média 340 ms". */
+export function consumoEntre(antes, depois = consumoEvo()) {
+  const status = {};
+  for (const [k, n] of Object.entries(depois.status)) { const d = n - (antes.status[k] ?? 0); if (d) status[k] = d; }
+  const total = depois.total - antes.total;
+  return `${total} chamadas (${textoStatus(status)})${textoTempo(depois.ms - antes.ms, depois.comTempo - antes.comTempo, 0)}`;
 }
 if (process.env.GITHUB_ACTIONS || process.env.CONTAR_EVO) {
   process.on("exit", () => { if (consumo.total) console.log(linhaDeConsumo()); });
+  // Limite de tempo da etapa ou cancelamento no GitHub: o log mostra o consumo mesmo assim (sem isto a linha só saía no fim normal).
+  for (const sinal of ["SIGTERM", "SIGINT"]) process.on(sinal, () => { process.exit(sinal === "SIGINT" ? 130 : 143); });
 }
 
 export async function evoGet(path, tries = TENTATIVAS) {
@@ -73,11 +85,12 @@ export async function evoGet(path, tries = TENTATIVAS) {
   for (let i = 0; i < tries; i++) {
     await throttle();
     let res;
+    const inicio = Date.now();
     try {
       res = await fetch(urlDe(path), { headers: { Authorization: auth() } });
-      registrarChamada(path, res.status);
+      registrarChamada(path, res.status, Date.now() - inicio);
     } catch (e) {
-      if (!res) registrarChamada(path, null);
+      if (!res) registrarChamada(path, null, Date.now() - inicio);
       // Queda de rede (fetch failed): vale tentar de novo, como 429 e 5xx.
       last = `rede ${e.cause?.code || e.message}`;
       await espera(i);
@@ -105,9 +118,10 @@ export async function evoBuffer(path, tries = TENTATIVAS) {
   let last = "";
   for (let i = 0; i < tries; i++) {
     await throttle();
+    const inicio = Date.now();
     try {
       const res = await fetch(BASE.replace(/\/api\/v1$/, "") + path, { headers: { Authorization: auth() } });
-      registrarChamada(path, res.status);
+      registrarChamada(path, res.status, Date.now() - inicio);
       if (res.ok) return Buffer.from(await res.arrayBuffer());
       last = `${res.status}`;
       if (res.status < 500 && res.status !== 429 && res.status !== 401) break;
