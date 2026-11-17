@@ -54,7 +54,8 @@ import {
   RefreshCw, LogOut, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
-import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, sair, unidadesProprias } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -350,10 +351,15 @@ const Index = () => {
             </div>
           </div>
           <AvisoVerComo />
-          {/* No celular o botão vai para uma linha própria, para não espremer o título. */}
-          {comBotaoDeUnidade && (
-            <div className="px-3 pb-3 sm:hidden">
-              <BotaoUnidade id="filtro-unidade-celular" className="w-full max-w-none" value={selectedUnit} onChange={setSelectedUnit} />
+          {/* Celular e tablet: o botão de unidade (celular) e o "Ver como" (só o dono; no computador ele fica no cabeçalho) vão para uma linha própria, para não espremer o título. */}
+          {(comBotaoDeUnidade || podeVerComo()) && (
+            <div className={cn("flex items-center gap-2 px-3 pb-3 xl:hidden", !podeVerComo() && "sm:hidden")}>
+              {comBotaoDeUnidade && (
+                <div className="min-w-0 flex-1 sm:hidden">
+                  <BotaoUnidade id="filtro-unidade-celular" className="w-full max-w-none" value={selectedUnit} onChange={setSelectedUnit} />
+                </div>
+              )}
+              <VerComo className="ml-auto shrink-0" />
             </div>
           )}
         </header>

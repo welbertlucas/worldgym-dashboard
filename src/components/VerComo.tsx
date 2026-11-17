@@ -61,7 +61,7 @@ export function VerComo({ className }: { className?: string }) {
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
       </button>
       {aberto && (
-        <div role="dialog" aria-label="Ver o painel como" className="absolute right-0 top-11 z-50 w-72 rounded-xl border border-border bg-white p-2 shadow-lg">
+        <div role="dialog" aria-label="Ver o painel como" className="absolute right-0 top-11 z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-white p-2 shadow-lg">
           {opcao("dono", "Dono (você)")}
           {opcao("master", "Master")}
           {opcao("unidades", "Acesso de unidades")}
