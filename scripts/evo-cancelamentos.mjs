@@ -4,6 +4,7 @@ import { hojeBR } from "../server/evo.js";
 import { canceladosDoMes } from "../server/cancelamentos.js";
 import { UNIDADES } from "../server/ativos.js";
 import { loadMonth, saveMonth } from "../server/store.js";
+import { mesclarSemanas } from "../server/semanas.js";
 
 const hoje = hojeBR();
 const falhas = [];
@@ -18,6 +19,7 @@ for (const ym of process.argv.slice(2)) {
       u.motivosCancel = por[u.name]?.motivos ?? {};
       u.canceladosTipos = por[u.name]?.tipos ?? {};
       u.canceladosPlanos = por[u.name]?.planos ?? [];
+      if (por[u.name]?.semanas) u.semanas = mesclarSemanas(u.semanas, por[u.name].semanas);
       n++;
     }
     blob.cancelEm = new Date().toISOString();

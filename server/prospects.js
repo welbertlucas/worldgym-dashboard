@@ -9,6 +9,7 @@ import { evoBuffer } from "./evo.js";
 import { diaDeCorte } from "./ativos.js";
 import { lerXlsx } from "./xlsx.js";
 import { UNIT_NAMES } from "./units.js";
+import { datasDaSemana, semanasNoMes, semanasVazias } from "./semanas.js";
 
 /** "TOTEM/SITE/ " → "Totem/Site"; vazio → "Sem origem". */
 export function origemDaOportunidade(marketing) {
@@ -65,9 +66,27 @@ export async function linhasDoMes(ym, ate) {
   return lerXlsx(await evoBuffer(`/api/v2/management/prospects?dtStart=${ym}-01&dtEnd=${ate}`));
 }
 
+/** Oportunidades e conversões de cada semana do mês, por unidade (cadastradas na semana e convertidas na própria semana). Semana ainda não começada fica de fora. */
+export function semanasDeProspects(rows, ym, ate) {
+  const por = {};
+  for (const nome of Object.keys(resumirProspects(rows, `${ym}-01`, ate))) por[nome] = semanasVazias(ym);
+  for (let n = 1; n <= semanasNoMes(ym); n++) {
+    const { de, ate: fim } = datasDaSemana(ym, n);
+    if (de > ate) break;
+    const r = resumirProspects(rows, de, fim < ate ? fim : ate);
+    // semana já começada: quem não teve cadastro nela fica com 0 (semana que não começou fica sem número)
+    for (const nome of Object.keys(por)) por[nome][n - 1] = { oportunidades: r[nome]?.oportunidades ?? 0, conversoes: r[nome]?.conversoes ?? 0 };
+  }
+  return por;
+}
+
 export async function prospectsDoMes(ym, hoje) {
   const ate = diaDeCorte(ym, hoje);
-  return resumirProspects(await linhasDoMes(ym, ate), `${ym}-01`, ate);
+  const rows = await linhasDoMes(ym, ate);
+  const por = resumirProspects(rows, `${ym}-01`, ate);
+  const sem = semanasDeProspects(rows, ym, ate);
+  for (const [nome, u] of Object.entries(por)) u.semanas = sem[nome] ?? semanasVazias(ym);
+  return por;
 }
 
 /** Dia `dia` do mês `ym`, limitado ao último dia do mês (dia 31 em fevereiro vira 28/29). */

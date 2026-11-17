@@ -3,6 +3,7 @@
 // Uso: node --env-file=.env.local scripts/evo-vendas.mjs 2026-10 2026-11
 import { catalogoDePlanos, vendasDoMes } from "../server/vendas.js";
 import { loadMonth, saveMonth } from "../server/store.js";
+import { mesclarSemanas } from "../server/semanas.js";
 
 const falhas = [];
 const planos = await catalogoDePlanos();
@@ -13,7 +14,7 @@ for (const ym of process.argv.slice(2)) {
     const month = await loadMonth(ym);
     if (!month) throw new Error("mês ainda não foi calculado; rode evo-backfill antes");
     const por = await vendasDoMes(ym, planos);
-    for (const u of month.units) if (por[u.name]) Object.assign(u, por[u.name]);
+    for (const u of month.units) if (por[u.name]) { const { semanas, ...resto } = por[u.name]; Object.assign(u, resto); u.semanas = mesclarSemanas(u.semanas, semanas); }
     month.vendasEm = new Date().toISOString();
     await saveMonth(month);
     console.log(`${ym}: ${month.units.filter((u) => por[u.name]).length} unidades | ${((Date.now() - t0) / 1000).toFixed(0)}s`);

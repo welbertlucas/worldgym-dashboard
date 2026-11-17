@@ -5,6 +5,7 @@ import { fetchAll } from "./evo.js";
 import { diaDeCorte } from "./ativos.js";
 import { UNIT_NAMES } from "./units.js";
 import { tipoContrato } from "./vendas.js";
+import { semanasDeCancelados, semanasVazias } from "./semanas.js";
 
 /** Agrupa o texto livre do EVO em poucas categorias comparáveis. */
 export function categoriaMotivo(texto) {
@@ -49,7 +50,10 @@ export function resumirCancelados(rows) {
 
 export async function canceladosDoMes(ym, hoje) {
   const rows = await fetchAll(`/api/v3/membermembership?cancelDateStart=${ym}-01&cancelDateEnd=${diaDeCorte(ym, hoje)}`);
-  return resumirCancelados(rows);
+  const por = resumirCancelados(rows);
+  const sem = semanasDeCancelados(rows, ym, (id) => UNIT_NAMES[id]);
+  for (const [nome, u] of Object.entries(por)) u.semanas = sem[nome] ?? semanasVazias(ym, { cancelados: 0 });
+  return por;
 }
 
 export async function motivosDoMes(ym, hoje) {

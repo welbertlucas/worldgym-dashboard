@@ -3,6 +3,7 @@
 import { computeMonth } from "../server/evo.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 import { salvarPagadores } from "../server/inadPerfil.js";
+import { mesclarSemanas } from "../server/semanas.js";
 
 // Campos que não vêm desta rotina (foto de contratos de evo-contratos.mjs): preserva ao regravar o mês.
 const CONTRATOS = ["alunosAtivos", "contratosAtivos", "contratosEspeciais", "contratosPersonal", "contratosLocal", "contratosParcial", "contratosRede", "ativosFim", "ativosIni", "cancelados", "aVencer", "naoRenovados", "naoRenovadosTipos", "naoRenovadosPlanos", "npsPromotores", "npsDetratores", "npsRespostas", "novosContratos", "vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "oportunidades", "conversoes", "fluxoNovos", "fluxoRetornos", "fluxoCancelados", "fluxoVencidos", "permanenciaMeses", "motivosCancel", "canceladosTipos", "canceladosPlanos", "origens", "cobrancas", "recusaMotivos", "treinoAtivo", "treinoVencido", "treinoFuturo"];
@@ -26,6 +27,8 @@ async function processar(ym) {
   for (const u of data.units) {
     const old = antes?.units.find((x) => x.name === u.name);
     if (old) for (const k of CONTRATOS) if (old[k] !== undefined) u[k] = old[k];
+    // As semanas têm partes de outras rotinas (vendas, prospects, cancelamentos): guarda as antigas e põe por cima só o faturamento e o recebimento novos.
+    if (old?.semanas) u.semanas = mesclarSemanas(old.semanas, u.semanas);
   }
   await saveMonth(data);
   const fat = data.units.reduce((s, u) => s + u.faturamento, 0);

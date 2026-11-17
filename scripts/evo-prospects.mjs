@@ -7,6 +7,7 @@ import { linhasDoMes, prospectsDoMes, ritmoConversao } from "../server/prospects
 import { mesesAnteriores } from "../server/mesmoDia.js";
 import { UNIT_NAMES } from "../server/units.js";
 import { loadMonth, saveMonth } from "../server/store.js";
+import { mesclarSemanas } from "../server/semanas.js";
 
 const hoje = hojeBR();
 const falhas = [];
@@ -32,7 +33,7 @@ for (const ym of process.argv.slice(2)) {
     for (const u of blob.units) {
       const a = por[u.name];
       if (!a || !Object.values(UNIT_NAMES).includes(u.name)) continue;
-      u.oportunidades = a.oportunidades; u.conversoes = a.conversoes; u.origens = a.origens; u.consultores = a.consultores; u.tempoConversao = a.tempoConversao; n++;
+      u.oportunidades = a.oportunidades; u.conversoes = a.conversoes; u.origens = a.origens; u.consultores = a.consultores; u.tempoConversao = a.tempoConversao; u.semanas = mesclarSemanas(u.semanas, a.semanas); n++;
       if (ritmo?.[u.name]) u.ritmoConversao = ritmo[u.name];
     }
     blob.prospectsEm = new Date().toISOString();
