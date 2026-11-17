@@ -425,7 +425,7 @@ export const ASSINATURA = {
   site: ["www.worldgymacademia.com.br", "https://www.worldgymacademia.com.br"],
   imagens: { logo: "assinatura-logo.png", selo: "assinatura-selo.png" },
 };
-function blocoAssinatura(img = ASSINATURA.imagens) {
+export function blocoAssinatura(img = ASSINATURA.imagens) {
   const a = ASSINATURA, linha = `margin:0;font-size:13px;line-height:1.5;color:${SUAVE}`;
   return `<table role="presentation" width="100%" style="margin:40px 0 0;border-collapse:collapse"><tr>
 <td class="as-logo" valign="middle" style="padding:0 16px 0 0"><img src="${esc(img.logo)}" width="94" alt="World Gym" style="display:block;width:94px;height:auto;border:0;outline:none"></td>

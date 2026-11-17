@@ -1,7 +1,7 @@
 // Relatório semanal: semanas fixas do mês (1: dias 1-7, 2: 8-14, 3: 15-21, 4: 22-28, 5: 29 ao fim), comparadas com a MESMA semana do mês anterior.
 // Os números de cada semana vêm de `semanas` de cada unidade (gravados pelas leituras do EVO que já existem). Todo percentual leva a base ("4 de 12").
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
-import { ID_BIG, mesCurto, type BigNumero, type Cartao, type Formato, type ModeloRelatorio, type SlideRanking } from "@/data/relatorio";
+import { ID_BIG, PERIODOS_NA_EVOLUCAO, mesCurto, type BigNumero, type Cartao, type Formato, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -67,6 +67,34 @@ const variacao = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
 const num = (v: number | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const baseDe = (conv: number, op: number) => `${conv.toLocaleString("pt-BR")} de ${op.toLocaleString("pt-BR")} oportunidades${op < BASE_PEQUENA ? " (base pequena)" : ""}`;
 
+/**
+ * Últimas semanas (até 6, em ordem, terminando na escolhida) de uma unidade num indicador, atravessando meses. A coluna da mesma semana
+ * do mês anterior (a da comparação) fica marcada. Semana sem número fica de fora; só entram semanas já começadas.
+ */
+export function serieSemanal(meses: MonthData[], mes: string, semana: number, unidade: string, campo: (s: SemanaDoMes) => number | undefined, fechados: number): SerieEvolucao | undefined {
+  const pontos: { mes: string; n: number; v: number }[] = [];
+  for (const m of [...meses].filter((x) => x.month <= mes).sort((a, b) => a.month.localeCompare(b.month))) {
+    const u = m.units.find((x) => x.name === unidade);
+    if (!u?.semanas) continue;
+    for (let n = 1; n <= semanasNoMes(m.month); n++) {
+      if (m.month === mes && n > semana) break;
+      const v = u.semanas[n - 1] ? campo(u.semanas[n - 1]) : undefined;
+      if (typeof v === "number" && Number.isFinite(v)) pontos.push({ mes: m.month, n, v });
+    }
+  }
+  const ult = pontos.slice(-PERIODOS_NA_EVOLUCAO);
+  const ultimo = ult[ult.length - 1];
+  if (ult.length < 2 || !ultimo || ultimo.mes !== mes || ultimo.n !== semana) return undefined;
+  const iComp = ult.findIndex((p) => p.mes === mesAnterior(mes) && p.n === semana);
+  return {
+    rotulos: ult.map((p) => rotuloDaSemana(p.mes, p.n).replace(/\/\d\d$/, "")),
+    valores: ult.map((p) => Math.round(p.v * 100) / 100),
+    destaque: ult.length - 1,
+    comparada: iComp >= 0 ? iComp : undefined,
+    parcial: estadoDaSemana(mes, semana, fechados) === "andamento",
+  };
+}
+
 interface Dados { u: UnitData; s: SemanaDoMes }
 const daSemana = (m: MonthData | undefined, n: number, nomes: string[] | null): Dados[] =>
   (m?.units ?? []).filter((u) => !nomes || nomes.includes(u.name)).flatMap((u) => (u.semanas?.[n - 1] ? [{ u, s: u.semanas[n - 1] }] : []));
@@ -130,7 +158,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
       if (typeof v !== "number") continue;
       const a = antPorNome.get(umaSo.u.name);
       const b = temAnt && a && typeof def.campo(a) === "number" ? num(def.campo(a)) : null;
-      rankings.push({ id, titulo: def.titulo, subtitulo: sub, formato: def.formato, itens: [], cartao: cartaoDe(def, v, b) });
+      rankings.push({ id, titulo: def.titulo, subtitulo: sub, formato: def.formato, itens: [], cartao: { ...cartaoDe(def, v, b), serie: serieSemanal(meses, mes, semana, umaSo.u.name, def.campo, fechados) } });
       continue;
     }
     const itens: [string, number][] = atual.filter((d) => typeof def.campo(d.s) === "number").map((d) => [d.u.name, Math.round(num(def.campo(d.s)) * 100) / 100]);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
 import { limitesDaSemana as limitesServidor, semanasNoMes as semanasServidor } from "../../../server/semanas.js";
-import { BASE_PEQUENA, ID_CONVERSAO, estadoDaSemana, limitesDaSemana, mesAnterior, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
+import { BASE_PEQUENA, ID_CONVERSAO, serieSemanal, estadoDaSemana, limitesDaSemana, mesAnterior, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
 import { ID_BIG } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
@@ -98,5 +98,18 @@ describe("relatório semanal", () => {
     expect(m.oportunidades).toBe(30);
     expect(m.convertidas).toBe(11);
     expect(m.conversao).toBeCloseTo(36.67, 1);
+  });
+
+  it("evolução semanal: últimas semanas atravessando o mês, com a mesma semana do mês anterior marcada", () => {
+    const m = montarRelatorioSemanal(meses, "2026-11", 2, ["fat"], ["Asa Norte"], 30)!;
+    const s = m.rankings[0].cartao!.serie!;
+    expect(s.rotulos).toEqual(["1-7 out", "8-14 out", "1-7 nov", "8-14 nov"]);
+    expect(s.valores).toEqual([1000, 2000, 1100, 900]);
+    expect(s.destaque).toBe(3);
+    expect(s.comparada).toBe(1); // 8-14 out
+    expect(s.parcial).toBe(false);
+    const parcial = serieSemanal(meses, "2026-11", 2, "Asa Norte", (x) => x.faturamento, 10)!;
+    expect(parcial.parcial).toBe(true);
+    expect(serieSemanal(meses, "2026-11", 3, "Asa Norte", (x) => x.faturamento, 30)).toBeUndefined(); // sem número na semana pedida
   });
 });

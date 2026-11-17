@@ -1,6 +1,7 @@
 // Relatórios: monta o MODELO da apresentação (o que vai em cada slide) a partir dos meses que o painel já leu.
 // Nada de leitura nova no EVO: só os totais mensais que o Atlas já guarda (nunca dado de aluno). O desenho dos slides fica em src/lib/relatorioPptx.ts.
 import type { MonthData, UnitData } from "@/data/dashboardData";
+import { META_INDICATORS, type Meta, type MetaKey } from "@/data/metas";
 
 export type Formato = "brl" | "brl2" | "int" | "pct" | "nota";
 
@@ -39,6 +40,9 @@ export const RANKINGS: DefRanking[] = [
   { id: "ra", rotulo: "Nota no Reclame Aqui", titulo: "Nota no Reclame Aqui", campo: (u) => u.reclameAqui, formato: "nota", zeroEhVazio: true },
 ];
 
+/** Indicadores do relatório que têm meta na planilha (aba Metas). */
+const META_DO_INDICADOR: Record<string, MetaKey> = { fat: "faturamento", nc: "novosContratos", inad: "inadimplenciaPerc", churn: "churn", vo: "vendasOnline" };
+
 /** Id do slide dos números gerais da rede (ou das unidades escolhidas). */
 export const ID_BIG = "big";
 
@@ -64,7 +68,27 @@ export interface Cartao {
   emPontos?: boolean;
   menorMelhor?: boolean;
   anterior: string | null;
+  /** Barra de progresso da meta do mês (só relatório de mês fechado): quanto do nível mais alto já foi atingido. */
+  meta?: { pct: number; texto: string };
+  /** Evolução dos últimos períodos (até 6) para o gráfico de colunas: o último é o do relatório. */
+  serie?: SerieEvolucao;
 }
+
+export interface SerieEvolucao {
+  rotulos: string[];
+  valores: number[];
+  /** Posição da coluna do relatório (a última). */
+  destaque: number;
+  /** Posição da coluna usada na comparação (ex.: a mesma semana do mês anterior), se estiver no gráfico. */
+  comparada?: number;
+  /** Linha de meta (nível mais alto cadastrado), só no relatório de mês. */
+  metaLinha?: { valor: number; rotulo: string };
+  /** Período em andamento: a última coluna ainda não fechou. */
+  parcial?: boolean;
+}
+
+/** Número de períodos no gráfico de evolução. */
+export const PERIODOS_NA_EVOLUCAO = 6;
 
 export interface SlideRanking {
   id: string;
@@ -122,6 +146,57 @@ const fmtValor = (f: Formato, n: number) =>
   : f === "nota" ? n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
   : Math.round(n).toLocaleString("pt-BR");
 
+/**
+ * Progresso da meta do mês de uma unidade (nível mais alto cadastrado). Quando mais é melhor: "62% da meta ouro · R$ 500.000" e a barra enche.
+ * Quando menos é melhor (inadimplência, churn): só diz se a meta foi atingida, sem barra.
+ */
+export function progressoDaMeta(metas: Meta[], mes: string, unidade: string, id: string, valor: number, formato: Formato): { pct: number; texto: string } | undefined {
+  const chave = META_DO_INDICADOR[id];
+  const m = chave ? metas.find((x) => x.month === mes && x.unit === unidade && x.key === chave) : undefined;
+  const nivel = m ? (m.ouro !== undefined ? "ouro" : m.prata !== undefined ? "prata" : m.bronze !== undefined ? "bronze" : null) : null;
+  const alvo = m && nivel ? m[nivel] : undefined;
+  if (!m || !nivel || typeof alvo !== "number" || !(alvo > 0)) return undefined;
+  const fmtAlvo = fmtValor(formato, alvo);
+  if (META_INDICATORS[chave!].lowerIsBetter) {
+    const ok = valor <= alvo;
+    return { pct: ok ? 100 : 0, texto: `Meta ${nivel}: ${fmtAlvo} · ${ok ? "atingida" : "não atingida"}` };
+  }
+  const pct = (valor / alvo) * 100;
+  return { pct, texto: `${Math.round(pct).toLocaleString("pt-BR")}% da meta ${nivel} · ${fmtAlvo}` };
+}
+
+/** Põe na série a linha da meta do mês (nível mais alto cadastrado), se houver. */
+function serieComMeta(s: SerieEvolucao | undefined, metas: Meta[], mes: string, unidade: string, id: string, formato: Formato): SerieEvolucao | undefined {
+  if (!s) return s;
+  const chave = META_DO_INDICADOR[id];
+  const m = chave ? metas.find((x) => x.month === mes && x.unit === unidade && x.key === chave) : undefined;
+  const nivel = m ? (m.ouro !== undefined ? "ouro" : m.prata !== undefined ? "prata" : m.bronze !== undefined ? "bronze" : null) : null;
+  const alvo = m && nivel ? m[nivel] : undefined;
+  return typeof alvo === "number" && alvo > 0 ? { ...s, metaLinha: { valor: alvo, rotulo: `Meta ${nivel}: ${fmtValor(formato, alvo)}` } } : s;
+}
+
+const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const rotuloMes = (m: string) => { const [y, n] = m.split("-"); return `${MESES_CURTOS[Number(n) - 1]}/${y.slice(2)}`; };
+/** Indicadores em que mês antigo sem o dado guardado vem como 0 (não é resultado): zero é "sem dado". */
+const ZERO_E_VAZIO = new Set(["tk", "inad", "churn", "ad", "nps", "google", "ra"]);
+
+/** Valores dos últimos meses (até `n`, terminando em `mes`) de uma unidade num indicador; mês sem dado fica de fora. */
+export function serieMensal(meses: MonthData[], mes: string, unidade: string, def: DefRanking, n = PERIODOS_NA_EVOLUCAO): SerieEvolucao | undefined {
+  const ate = meses.filter((m) => m.month <= mes).sort((a, b) => a.month.localeCompare(b.month));
+  const pontos: { mes: string; v: number }[] = [];
+  for (const m of ate) {
+    const u = m.units.find((x) => x.name === unidade);
+    const v = u ? def.campo(u) : undefined;
+    if (typeof v !== "number" || !Number.isFinite(v)) continue;
+    if ((def.zeroEhVazio || ZERO_E_VAZIO.has(def.id)) && v <= 0) continue;
+    pontos.push({ mes: m.month, v });
+  }
+  const ult = pontos.slice(-n);
+  if (ult.length < 2 || ult[ult.length - 1].mes !== mes) return undefined; // sem pelo menos dois períodos (o do relatório entre eles) não há evolução
+  const casas = def.formato === "brl2" || def.formato === "nota" || def.formato === "pct" ? 100 : 1;
+  return { rotulos: ult.map((p) => rotuloMes(p.mes)), valores: ult.map((p) => Math.round(p.v * casas) / casas), destaque: ult.length - 1 };
+}
+
 const soma = (l: UnitData[], f: (u: UnitData) => number) => l.reduce((s, u) => s + (Number.isFinite(f(u)) ? f(u) : 0), 0);
 const variacao = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
 
@@ -154,7 +229,7 @@ function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNum
  * Monta o relatório de um mês fechado. `unidades` = quais entram (null = todas as que a pessoa enxerga). `meses` = o que o painel tem
  * (já filtrado pelo servidor para o nível de acesso da pessoa).
  */
-export function montarRelatorio(meses: MonthData[], mes: string, selecionados: string[], unidades: string[] | null): ModeloRelatorio | null {
+export function montarRelatorio(meses: MonthData[], mes: string, selecionados: string[], unidades: string[] | null, metas: Meta[] = []): ModeloRelatorio | null {
   const m = meses.find((x) => x.month === mes);
   if (!m) return null;
   const noEscopo = (l: UnitData[]) => (unidades ? l.filter((u) => unidades.includes(u.name)) : l);
@@ -187,7 +262,7 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
       const temBase = typeof b === "number" && Number.isFinite(b) && b > 0;
       const emPontos = def.formato === "pct";
       const variacaoCartao = !temBase ? null : emPontos ? v - (b as number) : (b as number) > 0 ? ((v - (b as number)) / (b as number)) * 100 : null;
-      rankings.push({ id: def.id, titulo: def.titulo, subtitulo: `apenas em ${mesCurto(mes)}`, formato: def.formato, itens: [], cartao: { valor: fmtValor(def.formato, v), variacao: variacaoCartao, emPontos, menorMelhor: def.menorMelhor, anterior: temBase && antCurto ? `${fmtValor(def.formato, b as number)}  ·  ${antCurto}` : null } });
+      rankings.push({ id: def.id, titulo: def.titulo, subtitulo: `apenas em ${mesCurto(mes)}`, formato: def.formato, itens: [], cartao: { valor: fmtValor(def.formato, v), variacao: variacaoCartao, emPontos, menorMelhor: def.menorMelhor, anterior: temBase && antCurto ? `${fmtValor(def.formato, b as number)}  ·  ${antCurto}` : null, meta: progressoDaMeta(metas, mes, umaSo.name, def.id, v, def.formato), serie: serieComMeta(serieMensal(meses, mes, umaSo.name, def), metas, mes, umaSo.name, def.id, def.formato) } });
       continue;
     }
     let itens: [string, number][] = [];

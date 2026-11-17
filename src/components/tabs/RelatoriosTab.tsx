@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import type { MonthData } from "@/data/dashboardData";
+import type { Meta } from "@/data/metas";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { diasFechados } from "@/data/vendasDia";
 import { ID_BIG, INDICADORES_PADRAO, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
@@ -16,7 +17,7 @@ import { registrarExportacao } from "@/lib/atividade";
 const ESTADO: Record<string, string> = { fechada: "", andamento: " (em andamento)", futura: " (ainda não começou)" };
 
 /** Menu Relatórios: a pessoa escolhe o período (mês fechado ou uma semana), as unidades e os indicadores e baixa uma apresentação (.pptx) editável. */
-export function RelatoriosTab({ dados, atualizadoEm = null }: { dados: MonthData[]; atualizadoEm?: string | null }) {
+export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dados: MonthData[]; atualizadoEm?: string | null; metas?: Meta[] }) {
   const meses = useMemo(() => mesesParaRelatorio(dados.map((d) => d.month)), [dados]);
   const mesesSemana = useMemo(() => dados.filter(temSemanas).map((d) => d.month).sort().reverse(), [dados]);
   const [tipo, setTipo] = useState<"mes" | "semana">(() => (mesesSemana.length ? "semana" : "mes")); // a semana é o uso principal (reunião semanal)
@@ -42,7 +43,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null }: { dados: MonthData
   const umaUnidade = escopo === "algumas" ? marcadas.length === 1 : nomes.length === 1;
   const prefixo = umaUnidade ? "" : "Ranking: ";
   const modelo: ModeloRelatorio | null = tipo === "mes"
-    ? montarRelatorio(dados, mes, indicadores, unidades)
+    ? montarRelatorio(dados, mes, indicadores, unidades, metas)
     : montarRelatorioSemanal(dados, mesSem, semana, indicadores, unidades, fechadosDe(mesSem));
   const mesDoRelatorio = tipo === "mes" ? mes : mesSem;
   const alternar = (id: string) => setIndicadores((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
