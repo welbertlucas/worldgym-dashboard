@@ -26,6 +26,16 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-17-resumo-sem-ontem-zerado", data: "2026-11-17", tipo: "melhoria", publico: "todos", autora: AUTORA, artigo: "resumo-email",
+    titulo: "Resumo por e-mail: sem \"R$ 0 de ontem\" quando os dados atrasam",
+    texto: "Em um dia em que a atualização da madrugada não terminou, o resumo chegou com o faturamento e os contratos de ontem zerados, como se nada tivesse acontecido. Agora, nesses dias, o resumo avisa no começo e mostra só o acumulado do mês, sem inventar um \"ontem\" vazio.",
+  },
+  {
+    id: "2026-11-17-relatorios-evolucao", data: "2026-11-17", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
+    titulo: "Relatórios: evolução dos últimos 6 períodos e capa com a unidade",
+    texto: "O relatório de uma unidade só mostrava um cartão com dois números, sem dizer se a unidade vinha subindo ou caindo. Agora cada indicador traz o valor e a variação em cima e as colunas dos últimos 6 períodos (meses ou semanas) embaixo, com a meta do mês como linha. A capa passou a levar o nome da unidade e o período, e quem vê só algumas unidades gera o relatório só com as suas.",
+  },
+  {
     id: "2026-11-17-relatorios-plano", data: "2026-11-17", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
     titulo: "Relatórios: plano de ação da unidade",
     texto: "A reunião semanal precisava terminar com o que fazer, e os números ficavam num lado e o plano no outro. O relatório semanal de uma unidade agora pode levar o slide Plano de ação, com os itens em aberto do plano do mês, o que resolver agora e o que fazer para acelerar o mês.",
