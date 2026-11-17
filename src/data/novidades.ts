@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-17-relatorios-plano", data: "2026-11-17", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
+    titulo: "Relatórios: plano de ação da unidade",
+    texto: "A reunião semanal precisava terminar com o que fazer, e os números ficavam num lado e o plano no outro. O relatório semanal de uma unidade agora pode levar o slide Plano de ação, com os itens em aberto do plano do mês, o que resolver agora e o que fazer para acelerar o mês.",
+  },
+  {
     id: "2026-11-17-relatorios-mes-ate-aqui", data: "2026-11-17", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "relatorios", artigo: "dono-relatorios",
     titulo: "Relatórios: o mês até aqui",
     texto: "Na reunião semanal, a pergunta é se o mês vai fechar. O relatório da semana agora traz o slide O mês até aqui: faturamento, recebimento, novos contratos e vendas online acumulados do dia 1 até o fim da semana, contra a meta do mês e contra o mesmo ponto do mês anterior.",

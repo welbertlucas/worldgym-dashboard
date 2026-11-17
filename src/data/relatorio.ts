@@ -1,6 +1,7 @@
 // Relatórios: monta o MODELO da apresentação (o que vai em cada slide) a partir dos meses que o painel já leu.
 // Nada de leitura nova no EVO: só os totais mensais que o Atlas já guarda (nunca dado de aluno). O desenho dos slides fica em src/lib/relatorioPptx.ts.
 import type { MonthData, UnitData } from "@/data/dashboardData";
+import { paginasDoPlano, type PlanoDaUnidade } from "@/data/relatorioPlano";
 import { META_INDICATORS, type Meta, type MetaKey } from "@/data/metas";
 
 export type Formato = "brl" | "brl2" | "int" | "pct" | "nota";
@@ -147,6 +148,8 @@ export interface ModeloRelatorio {
   parcialAte?: string | null;
   /** Slide "O mês até aqui" (só no relatório semanal). */
   mesAteAqui?: MesAteAqui | null;
+  /** Slide "Plano de ação da unidade" (só no relatório semanal de uma unidade, no mês em andamento). */
+  plano?: PlanoDaUnidade | null;
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -317,5 +320,5 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
 
 /** O que o menu mostra de cada slide, antes de gerar. */
 export function resumoDosSlides(modelo: ModeloRelatorio): string[] {
-  return ["Capa", ...(modelo.big ? ["Números gerais"] : []), ...(modelo.mesAteAqui ? ["O mês até aqui"] : []), ...modelo.rankings.map((r) => r.titulo.replace("*", "")), "Encerramento"];
+  return ["Capa", ...(modelo.big ? ["Números gerais"] : []), ...(modelo.mesAteAqui ? ["O mês até aqui"] : []), ...modelo.rankings.map((r) => r.titulo.replace("*", "")), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), "Encerramento"];
 }

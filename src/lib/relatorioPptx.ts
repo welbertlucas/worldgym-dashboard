@@ -2,6 +2,7 @@
 // Gráficos nativos do PowerPoint (dá para editar os números), cores e disposição do Report Operacional da rede.
 // O pptxgenjs só é baixado quando a pessoa clica em "Gerar" (import dinâmico).
 import type { Formato, ModeloRelatorio } from "@/data/relatorio";
+import { paginasDoPlano } from "@/data/relatorioPlano";
 import capaFoto from "@/assets/relatorio/capa.jpg";
 import fechoFoto from "@/assets/relatorio/fecho.jpg";
 import logoImg from "@/assets/relatorio/logo.png";
@@ -173,6 +174,43 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     });
     if (r.nota) s.addText(r.nota, { x: 10.2, y: 5.0, w: 2.9, h: 1.8, fontFace: TXT, fontSize: 10, color: PRETO, valign: "top" });
     rodape(s);
+  }
+
+  // Plano de ação da unidade (relatório semanal de uma unidade): o que está em aberto no plano do mês, para a reunião
+  if (m.plano) {
+    const p = m.plano;
+    const { paginas, excedente } = paginasDoPlano(p);
+    const cabecalho = (s: ReturnType<typeof pptx.addSlide>, parte: string) => {
+      s.addText("PLANO DE AÇÃO", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+      s.addText(`${p.unidade} · ${p.mes.slice(5)}/${p.mes.slice(0, 4)} · dados até ${p.dias}/${p.mes.slice(5)}${parte}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    };
+    const rodapeFeitos = (s: ReturnType<typeof pptx.addSlide>) => {
+      const extra = [excedente ? `+${excedente} ${excedente === 1 ? "item" : "itens"} no plano do Atlas` : "", p.feitos.length ? `Já feito: ${p.feitos.join("; ")}` : ""].filter(Boolean).join("   ·   ");
+      if (extra) s.addText(extra, { x: 0.7, y: 6.6, w: 11.9, h: 0.4, fontFace: TXT, fontSize: 11, italic: true, color: CINZA });
+    };
+    if (!paginas.length) {
+      const s = slideDeDados();
+      cabecalho(s, "");
+      s.addText("Nenhum item pendente", { x: 0.8, y: 2.4, w: 11.7, h: 1.4, fontFace: TIT, fontSize: 64, color: VINHO, align: "center", valign: "middle" });
+      s.addText("O plano de ação do mês está em dia.", { x: 0.8, y: 3.9, w: 11.7, h: 0.6, fontFace: TXT, fontSize: 22, color: CINZA, align: "center" });
+      rodapeFeitos(s);
+      rodape(s);
+    }
+    paginas.forEach((itens, pg) => {
+      const s = slideDeDados();
+      cabecalho(s, paginas.length > 1 ? ` · ${pg + 1} de ${paginas.length}` : "");
+      itens.forEach((it, i) => {
+        const y = 1.35 + i * 1.75;
+        const cor = it.gravidade === "critico" ? VERM : it.gravidade === "atencao" ? "E58A00" : "9A9A9A";
+        s.addShape(pptx.ShapeType.ellipse, { x: 0.75, y: y + 0.06, w: 0.2, h: 0.2, fill: { color: cor }, line: { color: cor, width: 0 } });
+        s.addText(it.grupo.toUpperCase(), { x: 1.1, y, w: 4, h: 0.3, fontFace: TXT, fontSize: 10, bold: true, color: cor });
+        s.addText(it.titulo, { x: 1.1, y: y + 0.28, w: 11.4, h: 0.4, fontFace: TXT, fontSize: 17, bold: true, color: TEXTO });
+        s.addText(it.fato, { x: 1.1, y: y + 0.68, w: 11.4, h: 0.5, fontFace: TXT, fontSize: 12, color: TEXTO, valign: "top" });
+        s.addText(`Fazer: ${it.acao}`, { x: 1.1, y: y + 1.15, w: 11.4, h: 0.5, fontFace: TXT, fontSize: 12, bold: true, color: VINHO, valign: "top" });
+      });
+      if (pg === paginas.length - 1) rodapeFeitos(s);
+      rodape(s);
+    });
   }
 
   // Encerramento

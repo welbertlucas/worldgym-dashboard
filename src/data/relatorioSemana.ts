@@ -2,6 +2,7 @@
 // Os números de cada semana vêm de `semanas` de cada unidade (gravados pelas leituras do EVO que já existem). Todo percentual leva a base ("4 de 12").
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
 import type { Meta, MetaKey } from "@/data/metas";
+import type { PlanoDaUnidade } from "@/data/relatorioPlano";
 import { ID_BIG, PERIODOS_NA_EVOLUCAO, mesCurto, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -64,12 +65,14 @@ export const SEMANAIS: DefSemana[] = [
 export const ID_CONVERSAO = "conv";
 /** Slide "O mês até aqui". */
 export const ID_MES_ATE_AQUI = "mes";
+/** Slide "Plano de ação da unidade" (relatório semanal de uma unidade, no mês em andamento). */
+export const ID_PLANO = "plano";
 /** Indicadores acumulados do mês que têm meta na planilha. */
 const ACUMULADOS: { id: string; chave: MetaKey }[] = [
   { id: "fat", chave: "faturamento" }, { id: "rec", chave: "recebimento" }, { id: "nc", chave: "novosContratos" }, { id: "vo", chave: "vendasOnline" },
 ];
-export const INDICADORES_SEMANA_PADRAO = [ID_BIG, ID_MES_ATE_AQUI, "fat", "nc", "op", ID_CONVERSAO, "canc"];
-export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "vo", "op", ID_CONVERSAO, "canc", "di", "pers", "cam", "coq"];
+export const INDICADORES_SEMANA_PADRAO = [ID_BIG, ID_MES_ATE_AQUI, "fat", "nc", "op", ID_CONVERSAO, "canc", ID_PLANO];
+export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "vo", "op", ID_CONVERSAO, "canc", "di", "pers", "cam", "coq", ID_PLANO];
 /** Abaixo disso a conversão da semana vale pouco (um aluno muda vários pontos): o slide avisa. */
 export const BASE_PEQUENA = 10;
 
@@ -145,7 +148,7 @@ const somaCampo = (l: Dados[], f: (s: SemanaDoMes) => number | undefined) => l.r
  * Relatório de uma semana do mês. `fechados` = dias fechados do mês (para saber se a semana já terminou). Semana em andamento sai sem
  * comparação (comparar uma semana pela metade com a semana inteira do mês anterior enganaria). Devolve null se a semana não tem dados.
  */
-export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: number, selecionados: string[], unidades: string[] | null, fechados: number, metas: Meta[] = []): ModeloRelatorio | null {
+export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: number, selecionados: string[], unidades: string[] | null, fechados: number, metas: Meta[] = [], plano: PlanoDaUnidade | null = null): ModeloRelatorio | null {
   const lim = limitesDaSemana(mes, semana);
   const m = meses.find((x) => x.month === mes);
   if (!lim || !m) return null;
@@ -250,5 +253,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,
     tipo: "semana", parcialAte, mesAteAqui,
+    // O plano é de uma unidade só e do mês em andamento: quem monta já confere isso, aqui só entra se foi pedido e o relatório é de uma unidade
+    plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.u.name ? plano : null,
   };
 }

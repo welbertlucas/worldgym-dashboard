@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Presentation } from "lucide-react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
@@ -7,17 +7,20 @@ import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import type { MonthData } from "@/data/dashboardData";
 import type { Meta } from "@/data/metas";
+import type { ResultadoVigente } from "@/data/alertasVigentes";
+import { carregarFeitos, type Feito } from "@/data/planoFeitos";
+import { planoDaUnidade } from "@/data/relatorioPlano";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { diasFechados } from "@/data/vendasDia";
 import { ID_BIG, INDICADORES_PADRAO, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
-import { ID_CONVERSAO, ID_MES_ATE_AQUI, INDICADORES_SEMANA_PADRAO, SEMANAIS, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
+import { ID_CONVERSAO, ID_MES_ATE_AQUI, ID_PLANO, INDICADORES_SEMANA_PADRAO, SEMANAIS, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
 import { getUsuario, podeGerarRelatorios, unidadesProprias } from "@/lib/auth";
 import { registrarExportacao } from "@/lib/atividade";
 
 const ESTADO: Record<string, string> = { fechada: "", andamento: " (em andamento)", futura: " (ainda não começou)" };
 
 /** Menu Relatórios: a pessoa escolhe o período (mês fechado ou uma semana), as unidades e os indicadores e baixa uma apresentação (.pptx) editável. */
-export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dados: MonthData[]; atualizadoEm?: string | null; metas?: Meta[] }) {
+export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes = null }: { dados: MonthData[]; atualizadoEm?: string | null; metas?: Meta[]; /** Plano de ação do mês em andamento (alertas vigentes). */ vigentes?: ResultadoVigente | null }) {
   const meses = useMemo(() => mesesParaRelatorio(dados.map((d) => d.month)), [dados]);
   const mesesSemana = useMemo(() => dados.filter(temSemanas).map((d) => d.month).sort().reverse(), [dados]);
   const [tipo, setTipo] = useState<"mes" | "semana">(() => (mesesSemana.length ? "semana" : "mes")); // a semana é o uso principal (reunião semanal)
@@ -35,6 +38,10 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
   const [indMes, setIndMes] = useState<string[]>(INDICADORES_PADRAO);
   const [indSem, setIndSem] = useState<string[]>(INDICADORES_SEMANA_PADRAO);
   const [gerando, setGerando] = useState(false);
+  // Feitos do plano do mês em andamento (para o slide do plano de ação)
+  const [feitos, setFeitos] = useState<Record<string, Feito>>({});
+  const mesDoPlano = vigentes?.month ?? null;
+  useEffect(() => { let vivo = true; if (mesDoPlano && tipo === "semana") carregarFeitos(mesDoPlano).then((f) => vivo && setFeitos(f)); return () => { vivo = false; }; }, [mesDoPlano, tipo]);
 
   if (!podeGerarRelatorios()) return <Notice>Esta tela não está liberada para o seu acesso.</Notice>;
   if (!meses.length && !mesesSemana.length) return <div><SectionTitle level="page">Relatórios</SectionTitle><Notice>Ainda não há dados para gerar o relatório.</Notice></div>;
@@ -44,9 +51,12 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
   const unidades = escopo === "algumas" ? marcadas : proprias ? nomes : null;
   const umaUnidade = escopo === "algumas" ? marcadas.length === 1 : nomes.length === 1;
   const prefixo = umaUnidade ? "" : "Ranking: ";
+  const unidadeUnica = escopo === "algumas" ? (marcadas.length === 1 ? marcadas[0] : null) : nomes.length === 1 ? nomes[0] : null;
+  const plano = tipo === "semana" && vigentes && unidadeUnica ? planoDaUnidade(vigentes, unidadeUnica, mesSem, feitos, atualizadoEm) : null;
+  const motivoSemPlano = !unidadeUnica ? "escolha uma unidade só" : mesSem !== mesDoPlano ? "só no mês em andamento" : "";
   const modelo: ModeloRelatorio | null = tipo === "mes"
     ? montarRelatorio(dados, mes, indicadores, unidades, metas)
-    : montarRelatorioSemanal(dados, mesSem, semana, indicadores, unidades, fechadosDe(mesSem), metas);
+    : montarRelatorioSemanal(dados, mesSem, semana, indicadores, unidades, fechadosDe(mesSem), metas, plano);
   const mesDoRelatorio = tipo === "mes" ? mes : mesSem;
   const alternar = (id: string) => setIndicadores((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
   const alternarUnidade = (u: string) => setMarcadas((l) => (l.includes(u) ? l.filter((x) => x !== u) : [...l, u]));
@@ -133,7 +143,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-foreground">Indicadores</h3>
               <div className="flex gap-3 text-xs">
-                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id)] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO])}>Marcar todos</button>
+                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id)] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO, ID_PLANO])}>Marcar todos</button>
                 <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores([])}>Limpar</button>
               </div>
             </div>
@@ -153,6 +163,12 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [] }: { dado
                   <input type="checkbox" checked={indicadores.includes(r.id)} onChange={() => alternar(r.id)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />{prefixo}{r.rotulo}
                 </label>
               ))}
+              {tipo === "semana" && (
+                <label className={`flex items-center gap-2 text-sm ${plano || !motivoSemPlano ? "text-foreground" : "text-muted-foreground"}`}>
+                  <input type="checkbox" checked={indicadores.includes(ID_PLANO)} onChange={() => alternar(ID_PLANO)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+                  Plano de ação da unidade (itens em aberto do mês){motivoSemPlano ? ` · ${motivoSemPlano}` : ""}
+                </label>
+              )}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">{tipo === "mes"
               ? `${umaUnidade ? "Cada indicador vira um slide com o valor em destaque." : "Cada ranking vira um slide, com gráfico editável."} Notas (NPS, Google e Reclame Aqui) só entram nas unidades que têm nota no mês.`
