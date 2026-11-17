@@ -5,8 +5,9 @@ import type { Formato, ModeloRelatorio } from "@/data/relatorio";
 import capaFoto from "@/assets/relatorio/capa.jpg";
 import fechoFoto from "@/assets/relatorio/fecho.jpg";
 import logoImg from "@/assets/relatorio/logo.png";
+import fundoImg from "@/assets/relatorio/fundo.jpg";
 
-const VINHO = "700E0E", VERM = "D1141B", PRETO = "111111", FUNDO = "F3F0ED", TEXTO = "2B2B2B", CINZA = "6B6B6B", VERDE = "1E8E3E";
+const VINHO = "700E0E", VERM = "D1141B", PRETO = "111111", TEXTO = "2B2B2B", CINZA = "6B6B6B", VERDE = "1E8E3E";
 /** Títulos: Impact existe em todo Windows e Mac. A fonte do modelo (Gothiks) só vale se instalada em quem abre o arquivo. */
 const TIT = "Impact", TXT = "Montserrat";
 
@@ -15,6 +16,8 @@ const FORMATO_EXCEL: Record<Formato, string> = { brl: '"R$ "#,##0', brl2: '"R$ "
 export interface OpcoesGeracao {
   /** E-mail de quem gera, para o rodapé (rastreio). */
   email: string;
+  /** Palavra grande da capa (ex.: SEMANAL). */
+  titulo?: string;
   /** Data e hora da geração. */
   em?: Date;
 }
@@ -34,20 +37,16 @@ export function nomeDoArquivo(m: ModeloRelatorio): string {
 }
 
 export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): Promise<void> {
-  const [{ default: PptxGenJS }, capa, fecho, logo] = await Promise.all([import("pptxgenjs"), comoDados(capaFoto), comoDados(fechoFoto), comoDados(logoImg)]);
+  const [{ default: PptxGenJS }, capa, fecho, logo, fundo] = await Promise.all([import("pptxgenjs"), comoDados(capaFoto), comoDados(fechoFoto), comoDados(logoImg), comoDados(fundoImg)]);
   const quando = op.em ?? new Date();
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE"; // 13,33 x 7,5 pol.
   pptx.title = `World Gym · Report Operacional ${m.mesCurto}`;
   pptx.author = "World Gym Atlas";
   let n = 0;
-  const rodape = (s: ReturnType<typeof pptx.addSlide>) => s.addText(`Fonte: ABC EVO · gerado pelo Atlas por ${op.email || "usuário"} em ${dataBR(quando)} · ${m.mesCurto}   ${n}`, { x: 0.4, y: 7.1, w: 12.5, h: 0.3, fontFace: TXT, fontSize: 9, color: CINZA });
-  const aba = (s: ReturnType<typeof pptx.addSlide>) => {
-    // Aba inclinada (forma livre): o tipo do pptxgenjs não lista custGeom, mas o biblioteca aceita.
-    s.addShape("custGeom" as never, { x: 0, y: 0, w: 2.6, h: 0.66, fill: { color: VINHO }, points: [{ x: 0, y: 0 }, { x: 2.6, y: 0 }, { x: 2.3, y: 0.66 }, { x: 0, y: 0.66 }, { close: true }] } as never);
-    s.addImage({ data: logo, x: 0.38, y: 0.06, w: 1.54, h: 0.5 });
-  };
-  const slideDeDados = () => { n++; const s = pptx.addSlide(); s.background = { color: FUNDO }; aba(s); return s; };
+  const rodape = (s: ReturnType<typeof pptx.addSlide>) => s.addText(`Fonte: ABC EVO · gerado pelo Atlas por ${op.email || "usuário"} em ${dataBR(quando)} · ${m.periodo}   ${n}`, { x: 0.4, y: 7.1, w: 12.5, h: 0.3, fontFace: TXT, fontSize: 9, color: CINZA });
+  // O fundo (papel amassado, aba vinho com o logo no canto e pontos no rodapé) já vem pronto na imagem.
+  const slideDeDados = () => { n++; const s = pptx.addSlide(); s.background = { data: fundo }; return s; };
 
   // Capa
   {
@@ -55,16 +54,15 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     const s = pptx.addSlide(); s.background = { color: "000000" };
     s.addImage({ data: capa, x: 0, y: 0, w: 13.333, h: 7.5 });
     s.addText("REPORT", { x: 0, y: 1.65, w: 13.33, h: 0.7, fontFace: TIT, fontSize: 48, color: "FFFFFF", align: "center" });
-    s.addText("OPERACIONAL", { x: 0, y: 2.1, w: 13.33, h: 2.2, fontFace: TIT, fontSize: 130, color: "A50001", align: "center" });
-    s.addText(m.mesCurto, { x: 0, y: 4.15, w: 13.33, h: 0.7, fontFace: TIT, fontSize: 40, color: "FFFFFF", align: "center" });
+    s.addText((op.titulo?.trim() || "SEMANAL").toUpperCase(), { x: 0, y: 2.1, w: 13.33, h: 2.2, fontFace: TIT, fontSize: 130, color: "A50001", align: "center" });
+    s.addText(m.periodo, { x: 0, y: 4.15, w: 13.33, h: 0.7, fontFace: TIT, fontSize: 40, color: "FFFFFF", align: "center" });
     if (m.escopo !== "Rede") s.addText(m.escopo.toUpperCase(), { x: 0, y: 5.0, w: 13.33, h: 0.5, fontFace: TXT, fontSize: 20, color: "FFFFFF", align: "center" });
-    s.addImage({ data: logo, x: 5.3, y: 6.35, w: 2.72, h: 0.89 });
+    s.addImage({ data: logo, x: 5.3, y: 6.5, w: 2.72, h: 0.63 });
   }
 
   // Números gerais
   if (m.big) {
     const s = slideDeDados();
-    s.addText(`BIG NUMBERS - ${m.mesCurto.toLowerCase().replace("/", ".").replace(/\.20(\d\d)/, ".$1")}`, { x: 2.6, y: 0.1, w: 8, h: 0.9, fontFace: TIT, fontSize: 38, color: TEXTO });
     m.big.forEach((k, i) => {
       const col = i % 3, lin = Math.floor(i / 3);
       const x = 0.6 + col * 2.95, y = 1.5 + lin * 2.7;
@@ -109,7 +107,6 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     n++;
     const s = pptx.addSlide(); s.background = { color: VINHO };
     s.addImage({ data: fecho, x: 0, y: 0, w: 13.333, h: 7.5 });
-    s.addText("OBRIGADO!", { x: 0, y: 1.2, w: 13.33, h: 1.6, fontFace: TIT, fontSize: 80, color: "FFFFFF", align: "center" });
   }
 
   await pptx.writeFile({ fileName: `${nomeDoArquivo(m)}.pptx` });

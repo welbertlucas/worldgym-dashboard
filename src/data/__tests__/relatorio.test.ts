@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ID_BIG, mesDoAnoAnterior, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
+import { ID_BIG, mesDoAnoAnterior, rotuloDoPeriodo, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
 const dados = [
@@ -10,6 +10,8 @@ const dados = [
 describe("relatório", () => {
   it("mês do ano anterior e meses fechados", () => {
     expect(mesDoAnoAnterior("2026-10")).toBe("2025-10");
+    expect(rotuloDoPeriodo("2026-11")).toBe("1-30 nov/26");
+    expect(rotuloDoPeriodo("2026-02")).toBe("1-28 fev/26");
     expect(mesesParaRelatorio(["2026-09", "2026-10", "2026-11"], new Date(2026, 10, 17))).toEqual(["2026-10", "2026-09"]);
   });
 

@@ -69,6 +69,8 @@ export interface ModeloRelatorio {
   mes: string;
   /** "OUT/2026". */
   mesCurto: string;
+  /** "1-31 out/26": o período escolhido, como vai na capa. */
+  periodo: string;
   /** "out/2025", ou null se o ano anterior não está guardado. */
   mesAnteriorCurto: string | null;
   escopo: string;
@@ -81,6 +83,8 @@ export interface ModeloRelatorio {
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 export const mesCurto = (m: string) => { const [y, n] = m.split("-"); return `${MESES[Number(n) - 1]?.toUpperCase()}/${y}`; };
 const mesCurtoMin = (m: string) => { const [y, n] = m.split("-"); return `${MESES[Number(n) - 1]}/${y}`; };
+/** Período como aparece na capa: "1-30 nov/26" (o mês inteiro, por enquanto). */
+export const rotuloDoPeriodo = (m: string) => { const [y, n] = m.split("-").map(Number); return `1-${new Date(y, n, 0).getDate()} ${MESES[n - 1]}/${String(y).slice(2)}`; };
 export const mesDoAnoAnterior = (m: string) => { const [y, n] = m.split("-"); return `${Number(y) - 1}-${n}`; };
 
 /** Meses fechados que o painel tem (um relatório de mês em andamento mostraria números parciais). */
@@ -160,7 +164,7 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
 
   const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant) : null;
   const escopo = !unidades || unidades.length >= m.units.length ? "Rede" : unidades.length === 1 ? unidades[0] : `${unidades.length} unidades`;
-  return { mes, mesCurto: mesCurto(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, rankings };
+  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, rankings };
 }
 
 /** O que o menu mostra de cada slide, antes de gerar. */
