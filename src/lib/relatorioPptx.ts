@@ -65,24 +65,27 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     const s = slideDeDados();
     m.big.forEach((k, i) => {
       const col = i % 3, lin = Math.floor(i / 3);
-      const x = 0.6 + col * 2.95, y = 1.5 + lin * 2.7;
-      s.addText(k.valor, { x, y, w: 2.9, h: 0.9, fontFace: TIT, fontSize: 36, color: PRETO });
-      s.addText(k.nome, { x, y: y + 0.85, w: 2.9, h: 0.45, fontFace: TIT, fontSize: 18, color: VINHO });
+      const x = 0.5 + col * 3.15, y = 1.35 + lin * 2.8;
+      // valores longos (R$ 7.021.350) encolhem para caber na coluna
+      const tam = k.valor.length > 11 ? 36 : k.valor.length > 9 ? 42 : 48;
+      s.addText(k.valor, { x, y, w: 3.1, h: 1.0, fontFace: TIT, fontSize: tam, color: PRETO, valign: "middle" });
+      s.addText(k.nome, { x, y: y + 0.95, w: 3.1, h: 0.5, fontFace: TIT, fontSize: 24, color: VINHO });
       if (k.variacao !== null) {
         const bom = k.menorMelhor ? k.variacao <= 0 : k.variacao >= 0;
         const txt = k.emPontos ? `${k.variacao >= 0 ? "+" : ""}${k.variacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} p.p.` : sinal(k.variacao);
-        s.addText(txt, { x, y: y + 1.3, w: 2.9, h: 0.3, fontFace: TXT, fontSize: 12, bold: true, color: bom ? VERDE : VERM });
+        s.addText(txt, { x, y: y + 1.45, w: 3.1, h: 0.45, fontFace: TXT, fontSize: 20, bold: true, color: bom ? VERDE : VERM });
       }
-      if (k.anterior && m.mesAnteriorCurto) s.addText(`${k.anterior}  ·  ${m.mesAnteriorCurto}`, { x, y: y + 1.6, w: 2.9, h: 0.3, fontFace: TXT, fontSize: 11, color: CINZA });
+      if (k.anterior && m.mesAnteriorCurto) s.addText(`${k.anterior}  ·  ${m.mesAnteriorCurto}`, { x, y: y + 1.9, w: 3.1, h: 0.4, fontFace: TXT, fontSize: 15, color: CINZA });
     });
-    s.addText(`${m.nUnidades} ${m.nUnidades === 1 ? "unidade" : "unidades"}`, { x: 9.4, y: 1.8, w: 3.8, h: 0.9, fontFace: TIT, fontSize: 44, color: VINHO });
-    s.addText(m.escopo === "Rede" ? "na rede World Gym" : m.escopo, { x: 9.4, y: 2.75, w: 3.5, h: 0.5, fontFace: TXT, fontSize: 14, color: PRETO });
+    s.addText(`${m.nUnidades} ${m.nUnidades === 1 ? "unidade" : "unidades"}`, { x: 10.0, y: 1.35, w: 3.2, h: 0.9, fontFace: TIT, fontSize: 48, color: VINHO });
+    s.addText(m.escopo === "Rede" ? "na rede World Gym" : m.escopo, { x: 10.0, y: 2.2, w: 3.2, h: 0.5, fontFace: TXT, fontSize: 16, color: PRETO });
     if (m.conversao !== null) {
       const cv = Math.round(m.conversao);
       s.addChart(pptx.ChartType.doughnut, [{ name: "Conversão", labels: ["Convertidas", "Demais"], values: [cv, 100 - cv] }],
-        { x: 9.6, y: 3.7, w: 3.2, h: 2.7, holeSize: 62, chartColors: [VINHO, "D9D3CF"], showLegend: false, showLabel: false, showValue: false, showPercent: false });
-      s.addText(`${cv}%`, { x: 9.6, y: 4.65, w: 3.2, h: 0.7, fontFace: TIT, fontSize: 28, color: VINHO, align: "center" });
-      s.addText("Índice de conversão de vendas", { x: 9.4, y: 6.4, w: 3.6, h: 0.35, fontFace: TXT, fontSize: 11, italic: true, color: PRETO, align: "center" });
+        { x: 10.0, y: 2.85, w: 3.1, h: 2.6, holeSize: 62, chartColors: [VINHO, "D9D3CF"], showLegend: false, showLabel: false, showValue: false, showPercent: false });
+      s.addText(`${cv}%`, { x: 10.0, y: 3.8, w: 3.1, h: 0.7, fontFace: TIT, fontSize: 40, color: VINHO, align: "center" });
+      s.addText("Índice de conversão de vendas", { x: 9.9, y: 5.5, w: 3.3, h: 0.4, fontFace: TXT, fontSize: 14, italic: true, color: PRETO, align: "center" });
+      if (m.oportunidades !== null) s.addText(`${m.oportunidades.toLocaleString("pt-BR")} oportunidades cadastradas`, { x: 9.9, y: 5.9, w: 3.3, h: 0.7, fontFace: TXT, fontSize: 16, bold: true, color: VINHO, align: "center", valign: "top" });
     }
     rodape(s);
   }
@@ -92,11 +95,25 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     const s = slideDeDados();
     s.addText(r.titulo.toUpperCase(), { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
     s.addText(r.subtitulo, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    if (r.cartao) {
+      // Uma unidade só: valor em destaque, variação e o valor do ano anterior
+      const c = r.cartao;
+      const tam = c.valor.length > 11 ? 72 : c.valor.length > 8 ? 88 : 110;
+      s.addText(c.valor, { x: 0.8, y: 1.9, w: 11.7, h: 1.9, fontFace: TIT, fontSize: tam, color: VINHO, align: "center", valign: "middle" });
+      if (c.variacao !== null) {
+        const bom = c.menorMelhor ? c.variacao <= 0 : c.variacao >= 0;
+        const txt = c.emPontos ? `${c.variacao >= 0 ? "+" : ""}${c.variacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} p.p.` : sinal(c.variacao);
+        s.addText(txt, { x: 0.8, y: 4.0, w: 11.7, h: 0.8, fontFace: TXT, fontSize: 40, bold: true, color: bom ? VERDE : VERM, align: "center" });
+      }
+      if (c.anterior) s.addText(c.anterior, { x: 0.8, y: 4.9, w: 11.7, h: 0.6, fontFace: TXT, fontSize: 24, color: CINZA, align: "center" });
+      rodape(s);
+      continue;
+    }
     const ord = [...r.itens].sort((a, b) => a[1] - b[1]); // a barra horizontal desenha de baixo para cima
     s.addChart(pptx.ChartType.bar, [{ name: r.titulo, labels: ord.map((x) => x[0]), values: ord.map((x) => x[1]) }], {
       x: 0.5, y: 1.15, w: r.nota ? 9.6 : 12.3, h: 5.9, barDir: "bar", chartColors: [VINHO], showValue: true, dataLabelFormatCode: FORMATO_EXCEL[r.formato],
       dataLabelColor: "FFFFFF", dataLabelFontSize: 9, dataLabelFontFace: TXT, dataLabelPosition: "inEnd", catAxisLabelFontSize: 10, catAxisLabelFontFace: TXT,
-      valAxisHidden: true, valGridLine: { color: "DDD6D1", size: 0.5 }, catGridLine: { style: "none" }, barGapWidthPct: 35, showLegend: false,
+      valAxisHidden: true, valGridLine: { color: "DDD6D1", size: 0.5 }, catGridLine: { style: "none" }, barGapWidthPct: r.itens.length <= 3 ? 220 : r.itens.length <= 6 ? 120 : 35, showLegend: false,
     });
     if (r.nota) s.addText(r.nota, { x: 10.2, y: 5.0, w: 2.9, h: 1.8, fontFace: TXT, fontSize: 10, color: PRETO, valign: "top" });
     rodape(s);

@@ -15,6 +15,8 @@ export interface DefRanking {
   crescimento?: boolean;
   /** Valor zero significa "sem dado" (notas), e não resultado. */
   zeroEhVazio?: boolean;
+  /** Cair é bom (inadimplência, churn): a cor da variação se inverte. */
+  menorMelhor?: boolean;
 }
 
 /** Indicadores de ranking por unidade que o menu oferece. A ordem é a dos slides. */
@@ -24,8 +26,8 @@ export const RANKINGS: DefRanking[] = [
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", campo: (u) => u.novosContratos, formato: "int" },
   { id: "tk", rotulo: "Ticket médio", titulo: "Ticket médio", campo: (u) => u.ticketMedio, formato: "brl2" },
   { id: "ad", rotulo: "Adimplentes", titulo: "Adimplentes", campo: (u) => u.adimplentes, formato: "int" },
-  { id: "inad", rotulo: "Inadimplência (%)", titulo: "Inadimplência", campo: (u) => u.inadimplenciaPerc, formato: "pct" },
-  { id: "churn", rotulo: "Churn (%)", titulo: "Churn", campo: (u) => u.churn, formato: "pct" },
+  { id: "inad", rotulo: "Inadimplência (%)", titulo: "Inadimplência", campo: (u) => u.inadimplenciaPerc, formato: "pct", menorMelhor: true },
+  { id: "churn", rotulo: "Churn (%)", titulo: "Churn", campo: (u) => u.churn, formato: "pct", menorMelhor: true },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", campo: (u) => u.vendasOnline, formato: "brl" },
   { id: "op", rotulo: "Oportunidades cadastradas", titulo: "Oportunidades", campo: (u) => u.oportunidades, formato: "int" },
   { id: "di", rotulo: "Diárias", titulo: "Diárias", campo: (u) => u.diarias, formato: "int" },
@@ -55,6 +57,15 @@ export interface BigNumero {
   anterior: string | null;
 }
 
+/** Slide de uma unidade só: valor em destaque, variação e o valor do ano anterior (no lugar da barra única). */
+export interface Cartao {
+  valor: string;
+  variacao: number | null;
+  emPontos?: boolean;
+  menorMelhor?: boolean;
+  anterior: string | null;
+}
+
 export interface SlideRanking {
   id: string;
   titulo: string;
@@ -63,6 +74,8 @@ export interface SlideRanking {
   /** Nome e valor, na ordem da leitura (maior primeiro). */
   itens: [string, number][];
   nota?: string;
+  /** Quando o relatório é de uma unidade só, o slide vira um cartão de destaque (itens fica vazio). */
+  cartao?: Cartao;
 }
 
 export interface ModeloRelatorio {
@@ -77,6 +90,9 @@ export interface ModeloRelatorio {
   nUnidades: number;
   big: BigNumero[] | null;
   conversao: number | null;
+  /** Oportunidades cadastradas e as que viraram venda, para a rosca de conversão. */
+  oportunidades: number | null;
+  convertidas: number | null;
   rankings: SlideRanking[];
 }
 
@@ -93,10 +109,17 @@ export const mesesParaRelatorio = (meses: string[], hoje = new Date()) => {
   return meses.filter((m) => m < atual).sort().reverse();
 };
 
+const fmtValor = (f: Formato, n: number) =>
+  f === "brl" ? "R$ " + n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })
+  : f === "brl2" ? "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  : f === "pct" ? n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%"
+  : f === "nota" ? n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  : Math.round(n).toLocaleString("pt-BR");
+
 const soma = (l: UnitData[], f: (u: UnitData) => number) => l.reduce((s, u) => s + (Number.isFinite(f(u)) ? f(u) : 0), 0);
 const variacao = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
 
-function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNumero[]; conversao: number | null } {
+function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNumero[]; conversao: number | null; oportunidades: number | null; convertidas: number | null } {
   const tem = !!ant?.length;
   const fmtBrl = (n: number) => "R$ " + n.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
   const fmtBrl2 = (n: number) => "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -118,7 +141,7 @@ function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNum
     comp((u) => u.vendasOnline, fmtBrl, "Vendas online"),
   ];
   const op = soma(atual, (u) => u.oportunidades), cv = soma(atual, (u) => u.conversoes);
-  return { big, conversao: op > 0 ? Math.min(100, (cv / op) * 100) : null };
+  return { big, conversao: op > 0 ? Math.min(100, (cv / op) * 100) : null, oportunidades: op > 0 ? op : null, convertidas: op > 0 ? Math.min(cv, op) : null };
 }
 
 /**
@@ -138,8 +161,29 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
   const escolheu = new Set(selecionados);
 
   const rankings: SlideRanking[] = [];
+  const umaSo = atual.length === 1 ? atual[0] : null;
   for (const def of RANKINGS) {
     if (!escolheu.has(def.id)) continue;
+    if (umaSo) {
+      // Uma unidade só: não há ranking, então o slide é um cartão com o valor, a variação e o ano anterior.
+      const antU = porNomeAnt.get(umaSo.name);
+      if (def.crescimento) {
+        const b = antU?.faturamento ?? 0;
+        if (!ant || b <= 0) continue;
+        const v = ((umaSo.faturamento - b) / b) * 100;
+        rankings.push({ id: def.id, titulo: def.titulo.replace("*", ""), subtitulo: `comparado com ${antCurto}`, formato: def.formato, itens: [], cartao: { valor: (v >= 0 ? "+" : "") + v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%", variacao: null, anterior: `${fmtValor("brl", b)} em ${antCurto} → ${fmtValor("brl", umaSo.faturamento)}` } });
+        continue;
+      }
+      const v = def.campo(umaSo);
+      if (typeof v !== "number" || !Number.isFinite(v) || (def.zeroEhVazio && v <= 0)) continue;
+      const b = antU ? def.campo(antU) : null;
+      // mês antigo sem o campo guardado vem como 0: sem base, não compara
+      const temBase = typeof b === "number" && Number.isFinite(b) && b > 0;
+      const emPontos = def.formato === "pct";
+      const variacaoCartao = !temBase ? null : emPontos ? v - (b as number) : (b as number) > 0 ? ((v - (b as number)) / (b as number)) * 100 : null;
+      rankings.push({ id: def.id, titulo: def.titulo, subtitulo: `apenas em ${mesCurto(mes)}`, formato: def.formato, itens: [], cartao: { valor: fmtValor(def.formato, v), variacao: variacaoCartao, emPontos, menorMelhor: def.menorMelhor, anterior: temBase && antCurto ? `${fmtValor(def.formato, b as number)}  ·  ${antCurto}` : null } });
+      continue;
+    }
     let itens: [string, number][] = [];
     let nota: string | undefined;
     if (def.crescimento) {
@@ -164,7 +208,7 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
 
   const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant) : null;
   const escopo = !unidades || unidades.length >= m.units.length ? "Rede" : unidades.length === 1 ? unidades[0] : `${unidades.length} unidades`;
-  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, rankings };
+  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings };
 }
 
 /** O que o menu mostra de cada slide, antes de gerar. */

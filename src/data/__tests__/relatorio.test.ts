@@ -43,4 +43,19 @@ describe("relatório", () => {
     expect(montarRelatorio(dados, "2026-10", ["fat"], ["Inexistente"])).toBeNull();
     expect(montarRelatorio([dados[1]], "2026-10", ["cresc"], null)!.rankings).toHaveLength(0);
   });
+
+  it("uma unidade só vira cartão de destaque, com variação e ano anterior", () => {
+    const m = montarRelatorio(dados, "2026-10", ["fat", "inad", "cresc", "nps"], ["Asa Sul"])!;
+    const [fat, cresc, inad, nps] = m.rankings;
+    expect(fat.itens).toEqual([]);
+    expect(fat.cartao!.valor).toBe("R$ 120.000");
+    expect(fat.cartao!.variacao).toBeCloseTo(20, 5);
+    expect(fat.cartao!.anterior).toContain("100.000");
+    expect(inad.cartao!.emPontos).toBe(true);
+    expect(inad.cartao!.menorMelhor).toBe(true);
+    expect(cresc.cartao!.valor).toBe("+20,0%");
+    expect(nps.cartao!.anterior).toBeNull(); // sem nota no ano anterior
+    expect(montarRelatorio(dados, "2026-10", ["inad"], ["Nova"])!.rankings[0].cartao!.variacao).toBeNull(); // sem mês igual no ano anterior
+    expect(montarRelatorio(dados, "2026-10", ["fat", "cresc"], ["Nova"])!.rankings.map((r) => r.id)).toEqual(["fat"]); // sem base: sem crescimento
+  });
 });
