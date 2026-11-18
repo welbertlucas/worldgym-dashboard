@@ -4,6 +4,7 @@ import { computeMonth } from "../server/evo.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 import { salvarPagadores } from "../server/inadPerfil.js";
 import { mesclarSemanas } from "../server/semanas.js";
+import { preservarCampos } from "../server/preservar.js";
 
 // Campos que não vêm desta rotina (foto de contratos de evo-contratos.mjs): preserva ao regravar o mês.
 const CONTRATOS = ["alunosAtivos", "contratosAtivos", "contratosEspeciais", "contratosPersonal", "contratosLocal", "contratosParcial", "contratosRede", "ativosFim", "ativosIni", "cancelados", "aVencer", "naoRenovados", "naoRenovadosTipos", "naoRenovadosPlanos", "npsPromotores", "npsDetratores", "npsRespostas", "novosContratos", "vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "oportunidades", "conversoes", "fluxoNovos", "fluxoRetornos", "fluxoCancelados", "fluxoVencidos", "permanenciaMeses", "motivosCancel", "canceladosTipos", "canceladosPlanos", "origens", "cobrancas", "recusaMotivos", "treinoAtivo", "treinoVencido", "treinoFuturo"];
@@ -24,12 +25,14 @@ async function processar(ym) {
   const pagadores = {};
   for (const u of data.units) { if (u._pagadores) pagadores[u.name] = u._pagadores; delete u._pagadores; }
   salvarPagadores(ym, pagadores);
-  for (const u of data.units) {
+  // Os campos das outras etapas (vendas, entradas, pagamentos, cobranças...) ficam como estavam até cada etapa atualizar o seu.
+  data.units = data.units.map((u) => {
     const old = antes?.units.find((x) => x.name === u.name);
-    if (old) for (const k of CONTRATOS) if (old[k] !== undefined) u[k] = old[k];
+    const unida = preservarCampos(u, old, CONTRATOS);
     // As semanas têm partes de outras rotinas (vendas, prospects, cancelamentos): guarda as antigas e põe por cima só o faturamento e o recebimento novos.
-    if (old?.semanas) u.semanas = mesclarSemanas(old.semanas, u.semanas);
-  }
+    if (old?.semanas) unida.semanas = mesclarSemanas(old.semanas, u.semanas);
+    return unida;
+  });
   await saveMonth(data);
   const fat = data.units.reduce((s, u) => s + u.faturamento, 0);
   const rec = data.units.reduce((s, u) => s + u.recebimento, 0);
