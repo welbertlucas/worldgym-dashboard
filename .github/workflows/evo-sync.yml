@@ -79,7 +79,7 @@ jobs:
         run: node scripts/evo-backfill.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
         name: Alunos ativos, renovação e onde moram (uma leitura dos alunos para tudo)
-        # Normalmente leva ~1h. Se o EVO estiver lento (em 17/11/2026 esta etapa passou de 4h e o tempo total de 5h cancelou tudo,
+        # Normalmente leva ~1h. Lê 3 unidades ao mesmo tempo; passados 125 min não começa unidade nova e aos 143 min grava e encerra com sucesso (as que faltam são as primeiras da noite seguinte); o limite abaixo é só a última rede. Se o EVO estiver lento (em 17/11/2026 esta etapa passou de 4h e o tempo total de 5h cancelou tudo,
         # sem vendas, prospects, cancelamentos nem consolidação), ela falha sozinha aqui e as etapas seguintes ainda rodam.
         timeout-minutes: 150
         env:
