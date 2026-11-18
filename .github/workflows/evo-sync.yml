@@ -43,7 +43,17 @@ jobs:
             n="$(gh run list -R "$GITHUB_REPOSITORY" --workflow evo-sync.yml --event workflow_dispatch --limit 20 \
               --json createdAt,status,conclusion \
               --jq "[.[] | select(.conclusion == \"success\" or .status != \"completed\") | select((.createdAt | fromdateiso8601) - 10800 | strftime(\"%Y-%m-%d\") == \"$hoje\")] | length")"
-            if [ "$n" -gt 0 ]; then pular=true; echo "Já rodou hoje ($hoje) pelo despertador ou à mão: pulando."; fi
+            # Qualquer rodada de hoje, mesmo que tenha falhado: o EVO recomenda leituras pesadas só entre 0h e 5h e bloqueia a chave
+            # (423, só o suporte libera) por consumo excessivo em horário de pico. Repetir tudo de dia depois de uma falha é o risco.
+            q="$(gh run list -R "$GITHUB_REPOSITORY" --workflow evo-sync.yml --event workflow_dispatch --limit 20 \
+              --json createdAt \
+              --jq "[.[] | select((.createdAt | fromdateiso8601) - 10800 | strftime(\"%Y-%m-%d\") == \"$hoje\")] | length")"
+            hora="$(TZ=America/Sao_Paulo date +%H)"
+            if [ "$n" -gt 0 ]; then
+              pular=true; echo "Já rodou hoje ($hoje) pelo despertador ou à mão: pulando."
+            elif [ "$q" -gt 0 ] && [ "$((10#$hora))" -ge 5 ]; then
+              pular=true; echo "A rodada de hoje ($hoje) já tentou e não fechou, e são ${hora}h (fora da janela 0h-5h do EVO): pulando para não repetir a leitura em horário de pico."
+            fi
           fi
           echo "pular=$pular" >> "$GITHUB_OUTPUT"
 
@@ -77,18 +87,6 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-backfill.mjs $MONTHS_DONE
-      - if: ${{ !cancelled() }}
-        name: Alunos ativos, renovação e onde moram (uma leitura dos alunos para tudo)
-        # Normalmente leva ~1h. Lê 3 unidades ao mesmo tempo; passados 125 min não começa unidade nova e aos 143 min grava e encerra com sucesso (as que faltam são as primeiras da noite seguinte); o limite abaixo é só a última rede. Se o EVO estiver lento (em 17/11/2026 esta etapa passou de 4h e o tempo total de 5h cancelou tudo,
-        # sem vendas, prospects, cancelamentos nem consolidação), ela falha sozinha aqui e as etapas seguintes ainda rodam.
-        timeout-minutes: 150
-        env:
-          EVO_DNS: ${{ secrets.EVO_DNS }}
-          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          # Mapa temporário aluno → unidade de origem (só no runner; a etapa das entradas lê).
-          MAPA_ORIGEM: ${{ runner.temp }}/origem-alunos.json
-        run: node scripts/evo-alunos.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
         name: NPS por unidade (WeHelp)
         # Não derruba a sincronização do EVO se o WeHelp estiver fora do ar ou sem as credenciais cadastradas.
@@ -134,14 +132,6 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-vendas.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
-        name: Entradas na catraca (mapa de calor, liberações manuais e quem treina em outra unidade)
-        env:
-          EVO_DNS: ${{ secrets.EVO_DNS }}
-          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          MAPA_ORIGEM: ${{ runner.temp }}/origem-alunos.json
-        run: node scripts/evo-entradas.mjs $MONTHS_DONE
-      - if: ${{ !cancelled() }}
         name: Recebimento por forma de pagamento e notas fiscais
         env:
           EVO_DNS: ${{ secrets.EVO_DNS }}
@@ -156,6 +146,28 @@ jobs:
           EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-mesmo-dia.mjs
+      # Alunos fica por último dos pesados: lê os membros de todas as unidades (a parte mais lenta, 1 a 2,5 h conforme o EVO) e, assim, o resto
+      # (vendas, prospects, cobranças, pagamentos...) já está gravado quando ele começa. As entradas vêm depois porque usam o mapa que ele deixa.
+      - if: ${{ !cancelled() }}
+        name: Alunos ativos, renovação e onde moram (uma leitura dos alunos para tudo)
+        # Normalmente leva ~1h. Lê 3 unidades ao mesmo tempo; passados 125 min não começa unidade nova e aos 143 min grava e encerra com sucesso (as que faltam são as primeiras da noite seguinte); o limite abaixo é só a última rede. Se o EVO estiver lento (em 17/11/2026 esta etapa passou de 4h e o tempo total de 5h cancelou tudo,
+        # sem vendas, prospects, cancelamentos nem consolidação), ela falha sozinha aqui e as etapas seguintes ainda rodam.
+        timeout-minutes: 150
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          # Mapa temporário aluno → unidade de origem (só no runner; a etapa das entradas lê).
+          MAPA_ORIGEM: ${{ runner.temp }}/origem-alunos.json
+        run: node scripts/evo-alunos.mjs $MONTHS_DONE
+      - if: ${{ !cancelled() }}
+        name: Entradas na catraca (mapa de calor, liberações manuais e quem treina em outra unidade)
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          MAPA_ORIGEM: ${{ runner.temp }}/origem-alunos.json
+        run: node scripts/evo-entradas.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
         name: Consolidar os meses num arquivo só (o painel lê só este)
         env:
