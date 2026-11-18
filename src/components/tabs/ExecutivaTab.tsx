@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { UnitHighlights } from "@/components/UnitHighlights";
@@ -6,6 +7,8 @@ import { TopUnits } from "@/components/executiva/TopUnits";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { oportunidadesCadastradas } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard, type RedeGoal } from "@/components/executiva/MetasKpiCard";
+import { SeletorPeriodo, type Periodo } from "@/components/executiva/SeletorPeriodo";
+import { agregarPeriodo, mesesDoPeriodo, periodoAnterior, rotuloPeriodo } from "@/data/periodo";
 import { ItemVigente, periodoVigente } from "@/components/AlertasVigentes";
 import { type ResultadoVigente } from "@/data/alertasVigentes";
 import { type MonthData, dashboardDataRede } from "@/data/dashboardData";
@@ -46,7 +49,17 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
     : umaUnidade ? resolveGoal(metas, month, month.month, umaUnidade, key)
     : resolveGoal(metas.filter((m) => m.unit !== "TOTAL" && m.unit !== "REDE"), month, month.month, null, key);
   const partial = isPartialMonth(month.month);
-  const t = month.total;
+  // Overview por período: soma o que é soma e pondera o que é taxa (src/data/periodo.ts). Desligado, tudo segue como o mês escolhido no topo.
+  const [periodo, setPeriodo] = useState<Periodo | null>(null);
+  const mesesDaSerie = serie.map((m) => m.month).sort();
+  const idsPeriodo = periodo ? mesesDoPeriodo(serie, periodo.de, periodo.ate) : [];
+  const idsAnterior = periodo ? periodoAnterior(serie, periodo.de, periodo.ate) : [];
+  const dosMeses = (ids: string[]) => serie.filter((m) => ids.includes(m.month)).sort((a, b) => a.month.localeCompare(b.month));
+  const noPeriodo = periodo !== null && idsPeriodo.length > 0;
+  const periodoAtual = noPeriodo ? agregarPeriodo(dosMeses(idsPeriodo)) : null;
+  const periodoPrev = noPeriodo && idsAnterior.length ? agregarPeriodo(dosMeses(idsAnterior)) : undefined;
+  const parcialDoPeriodo = noPeriodo && isPartialMonth(idsPeriodo[idsPeriodo.length - 1]);
+  const t = periodoAtual ? periodoAtual.total : month.total;
   // Plano de ação do mês em andamento: os mais urgentes (com nível primeiro; sem nenhum, as pendências do dia).
   const doEscopo = vigentes.alertas;
   const critical = doEscopo.filter((a) => a.severity === "critical").length;
@@ -71,7 +84,10 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
 
   // Mesmo mês do ano anterior (só para mês fechado e se existir na planilha).
   const ly = partial || comparaMesEscolhido ? undefined : serie.find((d) => d.month === sameMonthLastYear(month.month));
-  const ctx: KpiContext = { cur: month, prev, ly, partial };
+  const ctx: KpiContext = periodoAtual
+    ? { cur: periodoAtual, prev: periodoPrev, ly: undefined, partial: parcialDoPeriodo, prevLabel: rotuloPeriodo(idsAnterior[0] ?? periodo!.de, idsAnterior[idsAnterior.length - 1] ?? periodo!.de) }
+    : { cur: month, prev, ly, partial };
+  const parcial = periodoAtual ? parcialDoPeriodo : partial;
   const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
   // Ritmo do mês: em que nível da meta de faturamento a previsão fecha o mês.
   const goal = metaDe("faturamento");
@@ -93,8 +109,8 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
   const specs: KpiSpec[] = [
     { title: "Faturamento", kind: "flow", pick: (v) => v.total.faturamento, fmt: formatAbbreviatedNumber },
     // Só no mês em andamento: o que ainda vai vencer até o fim do mês somado ao que já venceu (mês fechado = faturamento).
-    ...(partial && t.previsaoFaturamento !== undefined
-      ? [{ title: "Previsão de faturamento", kind: "flow" as const, pick: (v: MonthData) => v.total.previsaoFaturamento ?? v.total.faturamento, fmt: formatAbbreviatedNumber, extra: ritmoDaMeta(t.previsaoFaturamento!) }]
+    ...(parcial && t.previsaoFaturamento !== undefined
+      ? [{ title: "Previsão de faturamento", kind: "flow" as const, pick: (v: MonthData) => v.total.previsaoFaturamento ?? v.total.faturamento, fmt: formatAbbreviatedNumber, extra: noPeriodo ? undefined : ritmoDaMeta(t.previsaoFaturamento!) }]
       : []),
     { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do faturamento`, tone: "neutral" }] },
     { title: "Vendas Online", kind: "flow", pick: (v) => v.total.vendasOnline, fmt: brl },
@@ -114,11 +130,12 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
       )}
 
       <section aria-labelledby="indicadores-titulo">
-        <SectionTitle level="page" hint={`${umaUnidade ? `Números de ${umaUnidade}` : unidades ? `Soma das suas ${unidades.length} unidades` : "Totais da rede"} no mês selecionado. A marca no arco é o mês anterior.`}>
+        <SectionTitle level="page" hint={`${umaUnidade ? `Números de ${umaUnidade}` : unidades ? `Soma das suas ${unidades.length} unidades` : "Totais da rede"} ${noPeriodo ? `no período de ${rotuloPeriodo(periodo!.de, periodo!.ate)} (${idsPeriodo.length} ${idsPeriodo.length === 1 ? "mês" : "meses"}): valores somados e taxas em média ponderada pela base de cada mês.${idsAnterior.length ? ` A marca no arco é o período anterior (${rotuloPeriodo(idsAnterior[0], idsAnterior[idsAnterior.length - 1])}).` : " Não há meses antes dele para comparar."}${parcialDoPeriodo ? " Inclui o mês em andamento, com o que ele tem até hoje." : ""}` : "no mês selecionado. A marca no arco é o mês anterior."}`}>
           <span id="indicadores-titulo">Overview</span>
         </SectionTitle>
+        <div className="mb-4"><SeletorPeriodo meses={mesesDaSerie} periodo={periodo} aoMudar={setPeriodo} ate={month.month} /></div>
         <KpiGrid ctx={ctx} specs={specs}>
-          <MetasKpiCard goals={redeGoals} partial={partial} onOpen={onOpenMetas ?? (() => {})} escopo={escopo} />
+          {!noPeriodo && <MetasKpiCard goals={redeGoals} partial={partial} onOpen={onOpenMetas ?? (() => {})} escopo={escopo} />}
         </KpiGrid>
       </section>
 

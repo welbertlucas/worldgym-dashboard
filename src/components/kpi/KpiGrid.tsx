@@ -55,6 +55,8 @@ export interface KpiContext {
   /** Mesmo mês do ano anterior (só para mês fechado). */
   ly?: MonthView;
   partial: boolean;
+  /** Como chamar a comparação quando `prev` não é um mês (Overview por período: "mar–jun/2026"). */
+  prevLabel?: string;
 }
 
 /** Variação vs. uma referência: direção (seta) e tom (favorável/desfavorável/neutro). */
@@ -80,7 +82,7 @@ export function KpiTile({ ctx, spec }: { ctx: KpiContext; spec: KpiSpec }) {
   const base = prevV && !noBase(spec.pick(prevV)) ? spec.pick(prevV) : undefined;
   const lyVal = !partial && lyV && !noBase(spec.pick(lyV)) ? spec.pick(lyV) : undefined;
   const extra = typeof spec.extra === "function" ? spec.extra(curV) : spec.extra ?? [];
-  const prevLabel = prevV ? shortMonth(prevV.month) : "";
+  const prevLabel = ctx.prevLabel ?? (prevV ? shortMonth(prevV.month) : "");
   const lyLabel = lyV ? shortMonth(lyV.month) : "";
 
   const source = sourceOf(spec.title, curV);

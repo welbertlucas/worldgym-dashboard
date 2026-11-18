@@ -64,6 +64,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   // Telas
   a("telas", "tela-overview", "Overview", "Os principais números do mês, num olhar.", [
     "Cada velocímetro mostra um indicador do mês selecionado. A marca no arco é o mês anterior: dá para ver na hora se subiu ou caiu.",
+    "Para olhar vários meses juntos, use Ver por período e escolha o mês inicial e o final. Faturamento, recebimento e vendas online são somados; churn, inadimplência, renovação e conversão viram a média dos meses ponderada pelo tamanho de cada um (alunos ativos no início, pagantes, contratos a vencer e oportunidades). A marca no arco passa a ser o período anterior, do mesmo tamanho. O X volta ao mês do topo.",
     "Mais abaixo vem a comparação entre unidades no último mês fechado.",
   ], { tela: "executiva", imagem: "overview" }),
   a("telas", "tela-plano", "Plano de ação", "O que fazer em cada unidade neste mês.", [

@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-18-overview-por-periodo", data: "2026-11-18", tipo: "novo", publico: "todos", autora: AUTORA, tela: "executiva", artigo: "tela-overview",
+    titulo: "Overview: números de vários meses de uma vez",
+    texto: "Para saber o faturamento de um trimestre ou do ano, era preciso somar mês a mês. No Overview, o botão Ver por período deixa escolher o mês inicial e o final: faturamento, recebimento e vendas online aparecem somados, e churn, inadimplência, renovação e conversão em média ponderada pelo tamanho de cada mês (um mês grande pesa mais que um pequeno). A marca no arco passa a ser o período anterior, com o mesmo número de meses. O X no botão volta ao mês escolhido no topo.",
+  },
+  {
     id: "2026-11-18-vendedores-que-mais-vendem", data: "2026-11-18", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial/vendas", artigo: "tela-comercial",
     titulo: "Comercial: vendedores que mais vendem",
     texto: "Era preciso abrir o EVO para saber quem estava fechando os contratos da unidade. A aba Vendas agora traz o ranking dos vendedores do mês, com os contratos novos e rematrículas de cada um e o valor vendido, além de quantos vendedores venderam e quantos contratos ficaram sem vendedor no EVO (online e recorrência). Renovações não entram. Cada unidade vê os nomes só da própria equipe. O ranking aparece com os dados de hoje em diante; os meses já lidos ficam sem ele até serem recalculados.",
