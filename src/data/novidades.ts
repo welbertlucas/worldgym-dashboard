@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-18-gateway-cobrancas-taxas", data: "2026-11-18", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "financeiro/recebimento", artigo: "tela-financeiro",
+    titulo: "Financeiro: cobranças e taxas por gateway de cartão",
+    texto: "O recebimento em cartão mostrava só quanto entrou por Stone, Rede, Cielo e outros, sem dizer o peso de cada um. Agora cada gateway traz também quantas cobranças foram, o ticket médio e, quando o EVO informa, as taxas e quanto elas representam do recebido. Os meses já lidos ganham esse detalhe quando forem recalculados; o mês atual já vem com ele a partir da próxima atualização do EVO.",
+  },
+  {
     id: "2026-11-17-relatorios-para-todos", data: "2026-11-17", tipo: "novo", publico: "todos", autora: AUTORA, tela: "relatorios", artigo: "tela-relatorios",
     titulo: "Relatórios: a apresentação da reunião semanal em PowerPoint",
     texto: "Montar os números da reunião semanal exigia copiar valores de várias telas. O novo menu Relatórios gera uma apresentação em PowerPoint, no modelo do Report Operacional, com a semana ou o mês fechado, as unidades e os indicadores que você escolher, incluindo o mês até aqui, a evolução dos últimos 6 períodos e o plano de ação da unidade. Está disponível para quem recebeu o acesso.",

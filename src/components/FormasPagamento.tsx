@@ -46,6 +46,15 @@ export function BandeirasCartao({ total, monthLabel, unitLabel }: { total: UnitD
 const CORES_GATEWAY: Record<string, string> = { Stone: "hsl(142 50% 38%)", Rede: "hsl(4 90% 50%)", Cielo: "hsl(205 80% 45%)", Getnet: "hsl(0 70% 40%)", PagSeguro: "hsl(35 90% 50%)" };
 
 /** Por qual gateway / adquirente (Stone, Rede, Cielo...) passou o recebido em cartão. */
+/** "689 cobranças · ticket R$ 159 · taxas R$ 820 (0,75%)": só quando o mês tem o detalhe (meses antigos não têm). */
+export function detalheDoGateway(det: [number, number] | undefined, valor: number): string | undefined {
+  if (!det || !(det[0] > 0)) return undefined;
+  const [n, taxas] = det;
+  const partes = [`${n.toLocaleString("pt-BR")} ${n === 1 ? "cobrança" : "cobranças"}`, `ticket ${moeda(valor / n)}`];
+  if (taxas > 0 && valor > 0) partes.push(`taxas ${moeda(taxas)} (${((taxas / valor) * 100).toFixed(2).replace(".", ",")}%)`);
+  return partes.join(" · ");
+}
+
 export function GatewaysCartao({ total, monthLabel, unitLabel }: { total: UnitData; monthLabel: string; unitLabel: string }) {
   const l = formasOrdenadas(total.gatewaysCartao ?? {});
   const soma = l.reduce((s, [, v]) => s + v, 0);
@@ -55,7 +64,7 @@ export function GatewaysCartao({ total, monthLabel, unitLabel }: { total: UnitDa
       subtitle={`${unitLabel} • ${monthLabel} • adquirente da transação, crédito e débito`}
       center={{ value: formatAbbreviatedNumber(soma), caption: "em cartão" }}
       empty="Sem gateways do EVO neste mês."
-      items={l.map(([label, value], k) => ({ label, value, color: CORES_GATEWAY[label] ?? CORES[(k + 2) % CORES.length], valueText: moeda(value) }))}
+      items={l.map(([label, value], k) => ({ label, value, color: CORES_GATEWAY[label] ?? CORES[(k + 2) % CORES.length], valueText: moeda(value), detail: detalheDoGateway(total.gatewaysDet?.[label], value) }))}
     />
   );
 }

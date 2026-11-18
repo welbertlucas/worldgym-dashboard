@@ -204,6 +204,8 @@ export interface UnitData {
   bandeirasCartao?: Record<string, number>;
   /** Recebido no mês em cartão por gateway / adquirente (Stone → valor). */
   gatewaysCartao?: Record<string, number>;
+  /** Por gateway: [cobranças de cartão pagas no mês, taxas registradas no campo `fees` do EVO]. Meses antigos não têm. */
+  gatewaysDet?: Record<string, [number, number]>;
 }
 
 /** [quantidade, valor] por tipo de venda. `auto` (parte de `renov`) = renovação automática de plano de recorrência mensal; meses antigos não têm. */
@@ -467,7 +469,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "semanas" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "semanas" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao" | "gatewaysDet">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -693,6 +695,17 @@ export function somarMapas(ms: (Record<string, number> | undefined)[]): Record<s
   return out;
 }
 
+/** Soma mapas nome → [quantidade, valor] de várias unidades (gateways: cobranças e taxas). */
+export function somarDet(ms: (Record<string, [number, number]> | undefined)[]): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {};
+  for (const m of ms) for (const [k, [n, v]] of Object.entries(m ?? {})) { const o = (out[k] ??= [0, 0]); o[0] += n; o[1] = Math.round((o[1] + v) * 100) / 100; }
+  return out;
+}
+/** Como `normalizarNomes`, para mapas [quantidade, valor]: o mesmo gateway escrito de jeitos diferentes vira um só. */
+export function normalizarDet(m: Record<string, [number, number]>, f: (n: string) => string): Record<string, [number, number]> {
+  return somarDet(Object.entries(m).map(([k, v]) => ({ [f(k)]: v })));
+}
+
 /** Soma as origens das oportunidades de várias unidades. */
 export function somarOrigens(us: Pick<UnitData, "origens">[]): Record<string, [number, number]> {
   const out: Record<string, [number, number]> = {};
@@ -848,6 +861,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.notas !== undefined) unit.notas = e.notas;
       if (e.bandeirasCartao !== undefined) unit.bandeirasCartao = normalizarNomes(e.bandeirasCartao, nomeBandeira);
       if (e.gatewaysCartao !== undefined) unit.gatewaysCartao = normalizarNomes(e.gatewaysCartao, nomeGateway);
+      if (e.gatewaysDet !== undefined) unit.gatewaysDet = normalizarDet(e.gatewaysDet, nomeGateway);
       if (e.calor !== undefined) { unit.calor = e.calor; unit.entradasDia = e.entradasDia ?? []; unit.entradas = e.entradas ?? 0; unit.frequentadores = e.frequentadores ?? 0; if (e.liberacoes !== undefined) { unit.liberacoes = e.liberacoes; unit.liberacoesMotivos = e.liberacoesMotivos ?? []; if (e.liberacoesGrupos) unit.liberacoesGrupos = e.liberacoesGrupos; } if (e.outrasUnidades) unit.outrasUnidades = e.outrasUnidades; }
       if (e.bairros !== undefined) { unit.bairros = e.bairros; unit.semBairro = e.semBairro ?? 0; if (e.local) unit.local = e.local; }
       if (e.bairrosInativos !== undefined) { unit.bairrosInativos = e.bairrosInativos; unit.semBairroInativos = e.semBairroInativos ?? 0; }
@@ -953,6 +967,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(md.units.some((u) => u.notas !== undefined) ? { notas: somarNotas(md.units) } : {}),
       ...(md.units.some((u) => u.bandeirasCartao !== undefined) ? { bandeirasCartao: somarMapas(md.units.map((u) => u.bandeirasCartao)) } : {}),
       ...(md.units.some((u) => u.gatewaysCartao !== undefined) ? { gatewaysCartao: somarMapas(md.units.map((u) => u.gatewaysCartao)) } : {}),
+      ...(md.units.some((u) => u.gatewaysDet !== undefined) ? { gatewaysDet: somarDet(md.units.map((u) => u.gatewaysDet)) } : {}),
       ...(md.units.some((u) => u.treinoAtivo !== undefined)
         ? { treinoAtivo: md.units.reduce((n, u) => n + (u.treinoAtivo ?? 0), 0), treinoVencido: md.units.reduce((n, u) => n + (u.treinoVencido ?? 0), 0), treinoFuturo: md.units.reduce((n, u) => n + (u.treinoFuturo ?? 0), 0) }
         : {}),

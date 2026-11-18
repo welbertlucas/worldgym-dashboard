@@ -18,10 +18,11 @@ for (const ym of process.argv.slice(2)) {
     for (const [id, nome] of Object.entries(UNIT_NAMES)) {
       const u = month.units.find((x) => x.name === nome);
       if (!u) continue;
-      const { formas, bandeiras, gateways, titulos } = await pagamentosDoMes(id, ym);
+      const { formas, bandeiras, gateways, gatewaysDet, titulos } = await pagamentosDoMes(id, ym);
       u.formasPagamento = formas;
       u.bandeirasCartao = bandeiras;
       u.gatewaysCartao = gateways;
+      u.gatewaysDet = gatewaysDet;
       // Notas fiscais: se a leitura falhar, as formas de pagamento seguem gravadas (a próxima noite tenta de novo).
       try {
         u.notas = await notasDoMes(id, ym, titulos, hoje);

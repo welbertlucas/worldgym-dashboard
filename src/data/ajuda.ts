@@ -88,7 +88,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   ], { tela: "comercial", imagem: "comercial" }),
   a("telas", "tela-financeiro", "Financeiro", "Faturamento, recebimento, inadimplência e notas fiscais.", [
     "Resumo: faturamento, recebimento, inadimplência e ticket médio, com a previsão de faturamento até o fim do mês.",
-    "Recebimento: formas de pagamento, bandeiras de cartão e taxas cobradas.",
+    "Recebimento: formas de pagamento, bandeiras de cartão e taxas cobradas. No cartão, o gateway (Stone, Rede, Cielo...) mostra quanto entrou por cada um, quantas cobranças foram e o ticket; quando o EVO informa, também as taxas e quanto elas pesam no recebido.",
     "Inadimplência: cobranças de cartão recusadas, saldo devedor por unidade e o perfil de quem está em atraso.",
     "Notas fiscais: notas emitidas no mês por unidade.",
   ], { tela: "financeiro", imagem: "financeiro" }),

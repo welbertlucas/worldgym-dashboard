@@ -169,9 +169,9 @@ describe("entradas na catraca", () => {
 });
 
 // @ts-expect-error módulo JS do servidor
-import { somarFormas as somarFormasServidor, somarBandeiras, somarGateways } from "../../../server/pagamentos.js";
-import { BandeirasCartao, FormasPagamento, GatewaysCartao, formasOrdenadas } from "@/components/FormasPagamento";
-import { somarFormas, nomeBandeira, nomeGateway, normalizarNomes } from "@/data/dashboardData";
+import { somarFormas as somarFormasServidor, somarBandeiras, somarGateways, somarGatewaysDet } from "../../../server/pagamentos.js";
+import { BandeirasCartao, FormasPagamento, GatewaysCartao, detalheDoGateway, formasOrdenadas } from "@/components/FormasPagamento";
+import { somarFormas, nomeBandeira, nomeGateway, normalizarDet, normalizarNomes, somarDet } from "@/data/dashboardData";
 
 describe("formas de pagamento", () => {
   it("soma o valor pago por forma, em português, sem cancelados nem títulos sem pagador", () => {
@@ -202,6 +202,25 @@ describe("formas de pagamento", () => {
     const h = renderToString(<GatewaysCartao total={{ gatewaysCartao: { Stone: 700, Rede: 300 } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
     expect(h).toContain("Stone");
     expect(h).toContain("por gateway");
+  });
+  it("conta as cobranças e soma as taxas por gateway, só no cartão e só o que foi pago", () => {
+    const t = (forma: string, acq: string | null, v: number, fees?: number) => ({ paymentType: { id: 1, name: forma }, cardAcquirer: acq, ammountPaid: v, fees, idMemberPayer: 1 });
+    const det = somarGatewaysDet([t("Credit card", "Stone", 100, 1.7), t("Debit card", "Stone", 50, 0.55), t("Credit card", "Rede", 200, 0), t("Credit card", null, 10, 0.1), t("Deposit", "Stone", 99, 9), t("Credit card", "Stone", 0, 5)]);
+    expect(det).toEqual({ Stone: [2, 2.25], Rede: [1, 0], "Não informada": [1, 0.1] });
+    // o mesmo gateway escrito de jeitos diferentes e a soma entre unidades
+    expect(normalizarDet({ Redecard: [2, 1], REDE: [3, 2] }, nomeGateway)).toEqual({ Rede: [5, 3] });
+    expect(somarDet([{ Stone: [2, 1.5] }, undefined, { Stone: [1, 0.25], Rede: [4, 0] }])).toEqual({ Stone: [3, 1.75], Rede: [4, 0] });
+  });
+  it("o card de gateway mostra cobranças, ticket e taxas quando o mês tem o detalhe, e segue sem ele nos meses antigos", () => {
+    const sp = (x?: string) => x?.replace(/\u00a0/g, " ");
+    expect(sp(detalheDoGateway([689, 820], 109467))).toBe("689 cobranças · ticket R$ 159 · taxas R$ 820 (0,75%)");
+    expect(sp(detalheDoGateway([1, 0], 50))).toBe("1 cobrança · ticket R$ 50");
+    expect(detalheDoGateway(undefined, 100)).toBeUndefined();
+    const com = renderToString(<GatewaysCartao total={{ gatewaysCartao: { Stone: 700, Rede: 300 }, gatewaysDet: { Stone: [7, 14] } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
+    expect(com).toContain("7 cobranças");
+    expect(com).toContain("taxas");
+    const sem = renderToString(<GatewaysCartao total={{ gatewaysCartao: { Stone: 700 } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
+    expect(sem).not.toContain("cobranças");
   });
   it("a rede soma as unidades e a lista agrupa a cauda em Outras", () => {
     expect(somarFormas([{ formasPagamento: { A: 1 } }, { formasPagamento: { A: 2, B: 3 } }, {}])).toEqual({ A: 3, B: 3 });

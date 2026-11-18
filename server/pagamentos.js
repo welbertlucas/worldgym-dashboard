@@ -46,10 +46,27 @@ function somarCartaoPor(titulos, campo) {
   return out;
 }
 
+/**
+ * Por gateway (adquirente), no cartão (crédito e débito): [quantidade de cobranças pagas, taxas registradas pelo EVO no campo `fees`].
+ * Só totais: nada de aluno. O valor recebido por gateway sai de `somarGateways`.
+ */
+export function somarGatewaysDet(titulos) {
+  const out = {};
+  for (const r of titulos) {
+    if (!live(r) || !(r.ammountPaid > 0) || !/card/i.test(r.paymentType?.name ?? "")) continue;
+    const nome = r.cardAcquirer?.trim() || "Não informada";
+    const o = (out[nome] ??= [0, 0]);
+    o[0] += 1;
+    o[1] += Number(r.fees) > 0 ? Number(r.fees) : 0;
+  }
+  for (const k of Object.keys(out)) out[k][1] = round2(out[k][1]);
+  return out;
+}
+
 /** Formas de pagamento, bandeiras e gateways do cartão do mês, com uma só leitura dos recebimentos (devolvidos em `titulos`). */
 export async function pagamentosDoMes(idBranch, ym) {
   const todos = await titulosDoMes(idBranch, ym);
-  return { formas: somarFormas(todos), bandeiras: somarBandeiras(todos), gateways: somarGateways(todos), titulos: todos };
+  return { formas: somarFormas(todos), bandeiras: somarBandeiras(todos), gateways: somarGateways(todos), gatewaysDet: somarGatewaysDet(todos), titulos: todos };
 }
 
 export async function formasDoMes(idBranch, ym) {

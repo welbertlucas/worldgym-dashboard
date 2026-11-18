@@ -7,6 +7,8 @@ export interface DonutItem {
   color: string;
   /** Texto à direita na lista (valor formatado). */
   valueText: string;
+  /** Linha menor sob o nome (ex.: quantidade e ticket). */
+  detail?: string;
 }
 
 const R = 38;
@@ -63,7 +65,7 @@ export function DonutList({ title, subtitle, items, center, empty, className }: 
             {items.map((it, i) => (
               <li key={it.label} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 text-sm">
                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: it.color }} aria-hidden />
-                <span className="flex-1 min-w-0 truncate text-foreground">{it.label}</span>
+                <span className="flex-1 min-w-0"><span className="block truncate text-foreground">{it.label}</span>{it.detail && <span className="block text-xs text-muted-foreground">{it.detail}</span>}</span>
                 <span className="w-14 text-right text-muted-foreground tabular-nums">{pct[i].toFixed(pct[i] > 0 && pct[i] < 10 ? 1 : 0).replace(".", ",")}%</span>
                 <span className="w-28 text-right font-semibold tabular-nums text-foreground">{it.valueText}</span>
               </li>
