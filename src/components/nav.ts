@@ -79,7 +79,7 @@ export const enderecoAtual = (endereco: string) => ENDERECOS_ANTIGOS[endereco] ?
 const PALAVRAS: Record<string, string> = {
   executiva: "visao executiva resumo geral rede painel principal inicio",
   "comercial/resumo": "novos contratos cancelamentos vendas online conversao saldo de clientes",
-  "comercial/vendas": "vendas por dia projecao fechamento calendario contratos mais vendidos planos",
+  "comercial/vendas": "vendas por dia projecao fechamento calendario contratos mais vendidos planos vendedores ranking quem vendeu",
   "comercial/complementares": "diarias personal brinquedoteca kids wg plus pro+ camisetas coqueteleiras produtos",
   plano: "plano de acao o que fazer bussola gestor tarefas copiar whatsapp equipe socios prioridades",
   metas: "meta bronze prata ouro atingimento",

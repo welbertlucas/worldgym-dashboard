@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-18-vendedores-que-mais-vendem", data: "2026-11-18", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial/vendas", artigo: "tela-comercial",
+    titulo: "Comercial: vendedores que mais vendem",
+    texto: "Era preciso abrir o EVO para saber quem estava fechando os contratos da unidade. A aba Vendas agora traz o ranking dos vendedores do mês, com os contratos novos e rematrículas de cada um e o valor vendido, além de quantos vendedores venderam e quantos contratos ficaram sem vendedor no EVO (online e recorrência). Renovações não entram. Cada unidade vê os nomes só da própria equipe. O ranking aparece com os dados de hoje em diante; os meses já lidos ficam sem ele até serem recalculados.",
+  },
+  {
     id: "2026-11-18-gateway-cobrancas-taxas", data: "2026-11-18", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "financeiro/recebimento", artigo: "tela-financeiro",
     titulo: "Financeiro: cobranças e taxas por gateway de cartão",
     texto: "O recebimento em cartão mostrava só quanto entrou por Stone, Rede, Cielo e outros, sem dizer o peso de cada um. Agora cada gateway traz também quantas cobranças foram, o ticket médio e, quando o EVO informa, as taxas e quanto elas representam do recebido. Os meses já lidos ganham esse detalhe quando forem recalculados; o mês atual já vem com ele a partir da próxima atualização do EVO.",

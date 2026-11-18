@@ -21,6 +21,7 @@ import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
 import { TempoParaConverter } from "@/components/TempoParaConverter";
 import { ConsultoresConversao } from "@/components/ConsultoresConversao";
+import { VendedoresVendas } from "@/components/VendedoresVendas";
 import { OportunidadesPorUnidade } from "@/components/OportunidadesPorUnidade";
 import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components/ContratosVendidos";
 import { BandeirasCartao, FormasPagamento, GatewaysCartao } from "@/components/FormasPagamento";
@@ -427,6 +428,7 @@ const Index = () => {
             {aba === "vendas" && (<>
               <div className="mb-6"><VendasPorDia total={kpiCtx.cur.total} month={fullMonthData.month} partial={partialSelected} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} metas={metasData} /></div>
               <div className="mb-6"><ContratosVendidos total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} porFamilia={!selectedUnit} /></div>
+              <div className="mb-6"><VendedoresVendas total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} /></div>
             </>)}
             {aba === "oportunidades" && (<>
               <div className="mb-6"><OrigemOportunidades total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} /></div>

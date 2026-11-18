@@ -123,6 +123,10 @@ function grupoProduto(i, cat) {
   return null;
 }
 
+export const SEM_VENDEDOR = "Sem vendedor";
+/** Quem vendeu (`nameEmployeeSale`). Vendas sem vendedor no EVO (online, recorrência) viram "Sem vendedor". */
+export const nomeVendedor = (venda) => String(venda.nameEmployeeSale ?? "").replace(/\s+/g, " ").trim() || SEM_VENDEDOR;
+
 /**
  * Resume as vendas do mês por unidade. `dias` = tamanho do mês, para `vendasDia` (novos contratos em cada dia do mês,
  * pelo dia da venda; o horário do EVO não é confiável, muitas vendas vêm às 00:00, então fica só o dia).
@@ -132,7 +136,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0), semanas: Array.from({ length: dias > 28 ? 5 : 4 }, () => ({ novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0 })) });
+    const u = (por[nome] ??= { novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _vendedores: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0), semanas: Array.from({ length: dias > 28 ? 5 : 4 }, () => ({ novosContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0 })) });
     const dia = Number(String(s.saleDate ?? "").slice(8, 10));
     const sem = dia >= 1 && dia <= dias ? u.semanas[semanaDoDia(dia) - 1] : null; // semana do mês (relatórios semanais)
     for (const i of s.saleItens || []) {
@@ -163,6 +167,10 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
           const af = u._familias.get(f) ?? [0, 0];
           u._familias.set(f, [af[0] + 1, af[1] + v]);
           u.duracaoVenda[faixaDuracao(planos.get(i.idMembership))] += 1;
+          // Ranking de vendedores (quem vendeu, `nameEmployeeSale`; o campo da comissão não é usado): contratos novos e rematrículas e o valor deles.
+          const vend = nomeVendedor(s);
+          const av = u._vendedores.get(vend) ?? [0, 0];
+          u._vendedores.set(vend, [av[0] + 1, av[1] + v]);
         }
       }
       const cat = categoriaItem(i);
@@ -191,6 +199,12 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
     const todas = [...u._taxas];
     const multas = todas.filter(([n]) => /MULTA/i.test(n));
     u.taxasResumo = [round2(todas.reduce((n, [, [, v]]) => n + v, 0)), multas.reduce((n, [, [q]]) => n + q, 0), round2(multas.reduce((n, [, [, v]]) => n + v, 0))];
+    // Vendedores: os 10 maiores por quantidade de contratos (e valor, no empate) e o total da unidade, para o painel mostrar "Outros".
+    // "Sem vendedor" (online e recorrência, que o EVO não atribui a ninguém) entra na soma, mas nunca no ranking.
+    const vend = [...u._vendedores].map(([n, [q, v]]) => [n, q, round2(v)]);
+    u.vendedores = vend.filter(([n]) => n !== SEM_VENDEDOR).sort((a, b) => b[1] - a[1] || b[2] - a[2] || a[0].localeCompare(b[0], "pt-BR")).slice(0, 10);
+    u.vendedoresTotal = [vend.reduce((n, [, q]) => n + q, 0), round2(vend.reduce((n, [, , v]) => n + v, 0)), vend.filter(([n]) => n !== SEM_VENDEDOR).length, vend.filter(([n]) => n === SEM_VENDEDOR).reduce((n, [, q]) => n + q, 0)];
+    delete u._vendedores;
     delete u._planos;
     delete u._familias;
     delete u._avulsos;
