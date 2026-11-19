@@ -113,3 +113,20 @@ export function resumoDeEntregas(lista: Influenciador[], posts: Record<string, P
   }
   return { feitas, combinadas, comLeitura };
 }
+
+/** A conta da rede que o influenciador deve citar na legenda: a da unidade do contrato (ou a da marca, no contrato da rede toda). */
+export function contaParaCitar(i: Pick<Influenciador, "unidade">, contas: ContasDaRede): string | null {
+  return (i.unidade ? contas.porUnidade[i.unidade] : null) ?? contas.marca;
+}
+
+/**
+ * Pedido pronto para mandar ao influenciador, com a conta certa. null quando não há o que pedir: contrato em que qualquer post conta,
+ * ou sem conta da rede conhecida.
+ */
+export function pedidoDeCitacao(i: Pick<Influenciador, "unidade" | "nome" | "contagem">, contas: ContasDaRede): string | null {
+  if (i.contagem === "qualquer") return null;
+  const conta = contaParaCitar(i, contas);
+  if (!conta) return null;
+  const primeiro = i.nome?.trim().split(/\s+/)[0];
+  return `Oi${primeiro ? `, ${primeiro}` : ""}! Para os seus posts de feed e reels contarem no combinado com a World Gym${i.unidade ? ` ${i.unidade}` : ""}, cite a conta @${conta} na legenda de cada post (pode escrever com ou sem @). Marcar a conta só na imagem, fazer o post em colaboração ou postar só nos stories não aparece para a gente, e aí o post não entra na conta.`;
+}

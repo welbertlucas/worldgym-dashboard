@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Building2, CheckCircle2, Clapperboard, ExternalLink, Image as ImageIcon, Plus, Smartphone, UserRound, Users } from "lucide-react";
+import { Building2, CheckCircle2, Clapperboard, Copy, ExternalLink, Image as ImageIcon, Plus, Smartphone, UserRound, Users } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
+import { Notice } from "@/components/Notice";
 import { FaixaKpi, type ItemKpi } from "@/components/FaixaKpi";
 import { Avatar } from "@/components/instagram/Midia";
-import { diaDeBrasilia, entregasDoMes, mesAnteriorDe, resumoDeEntregas, ROTULO_SITUACAO_MES, type ContasDaRede, type EntregasDoMes, type PostsDoPerfil, type SituacaoMes } from "@/data/entregas";
+import { contaParaCitar, diaDeBrasilia, entregasDoMes, mesAnteriorDe, pedidoDeCitacao, resumoDeEntregas, ROTULO_SITUACAO_MES, type ContasDaRede, type EntregasDoMes, type PostsDoPerfil, type SituacaoMes } from "@/data/entregas";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
@@ -102,8 +103,12 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
   ];
   const carregando = lista === null && !erro;
 
+  // O aviso só faz sentido para quem fala com os influenciadores e quando há contrato em que a citação decide se o post conta.
+  const pedeCitacao = podeCadastrar && daEscolha.some((i) => ["vigente", "futuro"].includes(situacaoDoContrato(i)) && (i.contagem ?? "marcando") === "marcando");
+
   return (
     <div className="space-y-6">
+      {pedeCitacao && <AvisoDeCitacao />}
       {!carregando && !erro && lista!.length > 0 && <FaixaKpi itens={itens} rotulo={unit ? `Contratos dos influenciadores, ${unit}` : "Contratos dos influenciadores da rede"} />}
 
       {editando && podeCadastrar && (
@@ -154,7 +159,7 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
             </ChartEmpty>
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visiveis.map((i) => <CartaoDoInfluenciador key={i.id} i={i} perfil={perfis[i.usuario] ?? null} entrega={entregasDoMes(i, posts[i.usuario], contas, ym, hoje)} pode={podeCadastrar} onEditar={() => setEditando(i)} onAtivo={() => alternarAtivo(i)} onRemover={() => remover(i)} />)}
+              {visiveis.map((i) => <CartaoDoInfluenciador key={i.id} i={i} perfil={perfis[i.usuario] ?? null} entrega={entregasDoMes(i, posts[i.usuario], contas, ym, hoje)} contas={contas} pode={podeCadastrar} onEditar={() => setEditando(i)} onAtivo={() => alternarAtivo(i)} onRemover={() => remover(i)} />)}
             </ul>
           )}
         <p className="text-xs text-muted-foreground">O Atlas lê os posts de cada perfil a cada 4 horas e confere o feed e os reels contra o combinado. Por padrão, só conta o post que cita a conta da unidade (ou da marca) na legenda, com ou sem @; cada contrato pode mudar isso para qualquer post do perfil. O Atlas não enxerga marcação feita só na imagem, post em colaboração nem stories, porque a Meta não entrega isso para contas de terceiros.</p>
@@ -226,11 +231,36 @@ function EntregasDoCartao({ i, e }: { i: Influenciador; e: EntregasDoMes }) {
   );
 }
 
+/** Como o influenciador deve marcar a unidade para o post contar. Fica no alto da aba enquanto há contrato que depende disso. */
+export function AvisoDeCitacao() {
+  return (
+    <Notice icon="alert">
+      <p className="font-medium text-foreground">Peça ao influenciador para citar a conta da unidade na legenda.</p>
+      <p className="mt-1 text-muted-foreground">
+        O Atlas só reconhece a entrega de feed e reels quando a legenda traz o nome da conta da unidade, escrito com ou sem @ (ou como hashtag, sem os pontos). Marcar só na imagem, fazer o post em colaboração ou postar só nos stories o Atlas não enxerga,
+        e aí o post aparece como não entregue. Cada cartão mostra a conta certa e tem o botão <b className="font-medium text-foreground">Copiar pedido</b>, com a mensagem pronta para mandar.
+      </p>
+    </Notice>
+  );
+}
+
+/** Copia o pedido de citação do contrato para a área de transferência (e avisa se não conseguiu). */
+async function copiarPedido(texto: string) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast({ title: "Pedido copiado", description: "É só colar na conversa com o influenciador." });
+  } catch {
+    toast({ title: "Não consegui copiar", description: "Seu navegador bloqueou. Selecione e copie o texto abaixo.", variant: "destructive" });
+  }
+}
+
 /** Um contrato: quem é, em que unidade, o que foi combinado por mês e em que ponto do prazo estamos. */
-export function CartaoDoInfluenciador({ i, perfil, entrega, pode, onEditar, onAtivo, onRemover }: { i: Influenciador; perfil: PerfilInfluenciador | null; entrega: EntregasDoMes; pode: boolean; onEditar: () => void; onAtivo: () => void; onRemover: () => void }) {
+export function CartaoDoInfluenciador({ i, perfil, entrega, contas, pode, onEditar, onAtivo, onRemover }: { i: Influenciador; perfil: PerfilInfluenciador | null; entrega: EntregasDoMes; contas: ContasDaRede; pode: boolean; onEditar: () => void; onAtivo: () => void; onRemover: () => void }) {
   const sit = situacaoDoContrato(i);
   const and = andamentoDoContrato(i);
   const apagado = sit === "encerrado" || sit === "inativo";
+  const conta = contaParaCitar(i, contas);
+  const pedido = apagado ? null : pedidoDeCitacao(i, contas);
   const [foto, setFoto] = useState<string | null>(null);
   const temFoto = Boolean(perfil?.foto);
   useEffect(() => {
@@ -273,6 +303,13 @@ export function CartaoDoInfluenciador({ i, perfil, entrega, pode, onEditar, onAt
         </p>
         {i.obs && <p className="mt-2 text-xs text-muted-foreground">{i.obs}</p>}
       </div>
+
+      {pedido && (
+        <div className="rounded-xl bg-secondary/60 px-3 py-2.5 text-xs">
+          <p className="text-muted-foreground">Conta para ele citar na legenda: <b className="font-semibold text-foreground">@{conta}</b></p>
+          <Button size="sm" variant="outline" className="mt-2" onClick={() => void copiarPedido(pedido)}><Copy className="h-3.5 w-3.5" aria-hidden />Copiar pedido</Button>
+        </div>
+      )}
 
       {pode && (
         <div className="mt-auto flex flex-wrap gap-2 border-t border-border pt-3">

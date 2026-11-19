@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contasQueContam, diaDeBrasilia, entregasDoMes, mesAnteriorDe, metaDoMes, postConta, resumoDeEntregas, type ContasDaRede, type PostInfluenciador, type PostsDoPerfil } from "@/data/entregas";
+import { contaParaCitar, contasQueContam, diaDeBrasilia, pedidoDeCitacao, entregasDoMes, mesAnteriorDe, metaDoMes, postConta, resumoDeEntregas, type ContasDaRede, type PostInfluenciador, type PostsDoPerfil } from "@/data/entregas";
 import type { Influenciador } from "@/data/influenciadores";
 
 const CONTAS: ContasDaRede = { marca: "worldgymbrasil", porUnidade: { Gama: "worldgym.gama", "Asa Norte": "worldgym.asanorte" } };
@@ -103,5 +103,25 @@ describe("Resumo de entregas", () => {
       b: perfil([post("feed", "2026-11-02T15:00:00+0000"), post("feed", "2026-11-03T15:00:00+0000"), post("feed", "2026-11-04T15:00:00+0000")]), // 1 a mais
     };
     expect(resumoDeEntregas([a, b, c], posts, CONTAS, "2026-11", HOJE)).toEqual({ feitas: 4, combinadas: 8, comLeitura: 2 });
+  });
+});
+
+describe("Pedido para o influenciador citar a unidade", () => {
+  it("a conta a citar é a da unidade; sem conta da unidade, ou na rede toda, a da marca", () => {
+    expect(contaParaCitar({ unidade: "Gama" }, CONTAS)).toBe("worldgym.gama");
+    expect(contaParaCitar({ unidade: null }, CONTAS)).toBe("worldgymbrasil");
+    expect(contaParaCitar({ unidade: "Itapoã" }, CONTAS)).toBe("worldgymbrasil"); // unidade sem conta conhecida
+    expect(contaParaCitar({ unidade: "Gama" }, { marca: null, porUnidade: {} })).toBeNull();
+  });
+  it("mensagem pronta: chama pelo primeiro nome, traz a conta e o que não vale; sem pedido quando qualquer post conta", () => {
+    const m = pedidoDeCitacao({ unidade: "Gama", nome: "Larisse Sousa", contagem: "marcando" }, CONTAS)!;
+    expect(m).toContain("Oi, Larisse!");
+    expect(m).toContain("World Gym Gama");
+    expect(m).toContain("@worldgym.gama");
+    expect(m).toContain("com ou sem @");
+    expect(m).toContain("só na imagem");
+    expect(pedidoDeCitacao({ unidade: null, nome: undefined, contagem: undefined }, CONTAS)).toMatch(/^Oi! .*World Gym, cite a conta @worldgymbrasil/);
+    expect(pedidoDeCitacao({ unidade: "Gama", nome: "Fulano", contagem: "qualquer" }, CONTAS)).toBeNull();
+    expect(pedidoDeCitacao({ unidade: "Gama", nome: "F", contagem: "marcando" }, { marca: null, porUnidade: {} })).toBeNull();
   });
 });

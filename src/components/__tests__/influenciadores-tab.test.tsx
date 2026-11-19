@@ -51,7 +51,7 @@ describe("Cartão do influenciador: perfil lido do Instagram", () => {
   const cartao = async (perfil: { seguidores: number | null; publicacoes: number | null; foto: boolean; erro: string | null } | null, posts?: PostInfluenciador[], i: Influenciador = base as Influenciador) => {
     const { CartaoDoInfluenciador } = await import("@/components/tabs/InfluenciadoresTab");
     const entrega = entregasDoMes(i, posts ? { lidoEm: "2026-11-19T12:00:00Z", posts } : undefined, CONTAS, "2026-11", "2026-11-19");
-    return renderToString(<ul><CartaoDoInfluenciador i={i} perfil={perfil} entrega={entrega} pode={false} onEditar={() => {}} onAtivo={() => {}} onRemover={() => {}} /></ul>).replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
+    return renderToString(<ul><CartaoDoInfluenciador i={i} perfil={perfil} entrega={entrega} contas={CONTAS} pode={false} onEditar={() => {}} onAtivo={() => {}} onRemover={() => {}} /></ul>).replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
   };
   it("com o perfil lido, mostra os seguidores em formato curto", async () => {
     const h = await cartao({ seguidores: 14417, publicacoes: 300, foto: false, erro: null });
@@ -78,7 +78,7 @@ describe("Cartão do influenciador: entregue contra combinado", () => {
   const cartao = async (posts?: PostInfluenciador[], i: Influenciador = base) => {
     const { CartaoDoInfluenciador } = await import("@/components/tabs/InfluenciadoresTab");
     const entrega = entregasDoMes(i, posts ? { lidoEm: "x", posts } : undefined, CONTAS, "2026-11", "2026-11-19");
-    return renderToString(<ul><CartaoDoInfluenciador i={i} perfil={null} entrega={entrega} pode={false} onEditar={() => {}} onAtivo={() => {}} onRemover={() => {}} /></ul>).replace(/<!-- -->/g, "");
+    return renderToString(<ul><CartaoDoInfluenciador i={i} perfil={null} entrega={entrega} contas={CONTAS} pode={false} onEditar={() => {}} onAtivo={() => {}} onRemover={() => {}} /></ul>).replace(/<!-- -->/g, "");
   };
 
   it("sem leitura de posts: mostra só o combinado e avisa", async () => {
@@ -119,5 +119,41 @@ describe("Cartão do influenciador: entregue contra combinado", () => {
   it("contrato desativado e post de um mês só de stories não quebram", async () => {
     expect(await cartao([], { ...base, ativo: false })).toContain("Contrato desativado");
     expect(await cartao([], { ...base, entregas: { stories: 5, feed: 0, reels: 0 } })).toContain("Só stories combinados");
+  });
+});
+
+describe("Pedido para o influenciador citar a unidade", () => {
+  const base = { id: "1", usuario: "larisse.sousaa_", nome: "Larisse Sousa", unidade: "Gama", inicio: null, fim: null, entregas: { stories: 6, feed: 4, reels: 2 }, contagem: "marcando", ativo: true, criadoEm: "2026-11-19T00:00:00Z" } as Influenciador;
+  const cartao = async (i: Influenciador) => {
+    const { CartaoDoInfluenciador } = await import("@/components/tabs/InfluenciadoresTab");
+    const entrega = entregasDoMes(i, undefined, CONTAS, "2026-11", "2026-11-19");
+    return renderToString(<ul><CartaoDoInfluenciador i={i} perfil={null} entrega={entrega} contas={CONTAS} pode={false} onEditar={() => {}} onAtivo={() => {}} onRemover={() => {}} /></ul>).replace(/<!-- -->/g, "");
+  };
+
+  it("o aviso do topo explica como citar e o que o Atlas não enxerga", async () => {
+    const { AvisoDeCitacao } = await import("@/components/tabs/InfluenciadoresTab");
+    const h = renderToString(<AvisoDeCitacao />).replace(/<!-- -->/g, "");
+    expect(h).toContain("Peça ao influenciador para citar a conta da unidade na legenda.");
+    expect(h).toContain("com ou sem @");
+    expect(h).toContain("Copiar pedido");
+    expect(h).toContain("colaboração");
+    expect(h).toContain("stories");
+  });
+
+  it("o cartão mostra a conta certa da unidade e o botão de copiar", async () => {
+    const h = await cartao(base);
+    expect(h).toContain("Conta para ele citar na legenda");
+    expect(h).toContain("@worldgym.gama");
+    expect(h).toContain("Copiar pedido");
+  });
+
+  it("sem botão quando qualquer post conta ou o contrato já acabou ou foi desativado", async () => {
+    expect(await cartao({ ...base, contagem: "qualquer" })).not.toContain("Copiar pedido");
+    expect(await cartao({ ...base, fim: "2026-11-01" })).not.toContain("Copiar pedido"); // encerrado
+    expect(await cartao({ ...base, ativo: false })).not.toContain("Copiar pedido");
+  });
+
+  it("contrato da rede toda pede a conta da marca", async () => {
+    expect(await cartao({ ...base, unidade: null })).toContain("@worldgymbrasil");
   });
 });
