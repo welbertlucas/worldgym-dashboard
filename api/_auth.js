@@ -119,6 +119,8 @@ export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
   if (t.tipo === "legado") return lista.length === 0 ? SESSAO_LEGADO : null;
   const u = lista.find((x) => x.id === t.uid && x.ativo !== false);
   if (!u) return null;
+  // Senha redefinida pelo "esqueci minha senha": as sessões que começaram antes disso caem (quem entrou com a senha esquecida não segue logado).
+  if (u.senhaEm && !(t.desde > u.senhaEm)) return null;
   // Renova quando o token tem mais de 5 minutos (e o teto ainda não limitou o vencimento). Tokens mais longos que o devido (antigos de 30 dias, ou de
   // quem passou a ver só algumas unidades) são encurtados no primeiro uso. O início da sessão (desde) segue o mesmo na renovação.
   const inat = inatividadeDe(u.papel);

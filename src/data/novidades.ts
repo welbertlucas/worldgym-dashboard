@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-19-esqueci-minha-senha", data: "2026-11-19", tipo: "novo", publico: "todos", autora: AUTORA, artigo: "trocar-senha",
+    titulo: "Entrar: esqueci minha senha",
+    texto: "Quem esquecia a senha ficava esperando alguém gerar uma nova. Agora, na tela de entrada, o botão Esqueci minha senha manda para o seu e-mail um link para criar a senha nova. O link vale por 30 minutos e só funciona uma vez, e a senha antiga continua valendo até você usá-lo.",
+  },
+  {
     id: "2026-11-19-contratos-em-alunos", data: "2026-11-19", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "alunos/contratos", artigo: "tela-alunos",
     titulo: "Alunos: contratos ativos mudaram de lugar",
     texto: "Quantos contratos especiais, de personal, de plano local e de plano rede a unidade tem era um dado de base de alunos escondido no Ranking da rede. Agora fica em Alunos, na aba Contratos, com o percentual da rede ao lado quando uma unidade está escolhida. O endereço antigo continua funcionando e leva para o novo.",

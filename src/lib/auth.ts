@@ -172,6 +172,44 @@ function idDoAparelho(): string {
   } catch { return ""; }
 }
 
+const TEMPO_DEMAIS = (m?: number) => `Muitas tentativas. Tente de novo em ${m ?? 15} ${m === 1 ? "minuto" : "minutos"}.`;
+
+/** "Esqueci minha senha": o servidor responde sempre igual, tenha o e-mail acesso ou não. */
+export async function pedirRedefinicaoDeSenha(email: string): Promise<{ ok: true } | { ok: false; erro: string }> {
+  try {
+    const res = await fetch(`${API}/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "esqueci", email }) });
+    if (res.status === 429) return { ok: false, erro: TEMPO_DEMAIS(((await res.json().catch(() => ({}))) as { minutos?: number }).minutos) };
+    if (!res.ok) return { ok: false, erro: "Não consegui enviar agora. Tente de novo em instantes." };
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Sem conexão com o servidor." };
+  }
+}
+
+/** Escolhe a nova senha com o código do link recebido por e-mail. */
+export async function redefinirSenhaComLink(token: string, nova: string): Promise<{ ok: true } | { ok: false; erro: string }> {
+  try {
+    const res = await fetch(`${API}/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "redefinir", token, nova }) });
+    if (res.status === 429) return { ok: false, erro: TEMPO_DEMAIS(((await res.json().catch(() => ({}))) as { minutos?: number }).minutos) };
+    if (!res.ok) return { ok: false, erro: ((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Não consegui trocar a senha agora." };
+    return { ok: true };
+  } catch {
+    return { ok: false, erro: "Sem conexão com o servidor." };
+  }
+}
+
+/** Código do link "#redefinir=..." do e-mail. Sai do endereço na hora (não fica no histórico nem na barra do navegador). */
+let tokenLido: string | null | undefined; // lido uma vez por carregamento da página (o React pode chamar duas vezes, e na segunda o endereço já está limpo)
+export function tokenDeRedefinicaoNaUrl(): string | null {
+  if (tokenLido !== undefined) return tokenLido;
+  if (typeof location === "undefined") return null;
+  const m = /^#redefinir=([^&]+)/.exec(location.hash);
+  if (!m) return (tokenLido = null);
+  try { history.replaceState(null, "", location.pathname + location.search); } catch { /* nada */ }
+  try { tokenLido = decodeURIComponent(m[1]); } catch { tokenLido = null; }
+  return tokenLido;
+}
+
 export async function entrar(senha: string, email?: string): Promise<{ ok: true } | { ok: false; erro: string }> {
   try {
     const res = await fetch(`${API}/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(comEmail ? { email, senha, aparelho: idDoAparelho() } : { senha }) });

@@ -151,9 +151,11 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Cada indicador tem uma regra de cálculo, explicada em \"O que significa cada indicador\" e no botão \"i\" de cada card. A conversão, por exemplo, segue o relatório de cadastro e conversão de oportunidades, e não o número de visitantes do Resumo gerencial do EVO, que usa outra regra e também conta quem se cadastrou antes e fechou agora. Esse grupo aparece à parte, na coluna \"De cadastros antigos\" de Oportunidades por unidade.",
     "Se mesmo assim o número parecer errado, avise quem liberou o seu acesso.",
   ]),
-  a("duvidas", "trocar-senha", "Como troco minha senha?", "Pelo seu nome, no canto do cabeçalho.", [
-    "No computador, clique no seu nome no canto do cabeçalho e escolha a nova senha.",
-    "Se esqueceu a senha, peça uma nova a quem liberou o seu acesso.",
+  a("duvidas", "trocar-senha", "Como troco minha senha? E se eu esquecer?", "Pelo seu nome, no cabeçalho; se esqueceu, pelo “Esqueci minha senha”.", [
+    "Para trocar: no computador, clique no seu nome no canto do cabeçalho e escolha a nova senha.",
+    "Se esqueceu a senha: na tela de entrada, clique em Esqueci minha senha e digite o e-mail do seu acesso. Chega um e-mail com um link para criar a nova senha. O link vale por 30 minutos e só funciona uma vez.",
+    "Por segurança, o Atlas responde igual tenha o e-mail acesso ou não. Se o e-mail não chegar, olhe a caixa de spam e confira se digitou o e-mail do seu acesso; se ainda assim não chegar, peça uma nova senha a quem liberou o seu acesso.",
+    "Ao criar a nova senha, o Atlas sai dos aparelhos onde você estava conectado, e você entra de novo com a senha nova.",
   ]),
   a("duvidas", "pediu-senha", "Por que o Atlas pediu a senha de novo?", "Por segurança, depois de um tempo sem uso.", [
     "Depois de um tempo sem uso, e também depois de alguns dias, o Atlas pede para entrar de novo. É para ninguém ver os números num computador esquecido aberto.",

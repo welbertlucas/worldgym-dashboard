@@ -211,6 +211,23 @@ export async function definirNovaSenha(id, atual, nova) {
   return publico(u);
 }
 
+/**
+ * "Esqueci minha senha": a pessoa provou ter o e-mail (link de uso único), então não há senha atual para conferir.
+ * Grava `senhaEm`: as sessões abertas antes deste instante deixam de valer (ver sessaoDaRequisicao).
+ */
+export async function definirSenhaPorRedefinicao(id, nova, agora = Date.now()) {
+  const lista = await lerFresco();
+  const u = lista.find((x) => x.id === id && x.ativo !== false);
+  if (!u) throw new ErroAcesso("Link inválido ou vencido. Peça um novo.", 400);
+  const motivo = motivoSenhaFraca(nova, u);
+  if (motivo) throw new ErroAcesso(motivo, 400);
+  u.hash = hashSenha(nova);
+  u.trocarSenha = false;
+  u.senhaEm = agora;
+  await salvar(lista);
+  return publico(u);
+}
+
 /** Confere e-mail e senha. Devolve o usuário ativo ou null (sem dizer qual dos dois errou). */
 export async function autenticar(email, senha) {
   const lista = await listarUsuarios();
@@ -234,16 +251,19 @@ export const limparFreio = () => ultimaFalha.clear();
 
 const mesDe = (d) => new Date(d).toISOString().slice(0, 7);
 
-/** Anota uma entrada (ok) ou tentativa errada de um e-mail que existe. Falhas de e-mails que não existem não são gravadas. */
-export async function registrarAcesso({ email, usuarioId = null, nome = null, ok }, agora = Date.now()) {
-  if (!ok) {
+/**
+ * Anota uma entrada (ok) ou tentativa errada de um e-mail que existe. Falhas de e-mails que não existem não são gravadas.
+ * `evento` ("redefinicao-pedida" | "senha-redefinida"): marca o "esqueci minha senha"; entra com ok=false (não conta como entrada) e sem o freio de 1 por minuto.
+ */
+export async function registrarAcesso({ email, usuarioId = null, nome = null, ok, evento = null }, agora = Date.now()) {
+  if (!ok && !evento) {
     const chave = normalizarEmail(email);
     if (agora - (ultimaFalha.get(chave) ?? 0) < 60_000) return; // freia quem insiste: no máximo 1 registro por minuto
     ultimaFalha.set(chave, agora);
   }
   const arq = arquivoLog(mesDe(agora));
   const atual = (await lerJson(arq)) ?? [];
-  atual.push({ em: new Date(agora).toISOString(), email: normalizarEmail(email), usuarioId, nome, ok });
+  atual.push({ em: new Date(agora).toISOString(), email: normalizarEmail(email), usuarioId, nome, ok, ...(evento ? { evento } : {}) });
   await gravarJson(arq, atual.slice(-LIMITE_LOG));
   if (atual.length === 1) await limparRegistrosAntigos(agora); // primeiro registro do mês: aproveita para apagar os antigos
 }

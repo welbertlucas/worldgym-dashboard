@@ -2,7 +2,8 @@ import { authFetch, API_BASE, type Papel } from "@/lib/auth";
 
 /** `resumo`: recebe o resumo diário por e-mail. `gerenciaAcessos`: Master que o dono liberou a criar e alterar acessos. */
 export interface UsuarioApi { id: string; nome: string; email: string; papel: Papel; unidades: string[]; ativo: boolean; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; criadoEm: string }
-export interface EntradaRegistro { em: string; email: string; usuarioId: string | null; nome: string | null; ok: boolean }
+/** `evento`: o "esqueci minha senha" (pedido do link, senha redefinida). Entra com ok=false e não conta como entrada nem como senha errada. */
+export interface EntradaRegistro { em: string; email: string; usuarioId: string | null; nome: string | null; ok: boolean; evento?: "redefinicao-pedida" | "senha-redefinida" }
 export interface EntradaAtividade { em: string; usuarioId: string; nome: string; email: string; tela: string; evento: "tela" | "exportar"; /** Unidade do filtro (null = a rede toda) e mês (AAAA-MM); ausentes nos registros antigos. */ unidade?: string | null; mes?: string | null }
 export type Resposta<T> = { ok: true; dados: T } | { ok: false; erro: string };
 

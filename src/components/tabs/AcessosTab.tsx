@@ -350,12 +350,14 @@ export function DetalheDoAcesso({ usuario, entradas, atividade, onFechar }: { us
         </p>
 
         <h4 className="mt-5 text-sm font-semibold text-foreground">Entradas recentes</h4>
-        <p className="text-xs text-muted-foreground">Cada vez que a pessoa digitou a senha, e as senhas erradas. Guardamos 90 dias.</p>
+        <p className="text-xs text-muted-foreground">Cada vez que a pessoa digitou a senha, as senhas erradas e os pedidos de nova senha por e-mail. Guardamos 90 dias.</p>
         {entradas.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Nenhuma entrada registrada.</p> : (
           <ul className="mt-2 divide-y divide-border text-sm">
             {entradas.slice(0, 15).map((e, i) => (
               <li key={i} className="flex items-center justify-between gap-3 py-1.5">
-                <span className={e.ok ? "text-foreground" : "font-medium text-destructive"}>{e.ok ? "Entrou" : "Senha errada"}</span>
+                <span className={e.ok || e.evento ? "text-foreground" : "font-medium text-destructive"}>
+                  {e.evento === "redefinicao-pedida" ? "Pediu link para nova senha" : e.evento === "senha-redefinida" ? "Criou nova senha pelo link" : e.ok ? "Entrou" : "Senha errada"}
+                </span>
                 <span className="text-muted-foreground tabular-nums">{quando(e.em)}</span>
               </li>
             ))}

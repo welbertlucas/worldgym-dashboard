@@ -71,7 +71,7 @@ async function marcarAviso(userId, agora) {
   } catch { /* idem */ }
 }
 
-function moldura({ titulo, paragrafos, linhas = [], rodape }) {
+function moldura({ titulo, paragrafos, linhas = [], rodape, botao }) {
   const p = (t) => `<p style="margin:0 0 16px;font-family:${sans};font-size:15px;line-height:1.6;color:${TEXTO}">${t}</p>`;
   const rotulo = (t) => `<p style="margin:0 0 2px;font-family:${sans};font-size:12px;line-height:1.4;color:${SUAVE};text-transform:uppercase;letter-spacing:.06em">${t}</p>`;
   const caixa = linhas.length
@@ -83,7 +83,7 @@ function moldura({ titulo, paragrafos, linhas = [], rodape }) {
 <table role="presentation" width="100%" style="max-width:520px;border-collapse:collapse;background:#ffffff;border-radius:12px"><tr><td style="padding:32px 32px 28px">
 <p style="margin:0 0 20px;font-family:${sans};font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${VERMELHO}">World Gym Atlas</p>
 <h1 style="margin:0 0 16px;font-family:${sans};font-size:21px;line-height:1.3;color:${TINTA}">${esc(titulo)}</h1>
-${paragrafos.map(p).join("")}${caixa}
+${paragrafos.map(p).join("")}${botao ? `<p style="margin:4px 0 20px"><a href="${esc(botao.url)}" style="display:inline-block;padding:13px 22px;border-radius:10px;background:${VERMELHO};color:#ffffff;font-family:${sans};font-size:15px;font-weight:700;text-decoration:none">${esc(botao.texto)}</a></p>` : ""}${caixa}
 ${rodape ? `<p style="margin:0;font-family:${sans};font-size:13px;line-height:1.6;color:${SUAVE}">${rodape}</p>` : ""}
 </td></tr></table>
 </td></tr></table></body></html>`;
@@ -153,6 +153,28 @@ export function emailBloqueio(u, ctx, minutos, agora = Date.now(), { paraDono = 
   };
 }
 
+/** "Esqueci minha senha": o link de uso único (o código vai depois do "#", que o navegador não envia a nenhum servidor). */
+export function linkDeRedefinicao(token) {
+  return `${URL_ATLAS}/#redefinir=${encodeURIComponent(token)}`;
+}
+export const VALIDADE_LINK_MIN = 30;
+
+export function emailRedefinicao(u, token, ctx, agora = Date.now()) {
+  return {
+    assunto: "Crie uma nova senha para o Atlas",
+    html: moldura({
+      titulo: "Criar uma nova senha",
+      paragrafos: [
+        `Olá, ${primeiroNome(u)}.`,
+        `Recebemos um pedido para criar uma nova senha da sua conta do World Gym Atlas. O link abaixo vale por ${VALIDADE_LINK_MIN} minutos e só pode ser usado uma vez.`,
+      ],
+      botao: { texto: "Criar nova senha", url: linkDeRedefinicao(token) },
+      linhas: detalhes(ctx, agora),
+      rodape: "Não foi você? Ignore este e-mail: a sua senha atual continua valendo e nada muda. Se receber vários e-mails assim sem ter pedido, avise o dono do sistema.",
+    }),
+  };
+}
+
 /** A pessoa trocou a própria senha. */
 export function emailSenhaAlterada(u, ctx, agora = Date.now()) {
   return {
@@ -215,6 +237,12 @@ export async function avisarBloqueio(u, ctx, minutos, { agora = Date.now(), ...o
   const envios = [enviarSeguro({ para: u.email, ...emailBloqueio(u, ctx, minutos, agora) }, opc)];
   if (dono) envios.push(enviarSeguro({ para: dono, ...emailBloqueio(u, ctx, minutos, agora, { paraDono: true }) }, opc));
   return { enviados: (await Promise.all(envios)).filter(Boolean).length };
+}
+
+/** Link de "esqueci minha senha" para a própria pessoa. `enviados` 0 = o e-mail não saiu (sem SMTP ou falha). */
+export async function avisarRedefinicao(u, token, ctx, { agora = Date.now(), ...opc } = {}) {
+  const ok = await enviarSeguro({ para: u.email, ...emailRedefinicao(u, token, ctx, agora) }, opc);
+  return { enviados: ok ? 1 : 0 };
 }
 
 /** Senha alterada pela própria pessoa. */
