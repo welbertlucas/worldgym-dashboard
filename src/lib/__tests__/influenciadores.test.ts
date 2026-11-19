@@ -7,7 +7,7 @@ import * as inf from "../../../server/influenciadores.js";
 import { filtrarInfluenciadores } from "../../../server/visibilidade.js";
 // @ts-expect-error módulo JS do servidor
 import instagramApi from "../../../api/instagram.js";
-import { dasUnidades, ordenarInfluenciadores, situacaoDoContrato, textoEntregas, vigencia, type Influenciador } from "../../data/influenciadores";
+import { andamentoDoContrato, dasUnidades, ordenarInfluenciadores, resumoDosContratos, situacaoDoContrato, textoEntregas, vigencia, type Influenciador } from "../../data/influenciadores";
 
 const memoria = () => {
   const m = new Map<string, unknown>();
@@ -222,5 +222,41 @@ describe("regras da tela de influenciadores", () => {
     expect(ordenarInfluenciadores(lista, "2026-11-19").map((i) => i.usuario)).toEqual(["a", "c", "b", "z", "d"]);
     expect(dasUnidades(lista, "Gama").map((i) => i.usuario).sort()).toEqual(["c", "d", "z"]);
     expect(dasUnidades(lista, null)).toHaveLength(5);
+  });
+});
+
+describe("resumo e andamento dos contratos", () => {
+  const c = (p: Partial<Influenciador>): Influenciador => ({ id: "x", usuario: "a", unidade: "Gama", inicio: "2026-11-01", fim: null, entregas: { stories: 6, feed: 1, reels: 1 }, ativo: true, criadoEm: "2026-11-01T00:00:00Z", ...p });
+  const HOJE = "2026-11-19";
+
+  it("resumo: soma só o que está em vigor e conta unidades diferentes (a rede toda não conta como unidade)", () => {
+    const r = resumoDosContratos([
+      c({ usuario: "a", unidade: "Gama", entregas: { stories: 12, feed: 4, reels: 2 } }),
+      c({ usuario: "b", unidade: "Gama", entregas: { stories: 6, feed: 1, reels: 1 } }),
+      c({ usuario: "c", unidade: null, entregas: { stories: 2, feed: 0, reels: 0 } }),
+      c({ usuario: "d", unidade: "Asa Norte", ativo: false }),
+      c({ usuario: "e", unidade: "Itapoã", fim: "2026-10-31" }),
+      c({ usuario: "f", unidade: "Santa Maria", inicio: "2026-12-01" }),
+    ], HOJE);
+    expect(r).toEqual({ total: 6, emVigor: 3, stories: 20, feed: 5, reels: 3, unidades: 1 });
+    expect(resumoDosContratos([], HOJE)).toEqual({ total: 0, emVigor: 0, stories: 0, feed: 0, reels: 0, unidades: 0 });
+  });
+
+  it("andamento: porcentagem do prazo só com início e fim; texto diz o que falta", () => {
+    // 01/11 a 30/11 = 30 dias; hoje é o 19º dia
+    expect(andamentoDoContrato(c({ inicio: "2026-11-01", fim: "2026-11-30" }), HOJE)).toEqual({ pct: 63, texto: "Faltam 11 dias" });
+    expect(andamentoDoContrato(c({ inicio: "2026-11-01", fim: "2026-11-19" }), HOJE)).toEqual({ pct: 100, texto: "Termina hoje" });
+    expect(andamentoDoContrato(c({ inicio: "2026-11-19", fim: "2026-11-20" }), HOJE)).toEqual({ pct: 50, texto: "Faltam 1 dia" });
+    expect(andamentoDoContrato(c({ inicio: "2026-11-01", fim: null }), HOJE)).toEqual({ pct: null, texto: "Em vigor desde 01/11/2026, sem data de fim" });
+    expect(andamentoDoContrato(c({ inicio: null, fim: "2026-12-04" }), HOJE)).toEqual({ pct: null, texto: "Termina em 04/12/2026 (faltam 15 dias)" });
+    expect(andamentoDoContrato(c({ inicio: null, fim: null }), HOJE)).toEqual({ pct: null, texto: "Sem datas definidas" });
+  });
+
+  it("andamento: contrato que ainda não começou, que já acabou e o desativado", () => {
+    expect(andamentoDoContrato(c({ inicio: "2026-11-29", fim: "2027-01-31" }), HOJE)).toEqual({ pct: 0, texto: "Começa em 10 dias" });
+    expect(andamentoDoContrato(c({ inicio: "2026-11-20", fim: null }), HOJE)).toEqual({ pct: null, texto: "Começa em 1 dia" });
+    expect(andamentoDoContrato(c({ inicio: "2026-05-03", fim: "2026-11-14" }), HOJE)).toEqual({ pct: 100, texto: "Encerrou há 5 dias" });
+    expect(andamentoDoContrato(c({ inicio: null, fim: "2026-11-18" }), HOJE)).toEqual({ pct: null, texto: "Encerrou há 1 dia" });
+    expect(andamentoDoContrato(c({ ativo: false }), HOJE)).toEqual({ pct: null, texto: "Contrato desativado" });
   });
 });

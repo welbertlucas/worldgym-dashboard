@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-19-marketing-visual", data: "2026-11-19", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "campanhas/instagram", artigo: "tela-marketing",
+    titulo: "Marketing: Instagram e Influenciadores mais visuais",
+    texto: "A aba Instagram era uma tabela e a de Influenciadores, uma lista de texto, difíceis de entender de relance. Agora o Instagram abre com os números dos últimos 30 dias (seguidores com o ganho e a evolução, interações e visualizações), um cartão por conta, o que gera mais interação e de que ela é feita, o melhor dia e horário para postar, os posts que mais engajaram com a imagem grande, os stories dos últimos 14 dias e o feed com filtro por tipo. Em Influenciadores, o topo mostra os contratos em vigor e o total combinado por mês, e cada contrato ganhou um cartão com o ponto do prazo em que está.",
+  },
+  {
     id: "2026-11-19-marketing-influenciadores", data: "2026-11-19", tipo: "novo", publico: "todos", autora: AUTORA, tela: "campanhas/influenciadores", artigo: "tela-marketing",
     titulo: "Marketing: aba Influenciadores",
     texto: "Os combinados com os influenciadores ficavam espalhados, e não havia onde conferir o que foi acertado com cada um. A nova aba Influenciadores, dentro de Marketing, guarda o @ do Instagram, a unidade, o período do contrato (início e fim são opcionais) e quanto de stories, feed e reels foi combinado por mês. O gestor da unidade cadastra e edita os da sua unidade; o Master e o dono, os de qualquer unidade. Por enquanto são só os contratos; a conferência do que cada um postou entra nas próximas etapas.",

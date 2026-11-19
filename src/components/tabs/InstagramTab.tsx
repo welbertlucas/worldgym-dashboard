@@ -1,176 +1,100 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Eye, Heart, Image as ImageIcon, MessageCircle, Reply } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Eye, Heart, Images, Percent, Users } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
-import { carregarInstagram, contasDaEscolha, imagemInstagram, NOME_DO_TIPO, resumoDasContas, storiesDasUltimas, storiesPorDia, type DadosInstagram, type PostInstagram, type StoryInstagram } from "@/data/instagram";
-import { cn } from "@/lib/utils";
+import { Delta, FaixaKpi, Sparkline, type ItemKpi } from "@/components/FaixaKpi";
 import { DesempenhoPorTipo } from "@/components/DesempenhoPorTipo";
+import { CartaoDaConta } from "@/components/instagram/CartaoDaConta";
+import { FeedSecao } from "@/components/instagram/FeedSecao";
+import { MelhorHorario } from "@/components/instagram/MelhorHorario";
+import { PostsEmDestaque } from "@/components/instagram/PostsEmDestaque";
+import { StoriesSecao } from "@/components/instagram/StoriesSecao";
+import { carregarInstagram, contasDaEscolha, resumoDasContas, type DadosInstagram } from "@/data/instagram";
+import { cartoesDasContas, kpisDoInstagram, ordenarContas, postsDesde, postsQueMaisEngajaram, ROTULO_ORDEM, type OrdemContas } from "@/data/instagramPainel";
+import { cn } from "@/lib/utils";
 
-const int = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString("pt-BR"));
+const int = (n: number | null | undefined) => (n == null ? "—" : Math.round(n).toLocaleString("pt-BR"));
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "");
-const diaLongo = (ymd: string) => { const [y, m, d] = ymd.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" }); };
 
-/** Imagem guardada de um post/story; só busca quando aparece na tela. */
-function Miniatura({ id, temMidia, className, alt }: { id: string; temMidia?: boolean | null; className?: string; alt: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    if (!temMidia || !ref.current) return;
-    let vivo = true;
-    const ver = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting) return;
-      ver.disconnect();
-      imagemInstagram(id).then((u) => vivo && setSrc(u));
-    }, { rootMargin: "200px" });
-    ver.observe(ref.current);
-    return () => { vivo = false; ver.disconnect(); };
-  }, [id, temMidia]);
-  return (
-    <div ref={ref} className={cn("overflow-hidden bg-secondary", className)}>
-      {src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-muted-foreground/50"><ImageIcon className="h-6 w-6" aria-hidden /></span>}
-    </div>
-  );
-}
-
-function Post({ p, mostrarConta }: { p: PostInstagram; mostrarConta: boolean }) {
-  return (
-    <li>
-      <a href={p.link ?? undefined} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={p.legenda || undefined}>
-        <div className="relative">
-          <Miniatura id={p.id} temMidia={p.midia} className="aspect-square w-full" alt={p.legenda ? p.legenda.slice(0, 80) : "Post do Instagram"} />
-          <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">{NOME_DO_TIPO[p.tipo] ?? p.tipo}</span>
-        </div>
-        <div className="space-y-1 p-2.5">
-          <p className="truncate text-xs text-muted-foreground">{mostrarConta && <span className="font-medium text-foreground" title={`@${p.conta}`}>{p.unidade ?? "Institucional"} · </span>}{quando(p.data)}</p>
-          <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums text-foreground">
-            <span className="inline-flex items-center gap-1" title="Curtidas"><Heart className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />{int(p.curtidas)}</span>
-            <span className="inline-flex items-center gap-1" title="Comentários"><MessageCircle className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />{int(p.comentarios)}</span>
-            {p.visualizacoes != null && <span className="inline-flex items-center gap-1" title="Visualizações"><Eye className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />{int(p.visualizacoes)}</span>}
-          </p>
-        </div>
-      </a>
-    </li>
-  );
-}
-
-function Story({ s, mostrarConta }: { s: StoryInstagram; mostrarConta: boolean }) {
-  return (
-    <li className="w-24 shrink-0">
-      <a href={s.link ?? undefined} target="_blank" rel="noreferrer" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
-        <Miniatura id={s.id} temMidia={s.midia} className="aspect-[9/16] w-24 rounded-xl border border-border" alt={`Story de @${s.conta}`} />
-      </a>
-      {mostrarConta && <p className="mt-1 truncate text-[11px] font-medium text-foreground" title={`@${s.conta}`}>{s.unidade ?? "Institucional"}</p>}
-      <p className={cn("flex gap-2 text-[11px] tabular-nums text-foreground", !mostrarConta && "mt-1")}>
-        <span className="text-muted-foreground">{s.data ? new Date(s.data).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
-        <span className="inline-flex items-center gap-0.5" title="Visualizações"><Eye className="h-3 w-3 text-muted-foreground" aria-hidden />{int(s.visualizacoes)}</span>
-        {(s.respostas ?? 0) > 0 && <span className="inline-flex items-center gap-0.5" title="Respostas"><Reply className="h-3 w-3 text-muted-foreground" aria-hidden />{int(s.respostas)}</span>}
-      </p>
-    </li>
-  );
-}
-
-const JANELA_STORIES = { 24: "últimas 24 horas", 168: "últimos 7 dias", 720: "últimos 30 dias" } as const;
+/** Janela dos números e dos destaques; o melhor horário usa uma janela maior porque precisa de mais posts. */
+const DIAS = 30;
+const DIAS_HORARIO = 90;
 
 /**
- * Instagram das unidades: perfis (seguidores e ritmo de postagem), o feed e os stories guardados. Segue o botão de
- * unidade do alto: na rede mostra todas as contas (a Institucional primeiro); com uma unidade, só a conta dela.
+ * Instagram das unidades: números da rede (ou da unidade), um cartão por conta, o que gera mais interação, o melhor dia e horário
+ * para postar, os posts que mais engajaram, os stories e o feed. Segue o botão de unidade do alto: na rede mostra todas as contas
+ * (a Institucional inclusive); com uma unidade, só a conta dela.
  */
 export function InstagramTab({ unit }: { unit: string | null }) {
   const [d, setD] = useState<DadosInstagram | null | undefined>(undefined);
-  /** Janela dos stories: abre nas últimas 24 horas (o que está no ar); os botões ampliam para 7 e 30 dias. */
-  const [horasStories, setHorasStories] = useState<24 | 168 | 720>(24);
-  const [maisPosts, setMaisPosts] = useState(false);
+  const [ordem, setOrdem] = useState<OrdemContas>("seguidores");
   useEffect(() => { let vivo = true; carregarInstagram().then((x) => vivo && setD(x)); return () => { vivo = false; }; }, []);
   const contas = useMemo(() => (d ? contasDaEscolha(d, unit) : []), [d, unit]);
   const usuarios = useMemo(() => new Set(contas.map((c) => c.usuario)), [contas]);
-  const resumo = useMemo(() => (d ? resumoDasContas(d, contas) : []), [d, contas]);
+  const resumo = useMemo(() => (d ? resumoDasContas(d, contas, new Date(), DIAS) : []), [d, contas]);
   const posts = useMemo(() => (d ? d.posts.filter((p) => usuarios.has(p.conta)) : []), [d, usuarios]);
-  const doQuem = useMemo(() => (d ? d.stories.filter((s) => usuarios.has(s.conta)) : []), [d, usuarios]);
-  const dias = useMemo(() => storiesPorDia(storiesDasUltimas(doQuem, horasStories)), [doQuem, horasStories]);
+  const stories = useMemo(() => (d ? d.stories.filter((s) => usuarios.has(s.conta)) : []), [d, usuarios]);
+  const kpis = useMemo(() => (d ? kpisDoInstagram(d, contas, resumo, DIAS) : null), [d, contas, resumo]);
+  const cartoes = useMemo(() => (d ? ordenarContas(cartoesDasContas(d, resumo, DIAS), ordem) : []), [d, resumo, ordem]);
+  const destaques = useMemo(() => postsQueMaisEngajaram(posts, 5, DIAS), [posts]);
+  const postsHorario = useMemo(() => postsDesde(posts, DIAS_HORARIO), [posts]);
   const quem = unit ?? "Rede";
   const atualizado = d?.geradoEm ? ` • atualizado em ${quando(d.geradoEm)}` : "";
 
   if (d === undefined) return <ChartCard title="Instagram" subtitle={quem}><ChartEmpty>Carregando…</ChartEmpty></ChartCard>;
   if (!d?.geradoEm) return <ChartCard title="Instagram" subtitle={quem}><ChartEmpty>O Instagram das unidades aparece aqui depois da primeira leitura, que começa quando o novo acesso do Meta (com permissão de Instagram) estiver ativo.</ChartEmpty></ChartCard>;
-  if (!contas.length) return <ChartCard title="Instagram" subtitle={quem}><ChartEmpty>{unit ? `O Instagram de ${unit} ainda não está ligado ao painel.` : "Nenhuma conta do Instagram ligada ao painel."}</ChartEmpty></ChartCard>;
+  if (!contas.length || !kpis) return <ChartCard title="Instagram" subtitle={quem}><ChartEmpty>{unit ? `O Instagram de ${unit} ainda não está ligado ao painel.` : "Nenhuma conta do Instagram ligada ao painel."}</ChartEmpty></ChartCard>;
   const varias = contas.length > 1;
-  const postsVisiveis = maisPosts ? posts : posts.slice(0, 12);
+  // A barra compara as unidades entre si: a conta da rede (Institucional) é bem maior e esmagaria as outras, então fica sem barra.
+  const maiorConta = Math.max(1, ...contas.filter((c) => c.unidade !== null).map((c) => c.seguidores ?? 0));
+
+  const itens: ItemKpi[] = [
+    {
+      id: "seguidores", rotulo: varias ? "Seguidores somados" : "Seguidores", valor: int(kpis.seguidores), icone: <Users className="h-3.5 w-3.5" aria-hidden />,
+      extra: <div className="flex items-center justify-between gap-3"><Delta valor={kpis.ganho} titulo={`Variação de seguidores nos últimos ${DIAS} dias`} /><Sparkline valores={kpis.serie.map((p) => p.total)} rotulo="Evolução dos seguidores" className="w-20" /></div>,
+      detalhe: varias ? `${contas.length} contas · ${DIAS} dias` : `${DIAS} dias`,
+    },
+    { id: "interacoes", rotulo: "Interações", valor: int(kpis.interacoes), icone: <Heart className="h-3.5 w-3.5" aria-hidden />, detalhe: kpis.interacoesPorPost == null ? "Nenhum post no período" : `${int(kpis.interacoesPorPost)} por post · curtidas, comentários, salvos e compartilhamentos` },
+    { id: "views", rotulo: "Visualizações dos posts", valor: int(kpis.visualizacoes), icone: <Eye className="h-3.5 w-3.5" aria-hidden />, detalhe: kpis.posts ? `${int(kpis.visualizacoes / kpis.posts)} por post` : "Nenhum post no período" },
+    { id: "posts", rotulo: "Posts no feed", valor: int(kpis.posts), icone: <Images className="h-3.5 w-3.5" aria-hidden />, detalhe: `${int(kpis.stories)} ${kpis.stories === 1 ? "story" : "stories"} no período${kpis.mediaViewsStory != null ? ` · ${int(kpis.mediaViewsStory)} views por story` : ""}` },
+    {
+      id: "taxa", rotulo: "Interação por seguidor", icone: <Percent className="h-3.5 w-3.5" aria-hidden />,
+      valor: kpis.taxaInteracao == null ? "—" : `${(kpis.taxaInteracao * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`,
+      detalhe: "Em média, quanto de cada 100 seguidores interage com um post",
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      <ChartCard title="Contas" subtitle={<>{quem} • últimos 30 dias{atualizado}</>}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[40rem] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th scope="col" className="py-2 pr-3 font-medium">Conta</th>
-                <th scope="col" className="py-2 px-3 text-right font-medium">Seguidores</th>
-                <th scope="col" className="py-2 px-3 text-right font-medium">Posts</th>
-                <th scope="col" className="py-2 px-3 text-right font-medium">Stories</th>
-                <th scope="col" className="py-2 px-3 text-right font-medium">Último post</th>
-                <th scope="col" className="py-2 pl-3 text-right font-medium">Visualizações por post</th>
-              </tr>
-            </thead>
-            <tbody>
-              {resumo.map((r) => (
-                <tr key={r.conta.usuario} className="border-b border-border/60 last:border-0">
-                  <td className="py-2.5 pr-3">
-                    <span className="block font-medium text-foreground">@{r.conta.usuario}</span>
-                    <span className="block text-xs text-muted-foreground">{r.conta.unidade ?? "Institucional"}</span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums">
-                    <span className="font-semibold text-foreground">{int(r.conta.seguidores)}</span>
-                    {r.ganhoSeguidores != null && <span className={cn("block text-xs", r.ganhoSeguidores >= 0 ? "text-success" : "text-destructive")}>{r.ganhoSeguidores >= 0 ? "+" : ""}{int(r.ganhoSeguidores)}</span>}
-                  </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums">{int(r.postsNoPeriodo)}</td>
-                  <td className="py-2.5 px-3 text-right tabular-nums">{int(r.storiesNoPeriodo)}</td>
-                  <td className={cn("py-2.5 px-3 text-right tabular-nums", r.diasSemPost != null && r.diasSemPost > 7 && "font-semibold text-destructive")}>
-                    {r.diasSemPost == null ? "—" : r.diasSemPost === 0 ? "hoje" : r.diasSemPost === 1 ? "ontem" : `há ${r.diasSemPost} dias`}
-                  </td>
-                  <td className="py-2.5 pl-3 text-right tabular-nums">{int(r.mediaVisualizacoes)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Stories contam só a partir do dia em que o painel começou a guardá-los (o Meta só os entrega enquanto estão no ar, por 24 horas). O ganho de seguidores aparece quando houver histórico. Último post em vermelho: mais de 7 dias sem postar no feed.
-        </p>
-      </ChartCard>
+      <FaixaKpi itens={itens} rotulo={`Números do Instagram, ${quem}, últimos ${DIAS} dias`} />
 
-      <DesempenhoPorTipo posts={posts} quem={quem} />
-
-      <ChartCard title="Stories" subtitle={<>{quem} • {JANELA_STORIES[horasStories]}</>}>
-        <div className="space-y-4">
-          {doQuem.length === 0 ? <ChartEmpty>Nenhum story guardado ainda.</ChartEmpty>
-            : dias.length === 0 ? <ChartEmpty>Nenhum story {horasStories === 24 ? "nas últimas 24 horas" : `nos ${JANELA_STORIES[horasStories]}`}.</ChartEmpty>
-            : dias.map(([dia, lista]) => (
-              <section key={dia} aria-label={`Stories de ${diaLongo(dia)}`}>
-                <h4 className="mb-2 text-xs font-medium text-muted-foreground first-letter:uppercase">{diaLongo(dia)} · {lista.length} {lista.length === 1 ? "story" : "stories"}</h4>
-                <ul className="flex gap-3 overflow-x-auto pb-1">{lista.map((s) => <Story key={s.id} s={s} mostrarConta={varias} />)}</ul>
-              </section>
-            ))}
-          {doQuem.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {([24, 168, 720] as const).filter((h) => h !== horasStories).map((h) => (
-                <button key={h} type="button" onClick={() => setHorasStories(h)} className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">
-                  {h === 24 ? "Ver só as últimas 24 horas" : `Ver os ${JANELA_STORIES[h]}`}
-                </button>
+      <section aria-label="Contas" className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">{varias ? "Contas" : "Conta"}</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">{quem} • últimos {DIAS} dias{atualizado}</p>
+          </div>
+          {varias && (
+            <div role="group" aria-label="Ordenar as contas por" className="inline-flex max-w-full overflow-x-auto rounded-full border border-border bg-white p-0.5">
+              {(Object.keys(ROTULO_ORDEM) as OrdemContas[]).map((o) => (
+                <button key={o} type="button" aria-pressed={ordem === o} onClick={() => setOrdem(o)} className={cn("shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", ordem === o ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground")}>{ROTULO_ORDEM[o]}</button>
               ))}
             </div>
           )}
         </div>
-      </ChartCard>
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {cartoes.map((c) => <CartaoDaConta key={c.conta.usuario} c={c} maior={maiorConta} mostrarBarra={varias && c.conta.unidade !== null} />)}
+        </ul>
+        <p className="text-xs text-muted-foreground">{varias ? "A barra de cada cartão compara a unidade com a maior unidade (a conta da rede fica de fora). " : ""}O ganho de seguidores aparece quando houver histórico. Em vermelho, a conta que ficou mais de 7 dias sem postar no feed.</p>
+      </section>
 
-      <ChartCard title="Feed" subtitle={<>{quem} • posts mais recentes</>}>
-        {posts.length === 0 ? <ChartEmpty>Nenhum post guardado.</ChartEmpty> : (
-          <>
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6" aria-label="Posts do feed, do mais recente para o mais antigo">
-              {postsVisiveis.map((p) => <Post key={p.id} p={p} mostrarConta={varias} />)}
-            </ul>
-            {posts.length > 12 && <button type="button" onClick={() => setMaisPosts(!maisPosts)} className="mt-4 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary">{maisPosts ? "Ver menos" : `Ver todos os ${posts.length} posts`}</button>}
-          </>
-        )}
-      </ChartCard>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <DesempenhoPorTipo posts={posts} quem={quem} />
+        <MelhorHorario posts={postsHorario} quem={quem} dias={DIAS_HORARIO} />
+      </div>
+
+      <PostsEmDestaque posts={destaques} quem={quem} dias={DIAS} mostrarConta={varias} />
+      <StoriesSecao stories={stories} quem={quem} mostrarConta={varias} />
+      <FeedSecao posts={posts} quem={quem} mostrarConta={varias} />
     </div>
   );
 }

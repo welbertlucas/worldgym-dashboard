@@ -83,3 +83,49 @@ export const listarInfluenciadores = () => chamar<{ influenciadores: Influenciad
 export const criarInfluenciador = (c: CamposInfluenciador) => enviar<{ influenciador: Influenciador }>({ acao: "criar", ...c });
 export const atualizarInfluenciador = (id: string, c: Partial<CamposInfluenciador>) => enviar<{ influenciador: Influenciador }>({ acao: "atualizar", id, ...c });
 export const removerInfluenciador = (id: string) => enviar<{ ok: true }>({ acao: "remover", id });
+
+// ----- Resumo e andamento (para a faixa de números e os cartões) -----
+const DIA_MS = 86400000;
+const diasEntre = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / DIA_MS);
+const nDias = (n: number) => `${n} ${n === 1 ? "dia" : "dias"}`;
+
+export interface ResumoContratos {
+  total: number;
+  emVigor: number;
+  /** Combinado por mês, somando só os contratos em vigor. */
+  stories: number;
+  feed: number;
+  reels: number;
+  /** Unidades diferentes com contrato em vigor (a "Rede toda" não conta como unidade). */
+  unidades: number;
+}
+export function resumoDosContratos(lista: Pick<Influenciador, "ativo" | "inicio" | "fim" | "entregas" | "unidade">[], hoje = hojeBR()): ResumoContratos {
+  const vigentes = lista.filter((i) => situacaoDoContrato(i, hoje) === "vigente");
+  return {
+    total: lista.length,
+    emVigor: vigentes.length,
+    stories: vigentes.reduce((s, i) => s + i.entregas.stories, 0),
+    feed: vigentes.reduce((s, i) => s + i.entregas.feed, 0),
+    reels: vigentes.reduce((s, i) => s + i.entregas.reels, 0),
+    unidades: new Set(vigentes.map((i) => i.unidade).filter((u): u is string => u !== null)).size,
+  };
+}
+
+/**
+ * Em que ponto do contrato estamos: `pct` (0 a 100) só existe quando há início e fim; `texto` diz o que falta ou aconteceu.
+ */
+export function andamentoDoContrato(i: Pick<Influenciador, "ativo" | "inicio" | "fim">, hoje = hojeBR()): { pct: number | null; texto: string } {
+  const sit = situacaoDoContrato(i, hoje);
+  if (sit === "inativo") return { pct: null, texto: "Contrato desativado" };
+  if (sit === "futuro") return { pct: i.fim ? 0 : null, texto: `Começa em ${nDias(diasEntre(hoje, i.inicio as string))}` };
+  if (sit === "encerrado") return { pct: i.inicio ? 100 : null, texto: `Encerrou há ${nDias(diasEntre(i.fim as string, hoje))}` };
+  if (i.inicio && i.fim) {
+    const total = diasEntre(i.inicio, i.fim) + 1;
+    const passou = diasEntre(i.inicio, hoje) + 1;
+    const resta = diasEntre(hoje, i.fim);
+    return { pct: Math.min(100, Math.max(0, Math.round((passou / total) * 100))), texto: resta === 0 ? "Termina hoje" : `Faltam ${nDias(resta)}` };
+  }
+  if (i.fim) return { pct: null, texto: diasEntre(hoje, i.fim) === 0 ? "Termina hoje" : `Termina em ${dataBR(i.fim)} (faltam ${nDias(diasEntre(hoje, i.fim))})` };
+  if (i.inicio) return { pct: null, texto: `Em vigor desde ${dataBR(i.inicio)}, sem data de fim` };
+  return { pct: null, texto: "Sem datas definidas" };
+}
