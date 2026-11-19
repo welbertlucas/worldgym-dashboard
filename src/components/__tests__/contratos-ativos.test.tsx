@@ -6,7 +6,7 @@ import type { UnitData } from "@/data/dashboardData";
 const u = (name: string, especiais: number) =>
   ({ name, contratosAtivos: 1000, contratosEspeciais: especiais, contratosPersonal: 10, contratosLocal: 600, contratosParcial: 100, contratosRede: 300 }) as unknown as UnitData;
 
-describe("Contratos ativos no Ranking da rede", () => {
+describe("Contratos ativos (Alunos › Contratos)", () => {
   const units = [u("Gama", 50), u("Itapoã", 30), u("Taguatinga", 10)];
   const ordem = (html: string) => [...html.matchAll(/<h5[^>]*>.*?<\/h5>/g)].map((m) => m[0].replace(/<[^>]+>/g, ""));
 

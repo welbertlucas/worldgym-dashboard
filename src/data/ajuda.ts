@@ -93,9 +93,10 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Inadimplência: cobranças de cartão recusadas, saldo devedor por unidade e o perfil de quem está em atraso.",
     "Notas fiscais: notas emitidas no mês por unidade.",
   ], { tela: "financeiro", imagem: "financeiro" }),
-  a("telas", "tela-alunos", "Alunos", "Tamanho da base, perfil e onde os alunos moram.", [
+  a("telas", "tela-alunos", "Alunos", "Tamanho da base, perfil, onde os alunos moram e contratos ativos.", [
     "Tamanho da base: alunos ativos, quem entrou, voltou e saiu, permanência média e LTV.",
     "Perfil: gênero e faixa de idade. Onde moram: os bairros dos alunos no mapa.",
+    "Contratos: foto de hoje dos contratos ativos, quantos são especiais/VIP, de personal, de plano local (até 9 unidades) e de plano rede (10 ou mais; nas unidades Pro, todos). Local e rede somam 100%; especiais e personal são recortes dentro deles.",
   ], { tela: "alunos", imagem: "alunos" }),
   a("telas", "tela-catraca", "Acessos na catraca", "Frequência, liberações manuais e outras unidades.", [
     "Frequência: entradas por dia e o mapa de calor dos horários mais cheios.",
@@ -118,7 +119,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O relatório traz só as unidades que você enxerga, e o rodapé de cada slide leva o seu e-mail e a data. Se o menu Relatórios não aparece para você, peça o acesso a quem administra o Atlas.",
   ], { tela: "relatorios", atualizadoEm: "2026-11-17" }),
   a("telas", "tela-ranking", "Ranking da rede", "Como cada unidade está em relação às outras.", [
-    "Posição e destaques, evolução da unidade mês a mês, comparação lado a lado entre duas unidades, contratos ativos e a tabela completa com todos os indicadores.",
+    "Posição e destaques, evolução da unidade mês a mês, comparação lado a lado entre duas unidades e a tabela completa com todos os indicadores.",
   ], { tela: "benchmark", imagem: "ranking" }),
 
   // Alertas e plano de ação

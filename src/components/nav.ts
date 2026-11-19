@@ -58,12 +58,12 @@ export function ondeFica(tela: string): string {
 export const SUBMENUS: Record<string, Aba[]> = {
   comercial: [{ id: "resumo", rotulo: "Resumo" }, { id: "vendas", rotulo: "Vendas" }, { id: "oportunidades", rotulo: "Oportunidades" }, { id: "complementares", rotulo: "Receitas complementares" }],
   financeiro: [{ id: "resumo", rotulo: "Resumo" }, { id: "recebimento", rotulo: "Recebimento" }, { id: "cobranca", rotulo: "Inadimplência" }, { id: "notas", rotulo: "Notas fiscais" }],
-  alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "onde-moram", rotulo: "Onde moram" }],
+  alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "onde-moram", rotulo: "Onde moram" }, { id: "contratos", rotulo: "Contratos" }],
   catraca: [{ id: "frequencia", rotulo: "Frequência" }, { id: "liberacoes", rotulo: "Liberações" }, { id: "outras-unidades", rotulo: "Outras unidades" }],
   retencao: [{ id: "cancelamentos", rotulo: "Cancelamentos" }, { id: "renovacao", rotulo: "Renovação" }, { id: "satisfacao", rotulo: "Satisfação" }],
   campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "instagram", rotulo: "Instagram" }],
   riscos: [{ id: "mes", rotulo: "Mês em andamento" }, { id: "fechamento", rotulo: "Fechamento do mês anterior" }],
-  benchmark: [{ id: "posicao", rotulo: "Posição e destaques" }, { id: "evolucao", rotulo: "Evolução da unidade" }, { id: "comparar", rotulo: "Comparar unidades" }, { id: "contratos", rotulo: "Contratos ativos" }, { id: "tabela", rotulo: "Tabela completa" }],
+  benchmark: [{ id: "posicao", rotulo: "Posição e destaques" }, { id: "evolucao", rotulo: "Evolução da unidade" }, { id: "comparar", rotulo: "Comparar unidades" }, { id: "tabela", rotulo: "Tabela completa" }],
 };
 
 /** Endereços de antes da reorganização do menu (links salvos): para onde cada um foi. */
@@ -72,6 +72,7 @@ const ENDERECOS_ANTIGOS: Record<string, string> = {
   "alunos/frequencia": "catraca/frequencia",
   "campanhas/leads": "comercial/oportunidades",
   unidades: "benchmark/posicao",
+  "benchmark/contratos": "alunos/contratos",
 };
 export const enderecoAtual = (endereco: string) => ENDERECOS_ANTIGOS[endereco] ?? endereco;
 
@@ -90,6 +91,7 @@ const PALAVRAS: Record<string, string> = {
   "alunos/base": "alunos ativos base fluxo novos retornos saidas permanencia ltv suspensos",
   "alunos/perfil": "genero idade perfil",
   "alunos/onde-moram": "mapa dos alunos bairros onde moram endereco localizacao",
+  "alunos/contratos": "contratos ativos especiais vip personal local rede plano tipo de contrato",
   catraca: "controle de acesso entradas check-in",
   "catraca/frequencia": "frequencia entradas horarios mapa de calor dias ultimo acesso sumidos",
   "catraca/liberacoes": "liberacoes manuais entrada manual recepcao visitante sem pagamento fraude",
@@ -100,7 +102,6 @@ const PALAVRAS: Record<string, string> = {
   "benchmark/posicao": "benchmark ranking posicao destaques comparar unidades melhorou piorou pdf imprimir exportar",
   "benchmark/evolucao": "evolucao da unidade faturamento recebimento inadimplencia churn renovacao novos contratos linha mes a mes raio x",
   "benchmark/comparar": "comparar duas unidades lado a lado indicador a indicador",
-  "benchmark/contratos": "contratos ativos especiais vip personal local rede",
   "benchmark/tabela": "tabela completa todas as unidades indicadores",
   campanhas: "trafego pago meta facebook instagram",
   "campanhas/campanhas": "investimento alertas evolucao cac pixel compras",

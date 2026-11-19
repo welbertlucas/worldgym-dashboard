@@ -5,7 +5,6 @@ import { getLastClosedMonth } from "@/data/periods";
 import { SectionTitle } from "@/components/SectionTitle";
 import { UnitHighlights } from "@/components/UnitHighlights";
 import { UnitDeltaChart } from "@/components/UnitDeltaChart";
-import { ContratosAtivos } from "@/components/unidades/ContratosAtivos";
 import { UnitsRanking } from "@/components/unidades/UnitsRanking";
 import { TopUnitsTable } from "@/components/TopUnitsTable";
 import { Secao } from "@/components/unidades/Secao";
@@ -86,11 +85,6 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
           <UnitComparison key={foco ?? "sem-foco"} selectedMonth={mesComp} inicialA={foco ?? undefined} />
         </Secao>;
       })()}
-
-      {aba === "contratos" && <Secao id="bm-contratos" titulo="Contratos ativos" descricao="Foto de hoje do EVO: especiais/VIP, personal e plano local ou rede, por unidade.">
-        <ContratosAtivos units={units} foco={foco} />
-        {!units.some((u) => u.contratosAtivos !== undefined) && <p className="text-sm text-muted-foreground">A foto de contratos só existe no mês em andamento. Escolha o mês atual no topo para ver.</p>}
-      </Secao>}
 
       {aba === "tabela" && <Secao id="bm-tabela" titulo="Tabela completa" descricao="Todos os indicadores de todas as unidades no mês, com busca e escolha de colunas.">
         <details className="card-surface p-5">

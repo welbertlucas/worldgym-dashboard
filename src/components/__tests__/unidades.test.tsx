@@ -235,6 +235,12 @@ describe("Alunos, Acessos na catraca e Retenção por assunto", () => {
     const alunos = renderToString(<AlunosTab ctx={ctx} month="2026-09" unit={null} />);
     expect(alunos).toContain("Tamanho da base");
     expect(alunos).toContain("Onde moram");
+    expect(alunos).toContain("Contratos"); // aba nova: contratos ativos (saiu do Ranking da rede)
+    const contratos = renderToString(<AlunosTab ctx={ctx} month="2026-09" unit={null} aba="contratos" />);
+    expect(contratos).toContain("contratos ativos especiais");
+    const { SUBMENUS, enderecoAtual } = await import("@/components/nav");
+    expect(SUBMENUS.benchmark.some((a) => a.id === "contratos")).toBe(false);
+    expect(enderecoAtual("benchmark/contratos")).toBe("alunos/contratos"); // link antigo leva para o novo
     expect(alunos).not.toContain("Frequência"); // foi para Acessos na catraca
     const { CatracaTab } = await import("@/components/tabs/CatracaTab");
     const catraca = renderToString(<CatracaTab ctx={ctx} month="2026-09" unit={null} />);

@@ -6,15 +6,17 @@ import { PerfilAlunosCard } from "@/components/clientes/PerfilAlunosCard";
 import { SaldoHeatmap } from "@/components/clientes/SaldoHeatmap";
 import { Secao } from "@/components/unidades/Secao";
 import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
+import { ContratosAtivos } from "@/components/unidades/ContratosAtivos";
 import { Abas, abaAtiva } from "@/components/Abas";
 import { SUBMENUS } from "@/components/nav";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
+import { getDataByMonthRede } from "@/data/dashboardData";
 
 interface Props { ctx: KpiContext; month: string; unit: string | null; aba?: string | null; onAba?: (id: string) => void }
 
 const ABAS_ALUNOS = SUBMENUS.alunos;
 
-/** Alunos: quantos são (base, entradas e saídas), quem são (perfil) e onde moram. Tudo vem do EVO; a frequência fica em Acessos na catraca. */
+/** Alunos: quantos são (base, entradas e saídas), quem são (perfil), onde moram e de que tipo são os contratos ativos. Tudo vem do EVO; a frequência fica em Acessos na catraca. */
 export function AlunosTab({ ctx, month, unit, aba: pedida = null, onAba = () => {} }: Props) {
   const aba = abaAtiva(ABAS_ALUNOS, pedida);
   const total = ctx.cur.total;
@@ -40,6 +42,17 @@ export function AlunosTab({ ctx, month, unit, aba: pedida = null, onAba = () => 
 
       {aba === "onde-moram" && <Secao id="al-onde-moram" titulo="Onde moram" descricao="Foto de hoje do EVO: alunos ativos (ou que saíram nos últimos 12 meses) por bairro de residência e a localização das unidades. O mês do filtro não muda o mapa.">
         <MapaAlunosTab unit={unit} />
+      </Secao>}
+
+      {aba === "contratos" && <Secao id="al-contratos" titulo="Contratos" descricao="Foto de hoje do EVO: contratos ativos especiais/VIP, de personal e de plano local ou rede. Com uma unidade no filtro, o percentual da rede aparece ao lado.">
+        {(() => {
+          const units = getDataByMonthRede(month)?.units ?? [];
+          const foco = unit && units.some((u) => u.name === unit) ? unit : null;
+          return <>
+            <ContratosAtivos units={units} foco={foco} />
+            {!units.some((u) => u.contratosAtivos !== undefined) && <p className="text-sm text-muted-foreground">A foto de contratos só existe no mês em andamento. Escolha o mês atual no topo para ver.</p>}
+          </>;
+        })()}
       </Secao>}
     </div>
   );
