@@ -1,10 +1,10 @@
 import { ChartCard, ChartEmpty, HeadlineStat } from "@/components/ChartCard";
-import { ehUsuarioDeSistema, type UnitData } from "@/data/dashboardData";
+import type { UnitData } from "@/data/dashboardData";
 
 /** Consultores que mais converteram oportunidades em clientes no mês (o EVO informa quem converteu, não quem cadastrou). */
 export function ConsultoresConversao({ total, monthLabel, partial, unitLabel }: { total: UnitData; monthLabel: string; partial: boolean; unitLabel: string }) {
   const subtitle = <>{unitLabel} • {monthLabel}{partial && " (mês em andamento: valores parciais)"}</>;
-  const lista = (total.consultores ?? []).filter(([nome]) => !ehUsuarioDeSistema(nome)); // meses gravados antes do filtro no servidor ainda trazem o usuário de suporte
+  const lista = total.consultores ?? [];
   if (lista.length === 0) return <ChartCard title="Consultores que mais convertem" subtitle={subtitle}><ChartEmpty>Sem conversões por consultor neste mês.</ChartEmpty></ChartCard>;
   const unidades = new Set(lista.map((l) => l[2]).filter(Boolean));
   const comUnidade = unidades.size > 1;
@@ -31,7 +31,7 @@ export function ConsultoresConversao({ total, monthLabel, partial, unitLabel }: 
           </li>
         ))}
       </ol>
-      <p className="mt-4 text-xs text-muted-foreground">Quem fechou a conversão da oportunidade em cliente (campo "convertido por" do EVO). O EVO não informa quem cadastrou. O usuário de suporte do EVO não aparece, por não ser consultor. Aparecem os 10 que mais converteram{comUnidade ? " na rede" : ""}.</p>
+      <p className="mt-4 text-xs text-muted-foreground">Quem fechou a conversão da oportunidade em cliente (campo "convertido por" do EVO). O EVO não informa quem cadastrou. O usuário "Suporte EVO" entra como os demais. Aparecem os 10 que mais converteram{comUnidade ? " na rede" : ""}.</p>
     </ChartCard>
   );
 }

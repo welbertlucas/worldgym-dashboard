@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-19-consultores-suporte-evo", data: "2026-11-19", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "comercial/oportunidades", artigo: "tela-comercial",
+    titulo: "Comercial: Suporte EVO volta ao ranking de consultores",
+    texto: "Conversões feitas pelo usuário Suporte EVO sumiam do ranking de consultores que mais convertem, e a soma dos consultores não fechava com as conversões do mês. Agora ele aparece como qualquer outro. Os meses já lidos voltam a mostrá-lo quando as oportunidades forem lidas de novo; de hoje em diante, já entra.",
+  },
+  {
     id: "2026-11-19-conversoes-cadastros-antigos", data: "2026-11-19", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "comercial/oportunidades", artigo: "tela-comercial",
     titulo: "Comercial: conversões de cadastros antigos",
     texto: "O número de visitantes e conversões do Resumo gerencial do EVO nunca batia com o do Atlas, e não dava para saber por quê. A conversão do Atlas conta só quem se cadastrou e virou cliente no mesmo período; o EVO também considera gente que se cadastrou antes e fechou agora. Na tabela Oportunidades por unidade, a nova coluna De cadastros antigos mostra quantos foram, sem mudar a taxa de conversão. A coluna aparece com os dados de hoje em diante.",
