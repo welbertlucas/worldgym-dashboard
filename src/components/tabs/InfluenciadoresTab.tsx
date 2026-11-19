@@ -4,7 +4,7 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { ehDono } from "@/lib/auth";
+import { ehDono, papelAtual, unidadesProprias } from "@/lib/auth";
 import { getAvailableUnits } from "@/data/dashboardData";
 import {
   atualizarInfluenciador, criarInfluenciador, dasUnidades, listarInfluenciadores, ordenarInfluenciadores, removerInfluenciador,
@@ -23,11 +23,15 @@ const COR_SITUACAO: Record<SituacaoContrato, string> = {
 
 /**
  * Marketing > Influenciadores: os contratos dos influenciadores da rede (o @, a unidade e o que foi combinado por mês).
- * Todos veem a lista (quem tem acesso por unidades, só a da sua unidade); só o dono cadastra e altera.
+ * Todos veem a lista (quem tem acesso por unidades, só a da sua unidade). Dono e Master cadastram, editam e desativam em qualquer unidade
+ * e na "Rede toda"; quem tem acesso por unidades faz isso só na sua unidade. Os três também removem.
  * Próximas etapas: comparar com o que foi postado (feed e reels pelo @, stories pela marcação da unidade).
  */
 export function InfluenciadoresTab({ unit }: { unit: string | null }) {
   const dono = ehDono();
+  const proprias = unidadesProprias(); // nível "unidades": só as suas
+  const amplo = dono || papelAtual() === "master"; // qualquer unidade e a rede toda
+  const podeCadastrar = amplo || proprias !== null;
   const [lista, setLista] = useState<Influenciador[] | null>(null);
   const [erro, setErro] = useState("");
   const [editando, setEditando] = useState<Influenciador | "novo" | null>(null);
@@ -54,11 +58,13 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
 
   return (
     <div className="space-y-6">
-      {editando && dono && (
+      {editando && podeCadastrar && (
         <ChartCard title={editando === "novo" ? "Novo influenciador" : `Editar @${editando.usuario}`} subtitle="O que foi combinado por mês no contrato. A quantidade de cada tipo vale para cada mês do período.">
           <Formulario
             inicial={editando === "novo" ? null : editando}
             unidadeInicial={editando === "novo" ? unit : null}
+            amplo={amplo}
+            proprias={proprias}
             onSalvo={() => { setEditando(null); void carregar(); }}
             onCancelar={() => setEditando(null)}
           />
@@ -67,15 +73,15 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
       <ChartCard
         title="Contratos dos influenciadores"
         subtitle={unit ? `Unidade escolhida: ${unit}` : "Todas as unidades"}
-        legend={dono && !editando ? <Button size="sm" onClick={() => setEditando("novo")}><Plus className="h-4 w-4" aria-hidden />Novo influenciador</Button> : undefined}
+        legend={podeCadastrar && !editando ? <Button size="sm" onClick={() => setEditando("novo")}><Plus className="h-4 w-4" aria-hidden />Novo influenciador</Button> : undefined}
       >
         {erro ? <p role="alert" className="text-sm text-destructive">{erro}</p>
           : lista === null ? <p className="text-sm text-muted-foreground">Carregando...</p>
           : visiveis.length === 0 ? (
-            <ChartEmpty>{dono ? "Nenhum influenciador cadastrado para este filtro. Use Novo influenciador para começar." : "Nenhum influenciador cadastrado para a sua unidade."}</ChartEmpty>
+            <ChartEmpty>{podeCadastrar ? "Nenhum influenciador cadastrado para este filtro. Use Novo influenciador para começar." : "Nenhum influenciador cadastrado."}</ChartEmpty>
           ) : (
             <ul className="divide-y divide-border">
-              {visiveis.map((i) => <Linha key={i.id} i={i} dono={dono} onEditar={() => setEditando(i)} onAtivo={() => alternarAtivo(i)} onRemover={() => remover(i)} />)}
+              {visiveis.map((i) => <Linha key={i.id} i={i} pode={podeCadastrar} onEditar={() => setEditando(i)} onAtivo={() => alternarAtivo(i)} onRemover={() => remover(i)} />)}
             </ul>
           )}
         <p className="mt-4 text-xs text-muted-foreground">Por enquanto são só os contratos. Em breve o Atlas passa a conferir o que cada influenciador postou (feed, reels e stories) contra o que foi combinado.</p>
@@ -84,7 +90,7 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
   );
 }
 
-function Linha({ i, dono, onEditar, onAtivo, onRemover }: { i: Influenciador; dono: boolean; onEditar: () => void; onAtivo: () => void; onRemover: () => void }) {
+function Linha({ i, pode, onEditar, onAtivo, onRemover }: { i: Influenciador; pode: boolean; onEditar: () => void; onAtivo: () => void; onRemover: () => void }) {
   const sit = situacaoDoContrato(i);
   return (
     <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between">
@@ -100,7 +106,7 @@ function Linha({ i, dono, onEditar, onAtivo, onRemover }: { i: Influenciador; do
         <p className="text-sm text-foreground">{textoEntregas(i.entregas)}</p>
         {i.obs && <p className="text-xs text-muted-foreground">{i.obs}</p>}
       </div>
-      {dono && (
+      {pode && (
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={onEditar}>Editar</Button>
           <Button size="sm" variant="outline" onClick={onAtivo}>{i.ativo ? "Desativar" : "Reativar"}</Button>
@@ -111,11 +117,11 @@ function Linha({ i, dono, onEditar, onAtivo, onRemover }: { i: Influenciador; do
   );
 }
 
-function Formulario({ inicial, unidadeInicial, onSalvo, onCancelar }: { inicial: Influenciador | null; unidadeInicial: string | null; onSalvo: () => void; onCancelar: () => void }) {
-  const unidades = useMemo(() => getAvailableUnits(), []);
+function Formulario({ inicial, unidadeInicial, amplo, proprias, onSalvo, onCancelar }: { inicial: Influenciador | null; unidadeInicial: string | null; amplo: boolean; proprias: string[] | null; onSalvo: () => void; onCancelar: () => void }) {
+  const unidades = useMemo(() => proprias ?? getAvailableUnits(), [proprias]);
   const [usuario, setUsuario] = useState(inicial?.usuario ?? "");
   const [nome, setNome] = useState(inicial?.nome ?? "");
-  const [unidade, setUnidade] = useState<string>(inicial ? inicial.unidade ?? REDE : unidadeInicial ?? "");
+  const [unidade, setUnidade] = useState<string>(inicial ? inicial.unidade ?? REDE : unidadeInicial ?? (unidades.length === 1 && !amplo ? unidades[0] : ""));
   const [inicio, setInicio] = useState(inicial?.inicio ?? "");
   const [fim, setFim] = useState(inicial?.fim ?? "");
   const [qtd, setQtd] = useState({ stories: String(inicial?.entregas.stories ?? ""), feed: String(inicial?.entregas.feed ?? ""), reels: String(inicial?.entregas.reels ?? "") });
@@ -126,7 +132,7 @@ function Formulario({ inicial, unidadeInicial, onSalvo, onCancelar }: { inicial:
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
     if (enviando) return;
-    if (!unidade) { setErro("Escolha a unidade do contrato (ou Rede toda)."); return; }
+    if (!unidade) { setErro(amplo ? "Escolha a unidade do contrato (ou Rede toda)." : "Escolha a unidade do contrato."); return; }
     const campos: CamposInfluenciador = {
       usuario, nome: nome.trim() || undefined, unidade: unidade === REDE ? null : unidade, inicio: inicio || null, fim: fim || null,
       entregas: { stories: Number(qtd.stories || 0), feed: Number(qtd.feed || 0), reels: Number(qtd.reels || 0) },
@@ -149,7 +155,7 @@ function Formulario({ inicial, unidadeInicial, onSalvo, onCancelar }: { inicial:
         <label className="space-y-1.5 text-sm font-medium text-foreground">Unidade
           <Select value={unidade} onChange={(e) => setUnidade(e.target.value)} required>
             <option value="">Escolha...</option>
-            <option value={REDE}>Rede toda (Institucional)</option>
+            {amplo && <option value={REDE}>Rede toda (Institucional)</option>}
             {unidades.map((u) => <option key={u} value={u}>{u}</option>)}
           </Select>
         </label>

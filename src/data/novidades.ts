@@ -26,9 +26,9 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
-    id: "2026-11-19-marketing-influenciadores", data: "2026-11-19", tipo: "novo", publico: "dono", autora: AUTORA, tela: "campanhas/influenciadores", artigo: "tela-marketing",
+    id: "2026-11-19-marketing-influenciadores", data: "2026-11-19", tipo: "novo", publico: "todos", autora: AUTORA, tela: "campanhas/influenciadores", artigo: "tela-marketing",
     titulo: "Marketing: aba Influenciadores",
-    texto: "Os combinados com os influenciadores ficavam espalhados, e não havia onde conferir o que foi acertado com cada um. A nova aba Influenciadores, dentro de Marketing, guarda o @ do Instagram, a unidade, o período do contrato e quanto de stories, feed e reels foi combinado por mês. Por enquanto são só os contratos; a conferência do que cada um postou entra nas próximas etapas.",
+    texto: "Os combinados com os influenciadores ficavam espalhados, e não havia onde conferir o que foi acertado com cada um. A nova aba Influenciadores, dentro de Marketing, guarda o @ do Instagram, a unidade, o período do contrato (início e fim são opcionais) e quanto de stories, feed e reels foi combinado por mês. O gestor da unidade cadastra e edita os da sua unidade; o Master e o dono, os de qualquer unidade. Por enquanto são só os contratos; a conferência do que cada um postou entra nas próximas etapas.",
   },
   {
     id: "2026-11-19-esqueci-minha-senha", data: "2026-11-19", tipo: "novo", publico: "todos", autora: AUTORA, artigo: "trocar-senha",

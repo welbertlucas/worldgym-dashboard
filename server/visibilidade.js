@@ -93,7 +93,7 @@ export function filtrarCampanhas(foto, sessao) {
   return { ...foto, campanhas: (foto.campanhas ?? []).filter(sua), ...(foto.anuncios ? { anuncios: foto.anuncios.filter(sua) } : {}), ...(calor ? { calor } : {}), erros: [], meses };
 }
 
-/** Influenciadores: dono e Master veem todos; o nível "unidades" vê só os contratos da sua unidade (os da rede toda ficam de fora). */
+/** Influenciadores: dono e Master veem todos; o nível "unidades" vê (e cadastra) só os contratos da sua unidade (os da rede toda ficam de fora). */
 export function filtrarInfluenciadores(lista, sessao) {
   if (veTudo(sessao)) return lista;
   return (lista ?? []).filter((x) => x.unidade && propria(sessao, x.unidade));

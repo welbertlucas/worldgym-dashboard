@@ -1,5 +1,6 @@
 // Influenciadores da rede (Marketing > Influenciadores): quem são, de qual unidade e o que foi contratado por mês.
-// Só o dono cadastra e altera. Dono e Master veem todos; quem tem acesso por unidades vê só os da sua unidade.
+// Dono e Master cadastram, editam e removem em qualquer unidade (inclusive a rede toda) e veem todos. Quem tem acesso por unidades
+// cadastra, edita e remove os da sua unidade (e vê só esses).
 // Guarda apenas o @ do Instagram, o nome de exibição (opcional), a unidade e as metas do contrato: nada de dado pessoal.
 // (Etapas seguintes: ler o feed e os reels pelo @ e os stories que marcam a unidade, para comparar com o contrato.)
 import { randomUUID } from "node:crypto";
@@ -109,19 +110,34 @@ export async function removerInfluenciador(id) {
   await salvar(lista.filter((x) => x.id !== id));
 }
 
+const corpoDe = (req) => (typeof req.body === "string" ? (() => { try { return JSON.parse(req.body) ?? {}; } catch { return {}; } })() : req.body ?? {});
+
 /**
  * Atende GET/POST de /api/instagram?influenciadores. `filtrar`: regra de visibilidade (server/visibilidade.js).
  *   GET  -> { influenciadores }  (todos para dono e Master; só os da unidade para quem tem acesso por unidades)
- *   POST { acao: "criar" | "atualizar" | "remover", ... } -> só o dono (na simulação "ver como" não vale: o papel é o simulado)
+ *   POST { acao: "criar" | "atualizar" | "remover", ... }
+ *     dono e Master: tudo, em qualquer unidade e na rede toda;
+ *     acesso por unidades: cadastra, edita, desativa, reativa e remove só contratos das SUAS unidades (nunca a rede toda).
+ *     Na simulação "ver como" vale o nível simulado.
  */
 export async function tratarInfluenciadores(req, res, sessao, filtrar) {
   res.setHeader("Cache-Control", "no-store");
   try {
     if (req.method === "GET") return res.status(200).json({ influenciadores: filtrar(await lerFresco(), sessao) });
     if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
-    if (sessao.papel !== "dono" || sessao.papelReal) return res.status(403).json({ error: "Só o dono cadastra influenciadores." });
-    const corpo = typeof req.body === "string" ? (() => { try { return JSON.parse(req.body) ?? {}; } catch { return {}; } })() : req.body ?? {};
-    const { acao, id, ...campos } = corpo;
+    const dono = sessao.papel === "dono";
+    const master = sessao.papel === "master";
+    const unidades = sessao.papel === "unidades" ? sessao.unidades ?? [] : null;
+    if (!dono && !master && !unidades) return res.status(403).json({ error: "Sem permissão para cadastrar influenciadores." });
+    const { acao, id, ...campos } = corpoDe(req);
+    if (unidades) {
+      if (acao === "criar" && !unidades.includes(campos.unidade)) return res.status(403).json({ error: "Escolha uma das suas unidades." });
+      if (acao === "atualizar" || acao === "remover") {
+        const atual = (await lerFresco()).find((x) => x.id === String(id ?? ""));
+        if (!atual || !unidades.includes(atual.unidade)) return res.status(404).json({ error: "Influenciador não encontrado." }); // de outra unidade: nem existe para ela
+        if (acao === "atualizar" && campos.unidade !== undefined && !unidades.includes(campos.unidade)) return res.status(403).json({ error: "Escolha uma das suas unidades." });
+      }
+    }
     if (acao === "criar") return res.status(200).json({ influenciador: await criarInfluenciador(campos) });
     if (acao === "atualizar") return res.status(200).json({ influenciador: await atualizarInfluenciador(String(id ?? ""), campos) });
     if (acao === "remover") { await removerInfluenciador(String(id ?? "")); return res.status(200).json({ ok: true }); }

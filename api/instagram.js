@@ -2,7 +2,7 @@
 // GET /api/instagram            -> { geradoEm, contas, seguidores, posts, stories, erros } (só as contas que a pessoa pode ver)
 // GET /api/instagram?midia=<id> -> a imagem pequena guardada daquele post/story (JPEG)
 // GET /api/instagram?influenciadores=1 -> { influenciadores } (cadastro; Master vê todos, unidades só os seus)
-// POST /api/instagram { acao: "criar" | "atualizar" | "remover", ... } -> só o dono (ver server/influenciadores.js)
+// POST /api/instagram { acao: "criar" | "atualizar" | "remover", ... } -> dono e Master em qualquer unidade; unidades só nas suas (ver server/influenciadores.js)
 import { loadInstagram, loadMidiaInstagram } from "../server/store.js";
 import { cors, exigirLogin } from "./_auth.js";
 import { filtrarInstagram, filtrarInfluenciadores } from "../server/visibilidade.js";

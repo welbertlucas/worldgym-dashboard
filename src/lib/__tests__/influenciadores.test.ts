@@ -106,20 +106,69 @@ describe("cadastro de influenciadores (servidor)", () => {
     expect(await nomes(gama)).toEqual(["fulano.fit"]);
   });
 
-  it("rota: só o dono grava; Master, unidades e o dono em 'ver como' recebem 403", async () => {
-    for (const s of [master, gama, { ...master, papelReal: "dono" }]) {
-      const r = await chama(s, { method: "POST", body: { acao: "criar", ...ok } });
-      expect(r.code).toBe(403);
-    }
-    expect(await inf.listarInfluenciadores()).toHaveLength(0);
+  it("rota: o dono grava tudo (cadastra, edita, remove, rede toda); ação inválida e método errado são recusados", async () => {
     const feito = await chama(dono, { method: "POST", body: { acao: "criar", ...ok } });
     expect(feito.code).toBe(200);
     const id = feito.body.influenciador.id;
     expect((await chama(dono, { method: "POST", body: JSON.stringify({ acao: "atualizar", id, ativo: false }) })).code).toBe(200);
+    expect((await chama(dono, { method: "POST", body: { acao: "criar", ...ok, usuario: "rede", unidade: null } })).code).toBe(200);
     expect((await chama(dono, { method: "POST", body: { acao: "criar", ...ok, unidade: "Nenhuma" } })).code).toBe(400);
     expect((await chama(dono, { method: "POST", body: { acao: "faz-nada" } })).code).toBe(400);
     expect((await chama(dono, { method: "POST", body: { acao: "remover", id } })).code).toBe(200);
     expect((await chama(dono, { method: "PUT" })).code).toBe(405);
+  });
+
+  it("rota: o Master cadastra, edita e remove em qualquer unidade e na rede toda", async () => {
+    const a = await chama(master, { method: "POST", body: { acao: "criar", ...ok } });
+    expect(a.code).toBe(200);
+    expect((await chama(master, { method: "POST", body: { acao: "criar", ...ok, usuario: "outra", unidade: "Asa Norte" } })).code).toBe(200);
+    expect((await chama(master, { method: "POST", body: { acao: "criar", ...ok, usuario: "rede", unidade: null } })).code).toBe(200);
+    const id = a.body.influenciador.id;
+    expect((await chama(master, { method: "POST", body: { acao: "atualizar", id, entregas: { stories: 5, feed: 1, reels: 0 } } })).code).toBe(200);
+    expect((await chama(master, { method: "POST", body: { acao: "atualizar", id, ativo: false } })).code).toBe(200);
+    expect((await chama(master, { method: "POST", body: JSON.stringify({ acao: "remover", id }) })).code).toBe(200);
+    expect(await inf.listarInfluenciadores()).toHaveLength(2);
+  });
+
+  it("rota: nível desconhecido não grava", async () => {
+    expect((await chama({ papel: "visitante" }, { method: "POST", body: { acao: "criar", ...ok } })).code).toBe(403);
+    expect(await inf.listarInfluenciadores()).toHaveLength(0);
+  });
+
+  it("rota: quem tem acesso por unidades cadastra, edita e remove só na sua unidade; rede toda e outras unidades não", async () => {
+    // cadastra na própria unidade
+    const meu = await chama(gama, { method: "POST", body: { acao: "criar", ...ok } });
+    expect(meu.code).toBe(200);
+    const id = meu.body.influenciador.id;
+    // não cadastra em outra unidade nem na rede toda
+    expect((await chama(gama, { method: "POST", body: { acao: "criar", ...ok, usuario: "outro", unidade: "Asa Norte" } })).code).toBe(403);
+    expect((await chama(gama, { method: "POST", body: { acao: "criar", ...ok, usuario: "outro", unidade: null } })).code).toBe(403);
+    // edita e desativa o seu; não passa o contrato para outra unidade
+    expect((await chama(gama, { method: "POST", body: { acao: "atualizar", id, entregas: { stories: 8, feed: 2, reels: 1 } } })).code).toBe(200);
+    expect((await chama(gama, { method: "POST", body: { acao: "atualizar", id, ativo: false } })).code).toBe(200);
+    expect((await chama(gama, { method: "POST", body: { acao: "atualizar", id, unidade: "Asa Norte" } })).code).toBe(403);
+    expect((await inf.listarInfluenciadores())[0]).toMatchObject({ unidade: "Gama", ativo: false, entregas: { stories: 8, feed: 2, reels: 1 } });
+    // remove o seu
+    expect((await chama(gama, { method: "POST", body: { acao: "remover", id } })).code).toBe(200);
+    expect(await inf.listarInfluenciadores()).toHaveLength(0);
+  });
+
+  it("rota: a unidade não enxerga nem mexe no contrato de outra unidade (responde como se não existisse)", async () => {
+    const asa = await inf.criarInfluenciador({ ...ok, usuario: "asa", unidade: "Asa Norte" });
+    const rede = await inf.criarInfluenciador({ ...ok, usuario: "rede", unidade: null });
+    for (const alvo of [asa, rede]) {
+      expect((await chama(gama, { method: "POST", body: { acao: "atualizar", id: alvo.id, ativo: false } })).code).toBe(404);
+    }
+    for (const alvo of [asa, rede]) expect((await chama(gama, { method: "POST", body: { acao: "remover", id: alvo.id } })).code).toBe(404);
+    expect(await inf.listarInfluenciadores()).toHaveLength(2);
+    expect((await inf.listarInfluenciadores()).every((x: any) => x.ativo)).toBe(true);
+    expect((await chama(gama, { method: "POST", body: { acao: "atualizar", id: "inexistente", ativo: false } })).code).toBe(404);
+  });
+
+  it("rota: o dono em 'ver como' uma unidade vale como essa unidade (só a dela)", async () => {
+    const sim = { ...gama, papelReal: "dono" };
+    expect((await chama(sim, { method: "POST", body: { acao: "criar", ...ok } })).code).toBe(200);
+    expect((await chama(sim, { method: "POST", body: { acao: "criar", ...ok, usuario: "outro", unidade: "Asa Norte" } })).code).toBe(403);
   });
 });
 
