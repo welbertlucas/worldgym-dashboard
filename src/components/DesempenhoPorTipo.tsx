@@ -33,6 +33,11 @@ export function DesempenhoPorTipo({ posts, quem }: { posts: PostInstagram[]; que
   const maior = Math.max(...linhas.map((l) => l.media), 1);
   const melhor = linhas.find((l) => l.posts >= MIN_POSTS);
   const mediaGeral = posts.length ? posts.reduce((s, p) => s + interacoesDe(p), 0) / posts.length : 0;
+  // Quanto o melhor tipo rende frente a todos os outros juntos (só com posts suficientes dos outros para a média valer).
+  const outros = melhor ? posts.filter((p) => p.tipo !== melhor.tipo) : [];
+  const mediaOutros = outros.length >= MIN_POSTS ? outros.reduce((s, p) => s + interacoesDe(p), 0) / outros.length : null;
+  const vezes = melhor && mediaOutros ? melhor.media / mediaOutros : 0;
+  const comparacao = melhor && mediaOutros && vezes >= 1.2 ? { vezes, outros: mediaOutros } : null; // só quando a vantagem é de verdade (um post gigante nos outros tipos não vira "0,7 vez")
   return (
     <ChartCard
       title="O que gera mais interação"
@@ -73,6 +78,11 @@ export function DesempenhoPorTipo({ posts, quem }: { posts: PostInstagram[]; que
           );
         })}
       </ol>
+      {comparacao && (
+        <p className="mt-5 rounded-xl bg-secondary/60 px-3 py-2.5 text-sm text-foreground">
+          Um post de <b>{melhor!.rotulo}</b> rende, em média, <b>{comparacao.vezes.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} vezes</b> as interações de um post dos outros tipos ({dec(melhor!.media)} contra {dec(comparacao.outros)}).
+        </p>
+      )}
       <p className="mt-4 text-xs text-muted-foreground">
         Interações = curtidas, comentários, salvos e compartilhamentos. A média de todos os posts é {dec(mediaGeral)} por post. Barras apagadas: tipos com menos de {MIN_POSTS} posts, em que a média diz pouco. Não mede alcance nem qualidade da conversa.
       </p>

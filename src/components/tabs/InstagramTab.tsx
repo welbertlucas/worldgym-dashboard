@@ -87,7 +87,7 @@ export function InstagramTab({ unit }: { unit: string | null }) {
         <p className="text-xs text-muted-foreground">{varias ? "A barra de cada cartão compara a unidade com a maior unidade (a conta da rede fica de fora). " : ""}O ganho de seguidores aparece quando houver histórico. Em vermelho, a conta que ficou mais de 7 dias sem postar no feed.</p>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid items-start gap-6 xl:grid-cols-2">
         <DesempenhoPorTipo posts={posts} quem={quem} />
         <MelhorHorario posts={postsHorario} quem={quem} dias={DIAS_HORARIO} />
       </div>

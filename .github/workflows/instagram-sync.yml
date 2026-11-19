@@ -30,3 +30,10 @@ jobs:
           META_TOKEN_DFGO: ${{ secrets.META_TOKEN_DFGO }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/instagram-sync.mjs
+      - name: Perfis dos influenciadores (seguidores e foto)
+        # Passo extra: se falhar (conta pessoal, limite do Meta), o Instagram das unidades já foi gravado e segue valendo.
+        continue-on-error: true
+        env:
+          META_TOKEN_DFGO: ${{ secrets.META_TOKEN_DFGO }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/instagram-perfis.mjs

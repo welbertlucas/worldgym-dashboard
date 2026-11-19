@@ -20,6 +20,8 @@ export interface Influenciador {
   criadoEm: string;
 }
 export type CamposInfluenciador = Omit<Influenciador, "id" | "criadoEm">;
+/** O que o perfil público do @ mostra, lido do Instagram a cada 4 horas. `erro`: o perfil não pôde ser lido (conta pessoal, privada...). */
+export interface PerfilInfluenciador { seguidores: number | null; publicacoes: number | null; foto: boolean; erro: string | null }
 export type SituacaoContrato = "vigente" | "futuro" | "encerrado" | "inativo";
 
 export const TIPOS_ENTREGA: { id: keyof Entregas; rotulo: string; singular: string }[] = [
@@ -79,7 +81,21 @@ async function chamar<T>(init?: RequestInit, consulta = ""): Promise<Resposta<T>
 }
 const enviar = <T>(corpo: object) => chamar<T>({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
 
-export const listarInfluenciadores = () => chamar<{ influenciadores: Influenciador[] }>(undefined, "?influenciadores=1");
+export const listarInfluenciadores = () => chamar<{ influenciadores: Influenciador[]; perfis?: Record<string, PerfilInfluenciador> }>(undefined, "?influenciadores=1");
+
+const fotos = new Map<string, Promise<string | null>>();
+/** Foto do perfil guardada (a rota exige login, então vem por fetch e vira um endereço local do navegador). Uma busca por @ por visita. */
+export function fotoDoPerfil(usuario: string): Promise<string | null> {
+  if (!fotos.has(usuario)) {
+    fotos.set(usuario, authFetch(`${API_BASE}/instagram?perfil=${encodeURIComponent(usuario)}`)
+      .then(async (r) => (r.ok ? URL.createObjectURL(await r.blob()) : null))
+      .catch(() => null));
+  }
+  return fotos.get(usuario)!;
+}
+
+/** "14,4 mil", "2,5 mi", "950". */
+export const seguidoresCompacto = (n: number) => new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 export const criarInfluenciador = (c: CamposInfluenciador) => enviar<{ influenciador: Influenciador }>({ acao: "criar", ...c });
 export const atualizarInfluenciador = (id: string, c: Partial<CamposInfluenciador>) => enviar<{ influenciador: Influenciador }>({ acao: "atualizar", id, ...c });
 export const removerInfluenciador = (id: string) => enviar<{ ok: true }>({ acao: "remover", id });

@@ -25,7 +25,7 @@ export function PostsEmDestaque({ posts, quem, dias, mostrarConta }: { posts: Po
               <li key={p.id} className={cn("min-w-0", destaque && "col-span-2 lg:row-span-2")}>
                 <a href={p.link ?? undefined} target="_blank" rel="noreferrer" className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <div className={cn("relative", destaque && "lg:min-h-[18rem] lg:flex-1")}>
-                    <Miniatura id={p.id} temMidia={p.midia} className={cn("w-full aspect-[4/5]", destaque && "lg:absolute lg:inset-0 lg:aspect-auto lg:h-full")} alt={p.legenda ? p.legenda.slice(0, 80) : `Post ${i + 1} em destaque`} />
+                    <Miniatura id={p.id} temMidia={p.midia} className={cn("w-full aspect-[4/5]", destaque && "lg:absolute lg:inset-0 lg:aspect-auto lg:h-full")} alt={p.legenda ? p.legenda.slice(0, 80) : `Post ${i + 1} em destaque`} legenda={p.legenda} />
                     <span className={cn("absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full px-2 font-display text-sm font-semibold", destaque ? "bg-primary text-primary-foreground" : "bg-black/65 text-white")}>{i + 1}º</span>
                     <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
                       {Icone && <Icone className="h-3 w-3" aria-hidden />}{NOME_DO_TIPO[p.tipo] ?? p.tipo}

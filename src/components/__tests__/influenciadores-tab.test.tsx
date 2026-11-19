@@ -41,3 +41,27 @@ describe("Marketing › Influenciadores", () => {
     expect(html("Gama")).toContain("Unidade escolhida: Gama");
   });
 });
+
+describe("Cartão do influenciador: perfil lido do Instagram", () => {
+  const base = { id: "1", usuario: "larisse.sousaa_", nome: "Larisse", unidade: "Gama", inicio: null, fim: null, entregas: { stories: 6, feed: 1, reels: 1 }, ativo: true, criadoEm: "2026-11-19T00:00:00Z" };
+  const cartao = async (perfil: { seguidores: number | null; publicacoes: number | null; foto: boolean; erro: string | null } | null) => {
+    const { CartaoDoInfluenciador } = await import("@/components/tabs/InfluenciadoresTab");
+    return renderToString(<ul><CartaoDoInfluenciador i={base} perfil={perfil} pode={false} onEditar={() => {}} onAtivo={() => {}} onRemover={() => {}} /></ul>).replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
+  };
+  it("com o perfil lido, mostra os seguidores em formato curto", async () => {
+    const h = await cartao({ seguidores: 14417, publicacoes: 300, foto: false, erro: null });
+    expect(h).toContain("14,4 mil");
+    expect(h).toContain("seguidores");
+    expect(h).not.toContain("Perfil não lido");
+  });
+  it("sem leitura ainda, não mostra seguidores nem aviso", async () => {
+    const h = await cartao(null);
+    expect(h).not.toContain("seguidores");
+    expect(h).not.toContain("Perfil não lido");
+  });
+  it("perfil que não pôde ser lido avisa que talvez seja conta pessoal ou privada", async () => {
+    const h = await cartao({ seguidores: null, publicacoes: null, foto: false, erro: "Perfil não lido: precisa ser uma conta profissional (Business ou Creator) e pública." });
+    expect(h).toContain("Perfil não lido: conta pessoal ou privada?");
+    expect(h).not.toContain("14,4");
+  });
+});

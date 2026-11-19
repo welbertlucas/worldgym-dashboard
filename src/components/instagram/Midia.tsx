@@ -3,8 +3,8 @@ import { Image as ImageIcon } from "lucide-react";
 import { imagemInstagram } from "@/data/instagram";
 import { cn } from "@/lib/utils";
 
-/** Imagem guardada de um post/story; só busca quando aparece na tela. Sem imagem, um quadro neutro com ícone. */
-export function Miniatura({ id, temMidia, className, alt }: { id: string; temMidia?: boolean | null; className?: string; alt: string }) {
+/** Imagem guardada de um post/story; só busca quando aparece na tela. Sem imagem guardada, o começo da legenda (se houver) ou um quadro neutro com ícone. */
+export function Miniatura({ id, temMidia, className, alt, legenda }: { id: string; temMidia?: boolean | null; className?: string; alt: string; legenda?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
@@ -20,7 +20,13 @@ export function Miniatura({ id, temMidia, className, alt }: { id: string; temMid
   }, [id, temMidia]);
   return (
     <div ref={ref} className={cn("overflow-hidden bg-secondary", className)}>
-      {src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-muted-foreground/50"><ImageIcon className="h-6 w-6" aria-hidden /></span>}
+      {src ? <img src={src} alt={alt} className="h-full w-full object-cover" />
+        : !temMidia && legenda?.trim() ? (
+          <span className="flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center text-muted-foreground">
+            <ImageIcon className="h-5 w-5 shrink-0 opacity-50" aria-hidden />
+            <span className="text-[11px] leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{legenda.trim()}</span>
+          </span>
+        ) : <span className="flex h-full w-full items-center justify-center text-muted-foreground/50"><ImageIcon className="h-6 w-6" aria-hidden /></span>}
     </div>
   );
 }

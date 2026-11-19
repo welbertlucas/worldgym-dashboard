@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Clapperboard, ExternalLink, Image as ImageIcon, Plus, Smartphone, Building2, UserRound } from "lucide-react";
+import { Building2, Clapperboard, ExternalLink, Image as ImageIcon, Plus, Smartphone, UserRound, Users } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { FaixaKpi, type ItemKpi } from "@/components/FaixaKpi";
 import { Avatar } from "@/components/instagram/Midia";
@@ -10,9 +10,9 @@ import { ehDono, papelAtual, unidadesProprias } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { getAvailableUnits } from "@/data/dashboardData";
 import {
-  andamentoDoContrato, atualizarInfluenciador, criarInfluenciador, dasUnidades, listarInfluenciadores, ordenarInfluenciadores, removerInfluenciador,
-  resumoDosContratos, ROTULO_SITUACAO, situacaoDoContrato, TIPOS_ENTREGA, vigencia,
-  type CamposInfluenciador, type Entregas, type Influenciador, type SituacaoContrato,
+  andamentoDoContrato, atualizarInfluenciador, criarInfluenciador, dasUnidades, fotoDoPerfil, listarInfluenciadores, ordenarInfluenciadores, removerInfluenciador,
+  resumoDosContratos, ROTULO_SITUACAO, seguidoresCompacto, situacaoDoContrato, TIPOS_ENTREGA, vigencia,
+  type CamposInfluenciador, type Entregas, type Influenciador, type PerfilInfluenciador, type SituacaoContrato,
 } from "@/data/influenciadores";
 
 const campo = "h-10 w-full rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
@@ -42,13 +42,14 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
   const amplo = dono || papelAtual() === "master"; // qualquer unidade e a rede toda
   const podeCadastrar = amplo || proprias !== null;
   const [lista, setLista] = useState<Influenciador[] | null>(null);
+  const [perfis, setPerfis] = useState<Record<string, PerfilInfluenciador>>({});
   const [erro, setErro] = useState("");
   const [editando, setEditando] = useState<Influenciador | "novo" | null>(null);
   const [filtro, setFiltro] = useState<FiltroStatus>("todos");
 
   const carregar = useCallback(async () => {
     const r = await listarInfluenciadores();
-    if (r.ok) { setLista(Array.isArray(r.dados.influenciadores) ? r.dados.influenciadores : []); setErro(""); } else setErro(r.erro);
+    if (r.ok) { setLista(Array.isArray(r.dados.influenciadores) ? r.dados.influenciadores : []); setPerfis(r.dados.perfis ?? {}); setErro(""); } else setErro(r.erro);
   }, []);
   useEffect(() => { void carregar(); }, [carregar]);
 
@@ -127,7 +128,7 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
             </ChartEmpty>
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visiveis.map((i) => <CartaoDoInfluenciador key={i.id} i={i} pode={podeCadastrar} onEditar={() => setEditando(i)} onAtivo={() => alternarAtivo(i)} onRemover={() => remover(i)} />)}
+              {visiveis.map((i) => <CartaoDoInfluenciador key={i.id} i={i} perfil={perfis[i.usuario] ?? null} pode={podeCadastrar} onEditar={() => setEditando(i)} onAtivo={() => alternarAtivo(i)} onRemover={() => remover(i)} />)}
             </ul>
           )}
         <p className="text-xs text-muted-foreground">Por enquanto são só os contratos. Em breve o Atlas passa a conferir o que cada influenciador postou (feed, reels e stories) contra o que foi combinado.</p>
@@ -137,21 +138,34 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
 }
 
 /** Um contrato: quem é, em que unidade, o que foi combinado por mês e em que ponto do prazo estamos. */
-function CartaoDoInfluenciador({ i, pode, onEditar, onAtivo, onRemover }: { i: Influenciador; pode: boolean; onEditar: () => void; onAtivo: () => void; onRemover: () => void }) {
+export function CartaoDoInfluenciador({ i, perfil, pode, onEditar, onAtivo, onRemover }: { i: Influenciador; perfil: PerfilInfluenciador | null; pode: boolean; onEditar: () => void; onAtivo: () => void; onRemover: () => void }) {
   const sit = situacaoDoContrato(i);
   const and = andamentoDoContrato(i);
   const apagado = sit === "encerrado" || sit === "inativo";
+  const [foto, setFoto] = useState<string | null>(null);
+  const temFoto = Boolean(perfil?.foto);
+  useEffect(() => {
+    let vivo = true;
+    if (temFoto) fotoDoPerfil(i.usuario).then((u) => vivo && setFoto(u));
+    return () => { vivo = false; };
+  }, [i.usuario, temFoto]);
   // O texto do andamento já diz as datas de um contrato em vigor com início ou fim sozinhos; o período só entra quando acrescenta algo.
   const mostrarPeriodo = Boolean(i.inicio || i.fim) && !(sit === "vigente" && !(i.inicio && i.fim));
   return (
     <li className={cn("card-surface flex min-w-0 flex-col gap-4 p-4", apagado && "bg-secondary/30")}>
       <div className="flex items-start gap-3">
-        <Avatar foto={null} nome={i.usuario} />
+        <Avatar foto={foto} nome={i.usuario} />
         <div className="min-w-0 flex-1">
           <a href={`https://www.instagram.com/${i.usuario}/`} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-1 rounded text-sm font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="truncate">@{i.usuario}</span><ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden /><span className="sr-only"> (abre o Instagram)</span>
           </a>
           <p className="truncate text-xs text-muted-foreground">{i.nome ? `${i.nome} · ` : ""}{i.unidade ?? "Rede toda (Institucional)"}</p>
+          {perfil && perfil.seguidores != null && (
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums" title={`${perfil.seguidores.toLocaleString("pt-BR")} seguidores${perfil.publicacoes != null ? ` · ${perfil.publicacoes.toLocaleString("pt-BR")} publicações` : ""}`}>
+              <Users className="h-3 w-3" aria-hidden /><span><b className="font-semibold text-foreground">{seguidoresCompacto(perfil.seguidores)}</b> seguidores</span>
+            </p>
+          )}
+          {perfil?.erro && <p className="mt-0.5 text-[11px] text-warning" title={perfil.erro}>Perfil não lido: conta pessoal ou privada?</p>}
         </div>
         <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", COR_SITUACAO[sit])}>{ROTULO_SITUACAO[sit]}</span>
       </div>

@@ -6,6 +6,8 @@ import { FeedSecao } from "@/components/instagram/FeedSecao";
 import { MelhorHorario, nomeDaCelula } from "@/components/instagram/MelhorHorario";
 import { PostsEmDestaque } from "@/components/instagram/PostsEmDestaque";
 import { StoriesSecao } from "@/components/instagram/StoriesSecao";
+import { Miniatura } from "@/components/instagram/Midia";
+import { DesempenhoPorTipo } from "@/components/DesempenhoPorTipo";
 import type { PostInstagram, StoryInstagram } from "@/data/instagram";
 import type { CartaoConta } from "@/data/instagramPainel";
 
@@ -106,5 +108,29 @@ describe("Posts em destaque, stories e feed", () => {
     expect(h).toContain("Mais recentes");
     expect(h).toContain("Mais interação");
     expect(limpo(renderToString(<FeedSecao posts={[]} quem="Rede" mostrarConta />))).toContain("Nenhum post guardado");
+  });
+});
+
+describe("Acabamentos: post sem imagem e comparação de tipos", () => {
+  it("post sem imagem guardada mostra o começo da legenda; com imagem a caminho ou sem legenda, o quadro neutro", () => {
+    const sem = limpo(renderToString(<Miniatura id="1" temMidia={false} alt="x" legenda="  Treino de pernas na World Gym #fit  " />));
+    expect(sem).toContain("Treino de pernas na World Gym #fit");
+    expect(sem).toContain("-webkit-box");
+    expect(limpo(renderToString(<Miniatura id="1" temMidia alt="x" legenda="Não aparece enquanto a imagem carrega" />))).not.toContain("Não aparece");
+    expect(limpo(renderToString(<Miniatura id="1" temMidia={false} alt="x" legenda="   " />))).not.toContain("-webkit-box");
+  });
+
+  it("compara o melhor tipo com os outros só quando a vantagem é real", () => {
+    const p = (tipo: string, curtidas: number) => post(`${tipo}${curtidas}${Math.random()}`, { tipo, curtidas, comentarios: 0, salvos: 0, compartilhamentos: 0, interacoes: null });
+    const claro = [p("REELS", 100), p("REELS", 100), p("REELS", 100), p("IMAGE", 20), p("IMAGE", 20), p("IMAGE", 20)];
+    const h = limpo(renderToString(<DesempenhoPorTipo posts={claro} quem="Rede" />));
+    expect(h).toContain("rende, em média");
+    expect(h).toContain("5 vezes");
+    expect(h).toContain("100 contra 20");
+    // os outros têm um post gigante: a média dos outros passa a do melhor, então não há frase
+    const enganoso = [p("REELS", 100), p("REELS", 100), p("REELS", 100), p("IMAGE", 10), p("IMAGE", 10), p("CAROUSEL_ALBUM", 900)];
+    expect(limpo(renderToString(<DesempenhoPorTipo posts={enganoso} quem="Rede" />))).not.toContain("rende, em média");
+    // poucos posts dos outros tipos: sem comparação
+    expect(limpo(renderToString(<DesempenhoPorTipo posts={[p("REELS", 100), p("REELS", 100), p("REELS", 100), p("IMAGE", 10)]} quem="Rede" />))).not.toContain("rende, em média");
   });
 });

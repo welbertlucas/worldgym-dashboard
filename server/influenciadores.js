@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { lerJson, gravarJson } from "./armazem.js";
 import { UNIDADES_DA_REDE } from "./acesso.js";
+import { idDaFoto, lerPerfis } from "./perfisInfluenciadores.js";
 
 const ARQUIVO = "influenciadores/cadastro.json";
 const TTL_MS = 60 * 1000;
@@ -113,17 +114,34 @@ export async function removerInfluenciador(id) {
 const corpoDe = (req) => (typeof req.body === "string" ? (() => { try { return JSON.parse(req.body) ?? {}; } catch { return {}; } })() : req.body ?? {});
 
 /**
- * Atende GET/POST de /api/instagram?influenciadores. `filtrar`: regra de visibilidade (server/visibilidade.js).
- *   GET  -> { influenciadores }  (todos para dono e Master; só os da unidade para quem tem acesso por unidades)
+ * Atende GET/POST de /api/instagram?influenciadores. `filtrar`: regra de visibilidade (server/visibilidade.js); `imagem`: lê a foto guardada.
+ *   GET  -> { influenciadores, perfis }  (todos para dono e Master; só os da unidade para quem tem acesso por unidades)
+ *   GET ?perfil=<@> -> a foto pequena do perfil (JPEG), só de influenciador que a pessoa vê
  *   POST { acao: "criar" | "atualizar" | "remover", ... }
  *     dono e Master: tudo, em qualquer unidade e na rede toda;
  *     acesso por unidades: cadastra, edita, desativa, reativa e remove só contratos das SUAS unidades (nunca a rede toda).
  *     Na simulação "ver como" vale o nível simulado.
  */
-export async function tratarInfluenciadores(req, res, sessao, filtrar) {
+export async function tratarInfluenciadores(req, res, sessao, filtrar, { imagem } = {}) {
   res.setHeader("Cache-Control", "no-store");
   try {
-    if (req.method === "GET") return res.status(200).json({ influenciadores: filtrar(await lerFresco(), sessao) });
+    if (req.method === "GET") {
+      const visiveis = filtrar(await lerFresco(), sessao);
+      const usuarios = new Set(visiveis.map((i) => i.usuario));
+      const perfis = await lerPerfis();
+      // Foto de perfil (/api/instagram?perfil=<@>): só de quem a pessoa pode ver na lista.
+      if (req.query?.perfil !== undefined) {
+        const u = String(req.query.perfil);
+        const stream = usuarios.has(u) && perfis[u]?.foto && imagem ? await imagem(idDaFoto(u)) : null;
+        if (!stream) return res.status(404).end();
+        res.setHeader("Content-Type", "image/jpeg");
+        res.setHeader("Cache-Control", "private, max-age=86400");
+        return res.status(200).send(Buffer.from(await new Response(stream).arrayBuffer()));
+      }
+      // O que o perfil já mostra a qualquer pessoa (seguidores, se há foto) e o aviso quando o perfil não pôde ser lido.
+      const doPerfil = Object.fromEntries(Object.entries(perfis).filter(([u]) => usuarios.has(u)).map(([u, p]) => [u, { seguidores: p.seguidores ?? null, publicacoes: p.publicacoes ?? null, foto: Boolean(p.foto), erro: p.erro ?? null }]));
+      return res.status(200).json({ influenciadores: visiveis, perfis: doPerfil });
+    }
     if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
     const dono = sessao.papel === "dono";
     const master = sessao.papel === "master";

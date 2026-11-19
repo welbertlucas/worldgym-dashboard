@@ -1,7 +1,8 @@
 // Instagram das unidades (gravado por scripts/instagram-sync.mjs a cada 4 horas).
 // GET /api/instagram            -> { geradoEm, contas, seguidores, posts, stories, erros } (só as contas que a pessoa pode ver)
 // GET /api/instagram?midia=<id> -> a imagem pequena guardada daquele post/story (JPEG)
-// GET /api/instagram?influenciadores=1 -> { influenciadores } (cadastro; Master vê todos, unidades só os seus)
+// GET /api/instagram?influenciadores=1 -> { influenciadores, perfis } (cadastro e perfil público; unidades só os seus)
+// GET /api/instagram?perfil=<@> -> foto pequena do perfil de um influenciador que a pessoa vê (JPEG)
 // POST /api/instagram { acao: "criar" | "atualizar" | "remover", ... } -> dono e Master em qualquer unidade; unidades só nas suas (ver server/influenciadores.js)
 import { loadInstagram, loadMidiaInstagram } from "../server/store.js";
 import { cors, exigirLogin } from "./_auth.js";
@@ -22,7 +23,7 @@ export default async function handler(req, res) {
   const sessao = await exigirLogin(req, res);
   if (!sessao) return;
   // Cadastro dos influenciadores (Marketing > Influenciadores). Fica nesta rota para não criar mais uma função na Vercel.
-  if (req.method === "POST" || req.query?.influenciadores !== undefined) return tratarInfluenciadores(req, res, sessao, filtrarInfluenciadores);
+  if (req.method === "POST" || req.query?.influenciadores !== undefined || req.query?.perfil !== undefined) return tratarInfluenciadores(req, res, sessao, filtrarInfluenciadores, { imagem: loadMidiaInstagram });
   try {
     const visiveis = filtrarInstagram(await dados(), sessao);
     const id = typeof req.query?.midia === "string" ? req.query.midia : null;

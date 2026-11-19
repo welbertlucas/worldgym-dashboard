@@ -17,7 +17,7 @@ function PostTile({ p, mostrarConta, maior }: { p: PostInstagram; mostrarConta: 
     <li>
       <a href={p.link ?? undefined} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <div className="relative">
-          <Miniatura id={p.id} temMidia={p.midia} className="aspect-square w-full" alt={p.legenda ? p.legenda.slice(0, 80) : "Post do Instagram"} />
+          <Miniatura id={p.id} temMidia={p.midia} className="aspect-square w-full" alt={p.legenda ? p.legenda.slice(0, 80) : "Post do Instagram"} legenda={p.legenda} />
           <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">{NOME_DO_TIPO[p.tipo] ?? p.tipo}</span>
         </div>
         <div className="space-y-1.5 p-2.5">
