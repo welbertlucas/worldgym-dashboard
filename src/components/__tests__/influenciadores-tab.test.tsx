@@ -105,14 +105,15 @@ describe("Cartão do influenciador: entregue contra combinado", () => {
     const h = await cartao(tudo);
     expect(h).toContain("Cumprido");
     expect(h).not.toContain("Faltam");
-    expect(h).toContain("1 post do perfil neste mês não cita nem marca a unidade e não entra na conta.");
+    expect(h).toContain("1 post do perfil neste mês não cita a unidade na legenda e não entra na conta.");
+    expect(h).toContain("Marcação só na imagem e post em colaboração o Atlas não enxerga.");
     const dois = await cartao([...tudo, post("feed", "2026-11-09T15:00:00+0000", [])]);
-    expect(dois).toContain("2 posts do perfil neste mês não citam nem marcam a unidade e não entram na conta.");
+    expect(dois).toContain("2 posts do perfil neste mês não citam a unidade na legenda e não entram na conta.");
   });
 
   it("regra 'qualquer': não mostra o aviso de post sem citar", async () => {
     const h = await cartao([post("feed", "2026-11-08T15:00:00+0000", [])], { ...base, contagem: "qualquer" });
-    expect(h).not.toContain("não cita nem marca");
+    expect(h).not.toContain("na legenda e não entra");
   });
 
   it("contrato desativado e post de um mês só de stories não quebram", async () => {

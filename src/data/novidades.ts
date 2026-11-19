@@ -28,7 +28,7 @@ export const NOVIDADES: Novidade[] = [
   {
     id: "2026-11-19-influenciadores-conferencia", data: "2026-11-19", tipo: "novo", publico: "todos", autora: AUTORA, tela: "campanhas/influenciadores", artigo: "tela-marketing",
     titulo: "Influenciadores: o que cada um postou contra o combinado",
-    texto: "Saber se o influenciador cumpriu o contrato exigia abrir o perfil dele e contar post por post. Agora o Atlas lê o feed e os reels de cada perfil a cada 4 horas e mostra, para este mês ou o mês passado, quantos já saíram contra o combinado, se o ritmo está em dia e quais posts contaram, com o link de cada um. Por padrão só conta o post que cita ou marca a conta da unidade; em cada contrato dá para escolher que qualquer post do perfil conta. Stories ainda não são conferidos. A conferência aparece depois da próxima atualização do Instagram.",
+    texto: "Saber se o influenciador cumpriu o contrato exigia abrir o perfil dele e contar post por post. Agora o Atlas lê o feed e os reels de cada perfil a cada 4 horas e mostra, para este mês ou o mês passado, quantos já saíram contra o combinado, se o ritmo está em dia e quais posts contaram, com o link de cada um. Por padrão só conta o post que cita a conta da unidade na legenda; em cada contrato dá para escolher que qualquer post do perfil conta. Marcação só na imagem, colaboração e stories o Atlas não enxerga. A conferência aparece depois da próxima atualização do Instagram.",
   },
   {
     id: "2026-11-19-marketing-visual", data: "2026-11-19", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "campanhas/instagram", artigo: "tela-marketing",

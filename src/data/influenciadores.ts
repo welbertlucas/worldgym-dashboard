@@ -16,7 +16,7 @@ export interface Influenciador {
   fim: string | null;
   /** Combinado por mês. */
   entregas: Entregas;
-  /** O que conta como entrega de feed e reels: só o post que cita ou marca a unidade (padrão) ou qualquer post do perfil. */
+  /** O que conta como entrega de feed e reels: só o post que cita a unidade ou a marca na legenda (padrão) ou qualquer post do perfil. */
   contagem?: RegraDeContagem;
   obs?: string;
   ativo: boolean;

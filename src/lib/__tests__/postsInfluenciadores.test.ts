@@ -20,7 +20,14 @@ describe("Posts do influenciador: tipo e menção às contas da rede", () => {
     expect(p.contasCitadas("Parceria com @WorldGymBrasil e @worldgym.itapoa.", h).sort()).toEqual(["worldgym.itapoa", "worldgymbrasil"]); // ponto final da frase
     expect(p.contasCitadas("@worldgym.gama.br não é a mesma conta", h)).toEqual([]);
     expect(p.contasCitadas("meuworldgymbrasil @outro", h)).toEqual([]);
-    expect(p.contasCitadas("sem arroba: worldgym.gama", h)).toEqual([]);
+    expect(p.contasCitadas("sem arroba: worldgym.gama", h)).toEqual(["worldgym.gama"]); // como os influenciadores escrevem
+    expect(p.contasCitadas("Virgínia? 💖 worldgym.itapoa #academia #treino", h)).toEqual(["worldgym.itapoa"]);
+    expect(p.contasCitadas("Sua evolução começa aqui na worldgym.itapoa", h)).toEqual(["worldgym.itapoa"]);
+    expect(p.contasCitadas("veja instagram.com/worldgym.gama", h)).toEqual(["worldgym.gama"]);
+    expect(p.contasCitadas("bora #worldgymitapoa e #WorldGymBrasil", h).sort()).toEqual(["worldgym.itapoa", "worldgymbrasil"]); // hashtag sem os pontos
+    expect(p.contasCitadas("#worldgymitapoano não é a hashtag", h)).toEqual([]);
+    expect(p.contasCitadas("worldgym.gama.com.br é outro endereço", h)).toEqual([]);
+    expect(p.contasCitadas("superworldgym.gama não é a mesma", h)).toEqual([]);
     expect(p.contasCitadas("email fulano@worldgym.gama.com", h)).toEqual([]);
     expect(p.contasCitadas("(@worldgym.gama)", h)).toEqual(["worldgym.gama"]);
     expect(p.contasCitadas(null, h)).toEqual([]);

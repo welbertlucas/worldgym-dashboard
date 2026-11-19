@@ -157,7 +157,7 @@ export function InfluenciadoresTab({ unit }: { unit: string | null }) {
               {visiveis.map((i) => <CartaoDoInfluenciador key={i.id} i={i} perfil={perfis[i.usuario] ?? null} entrega={entregasDoMes(i, posts[i.usuario], contas, ym, hoje)} pode={podeCadastrar} onEditar={() => setEditando(i)} onAtivo={() => alternarAtivo(i)} onRemover={() => remover(i)} />)}
             </ul>
           )}
-        <p className="text-xs text-muted-foreground">O Atlas lê os posts de cada perfil a cada 4 horas e confere o feed e os reels contra o combinado. Por padrão, só conta o post que cita ou marca a conta da unidade (ou da marca); cada contrato pode mudar isso para qualquer post do perfil. Os stories ainda não são conferidos: a Meta não os entrega para contas de terceiros.</p>
+        <p className="text-xs text-muted-foreground">O Atlas lê os posts de cada perfil a cada 4 horas e confere o feed e os reels contra o combinado. Por padrão, só conta o post que cita a conta da unidade (ou da marca) na legenda, com ou sem @; cada contrato pode mudar isso para qualquer post do perfil. O Atlas não enxerga marcação feita só na imagem, post em colaboração nem stories, porque a Meta não entrega isso para contas de terceiros.</p>
       </section>
     </div>
   );
@@ -207,7 +207,7 @@ function EntregasDoCartao({ i, e }: { i: Influenciador; e: EntregasDoMes }) {
       {conferido && e.situacao === "nao_cumprido" && <p className="mt-2 text-xs text-foreground">Faltaram {faltam}.</p>}
       {e.situacao === "sem_leitura" && i.ativo && <p className="mt-2 text-xs text-muted-foreground">O Atlas ainda não leu os posts deste perfil. A próxima atualização (a cada 4 horas) traz.</p>}
       {conferido && e.semCitar > 0 && (i.contagem ?? "marcando") === "marcando" && (
-        <p className="mt-2 text-xs text-warning">{e.semCitar} {e.semCitar === 1 ? "post do perfil neste mês não cita nem marca a unidade e não entra na conta." : "posts do perfil neste mês não citam nem marcam a unidade e não entram na conta."}</p>
+        <p className="mt-2 text-xs text-warning">{e.semCitar} {e.semCitar === 1 ? "post do perfil neste mês não cita a unidade na legenda e não entra na conta." : "posts do perfil neste mês não citam a unidade na legenda e não entram na conta."} Marcação só na imagem e post em colaboração o Atlas não enxerga.</p>
       )}
       {conferido && e.contam.length > 0 && (
         <details className="mt-2 text-xs">
@@ -345,7 +345,7 @@ function Formulario({ inicial, unidadeInicial, amplo, proprias, onSalvo, onCance
       </fieldset>
       <label className="block space-y-1.5 text-sm font-medium text-foreground">O que conta como entrega de feed e reels
         <Select value={contagem} onChange={(e) => setContagem(e.target.value as "marcando" | "qualquer")}>
-          <option value="marcando">Só post que cita ou marca a unidade (ou a marca) — recomendado</option>
+          <option value="marcando">Só post que cita a unidade (ou a marca) na legenda — recomendado</option>
           <option value="qualquer">Qualquer post do perfil</option>
         </Select>
         <span className="block text-xs font-normal text-muted-foreground">Os stories ainda não são conferidos pelo Atlas.</span>

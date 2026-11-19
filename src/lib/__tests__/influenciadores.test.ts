@@ -77,7 +77,7 @@ describe("cadastro de influenciadores (servidor)", () => {
     await expect(inf.criarInfluenciador({ ...ok, usuario: "invertido", inicio: "2026-11-01", fim: "2026-10-31" })).rejects.toThrow(/antes do início/);
   });
 
-  it("regra de contagem: padrão é só o que cita ou marca a unidade; aceita 'qualquer'; recusa outro valor; edição mantém", async () => {
+  it("regra de contagem: padrão é só o que cita a unidade na legenda; aceita 'qualquer'; recusa outro valor; edição mantém", async () => {
     const a = await inf.criarInfluenciador(ok);
     expect(a.contagem).toBe("marcando");
     const b = await inf.atualizarInfluenciador(a.id, { contagem: "qualquer" });

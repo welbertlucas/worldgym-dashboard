@@ -23,12 +23,17 @@ export const tipoDoPost = (m) => (m?.media_product_type === "REELS" || /\/reels?
 const escapar = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
- * Quais das contas `handles` (sem @) a legenda cita como @conta. O ponto final de uma frase não faz parte do @
- * ("@worldgym.gama." cita worldgym.gama), mas ".algo" colado faz ("@worldgym.gama.br" é outra conta).
+ * Quais das contas `handles` (sem @) a legenda cita: como @conta, como texto solto ("worldgym.itapoa", do jeito que os influenciadores
+ * costumam escrever) ou como hashtag sem os pontos (#worldgymitapoa). O ponto final de uma frase não faz parte do nome
+ * ("worldgym.gama." cita worldgym.gama), mas ".algo" colado faz ("worldgym.gama.br" é outra coisa); e dentro de outra palavra não vale.
  */
 export function contasCitadas(legenda, handles) {
   const texto = String(legenda ?? "");
-  return [...new Set(handles.map((h) => String(h).toLowerCase()))].filter((h) => new RegExp(`(^|[^a-z0-9._])@${escapar(h)}(?![a-z0-9_])(?!\\.[a-z0-9_])`, "i").test(texto));
+  return [...new Set(handles.map((h) => String(h).toLowerCase()))].filter((h) => {
+    const nome = new RegExp(`(^|[^a-z0-9._])@?${escapar(h)}(?![a-z0-9_])(?!\\.[a-z0-9_])`, "i");
+    const hashtag = new RegExp(`#${escapar(h.replace(/\./g, ""))}(?![a-z0-9_])`, "i");
+    return nome.test(texto) || hashtag.test(texto);
+  });
 }
 
 /** Post como o painel guarda: o essencial, sem o que não precisa. `citou`: contas da rede citadas na legenda ou marcadas no post. */
