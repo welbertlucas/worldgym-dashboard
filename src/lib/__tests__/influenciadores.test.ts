@@ -46,7 +46,7 @@ describe("cadastro de influenciadores (servidor)", () => {
     expect(novo).toMatchObject({ usuario: "fulano.fit", nome: "Fulano", unidade: "Gama", inicio: "2026-11-01", fim: null, ativo: true, entregas: { stories: 12, feed: 4, reels: 2 }, obs: "contrato anual" });
     expect(novo.id).toBeTruthy();
     expect(await inf.listarInfluenciadores()).toHaveLength(1);
-    expect(Object.keys(novo).sort()).toEqual(["ativo", "criadoEm", "entregas", "fim", "id", "inicio", "nome", "obs", "unidade", "usuario"]);
+    expect(Object.keys(novo).sort()).toEqual(["ativo", "contagem", "criadoEm", "entregas", "fim", "id", "inicio", "nome", "obs", "unidade", "usuario"]);
   });
 
   it("aceita a rede toda (unidade nula) e rejeita unidade, datas e quantidades inválidas", async () => {
@@ -75,6 +75,23 @@ describe("cadastro de influenciadores (servidor)", () => {
     const d = await inf.atualizarInfluenciador(c.id, { inicio: "", fim: "" });
     expect(d).toMatchObject({ inicio: null, fim: null });
     await expect(inf.criarInfluenciador({ ...ok, usuario: "invertido", inicio: "2026-11-01", fim: "2026-10-31" })).rejects.toThrow(/antes do início/);
+  });
+
+  it("regra de contagem: padrão é só o que cita ou marca a unidade; aceita 'qualquer'; recusa outro valor; edição mantém", async () => {
+    const a = await inf.criarInfluenciador(ok);
+    expect(a.contagem).toBe("marcando");
+    const b = await inf.atualizarInfluenciador(a.id, { contagem: "qualquer" });
+    expect(b.contagem).toBe("qualquer");
+    expect((await inf.atualizarInfluenciador(a.id, { obs: "ajuste" })).contagem).toBe("qualquer"); // não volta ao padrão sozinho
+    await expect(inf.criarInfluenciador({ ...ok, usuario: "outro", contagem: "tudo" })).rejects.toThrow(/Regra de contagem/);
+  });
+
+  it("contas da rede: a marca e a de cada unidade, para escolher qual citação vale", () => {
+    const c = inf.contasDaRede();
+    expect(c.marca).toBe("worldgymbrasil");
+    expect(c.porUnidade["Gama"]).toBe("worldgym.gama");
+    expect(c.porUnidade["Goiânia Pro-GO"]).toBe("worldgympro.goiania");
+    expect(Object.values(c.porUnidade)).not.toContain("worldgymbrasil");
   });
 
   it("não deixa dois contratos ativos do mesmo @ na mesma unidade; em outra unidade pode; desativado libera", async () => {

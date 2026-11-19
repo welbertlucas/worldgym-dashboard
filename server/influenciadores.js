@@ -6,12 +6,16 @@
 import { randomUUID } from "node:crypto";
 import { lerJson, gravarJson } from "./armazem.js";
 import { UNIDADES_DA_REDE } from "./acesso.js";
+import { CONTAS_IG } from "./instagram.js";
 import { idDaFoto, lerPerfis } from "./perfisInfluenciadores.js";
+import { lerPostsGuardados } from "./postsInfluenciadores.js";
 
 const ARQUIVO = "influenciadores/cadastro.json";
 const TTL_MS = 60 * 1000;
 const MAX_ENTREGA = 999;
 export const TIPOS_ENTREGA = ["stories", "feed", "reels"];
+/** O que conta como entrega: "marcando" = só o post (feed ou reels) que cita ou marca a unidade/a marca; "qualquer" = qualquer post do perfil. */
+export const REGRAS_DE_CONTAGEM = ["marcando", "qualquer"];
 
 let memo = null;
 
@@ -20,6 +24,14 @@ export class ErroInfluenciador extends Error {
     super(mensagem);
     this.status = status;
   }
+}
+
+/** Contas do Instagram da rede (públicas): a da marca e a de cada unidade, para saber qual citação ou marcação vale para cada contrato. */
+export function contasDaRede() {
+  const porUnidade = {};
+  let marca = null;
+  for (const [usuario, unidade] of Object.entries(CONTAS_IG)) { if (unidade === null) marca = usuario; else porUnidade[unidade] = usuario; }
+  return { marca, porUnidade };
 }
 
 /** Lista com cache de 1 minuto por instância (abrir a tela não lê o Blob toda vez). */
@@ -77,9 +89,11 @@ function validar(campos, base = {}) {
   if (inicio !== null && !dataValida(inicio)) throw new ErroInfluenciador("Data de início inválida.");
   if (fim !== null && !dataValida(fim)) throw new ErroInfluenciador("Data de fim inválida.");
   if (inicio !== null && fim !== null && fim < inicio) throw new ErroInfluenciador("O fim do contrato não pode ser antes do início.");
+  if (c.contagem !== undefined && !REGRAS_DE_CONTAGEM.includes(c.contagem)) throw new ErroInfluenciador("Regra de contagem inválida.");
+  const contagem = c.contagem ?? "marcando";
   const obs = String(c.obs ?? "").trim();
   if (obs.length > 200) throw new ErroInfluenciador("A observação pode ter no máximo 200 caracteres.");
-  return { usuario, ...(nome ? { nome } : {}), unidade, inicio, fim, entregas: lerEntregas(c.entregas), ...(obs ? { obs } : {}), ativo: c.ativo !== false };
+  return { usuario, ...(nome ? { nome } : {}), unidade, inicio, fim, entregas: lerEntregas(c.entregas), contagem, ...(obs ? { obs } : {}), ativo: c.ativo !== false };
 }
 
 const mesmoContrato = (a, b) => a.usuario === b.usuario && (a.unidade ?? null) === (b.unidade ?? null);
@@ -115,7 +129,7 @@ const corpoDe = (req) => (typeof req.body === "string" ? (() => { try { return J
 
 /**
  * Atende GET/POST de /api/instagram?influenciadores. `filtrar`: regra de visibilidade (server/visibilidade.js); `imagem`: lê a foto guardada.
- *   GET  -> { influenciadores, perfis }  (todos para dono e Master; só os da unidade para quem tem acesso por unidades)
+ *   GET  -> { influenciadores, perfis, posts, contas }  (todos para dono e Master; só os da unidade para quem tem acesso por unidades)
  *   GET ?perfil=<@> -> a foto pequena do perfil (JPEG), só de influenciador que a pessoa vê
  *   POST { acao: "criar" | "atualizar" | "remover", ... }
  *     dono e Master: tudo, em qualquer unidade e na rede toda;
@@ -140,7 +154,9 @@ export async function tratarInfluenciadores(req, res, sessao, filtrar, { imagem 
       }
       // O que o perfil já mostra a qualquer pessoa (seguidores, se há foto) e o aviso quando o perfil não pôde ser lido.
       const doPerfil = Object.fromEntries(Object.entries(perfis).filter(([u]) => usuarios.has(u)).map(([u, p]) => [u, { seguidores: p.seguidores ?? null, publicacoes: p.publicacoes ?? null, foto: Boolean(p.foto), erro: p.erro ?? null }]));
-      return res.status(200).json({ influenciadores: visiveis, perfis: doPerfil });
+      const guardados = await lerPostsGuardados();
+      const posts = Object.fromEntries(Object.entries(guardados).filter(([u]) => usuarios.has(u)));
+      return res.status(200).json({ influenciadores: visiveis, perfis: doPerfil, posts, contas: contasDaRede() });
     }
     if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
     const dono = sessao.papel === "dono";

@@ -1,5 +1,6 @@
 // Influenciadores da rede (Marketing > Influenciadores): cadastro e contrato. Regras puras (sem rede), para a tela e os testes.
 import { API_BASE, authFetch } from "@/lib/auth";
+import type { ContasDaRede, PostsDoPerfil } from "@/data/entregas";
 
 export interface Entregas { stories: number; feed: number; reels: number }
 export interface Influenciador {
@@ -15,10 +16,13 @@ export interface Influenciador {
   fim: string | null;
   /** Combinado por mês. */
   entregas: Entregas;
+  /** O que conta como entrega de feed e reels: só o post que cita ou marca a unidade (padrão) ou qualquer post do perfil. */
+  contagem?: RegraDeContagem;
   obs?: string;
   ativo: boolean;
   criadoEm: string;
 }
+export type RegraDeContagem = "marcando" | "qualquer";
 export type CamposInfluenciador = Omit<Influenciador, "id" | "criadoEm">;
 /** O que o perfil público do @ mostra, lido do Instagram a cada 4 horas. `erro`: o perfil não pôde ser lido (conta pessoal, privada...). */
 export interface PerfilInfluenciador { seguidores: number | null; publicacoes: number | null; foto: boolean; erro: string | null }
@@ -81,7 +85,7 @@ async function chamar<T>(init?: RequestInit, consulta = ""): Promise<Resposta<T>
 }
 const enviar = <T>(corpo: object) => chamar<T>({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
 
-export const listarInfluenciadores = () => chamar<{ influenciadores: Influenciador[]; perfis?: Record<string, PerfilInfluenciador> }>(undefined, "?influenciadores=1");
+export const listarInfluenciadores = () => chamar<{ influenciadores: Influenciador[]; perfis?: Record<string, PerfilInfluenciador>; posts?: Record<string, PostsDoPerfil>; contas?: ContasDaRede }>(undefined, "?influenciadores=1");
 
 const fotos = new Map<string, Promise<string | null>>();
 /** Foto do perfil guardada (a rota exige login, então vem por fetch e vira um endereço local do navegador). Uma busca por @ por visita. */
