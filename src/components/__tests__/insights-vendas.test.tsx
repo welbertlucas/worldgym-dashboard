@@ -397,6 +397,19 @@ describe("oportunidades: tempo até converter, consultores e por unidade", () =>
     expect(h).toContain("Totem/Site");
     expect(h).toContain("Instagram");
     expect(h).toContain("2,5 d");
+    expect(h).not.toContain("De cadastros antigos"); // mês sem o dado: a coluna não aparece
+  });
+  it("por unidade: coluna 'De cadastros antigos' à parte da conversão, quando o mês tem o dado", async () => {
+    const { OportunidadesPorUnidade } = await import("@/components/OportunidadesPorUnidade");
+    const us = [
+      { name: "Gama", oportunidades: 50, conversoes: 10, conversoesAntigas: 17 },
+      { name: "Asa Norte", oportunidades: 80, conversoes: 40 },
+    ] as unknown as UnitData[];
+    const h = limpo(renderToString(<OportunidadesPorUnidade units={us} monthLabel="Novembro de 2026" partial />));
+    expect(h).toContain("De cadastros antigos");
+    expect(h).toContain("+17");
+    expect(h).toContain("20,0%"); // a taxa segue sendo só dos cadastrados no mês
+    expect(h).toContain("Resumo gerencial do EVO");
   });
 });
 

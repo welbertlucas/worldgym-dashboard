@@ -11,8 +11,9 @@ export function OportunidadesPorUnidade({ units, monthLabel, partial }: { units:
   const linhas = units.filter((u) => (u.oportunidades ?? 0) > 0).map((u) => {
     const o = u.origens ? origensOrdenadas(u.origens).find(([n]) => n !== "Sem origem" && n !== "Demais origens") : undefined;
     const t = u.tempoConversao;
-    return { nome: u.name, cad: u.oportunidades ?? 0, conv: u.conversoes ?? 0, tempo: t && t.n > 0 ? t.soma / t.n : null, origem: o?.[0] ?? "—" };
+    return { nome: u.name, cad: u.oportunidades ?? 0, conv: u.conversoes ?? 0, antigas: u.conversoesAntigas, tempo: t && t.n > 0 ? t.soma / t.n : null, origem: o?.[0] ?? "—" };
   }).sort((a, b) => b.cad - a.cad);
+  const temAntigas = linhas.some((l) => l.antigas !== undefined);
   if (linhas.length === 0) return <ChartCard title="Oportunidades por unidade" subtitle={subtitle}><ChartEmpty>Sem oportunidades do EVO neste mês.</ChartEmpty></ChartCard>;
   return (
     <ChartCard title="Oportunidades por unidade" subtitle={subtitle}>
@@ -24,6 +25,7 @@ export function OportunidadesPorUnidade({ units, monthLabel, partial }: { units:
               <th scope="col" className="px-2 py-2 text-right font-medium">Cadastradas</th>
               <th scope="col" className="px-2 py-2 text-right font-medium">Convertidas</th>
               <th scope="col" className="px-2 py-2 text-right font-medium">Conversão</th>
+              {temAntigas && <th scope="col" className="px-2 py-2 text-right font-medium">De cadastros antigos</th>}
               <th scope="col" className="px-2 py-2 text-right font-medium">Tempo médio</th>
               <th scope="col" className="py-2 pl-3 font-medium">Origem principal</th>
             </tr>
@@ -35,6 +37,7 @@ export function OportunidadesPorUnidade({ units, monthLabel, partial }: { units:
                 <td className="px-2 py-2 text-right tabular-nums">{l.cad.toLocaleString("pt-BR")}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{l.conv.toLocaleString("pt-BR")}</td>
                 <td className="px-2 py-2 text-right font-semibold tabular-nums">{pct(l.conv, l.cad)}</td>
+                {temAntigas && <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{l.antigas === undefined ? "—" : `+${l.antigas.toLocaleString("pt-BR")}`}</td>}
                 <td className="px-2 py-2 text-right tabular-nums">{l.tempo === null ? "—" : `${l.tempo.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} d`}</td>
                 <td className="py-2 pl-3 text-foreground">{l.origem}</td>
               </tr>
@@ -42,7 +45,7 @@ export function OportunidadesPorUnidade({ units, monthLabel, partial }: { units:
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">Ordenado pelas oportunidades cadastradas. "Conversão" = viraram cliente no próprio mês do cadastro. "Origem principal" ignora os cadastros sem origem. Clique no nome para ver a posição da unidade na rede.</p>
+      <p className="mt-3 text-xs text-muted-foreground">Ordenado pelas oportunidades cadastradas. "Conversão" = viraram cliente no próprio mês do cadastro. {temAntigas && <>"De cadastros antigos" = quem se cadastrou em meses anteriores e virou cliente neste mês; não entra na conversão ao lado. O "Visitantes" do Resumo gerencial do EVO usa outra regra, que também conta gente de cadastros antigos, por isso não bate com este quadro. </>}"Origem principal" ignora os cadastros sem origem. Clique no nome para ver a posição da unidade na rede.</p>
     </ChartCard>
   );
 }

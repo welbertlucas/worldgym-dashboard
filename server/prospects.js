@@ -33,6 +33,8 @@ const iso = (d) => (/^\d\d\/\d\d\/\d{4}$/.test(d) ? d.split("/").reverse().join(
  *  - consultores = [[nome, convertidas]] de quem converteu (coluna "ConvertidoPor": o relatório não diz quem cadastrou), os 10 maiores;
  *  - tempoConversao = { n, soma, f } dos que viraram cliente no período: quantos, soma dos dias do cadastro à conversão e a contagem por faixa.
  * Só entram os cadastrados no período, então o tempo é o das oportunidades do mês que converteram no próprio mês.
+ *  - conversoesAntigas = quem se cadastrou ANTES do período e virou cliente dentro dele. Não entra em oportunidades, conversões nem na taxa
+ *    (que seguem o relatório do EVO); serve para explicar a diferença para o "visitantes/conversão" do Resumo gerencial do EVO.
  */
 export function resumirProspects(rows, de, ate) {
   const por = {};
@@ -40,8 +42,13 @@ export function resumirProspects(rows, de, ate) {
     const nome = UNIT_NAMES[Number(r.IdFilial)];
     if (!nome) continue;
     const cad = iso(r.DtCadastro);
-    if (!cad || cad < de || cad > ate) continue;
-    const u = (por[nome] ??= { oportunidades: 0, conversoes: 0, origens: {}, _consultores: new Map(), tempoConversao: { n: 0, soma: 0, f: FAIXAS_TEMPO.map(() => 0) } });
+    if (!cad || cad > ate) continue;
+    const u = (por[nome] ??= { oportunidades: 0, conversoes: 0, conversoesAntigas: 0, origens: {}, _consultores: new Map(), tempoConversao: { n: 0, soma: 0, f: FAIXAS_TEMPO.map(() => 0) } });
+    if (cad < de) {
+      const c = iso(r.DtConversao);
+      if (c && c >= de && c <= ate) u.conversoesAntigas += 1;
+      continue;
+    }
     u.oportunidades += 1;
     const o = (u.origens[origemDaOportunidade(r.Marketing)] ??= [0, 0]); // [cadastradas, convertidas no mês]
     o[0] += 1;
@@ -75,7 +82,7 @@ export function semanasDeProspects(rows, ym, ate) {
     if (de > ate) break;
     const r = resumirProspects(rows, de, fim < ate ? fim : ate);
     // semana já começada: quem não teve cadastro nela fica com 0 (semana que não começou fica sem número)
-    for (const nome of Object.keys(por)) por[nome][n - 1] = { oportunidades: r[nome]?.oportunidades ?? 0, conversoes: r[nome]?.conversoes ?? 0 };
+    for (const nome of Object.keys(por)) por[nome][n - 1] = { oportunidades: r[nome]?.oportunidades ?? 0, conversoes: r[nome]?.conversoes ?? 0, conversoesAntigas: r[nome]?.conversoesAntigas ?? 0 };
   }
   return por;
 }

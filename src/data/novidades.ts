@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-19-conversoes-cadastros-antigos", data: "2026-11-19", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "comercial/oportunidades", artigo: "tela-comercial",
+    titulo: "Comercial: conversões de cadastros antigos",
+    texto: "O número de visitantes e conversões do Resumo gerencial do EVO nunca batia com o do Atlas, e não dava para saber por quê. A conversão do Atlas conta só quem se cadastrou e virou cliente no mesmo período; o EVO também considera gente que se cadastrou antes e fechou agora. Na tabela Oportunidades por unidade, a nova coluna De cadastros antigos mostra quantos foram, sem mudar a taxa de conversão. A coluna aparece com os dados de hoje em diante.",
+  },
+  {
     id: "2026-11-18-overview-por-periodo", data: "2026-11-18", tipo: "novo", publico: "todos", autora: AUTORA, tela: "executiva", artigo: "tela-overview",
     titulo: "Overview: números de vários meses de uma vez",
     texto: "Para saber o faturamento de um trimestre ou do ano, era preciso somar mês a mês. No Overview, o botão Ver por período deixa escolher o mês inicial e o final: faturamento, recebimento e vendas online aparecem somados, e churn, inadimplência, renovação e conversão em média ponderada pelo tamanho de cada mês (um mês grande pesa mais que um pequeno). A marca no arco passa a ser o período anterior, com o mesmo número de meses. O X no botão volta ao mês escolhido no topo.",

@@ -232,10 +232,10 @@ describe("conversão de cadastros (prospects do EVO)", () => {
       linha("5", "02/10/2026", "05/10/2026", "Ana  Souza"), // conta: cadastro e conversão no mês
       linha("5", "10/10/2026", ""), // cadastro sem conversão
       linha("5", "20/10/2026", "03/11/2026"), // converteu depois do mês: só cadastro
-      linha("5", "15/09/2026", "04/10/2026"), // cadastro anterior: não entra
+      linha("5", "15/09/2026", "04/10/2026"), // cadastro anterior: fora de oportunidades e conversões; conta só em conversoesAntigas
       linha("9", "02/10/2026", "05/10/2026"), // unidade fora do dashboard
     ], "2026-10-01", "2026-10-31");
-    expect(por).toEqual({ "Asa Norte": { oportunidades: 3, conversoes: 1, origens: { "Sem origem": [3, 1] }, consultores: [["Ana Souza", 1]], tempoConversao: { n: 1, soma: 3, f: [0, 1, 0, 0, 0] } } });
+    expect(por).toEqual({ "Asa Norte": { oportunidades: 3, conversoes: 1, conversoesAntigas: 1, origens: { "Sem origem": [3, 1] }, consultores: [["Ana Souza", 1]], tempoConversao: { n: 1, soma: 3, f: [0, 1, 0, 0, 0] } } });
   });
   it("consultores (quem converteu) em ordem e tempo até converter por faixa", () => {
     const l = (cad: string, conv: string, por = "") => ({ IdFilial: "5", DtCadastro: cad, DtConversao: conv, ConvertidoPor: por });

@@ -55,9 +55,9 @@ describe("semanas fixas do mês", () => {
     const l = (cad: string, conv: string) => ({ IdFilial: "5", DtCadastro: cad, DtConversao: conv });
     const rows = [l("02/11/2026", "03/11/2026"), l("06/11/2026", "10/11/2026"), l("09/11/2026", ""), l("12/11/2026", "13/11/2026"), l("16/11/2026", "")];
     const sem = semanasDeProspects(rows, "2026-11", "2026-11-16")["Asa Norte"];
-    expect(sem[0]).toEqual({ oportunidades: 2, conversoes: 1 }); // a de 06/11 converteu na semana seguinte: só cadastro
-    expect(sem[1]).toEqual({ oportunidades: 2, conversoes: 1 });
-    expect(sem[2]).toEqual({ oportunidades: 1, conversoes: 0 });
+    expect(sem[0]).toEqual({ oportunidades: 2, conversoes: 1, conversoesAntigas: 0 }); // a de 06/11 converteu na semana seguinte: só cadastro
+    expect(sem[1]).toEqual({ oportunidades: 2, conversoes: 1, conversoesAntigas: 1 }); // mais a de 06/11, cadastrada na semana 1 e convertida na 2
+    expect(sem[2]).toEqual({ oportunidades: 1, conversoes: 0, conversoesAntigas: 0 });
     expect(sem[3]).toEqual({}); // semana 4 ainda não começou
   });
 

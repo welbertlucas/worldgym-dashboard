@@ -147,7 +147,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O Atlas lê o EVO uma vez por dia, de madrugada. O que aconteceu hoje aparece amanhã cedo.",
   ]),
   a("duvidas", "diferente-do-evo", "Por que um número é diferente do que vejo no EVO?", "Alguns indicadores usam uma regra própria.", [
-    "Cada indicador tem uma regra de cálculo, explicada em \"O que significa cada indicador\" e no botão \"i\" de cada card. A conversão, por exemplo, segue o relatório de cadastro e conversão de oportunidades, e não o número de visitantes do painel do EVO.",
+    "Cada indicador tem uma regra de cálculo, explicada em \"O que significa cada indicador\" e no botão \"i\" de cada card. A conversão, por exemplo, segue o relatório de cadastro e conversão de oportunidades, e não o número de visitantes do Resumo gerencial do EVO, que usa outra regra e também conta quem se cadastrou antes e fechou agora. Esse grupo aparece à parte, na coluna \"De cadastros antigos\" de Oportunidades por unidade.",
     "Se mesmo assim o número parecer errado, avise quem liberou o seu acesso.",
   ]),
   a("duvidas", "trocar-senha", "Como troco minha senha?", "Pelo seu nome, no canto do cabeçalho.", [
