@@ -69,13 +69,15 @@ function validar(campos, base = {}) {
   if (nome.length > 80) throw new ErroInfluenciador("O nome pode ter no máximo 80 caracteres.");
   const unidade = c.unidade === null || c.unidade === "" || c.unidade === undefined ? null : String(c.unidade);
   if (unidade !== null && !UNIDADES_DA_REDE.includes(unidade)) throw new ErroInfluenciador(`Unidade desconhecida: ${unidade}.`);
-  if (!dataValida(c.inicio)) throw new ErroInfluenciador("Informe a data de início do contrato.");
-  const fim = c.fim === null || c.fim === "" || c.fim === undefined ? null : c.fim;
+  const vazia = (d) => d === null || d === "" || d === undefined;
+  const inicio = vazia(c.inicio) ? null : c.inicio;
+  const fim = vazia(c.fim) ? null : c.fim;
+  if (inicio !== null && !dataValida(inicio)) throw new ErroInfluenciador("Data de início inválida.");
   if (fim !== null && !dataValida(fim)) throw new ErroInfluenciador("Data de fim inválida.");
-  if (fim !== null && fim < c.inicio) throw new ErroInfluenciador("O fim do contrato não pode ser antes do início.");
+  if (inicio !== null && fim !== null && fim < inicio) throw new ErroInfluenciador("O fim do contrato não pode ser antes do início.");
   const obs = String(c.obs ?? "").trim();
   if (obs.length > 200) throw new ErroInfluenciador("A observação pode ter no máximo 200 caracteres.");
-  return { usuario, ...(nome ? { nome } : {}), unidade, inicio: c.inicio, fim, entregas: lerEntregas(c.entregas), ...(obs ? { obs } : {}), ativo: c.ativo !== false };
+  return { usuario, ...(nome ? { nome } : {}), unidade, inicio, fim, entregas: lerEntregas(c.entregas), ...(obs ? { obs } : {}), ativo: c.ativo !== false };
 }
 
 const mesmoContrato = (a, b) => a.usuario === b.usuario && (a.unidade ?? null) === (b.unidade ?? null);

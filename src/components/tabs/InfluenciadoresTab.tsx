@@ -128,7 +128,7 @@ function Formulario({ inicial, unidadeInicial, onSalvo, onCancelar }: { inicial:
     if (enviando) return;
     if (!unidade) { setErro("Escolha a unidade do contrato (ou Rede toda)."); return; }
     const campos: CamposInfluenciador = {
-      usuario, nome: nome.trim() || undefined, unidade: unidade === REDE ? null : unidade, inicio, fim: fim || null,
+      usuario, nome: nome.trim() || undefined, unidade: unidade === REDE ? null : unidade, inicio: inicio || null, fim: fim || null,
       entregas: { stories: Number(qtd.stories || 0), feed: Number(qtd.feed || 0), reels: Number(qtd.reels || 0) },
       obs: obs.trim() || undefined, ativo: inicial?.ativo ?? true,
     };
@@ -155,7 +155,7 @@ function Formulario({ inicial, unidadeInicial, onSalvo, onCancelar }: { inicial:
         </label>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1.5 text-sm font-medium text-foreground">Início do contrato<input className={campo} type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} required /></label>
+        <label className="space-y-1.5 text-sm font-medium text-foreground">Início do contrato <span className="font-normal text-muted-foreground">(vazio = sem data de início)</span><input className={campo} type="date" value={inicio} max={fim || undefined} onChange={(e) => setInicio(e.target.value)} /></label>
         <label className="space-y-1.5 text-sm font-medium text-foreground">Fim do contrato <span className="font-normal text-muted-foreground">(vazio = sem data de fim)</span><input className={campo} type="date" value={fim} min={inicio || undefined} onChange={(e) => setFim(e.target.value)} /></label>
       </div>
       <fieldset className="space-y-2">

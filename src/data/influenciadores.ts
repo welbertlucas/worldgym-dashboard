@@ -9,8 +9,9 @@ export interface Influenciador {
   nome?: string;
   /** Unidade do contrato; null = a rede toda (Institucional). */
   unidade: string | null;
-  /** AAAA-MM-DD */
-  inicio: string;
+  /** AAAA-MM-DD; null = sem data de início definida. */
+  inicio: string | null;
+  /** AAAA-MM-DD; null = sem data de fim. */
   fim: string | null;
   /** Combinado por mês. */
   entregas: Entregas;
@@ -30,10 +31,10 @@ export const TIPOS_ENTREGA: { id: keyof Entregas; rotulo: string; singular: stri
 /** Hoje no horário de Brasília (AAAA-MM-DD). */
 export const hojeBR = (agora = Date.now()) => new Date(agora - 3 * 3600_000).toISOString().slice(0, 10);
 
-/** "inativo" = o dono desligou o contrato; senão, pela data: ainda não começou, em vigor ou terminou. */
+/** "inativo" = o dono desligou o contrato; senão, pela data: ainda não começou, em vigor ou terminou. Sem data de início, vale desde sempre. */
 export function situacaoDoContrato(i: Pick<Influenciador, "ativo" | "inicio" | "fim">, hoje = hojeBR()): SituacaoContrato {
   if (!i.ativo) return "inativo";
-  if (hoje < i.inicio) return "futuro";
+  if (i.inicio && hoje < i.inicio) return "futuro";
   if (i.fim && hoje > i.fim) return "encerrado";
   return "vigente";
 }
@@ -57,7 +58,12 @@ export const dasUnidades = (lista: Influenciador[], unidade: string | null) => (
 
 /** "01/11/2026" a partir de AAAA-MM-DD. */
 export const dataBR = (ymd: string) => ymd.split("-").reverse().join("/");
-export const vigencia = (i: Pick<Influenciador, "inicio" | "fim">) => (i.fim ? `${dataBR(i.inicio)} a ${dataBR(i.fim)}` : `desde ${dataBR(i.inicio)}, sem data de fim`);
+export const vigencia = (i: Pick<Influenciador, "inicio" | "fim">) => {
+  if (i.inicio && i.fim) return `${dataBR(i.inicio)} a ${dataBR(i.fim)}`;
+  if (i.inicio) return `desde ${dataBR(i.inicio)}, sem data de fim`;
+  if (i.fim) return `até ${dataBR(i.fim)}`;
+  return "sem datas definidas";
+};
 
 // ----- API (a mesma rota do Instagram) -----
 type Resposta<T> = { ok: true; dados: T } | { ok: false; erro: string };

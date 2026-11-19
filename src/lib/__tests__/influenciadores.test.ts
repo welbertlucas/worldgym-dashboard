@@ -65,6 +65,18 @@ describe("cadastro de influenciadores (servidor)", () => {
     await recusa({ obs: "x".repeat(201) }, /200 caracteres/);
   });
 
+  it("início e fim são opcionais: dá para cadastrar sem nenhuma data, só com uma delas, e limpar depois", async () => {
+    const a = await inf.criarInfluenciador({ ...ok, usuario: "sem.datas", inicio: "", fim: null });
+    expect(a).toMatchObject({ inicio: null, fim: null });
+    const b = await inf.criarInfluenciador({ ...ok, usuario: "so.fim", inicio: undefined, fim: "2027-01-31" });
+    expect(b).toMatchObject({ inicio: null, fim: "2027-01-31" });
+    const c = await inf.atualizarInfluenciador(b.id, { inicio: "2026-11-01" });
+    expect(c).toMatchObject({ inicio: "2026-11-01", fim: "2027-01-31" });
+    const d = await inf.atualizarInfluenciador(c.id, { inicio: "", fim: "" });
+    expect(d).toMatchObject({ inicio: null, fim: null });
+    await expect(inf.criarInfluenciador({ ...ok, usuario: "invertido", inicio: "2026-11-01", fim: "2026-10-31" })).rejects.toThrow(/antes do início/);
+  });
+
   it("não deixa dois contratos ativos do mesmo @ na mesma unidade; em outra unidade pode; desativado libera", async () => {
     const a = await inf.criarInfluenciador(ok);
     await expect(inf.criarInfluenciador({ ...ok, usuario: "FULANO.fit" })).rejects.toMatchObject({ status: 409 });
@@ -132,6 +144,8 @@ describe("regras da tela de influenciadores", () => {
     expect(situacaoDoContrato(base({ fim: "2026-11-18" }), "2026-11-19")).toBe("encerrado");
     expect(situacaoDoContrato(base({ fim: "2026-11-19" }), "2026-11-19")).toBe("vigente"); // o último dia ainda vale
     expect(situacaoDoContrato(base({ ativo: false }), "2026-11-19")).toBe("inativo");
+    expect(situacaoDoContrato(base({ inicio: null }), "2026-11-19")).toBe("vigente"); // sem início: vale desde sempre
+    expect(situacaoDoContrato(base({ inicio: null, fim: "2026-11-18" }), "2026-11-19")).toBe("encerrado");
   });
 
   it("texto das entregas só traz o que foi combinado, no singular e no plural", () => {
@@ -144,6 +158,8 @@ describe("regras da tela de influenciadores", () => {
   it("vigência com e sem data de fim", () => {
     expect(vigencia({ inicio: "2026-11-01", fim: "2027-01-31" })).toBe("01/11/2026 a 31/01/2027");
     expect(vigencia({ inicio: "2026-11-01", fim: null })).toBe("desde 01/11/2026, sem data de fim");
+    expect(vigencia({ inicio: null, fim: "2027-01-31" })).toBe("até 31/01/2027");
+    expect(vigencia({ inicio: null, fim: null })).toBe("sem datas definidas");
   });
 
   it("ordena em vigor primeiro, depois por unidade (rede toda por último) e @; o filtro da unidade só deixa a dela", () => {
