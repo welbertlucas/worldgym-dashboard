@@ -61,7 +61,7 @@ export const SUBMENUS: Record<string, Aba[]> = {
   alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "onde-moram", rotulo: "Onde moram" }, { id: "contratos", rotulo: "Contratos" }],
   catraca: [{ id: "frequencia", rotulo: "Frequência" }, { id: "liberacoes", rotulo: "Liberações" }, { id: "outras-unidades", rotulo: "Outras unidades" }],
   retencao: [{ id: "cancelamentos", rotulo: "Cancelamentos" }, { id: "renovacao", rotulo: "Renovação" }, { id: "satisfacao", rotulo: "Satisfação" }],
-  campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "instagram", rotulo: "Instagram" }],
+  campanhas: [{ id: "campanhas", rotulo: "Campanhas" }, { id: "anuncios", rotulo: "Anúncios" }, { id: "instagram", rotulo: "Instagram" }, { id: "influenciadores", rotulo: "Influenciadores" }],
   riscos: [{ id: "mes", rotulo: "Mês em andamento" }, { id: "fechamento", rotulo: "Fechamento do mês anterior" }],
   benchmark: [{ id: "posicao", rotulo: "Posição e destaques" }, { id: "evolucao", rotulo: "Evolução da unidade" }, { id: "comparar", rotulo: "Comparar unidades" }, { id: "tabela", rotulo: "Tabela completa" }],
 };
@@ -108,6 +108,7 @@ const PALAVRAS: Record<string, string> = {
   "campanhas/anuncios": "anuncios contato mais barato horarios dos contatos campanhas no ar veiculando",
   "comercial/oportunidades": "oportunidades leads origem perfil prospects cadastros consultor tempo converter conversao unidade",
   "campanhas/instagram": "instagram feed stories posts seguidores redes sociais perfil postagem",
+  "campanhas/influenciadores": "influenciadores influencer parceiros contrato stories feed reels instagram arroba combinado entregas",
   riscos: "alertas riscos recomendacoes atencao critico",
   "riscos/mes": "alertas do mes atual em andamento pendencias ritmo cobrar cartao detratores renovacao projecao",
   "riscos/fechamento": "fechamento mes anterior fechado o que aconteceu hipoteses comparativo anual",

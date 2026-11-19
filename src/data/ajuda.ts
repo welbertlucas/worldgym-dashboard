@@ -110,6 +110,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   a("telas", "tela-marketing", "Marketing", "Campanhas, anúncios e Instagram.", [
     "Campanhas: investimento no Meta, custo por contato e evolução. Anúncios: os que trazem contato mais barato e os horários dos contatos.",
     "Instagram: posts, stories e seguidores das contas das unidades.",
+    "Influenciadores: os contratos dos influenciadores da rede, com o @ do Instagram, a unidade, o período e quanto de stories, feed e reels foi combinado por mês. Quem tem acesso por unidades vê só os da sua unidade. A conferência do que cada um postou contra o combinado vem nas próximas etapas.",
   ], { tela: "campanhas" }),
   a("telas", "tela-relatorios", "Relatórios", "Gerar os slides do Report Operacional com os dados que você já vê no Atlas.", [
     "O menu Relatórios monta uma apresentação em PowerPoint (.pptx), no modelo do Report Operacional, com os dados do Atlas: capa, números gerais, o mês até aqui e um slide por indicador. Os gráficos são do próprio PowerPoint, então dá para ajustar valores e textos depois.",

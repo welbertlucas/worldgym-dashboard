@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-19-marketing-influenciadores", data: "2026-11-19", tipo: "novo", publico: "dono", autora: AUTORA, tela: "campanhas/influenciadores", artigo: "tela-marketing",
+    titulo: "Marketing: aba Influenciadores",
+    texto: "Os combinados com os influenciadores ficavam espalhados, e não havia onde conferir o que foi acertado com cada um. A nova aba Influenciadores, dentro de Marketing, guarda o @ do Instagram, a unidade, o período do contrato e quanto de stories, feed e reels foi combinado por mês. Por enquanto são só os contratos; a conferência do que cada um postou entra nas próximas etapas.",
+  },
+  {
     id: "2026-11-19-esqueci-minha-senha", data: "2026-11-19", tipo: "novo", publico: "todos", autora: AUTORA, artigo: "trocar-senha",
     titulo: "Entrar: esqueci minha senha",
     texto: "Quem esquecia a senha ficava esperando alguém gerar uma nova. Agora, na tela de entrada, o botão Esqueci minha senha manda para o seu e-mail um link para criar a senha nova. O link vale por 30 minutos e só funciona uma vez, e a senha antiga continua valendo até você usá-lo.",

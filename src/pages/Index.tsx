@@ -79,6 +79,7 @@ function telaSobDemanda<K extends string, M extends Record<K, ComponentType<any>
 }
 const CampanhasTab = telaSobDemanda(() => import("@/components/tabs/CampanhasTab"), "CampanhasTab");
 const InstagramTab = telaSobDemanda(() => import("@/components/tabs/InstagramTab"), "InstagramTab");
+const InfluenciadoresTab = telaSobDemanda(() => import("@/components/tabs/InfluenciadoresTab"), "InfluenciadoresTab");
 const AlunosTab = telaSobDemanda(() => import("@/components/tabs/AlunosTab"), "AlunosTab");
 const RetencaoTab = telaSobDemanda(() => import("@/components/tabs/RetencaoTab"), "RetencaoTab");
 const BenchmarkTab = telaSobDemanda(() => import("@/components/tabs/BenchmarkTab"), "BenchmarkTab");
@@ -532,6 +533,7 @@ const Index = () => {
             aba={subAba}
             onAba={(s) => changeTab(`campanhas/${s}`)}
             instagram={<InstagramTab unit={selectedUnit} />}
+            influenciadores={<InfluenciadoresTab unit={selectedUnit} />}
           />
         )}
 

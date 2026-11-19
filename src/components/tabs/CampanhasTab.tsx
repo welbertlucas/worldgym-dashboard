@@ -21,9 +21,9 @@ const ABAS_MARKETING = SUBMENUS.campanhas;
  * Marketing: as campanhas no Meta (Facebook e Instagram) e os anúncios, com filtro próprio de unidade (inclui a conta
  * Institucional) e de mês do investimento; e os leads (oportunidades do EVO), que seguem o filtro do topo como as outras telas.
  */
-export function CampanhasTab({ initialUnit, onUnitChange, month, aba: pedida = null, onAba = () => {}, instagram }: {
+export function CampanhasTab({ initialUnit, onUnitChange, month, aba: pedida = null, onAba = () => {}, instagram, influenciadores }: {
   initialUnit: string | null; onUnitChange?: (unit: string | null) => void; month: string;
-  aba?: string | null; onAba?: (id: string) => void; instagram?: ReactNode;
+  aba?: string | null; onAba?: (id: string) => void; instagram?: ReactNode; influenciadores?: ReactNode;
 }) {
   const aba = abaAtiva(ABAS_MARKETING, pedida);
   const units = useMemo(() => getAvailableUnits(), []);
@@ -37,13 +37,14 @@ export function CampanhasTab({ initialUnit, onUnitChange, month, aba: pedida = n
     campanhas: "Alertas de melhoria das campanhas, quanto se investiu no Meta no mês, o resultado de cada campanha e a evolução mês a mês. A conta Institucional fica separada das unidades",
     anuncios: "Os anúncios que trazem contato mais barato, os horários dos contatos e as campanhas que estão veiculando. A conta Institucional fica separada das unidades",
     instagram: "Seguidores, ritmo de postagem, stories e feed do Instagram das unidades, da unidade escolhida no alto à direita (na rede, todas as contas, inclusive a Institucional)",
+    influenciadores: "Os contratos dos influenciadores da rede: o @, a unidade e quanto de stories, feed e reels foi combinado por mês. Segue a unidade escolhida no alto à direita",
   };
   return (
     <div className="space-y-6">
       <div className="space-y-3">
         <SectionTitle hint={dicas[aba]}>Marketing</SectionTitle>
         <Abas tela="campanhas" titulo="Marketing" abas={ABAS_MARKETING} ativa={aba} onChange={onAba} />
-        {aba !== "instagram" && <div role="group" aria-label="Filtros do tráfego pago" className="flex flex-wrap items-center gap-2">
+        {aba !== "instagram" && aba !== "influenciadores" && <div role="group" aria-label="Filtros do tráfego pago" className="flex flex-wrap items-center gap-2">
           <ChipUnidade id="trafego-unidade" value={unit} units={units} onChange={setUnit} extras={veInstitucional && <option value={INSTITUCIONAL}>Institucional (conta da rede)</option>} />
           {aba === "campanhas" && <ChipMes id="trafego-mes" rotulo="Mês do investimento" value={mes} months={meses} onChange={setMes} />}
         </div>}
@@ -61,6 +62,7 @@ export function CampanhasTab({ initialUnit, onUnitChange, month, aba: pedida = n
         <CampanhasNoAr unit={unit} />
       </>}
       {aba === "instagram" && instagram}
+      {aba === "influenciadores" && influenciadores}
     </div>
   );
 }
