@@ -3,6 +3,7 @@ import { sumUnits, type MonthView } from "@/data/kpiView";
 import { type MetricDetail } from "@/components/MetricCard";
 import { ltv, receitaComplementar, saldoAlunos, type UnitData } from "@/data/dashboardData";
 import { formatAbbreviatedNumber } from "@/lib/utils";
+// formatAbbreviatedNumber segue usado nos demais cartões
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pct = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
@@ -16,15 +17,20 @@ const complementar = (title: string, pick: KpiSpec["pick"]): KpiSpec => ({ title
 export const oportunidadesCadastradas = (v: MonthView): MetricDetail[] =>
   v.total.oportunidades > 0 ? [{ text: `${int(v.total.oportunidades)} oportunidades cadastradas`, tone: "neutral" }] : [];
 
+/** Número do cartão de faturamento: exato até 1 milhão (como no EVO) e "R$ 5,57 mi" daí para cima, para caber no medidor. */
+export const brlCurto = (v: number) => (Math.abs(v) >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mi` : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }));
+
+/**
+ * O ÚNICO cartão de faturamento do Atlas (Overview, Financeiro e Comercial): o Total de Vendas do EVO, somando recepção, cartão recorrente e online.
+ * Os mesmos números, com o mesmo nome, em todas as telas.
+ */
+export const faturamentoSpec: KpiSpec = {
+  title: "Faturamento", kind: "flow", noDataIfZero: true, direction: "higher", projecao: true,
+  pick: (v) => v.total.faturamento, fmt: brlCurto,
+};
+
 export const comercialSpecs: KpiSpec[] = [
-  {
-    title: "Total de Vendas", kind: "flow", noDataIfZero: true, direction: "higher",
-    pick: (v) => sumUnits(v, (u) => (u.vendasManuais ?? 0) + (u.vendasRecorrentes ?? 0) + (u.vendasOnlineContratos ?? 0)), fmt: brl,
-    extra: (v) => {
-      const n = (f: (u: UnitData) => number | undefined) => sumUnits(v, (u) => f(u) ?? 0);
-      return [{ text: `Recepção ${brl(n((u) => u.vendasManuais))} · Cartão recorrente ${brl(n((u) => u.vendasRecorrentes))} · Online ${brl(n((u) => u.vendasOnlineContratos))}`, tone: "neutral" }];
-    },
-  },
+  faturamentoSpec,
   { title: "Contratos Vendidos", kind: "flow", noDataIfZero: true, semTextoDoMesAnterior: true, projecao: true, pick: (v) => sumUnits(v, (u) => u.vendasContratos ?? 0), fmt: int },
   { title: "Saldo de Clientes", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
   {
@@ -53,7 +59,7 @@ export const complementaresSpecs: KpiSpec[] = [
 ];
 
 export const financeiroSpecs: KpiSpec[] = [
-  { title: "Faturamento", kind: "flow", pick: (v) => v.total.faturamento, fmt: formatAbbreviatedNumber },
+  faturamentoSpec,
   { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber },
   // Ticket = recebimento ÷ ativos: no mês em andamento acumula como o recebimento (comparado como fluxo).
   { title: "Ticket Médio", kind: "flow", pick: (v) => v.total.ticketMedio, fmt: brl },

@@ -5,7 +5,7 @@ import { UnitHighlights } from "@/components/UnitHighlights";
 import { RevenueTrend } from "@/components/executiva/RevenueTrend";
 import { TopUnits } from "@/components/executiva/TopUnits";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
-import { oportunidadesCadastradas } from "@/components/kpi/tabSpecs";
+import { faturamentoSpec, oportunidadesCadastradas } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard, type RedeGoal } from "@/components/executiva/MetasKpiCard";
 import { SeletorPeriodo, type Periodo } from "@/components/executiva/SeletorPeriodo";
 import { agregarPeriodo, mesesDoPeriodo, periodoAnterior, rotuloPeriodo } from "@/data/periodo";
@@ -107,7 +107,7 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
   };
   const recebRatio = t.faturamento ? (t.recebimento / t.faturamento) * 100 : 0;
   const specs: KpiSpec[] = [
-    { title: "Faturamento", kind: "flow", pick: (v) => v.total.faturamento, fmt: formatAbbreviatedNumber },
+    faturamentoSpec,
     // Só no mês em andamento: o que ainda vai vencer até o fim do mês somado ao que já venceu (mês fechado = faturamento).
     ...(parcial && t.previsaoFaturamento !== undefined
       ? [{ title: "Previsão de faturamento", kind: "flow" as const, pick: (v: MonthData) => v.total.previsaoFaturamento ?? v.total.faturamento, fmt: formatAbbreviatedNumber, extra: noPeriodo ? undefined : ritmoDaMeta(t.previsaoFaturamento!) }]

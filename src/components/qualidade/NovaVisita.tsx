@@ -10,8 +10,9 @@ import { enviarFoto, reduzirFoto, salvarEnvio, salvarVisita } from "@/lib/qualid
 
 type FotoLocal = { previa: string; dados: string };
 interface EquipamentoLocal { codigo: string; descricao: string; fotos: FotoLocal[] }
-interface Resposta { conforme: boolean | null; comentario: string; fotos: FotoLocal[]; equipamentos: EquipamentoLocal[]; vencimento: string }
-const vazia = (): Resposta => ({ conforme: null, comentario: "", fotos: [], equipamentos: [], vencimento: "" });
+/** `na`: a pessoa marcou "não se aplica" de propósito (item sem resposta não fica com esse botão aceso). */
+interface Resposta { conforme: boolean | null; na?: boolean; comentario: string; fotos: FotoLocal[]; equipamentos: EquipamentoLocal[]; vencimento: string }
+const vazia = (): Resposta => ({ conforme: null, na: false, comentario: "", fotos: [], equipamentos: [], vencimento: "" });
 /** Nos itens de vencimento a pessoa só informa a data: está em dia se ela é igual ou depois da data da visita (o servidor refaz a conta). */
 const efetiva = (item: ItemModelo, r: Resposta, dataVisita: string): Resposta => (item.tipo === "vencimento" ? { ...r, conforme: r.vencimento ? r.vencimento >= dataVisita : null } : r);
 const equipamentoVazio = (): EquipamentoLocal => ({ codigo: "", descricao: "", fotos: [] });
@@ -75,10 +76,18 @@ function Item({ item, r: bruta, dataVisita, onChange }: { item: ItemModelo; r: R
   const vence = item.tipo === "vencimento";
   const entrada = useRef<HTMLInputElement>(null);
   const [lendo, setLendo] = useState(false);
-  const botao = (valor: boolean | null, rotulo: string, ativo: string) => (
-    <button type="button" aria-pressed={r.conforme === valor} onClick={() => { const c = r.conforme === valor ? null : valor; onChange({ ...r, conforme: c, equipamentos: item.tipo === "equipamentos" && c === false && r.equipamentos.length === 0 ? [equipamentoVazio()] : r.equipamentos }); }}
-      className={cn("flex-1 rounded-lg border px-2 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", r.conforme === valor ? ativo : "border-border bg-white text-muted-foreground hover:bg-secondary")}>{rotulo}</button>
-  );
+  // Botões pequenos: Conforme, Não conforme e Não se aplica (este só fica aceso se a pessoa o escolheu).
+  const botao = (valor: boolean | null, rotulo: string, ativo: string) => {
+    const aceso = valor === null ? Boolean(bruta.na) && r.conforme === null : r.conforme === valor;
+    return (
+      <button type="button" aria-pressed={aceso} onClick={() => {
+        if (valor === null) { onChange({ ...r, conforme: null, na: !bruta.na }); return; }
+        const c = r.conforme === valor ? null : valor;
+        onChange({ ...r, conforme: c, na: false, equipamentos: item.tipo === "equipamentos" && c === false && r.equipamentos.length === 0 ? [equipamentoVazio()] : r.equipamentos });
+      }}
+        className={cn("rounded-lg border px-3 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", aceso ? ativo : "border-border bg-white text-muted-foreground hover:bg-secondary")}>{rotulo}</button>
+    );
+  };
   const adicionar = async (arquivo: File | undefined) => {
     if (!arquivo) return;
     setLendo(true);
@@ -104,7 +113,7 @@ function Item({ item, r: bruta, dataVisita, onChange }: { item: ItemModelo; r: R
           {!bruta.vencimento && <span className="text-xs text-muted-foreground">Sem data, o item fica como não se aplica.</span>}
         </div>
       ) : (
-        <div className="mt-2 flex gap-2" role="group" aria-label={`Resposta: ${item.texto}`}>
+        <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={`Resposta: ${item.texto}`}>
           {botao(true, "Conforme", "border-emerald-600 bg-emerald-50 text-emerald-800")}
           {botao(false, "Não conforme", "border-destructive bg-red-50 text-red-800")}
           {botao(null, "Não se aplica", "border-foreground/30 bg-secondary text-foreground")}

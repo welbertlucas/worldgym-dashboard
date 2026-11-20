@@ -65,3 +65,29 @@ describe("mergeEvo: previsão de faturamento", () => {
     expect(data[0].total.previsaoFaturamento).toBe(90);
   });
 });
+
+describe("mergeEvo: um só faturamento (o Total de Vendas do EVO)", () => {
+  it("o faturamento da unidade vira recepção + cartão recorrente + online, e a previsão por títulos deixa de valer", () => {
+    const data = [month("2026-11", [unit("Gama"), unit("Itapoã")])];
+    mergeEvo(data, [{ month: "2026-11", units: [
+      { name: "Gama", faturamento: 174, recebimento: 150, previsaoFaturamento: 200, vendasManuais: 100, vendasRecorrentes: 50, vendasOnlineContratos: 11 },
+      { name: "Itapoã", faturamento: 20, recebimento: 15, previsaoFaturamento: 30, vendasManuais: 5, vendasRecorrentes: 5, vendasOnlineContratos: 0 },
+    ] }]);
+    expect(data[0].units.map((u) => u.faturamento)).toEqual([161, 10]);
+    expect(data[0].total.faturamento).toBe(171);
+    expect(data[0].units.every((u) => u.previsaoFaturamento === undefined)).toBe(true);
+    expect(data[0].total.previsaoFaturamento).toBeUndefined();
+    expect(data[0].total.recebimento).toBe(165); // o recebimento não muda
+  });
+
+  it("sem vendas lidas no mês, ou lidas zeradas com cobrança existindo, fica a conta antiga dos títulos", () => {
+    const data = [month("2024-05", [unit("Gama"), unit("Itapoã"), unit("Asa Norte")])];
+    mergeEvo(data, [{ month: "2024-05", units: [
+      { name: "Gama", faturamento: 90, recebimento: 80, previsaoFaturamento: 90 }, // mês antigo, sem vendas
+      { name: "Itapoã", faturamento: 70, recebimento: 60, previsaoFaturamento: 70, vendasManuais: 0, vendasRecorrentes: 0, vendasOnlineContratos: 0 }, // vendas zeradas
+      { name: "Asa Norte", faturamento: 0, recebimento: 0, previsaoFaturamento: 0, vendasManuais: 0, vendasRecorrentes: 0, vendasOnlineContratos: 0 }, // nada de nada
+    ] }]);
+    expect(data[0].units.map((u) => u.faturamento)).toEqual([90, 70, 100000]); // a unidade sem nada no EVO fica com o que a planilha tinha
+    expect(data[0].units[0].previsaoFaturamento).toBe(90); // a previsão continua onde a conta antiga vale
+  });
+});

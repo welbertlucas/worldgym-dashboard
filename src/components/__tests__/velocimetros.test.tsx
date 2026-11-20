@@ -117,7 +117,7 @@ describe("Visão Executiva em meias-luas", () => {
     const html = renderToString(<ExecutivaTab month={m} prev={ant} {...props} />).replace(/<!-- -->/g, "");
     expect(html).toContain("Em andamento");
     expect(html).toContain("0,0 p.p. vs. jan. de 2000"); // taxa parcial comparada com o mês anterior (o total do helper não varia)
-    expect(html).toMatch(/25% de R\$\s?1,0M de jan\. de 2000/); // faturamento parcial
+    expect(html).toMatch(/25% de R\$\s?1,00 mi de jan\. de 2000/); // faturamento parcial
   });
 
   it("perfil de uma unidade: só a unidade, com as metas dela e sem nada da rede", () => {
@@ -199,12 +199,13 @@ describe("indicadores em meia-lua nas demais abas", () => {
     expect(html(find(comercialSpecs, "Conversão de Cadastros"))).not.toContain("oportunidades cadastradas");
   });
 
-  it("total de vendas soma recepção, recorrente e online das unidades e mostra a parcela de cada uma", () => {
-    const h = html(find(comercialSpecs, "Total de Vendas"));
-    expect(h).toMatch(/10\.100/); // 1.000 + 9.000 + 100
-    expect(h).toContain("Recepção");
-    expect(h).toContain("Cartão recorrente");
-    expect(h).toContain("Online");
+  it("o faturamento é um só (o Total de Vendas do EVO): mesmo cartão no Comercial e no Financeiro, sem texto de parcelas", () => {
+    expect(find(comercialSpecs, "Faturamento")).toBe(find(financeiroSpecs, "Faturamento")); // exatamente o mesmo cartão
+    expect(comercialSpecs.some((s) => s.title === "Total de Vendas")).toBe(false);
+    const h = html(find(comercialSpecs, "Faturamento"));
+    expect(h.replace(/\u00a0/g, " ")).toMatch(/R\$ 1\.500/); // o número do cartão é o faturamento do mês (mergeEvo já o troca pelo Total de Vendas)
+    expect(h).not.toContain("Recepção"); // o texto das parcelas saiu do cartão
+    expect(h).not.toContain("Cartão recorrente");
   });
 
   it("contratos vendidos somam as unidades e comparam com o mês anterior citando o mês", () => {

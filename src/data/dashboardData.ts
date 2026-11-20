@@ -802,6 +802,15 @@ export function listaSemDiarias(u: Pick<UnitData, "naoRenovadosTipos" | "naoReno
 export const taxaRenovacao = (aVencer: number, naoRenovados: number) =>
   aVencer > 0 ? Math.round(((Math.max(0, aVencer - naoRenovados)) / aVencer) * 1000) / 10 : 0;
 
+/**
+ * Faturamento do Atlas = o Total de Vendas do EVO: o valor das vendas de contrato do mês, somando recepção, cartão recorrente e online.
+ * null quando o mês ainda não foi lido por esse caminho (então vale o faturamento dos títulos, a conta antiga).
+ */
+export const totalDeVendas = (u: Partial<Pick<UnitData, "vendasManuais" | "vendasRecorrentes" | "vendasOnlineContratos">>): number | null =>
+  u.vendasManuais === undefined && u.vendasRecorrentes === undefined && u.vendasOnlineContratos === undefined
+    ? null
+    : (u.vendasManuais ?? 0) + (u.vendasRecorrentes ?? 0) + (u.vendasOnlineContratos ?? 0);
+
 export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] {
   for (const evo of evoMonths) {
     if (evo.units.length === 0) continue;
@@ -822,6 +831,10 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       unit.faturamento = e.faturamento;
       unit.recebimento = e.recebimento;
       unit.previsaoFaturamento = e.previsaoFaturamento;
+      // Um só faturamento em todo o Atlas: o Total de Vendas do EVO. Sem vendas lidas no mês (ou lidas zeradas com cobrança existindo), fica a conta antiga
+      // dos títulos. A previsão por títulos deixa de valer onde a nova conta vale: a projeção do mês vem do ritmo de vendas.
+      const tv = totalDeVendas(e);
+      if (tv !== null && (tv > 0 || !e.faturamento)) { unit.faturamento = tv; unit.previsaoFaturamento = undefined; }
       // Etapa 2: inadimplência vem do EVO quando o mês já foi calculado com ela (bateu com a planilha em
       // 0,2 p.p. de diferença mediana).
       if (e.inadimplentes !== undefined) {
@@ -940,7 +953,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...md.total,
       faturamento: md.units.reduce((s, u) => s + u.faturamento, 0),
       recebimento: md.units.reduce((s, u) => s + u.recebimento, 0),
-      ...(evo.units.some((e) => e.previsaoFaturamento !== undefined)
+      ...(md.units.some((u) => u.previsaoFaturamento !== undefined)
         ? { previsaoFaturamento: md.units.reduce((s, u) => s + (u.previsaoFaturamento ?? u.faturamento), 0) }
         : {}),
       ...(evo.units.some((e) => e.cancelados !== undefined && e.ativosIni !== undefined)
