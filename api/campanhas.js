@@ -12,12 +12,14 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   const sessao = await exigirLogin(req, res);
   if (!sessao) return;
+  // O dono (papelReal vale também no "Ver como") vê sempre o dado mais novo: sem cache no navegador e sem a memória da instância.
+  const fresco = (sessao.papelReal ?? sessao.papel) === "dono";
   try {
-    if (!memo || Date.now() - memo.em > TTL_MS) {
+    if (fresco || !memo || Date.now() - memo.em > TTL_MS) {
       const [foto, meses] = await Promise.all([loadCampanhas(), loadMetaMeses()]);
       memo = { em: Date.now(), dados: { ...(foto ?? { geradoEm: null, campanhas: [], erros: [] }), meses: meses ?? {} } };
     }
-    res.setHeader("Cache-Control", "private, max-age=300");
+    res.setHeader("Cache-Control", fresco ? "no-store" : "private, max-age=300");
     return res.status(200).json(filtrarCampanhas(memo.dados, sessao));
   } catch (e) {
     return res.status(500).json({ error: String(e?.message ?? e) });
