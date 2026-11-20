@@ -29,7 +29,7 @@ export const NOVIDADES: Novidade[] = [
   {
     id: "2026-11-20-royalties", data: "2026-11-20", tipo: "novo", publico: "royalties", autora: AUTORA, tela: "royalties", artigo: "royalties-o-que-e",
     titulo: "Royalties: os recebimentos da marca dentro do Atlas",
-    texto: "Acompanhar o que cada unidade paga à marca (taxa fixa e royalties) e quem está devendo exigia abrir outro painel, com outra senha. Agora o menu Royalties mostra o resumo do período, o recebido por mês, quem está devendo (com exportação em CSV), a concentração do saldo devedor, a situação de pagamento mês a mês, os royalties de cada unidade com as marcações de mês sem pagamento e queda forte, e o que era esperado contra o que entrou. Clicar numa unidade abre o detalhe da cobrança. Os números são os mesmos do painel anterior.",
+    texto: "Acompanhar o que cada unidade paga à marca (taxa fixa e royalties) e quem está devendo exigia abrir outro painel, com outra senha. Agora o menu Royalties mostra o resumo do período, quem está devendo (com a concentração do saldo e exportação em CSV), a situação de pagamento mês a mês, os royalties de cada unidade com as marcações de mês sem pagamento e queda forte, e o que era esperado contra o que entrou. Clicar numa unidade abre o detalhe da cobrança. Os números são os mesmos do painel anterior.",
   },
   {
     id: "2026-11-20-total-de-vendas", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial", artigo: "diferente-do-evo",

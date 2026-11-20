@@ -25,9 +25,9 @@ describe("Royalties (menu e tela)", () => {
     expect(renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: false } }} />)).toContain("ainda não foram enviados");
   });
 
-  it("com dados, mostra os painéis: resumo, recebido por mês, quem está devendo, matriz e notas", () => {
+  it("com dados, mostra os painéis: resumo, quem está devendo, matriz e notas", () => {
     const html = limpo(renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: true, ...MODELO } }} />));
-    for (const t of ["Resumo", "Recebido por mês", "Quem está devendo", "Situação de pagamento mês a mês", "Notas e premissas"]) expect(html).toContain(t);
+    for (const t of ["Resumo", "Quem está devendo", "Situação de pagamento mês a mês", "Notas e premissas"]) expect(html).toContain(t);
     expect(html).toContain("Alfa");
     expect(html).toContain("Exportar CSV");
     // a observação da planilha não vem aberta: só aparece ao clicar na unidade

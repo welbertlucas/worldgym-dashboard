@@ -161,21 +161,6 @@ export const brl0 = (v: number) => reais(Math.round(v), 0);
 export const pct = (v: number) => `${Number.isFinite(v) ? Math.round(v * 100) : 0}%`;
 const lista = (a: string[]) => (a.length <= 1 ? a.join("") : `${a.slice(0, -1).join(", ")} e ${a[a.length - 1]}`);
 
-/** A frase de abertura, que muda com a escolha de uma, de várias ou de nenhuma unidade. */
-export function fraseDeAbertura(c: ContextoRoyalties, f: FiltroRoyalties, r: ResumoPeriodo): string {
-  const ks = periodo(c, f);
-  const entre = `${c.rotulo[ks[0]]} e ${c.rotulo[ks[ks.length - 1]]}`;
-  const qual = f.tipo === "fixa" ? " de taxa fixa" : f.tipo === "royalties" ? " de royalties" : "";
-  const unidadesEmAberto = `${brl0(r.saldoTotal)} em aberto em ${r.devedoras.length} ${r.devedoras.length === 1 ? "unidade" : "unidades"}.`;
-  if (f.unidades.length > 1) return `${f.unidades.length} unidades: ${brl0(r.total)}${qual} recebidos entre ${entre}. ${r.saldoTotal > 0 ? unidadesEmAberto : "Nenhum valor em aberto."}`;
-  if (f.unidades.length === 1) {
-    const u = f.unidades[0];
-    const fim = r.saldoTotal > 0 ? `Deve ${brl0(r.saldoTotal)}.` : temSaldoCalculado(c, u) ? "Está em dia." : semCobranca(c, u) ? "Sem cobrança, sem saldo devedor." : "Royalties sem valor esperado, sem saldo calculado.";
-    return `${u} pagou ${brl0(r.total)} entre ${entre}. ${fim}`;
-  }
-  return `${brl0(r.total)}${qual} recebidos entre ${entre}. ${r.saldoTotal > 0 ? unidadesEmAberto : "Nenhum valor em aberto."}`;
-}
-
 export interface LinhaConcentracao { unidade: string; tipo: Modalidade; recebido: number; saldo: number }
 export interface Concentracao {
   totalRecebido: number;

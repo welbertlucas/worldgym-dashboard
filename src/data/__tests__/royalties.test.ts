@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  concentracao, contexto, csvDeDevedoras, fraseDeConcentracao, devedoras, filtroInicial, fraseDeAbertura, matrizDeSituacao, resumoDoPeriodo, saldoDe, semCobranca, serieMensal, temSaldoCalculado, unidadesFiltradas,
+  concentracao, contexto, csvDeDevedoras, fraseDeConcentracao, devedoras, filtroInicial, matrizDeSituacao, resumoDoPeriodo, saldoDe, semCobranca, serieMensal, temSaldoCalculado, unidadesFiltradas,
 } from "@/data/royalties";
 import { MODELO } from "./royalties-fixture";
 
@@ -33,16 +33,6 @@ describe("royalties: resumo do período", () => {
     expect(resumoDoPeriodo(c, { ...f0, unidades: ["Alfa"] }).total).toBe(200);
     expect(resumoDoPeriodo(c, { ...f0, tipo: "royalties" }).naoMapeado).toBe(0);
     expect(resumoDoPeriodo(c, { ...f0, de: 1, ate: 3 }).naoMapeado).toBe(0); // o não mapeado é de jan
-  });
-
-  it("a frase de abertura muda com 0, 1 ou várias unidades", () => {
-    expect(fraseDeAbertura(c, f0, resumoDoPeriodo(c, f0))).toMatch(/recebidos entre jan\/26 e abr\/26/);
-    const um = { ...f0, unidades: ["Beta"] };
-    expect(fraseDeAbertura(c, um, resumoDoPeriodo(c, um))).toMatch(/^Beta pagou .* Está em dia\.$/);
-    const sem = { ...f0, unidades: ["Sigma"] };
-    expect(fraseDeAbertura(c, sem, resumoDoPeriodo(c, sem))).toContain("Sem cobrança, sem saldo devedor.");
-    const dois = { ...f0, unidades: ["Alfa", "Gama"] };
-    expect(fraseDeAbertura(c, dois, resumoDoPeriodo(c, dois))).toMatch(/^2 unidades: .* em aberto em 2 unidades\.$/);
   });
 });
 

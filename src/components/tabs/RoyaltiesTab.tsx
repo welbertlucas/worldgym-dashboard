@@ -7,7 +7,6 @@ import { API_BASE, authFetch } from "@/lib/auth";
 import { contexto, filtroInicial, type FiltroRoyalties, type ModeloRoyalties } from "@/data/royalties";
 import { FiltrosRoyalties } from "@/components/royalties/FiltrosRoyalties";
 import { ResumoRoyalties } from "@/components/royalties/ResumoRoyalties";
-import { RecebidoPorMes } from "@/components/royalties/RecebidoPorMes";
 import { QuemDeve } from "@/components/royalties/QuemDeve";
 import { Recolhivel } from "@/components/royalties/Recolhivel";
 import { RoyaltiesPorUnidade } from "@/components/royalties/RoyaltiesPorUnidade";
@@ -68,7 +67,6 @@ export function PainelRoyalties({ modelo }: { modelo: ModeloRoyalties }) {
       <p className="text-xs text-muted-foreground">Dados de <b className="font-semibold text-foreground">{modelo.meta.geradoEm}</b>, recebimentos até {c.rotulo[c.keys[c.keys.length - 1]]}.</p>
       <FiltrosRoyalties c={c} f={f} onChange={setF} />
       <ResumoRoyalties c={c} f={f} onUnidade={setDetalhe} />
-      <RecebidoPorMes c={c} f={f} />
       <QuemDeve c={c} f={f} onUnidade={setDetalhe} />
       <MatrizSituacao c={c} f={f} onUnidade={setDetalhe} />
       <Recolhivel titulo="Mais análises" apoio="Royalties por unidade, com as marcações de mês sem pagamento e queda, e o esperado contra o recebido">

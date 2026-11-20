@@ -1,6 +1,6 @@
 import { Notice } from "@/components/Notice";
 import { ChartCard } from "@/components/ChartCard";
-import { type ContextoRoyalties, type FiltroRoyalties, brl, brl0, fraseDeAbertura, naoMapeadoNo, periodo, pct, resumoDoPeriodo, saldoDe } from "@/data/royalties";
+import { type ContextoRoyalties, type FiltroRoyalties, brl, brl0, naoMapeadoNo, periodo, pct, resumoDoPeriodo, saldoDe } from "@/data/royalties";
 import { COR_FIXA, COR_ROYALTIES } from "@/components/royalties/cores";
 
 function Numero({ rotulo, valor, apoio, cor, destaque }: { rotulo: string; valor: string; apoio?: React.ReactNode; cor?: string; destaque?: boolean }) {
@@ -25,9 +25,8 @@ export function ResumoRoyalties({ c, f, onUnidade }: { c: ContextoRoyalties; f: 
   const parteDoTotal = (v: number) => (r.total > 0 ? `${pct(v / r.total)} do total` : undefined);
   return (
     <ChartCard title="Resumo" subtitle="Recebimentos da marca (taxa fixa e royalties) e saldo devedor por unidade">
-      <p className="text-lg font-semibold leading-snug text-foreground sm:text-xl">{fraseDeAbertura(c, f, r)}</p>
       {(parciais.length > 0 || (nm > 0 && !f.unidades.length && f.tipo !== "royalties")) && (
-        <div className="mt-3 space-y-2">
+        <div className="space-y-2">
           {parciais.length > 0 && <Notice>{parciais.map((k) => c.rotulo[k]).join(", ")} ainda é parcial: o extrato do mês veio incompleto. Esses meses aparecem com asterisco e hachurados nos gráficos.</Notice>}
           {nm > 0 && !f.unidades.length && f.tipo !== "royalties" && <Notice>Inclui {brl(nm)} sem unidade identificada, que não entra em nenhuma unidade.</Notice>}
         </div>
