@@ -97,6 +97,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Tamanho da base: alunos ativos, quem entrou, voltou e saiu, permanência média e LTV.",
     "Perfil: gênero e faixa de idade. Onde moram: os bairros dos alunos no mapa.",
     "Contratos: foto de hoje dos contratos ativos, quantos são especiais/VIP, de personal, de plano local (até 9 unidades) e de plano rede (10 ou mais; nas unidades Pro, todos). Local e rede somam 100%; especiais e personal são recortes dentro deles.",
+    "Contratos ativos por plano: logo abaixo, a lista dos planos com mais contratos ativos hoje, do maior para o menor, com a quantidade e o percentual sobre o total, como o relatório Clientes por contratos do EVO. Com uma unidade no filtro, só os planos dela; sem, a rede (planos de mesmo nome somam). Mostra os 10 maiores, com busca e a opção de ver todos. Quem tem mais de um contrato ativo aparece em cada um deles.",
   ], { tela: "alunos", imagem: "alunos" }),
   a("telas", "tela-catraca", "Acessos na catraca", "Frequência, liberações manuais e outras unidades.", [
     "Frequência: entradas por dia e o mapa de calor dos horários mais cheios.",
@@ -149,10 +150,13 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   a("duvidas", "dado-de-hoje", "Por que o que aconteceu hoje ainda não aparece?", "Os números do EVO são atualizados de madrugada.", [
     "O Atlas lê o EVO uma vez por dia, de madrugada. O que aconteceu hoje aparece amanhã cedo.",
   ]),
-  a("duvidas", "diferente-do-evo", "Por que um número é diferente do que vejo no EVO?", "Alguns indicadores usam uma regra própria.", [
-    "Cada indicador tem uma regra de cálculo, explicada em \"O que significa cada indicador\" e no botão \"i\" de cada card. A conversão, por exemplo, segue o relatório de cadastro e conversão de oportunidades, e não o número de visitantes do Resumo gerencial do EVO, que usa outra regra e também conta quem se cadastrou antes e fechou agora. Esse grupo aparece à parte, na coluna \"De cadastros antigos\" de Oportunidades por unidade.",
+  a("duvidas", "diferente-do-evo", "Por que um número é diferente do que vejo no EVO?", "O Atlas usa regras próprias e é gravado de madrugada.", [
+    "Cada indicador tem uma regra de cálculo, explicada em “O que significa cada indicador” e no botão “i” de cada card. O painel Gerencial do EVO usa outras regras, e o número dele muda durante o dia. O Atlas é gravado de madrugada, então os dois só batem por acaso.",
+    "Faturamento: o Atlas soma as cobranças (títulos) que venceram no mês, pagas ou não, e deixa de fora as cobranças de saldo devedor, que são dívida de antes. O “Total de vendas” do EVO soma as vendas lançadas. Os dois medem coisas diferentes, e o EVO ainda tira vendas ao longo do dia, como as de cartão recusado.",
+    "Contratos vendidos: o Atlas conta só contratos novos (matrículas e rematrículas) e deixa de fora as renovações e as diárias. O EVO conta também as renovações feitas na recepção.",
+    "Conversão: segue o relatório de cadastro e conversão de oportunidades, e não o número de visitantes do Resumo gerencial do EVO, que usa outra regra e também conta quem se cadastrou antes e fechou agora. Esse grupo aparece à parte, na coluna “De cadastros antigos” de Oportunidades por unidade.",
     "Se mesmo assim o número parecer errado, avise quem liberou o seu acesso.",
-  ]),
+  ], { atualizadoEm: "2026-11-20" }),
   a("duvidas", "trocar-senha", "Como troco minha senha? E se eu esquecer?", "Pelo seu nome, no cabeçalho; se esqueceu, pelo “Esqueci minha senha”.", [
     "Para trocar: no computador, clique no seu nome no canto do cabeçalho e escolha a nova senha.",
     "Se esqueceu a senha: na tela de entrada, clique em Esqueci minha senha e digite o e-mail do seu acesso. Chega um e-mail com um link para criar a nova senha. O link vale por 30 minutos e só funciona uma vez.",

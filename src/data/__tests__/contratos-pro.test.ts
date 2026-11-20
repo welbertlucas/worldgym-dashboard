@@ -42,4 +42,17 @@ describe("contratos a partir da lista de alunos já baixada", () => {
     expect(r).toMatchObject({ alunosAtivos: 2, contratosAtivos: 3, contratosPersonal: 1, contratosLocal: 3, contratosRede: 0 });
     expect(chamadas.some((c) => c.startsWith("/members?"))).toBe(false);
   });
+
+  it("conta os contratos ativos por plano, do maior para o menor, sem espaços sobrando e sem dado de aluno", async () => {
+    const contrato = (name: string, membershipStatus = "active") => ({ idMembership: 7, membershipStatus, name });
+    const membros = [
+      { status: "Active", memberships: [contrato("WG  LOCAL 149,90"), contrato("PLANO FIT")] },
+      { status: "Active", memberships: [contrato("WG LOCAL 149,90 "), contrato("WG LOCAL 149,90", "expired")] },
+      { status: "Active", memberships: [contrato("PLANO FIT"), contrato("BLACK")] },
+    ];
+    const r = await contratosUnidade(5, membros);
+    expect(r.contratosPlanos).toEqual([["PLANO FIT", 2], ["WG LOCAL 149,90", 2], ["BLACK", 1]]);
+    expect(r.contratosPlanos.reduce((s: number, p: [string, number]) => s + p[1], 0)).toBe(r.contratosAtivos);
+    expect(JSON.stringify(r)).not.toMatch(/idMember|cpf|email/i);
+  });
 });

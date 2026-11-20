@@ -8,6 +8,9 @@
 import { fetchAll } from "./evo.js";
 import { UNIT_NAMES } from "./units.js";
 
+/** Quantos planos ficam gravados por unidade (a maior unidade tem cerca de 35). */
+const MAX_PLANOS = 80;
+
 const isVip = (n) => /v\.?\s?i\.?\s?p/i.test(n);
 
 // Alcance do plano pelo que o EVO libera de fato (campo accessBranches do plano), não pelo nome
@@ -34,11 +37,14 @@ export async function contratosUnidade(idBranch, membros) {
   const members = membros ? membros.filter((m) => m.status === "Active") : await fetchAll(`/members?idBranch=${idBranch}&status=1`);
   const pro = ehUnidadePro(UNIT_NAMES[idBranch]);
   const r = { alunosAtivos: members.length, contratosAtivos: 0, contratosEspeciais: 0, contratosPersonal: 0, contratosLocal: 0, contratosRede: 0, contratosParcial: 0 }; // parcial: campo antigo, zerado para não sobrar de fotos velhas
+  const porPlano = new Map(); // nome do plano -> contratos ativos (só totais, nenhum dado de aluno)
   for (const m of members) {
     for (const c of m.memberships || []) {
       if (c.membershipStatus !== "active") continue;
       r.contratosAtivos++;
       const nome = String(c.name || "").trim();
+      const chave = nome.replace(/\s+/g, " ") || "Sem nome";
+      porPlano.set(chave, (porPlano.get(chave) ?? 0) + 1);
       const plano = plans[c.idMembership];
       const especial = c.idCategoryMembership === 1 || (isVip(nome) && plano && plano.value === 0);
       const a = alcance(plano, pro);
@@ -49,6 +55,8 @@ export async function contratosUnidade(idBranch, membros) {
       else if (personal) r.contratosPersonal++;
     }
   }
+  // Contratos ativos por plano, do maior para o menor (como o relatório "Clientes por contratos" do EVO).
+  r.contratosPlanos = [...porPlano].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR")).slice(0, MAX_PLANOS);
   return r;
 }
 

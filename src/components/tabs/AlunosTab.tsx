@@ -7,6 +7,7 @@ import { SaldoHeatmap } from "@/components/clientes/SaldoHeatmap";
 import { Secao } from "@/components/unidades/Secao";
 import { MapaAlunosTab } from "@/components/tabs/MapaAlunosTab";
 import { ContratosAtivos } from "@/components/unidades/ContratosAtivos";
+import { ContratosPorPlano } from "@/components/unidades/ContratosPorPlano";
 import { Abas, abaAtiva } from "@/components/Abas";
 import { SUBMENUS } from "@/components/nav";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
@@ -50,6 +51,7 @@ export function AlunosTab({ ctx, month, unit, aba: pedida = null, onAba = () => 
           const foco = unit && units.some((u) => u.name === unit) ? unit : null;
           return <>
             <ContratosAtivos units={units} foco={foco} />
+            <ContratosPorPlano units={units} foco={foco} />
             {!units.some((u) => u.contratosAtivos !== undefined) && <p className="text-sm text-muted-foreground">A foto de contratos só existe no mês em andamento. Escolha o mês atual no topo para ver.</p>}
           </>;
         })()}

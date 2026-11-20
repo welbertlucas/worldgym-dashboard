@@ -37,6 +37,18 @@ describe("unitMonth: faturamento só do que já venceu", () => {
     expect(r.previsaoFaturamento).toBe(600);
   });
 
+  it("cobrança de saldo devedor fica fora do faturamento, mas a inadimplência continua olhando para ela", async () => {
+    evoComTitulos([
+      titulo({ idMemberPayer: 1, dueDate: "2026-11-02T00:00:00", chargeDate: "2026-11-02T10:00:00", ammountPaid: 100 }),
+      titulo({ idMemberPayer: 2, dueDate: "2026-11-03T00:00:00", ammount: 80, source: "Outstanding balance charge" }),
+    ]);
+    const r = await unitMonth(5, "2026-11", "2026-11-05");
+    expect(r.faturamento).toBe(100);
+    expect(r.previsaoFaturamento).toBe(100);
+    expect(r.titulosVencidos).toBe(1);
+    expect(r.inadimplentes).toBe(1); // quem ficou devendo continua inadimplente
+  });
+
   it("hojeBR usa o horário de Brasília", () => {
     expect(hojeBR(Date.parse("2026-11-06T02:00:00Z"))).toBe("2026-11-05");
   });

@@ -45,3 +45,16 @@ export function somaContratos(units: Campos[]): ContratosView | null {
 }
 
 export const pctTexto = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
+
+/**
+ * Contratos ativos por plano, do maior para o menor. Com `foco`, só o plano daquela unidade; sem, a rede
+ * (planos de mesmo nome somam entre unidades). `total` é o de contratos ativos das unidades usadas, para o percentual.
+ */
+export function planosDeContratos(units: Pick<UnitData, "name" | "contratosAtivos" | "contratosPlanos">[], foco: string | null = null): { planos: [string, number][]; total: number } | null {
+  const usadas = (foco ? units.filter((u) => u.name === foco) : units).filter((u) => u.contratosPlanos && u.contratosPlanos.length > 0);
+  if (usadas.length === 0) return null;
+  const por = new Map<string, number>();
+  for (const u of usadas) for (const [nome, q] of u.contratosPlanos ?? []) por.set(nome, (por.get(nome) ?? 0) + q);
+  const planos = [...por].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"));
+  return { planos, total: usadas.reduce((s, u) => s + (u.contratosAtivos ?? 0), 0) };
+}

@@ -21,3 +21,24 @@ describe("Contratos ativos (Alunos › Contratos)", () => {
     expect(ordem(renderToString(<ContratosAtivos units={units} />))).toEqual(["Gama", "Itapoã", "Taguatinga"]);
   });
 });
+
+describe("Contratos ativos por plano", () => {
+  const planos = Array.from({ length: 12 }, (_, i) => [`PLANO ${i + 1}`, 100 - i]);
+  const units = [{ name: "Gama", contratosAtivos: 1000, contratosPlanos: planos }] as unknown as UnitData[];
+
+  it("mostra os 10 maiores com quantidade e percentual, e oferece ver todos", async () => {
+    const { ContratosPorPlano } = await import("@/components/unidades/ContratosPorPlano");
+    const html = renderToString(<ContratosPorPlano units={units} foco="Gama" />);
+    expect(html).toContain("Contratos ativos por plano");
+    expect(html).toContain("PLANO 1");
+    expect(html).toContain("PLANO 10");
+    expect(html).not.toContain("PLANO 11");
+    expect(html).toMatch(/10,0(<!-- -->)?%/);
+    expect(html).toContain("Ver os 12 planos");
+  });
+
+  it("some quando não há a foto dos planos", async () => {
+    const { ContratosPorPlano } = await import("@/components/unidades/ContratosPorPlano");
+    expect(renderToString(<ContratosPorPlano units={[{ name: "Gama" } as unknown as UnitData]} />)).toBe("");
+  });
+});

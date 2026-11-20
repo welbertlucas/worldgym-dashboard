@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-20-contratos-por-plano", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "alunos/contratos", artigo: "tela-alunos",
+    titulo: "Alunos: contratos ativos por plano",
+    texto: "Para saber quantos alunos estão em cada plano era preciso abrir o relatório Clientes por contratos no EVO, unidade por unidade. Agora, em Alunos › Contratos, o Atlas lista os planos com mais contratos ativos hoje, com a quantidade e o percentual de cada um. Com uma unidade no filtro mostra os planos dela; sem, a rede. Dá para buscar um plano pelo nome e ver todos.",
+  },
+  {
     id: "2026-11-19-influenciadores-conferencia", data: "2026-11-19", tipo: "novo", publico: "todos", autora: AUTORA, tela: "campanhas/influenciadores", artigo: "tela-marketing",
     titulo: "Influenciadores: o que cada um postou contra o combinado",
     texto: "Saber se o influenciador cumpriu o contrato exigia abrir o perfil dele e contar post por post. Agora o Atlas lê o feed e os reels de cada perfil a cada 4 horas e mostra, para este mês ou o mês passado, quantos já saíram contra o combinado, se o ritmo está em dia e quais posts contaram, com o link de cada um. Por padrão só conta o post que cita a conta da unidade na legenda; em cada contrato dá para escolher que qualquer post do perfil conta. Marcação só na imagem, colaboração e stories o Atlas não enxerga. A conferência aparece depois da próxima atualização do Instagram.",

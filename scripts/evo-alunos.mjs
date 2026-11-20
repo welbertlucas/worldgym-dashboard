@@ -94,7 +94,8 @@ async function lerUnidade([id, nome]) {
   try {
     const c = await contratosUnidade(Number(id), membros);
     Object.assign(u, c);
-    console.log(nome, JSON.stringify(c));
+    const { contratosPlanos, ...resumo } = c;
+    console.log(nome, JSON.stringify(resumo), `${contratosPlanos.length} planos`);
   } catch (e) {
     console.log(nome, `contratos com erro: ${e.message}`); // não derruba os ativos nem os bairros
   }

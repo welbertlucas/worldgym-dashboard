@@ -166,6 +166,9 @@ export const live = (r) => !r.cancellationDate && (r.idMemberPayer || r.idProspe
 export const hojeBR = (agora = Date.now()) => new Date(agora - 3 * 3600 * 1000).toISOString().slice(0, 10);
 const dia = (iso) => String(iso ?? "").slice(0, 10);
 
+/** Origem do título criado pelo EVO ao converter uma cobrança recusada em saldo devedor. */
+export const SALDO_DEVEDOR = "Outstanding balance charge";
+
 export async function unitMonth(idBranch, ym, hoje = hojeBR()) {
   const [a, b] = monthRange(ym);
   const [dueAll, paidAll] = await Promise.all([
@@ -180,6 +183,11 @@ export async function unitMonth(idBranch, ym, hoje = hojeBR()) {
   // Faturamento = títulos que JÁ venceram no mês (no mês em andamento, até hoje). O que ainda vai vencer
   // até o fim do mês é a previsão de faturamento. Em mês fechado os dois são iguais.
   const jaVenceu = emAndamento ? due.filter((r) => dia(r.dueDate) <= hoje) : due;
+  // Cobrança de saldo devedor (source "Outstanding balance charge") é dívida de antes que o EVO lança de novo no lugar do título
+  // recusado: não é venda do mês. Fica fora do faturamento (o EVO não a conta nas vendas) e dentro do card de saldo devedor.
+  // Inadimplência, pagantes e recebimento seguem como estavam.
+  const fatura = (r) => r.source !== SALDO_DEVEDOR;
+  const jaVenceuFat = jaVenceu.filter(fatura);
 
   // Pagantes = pessoas com título já vencido no mês. Inadimplente = quem não tinha pago algum desses títulos
   // no fim do mês (mês fechado) ou ainda não pagou e já passou do vencimento (mês em andamento).
@@ -191,10 +199,10 @@ export async function unitMonth(idBranch, ym, hoje = hojeBR()) {
   const devendo = new Set(base.filter(naoPago).map(quem));
   const recebimento = round2(paid.reduce((s, r) => s + (r.ammountPaid || 0), 0));
   return {
-    faturamento: soma(jaVenceu),
-    previsaoFaturamento: soma(due),
+    faturamento: soma(jaVenceuFat),
+    previsaoFaturamento: soma(due.filter(fatura)),
     recebimento,
-    titulosVencidos: jaVenceu.length,
+    titulosVencidos: jaVenceuFat.length,
     titulosPagos: paid.length,
     pagantes: pagantes.size,
     adimplentes: pagantes.size - devendo.size,
@@ -202,7 +210,7 @@ export async function unitMonth(idBranch, ym, hoje = hojeBR()) {
     inadimplenciaPerc: pagantes.size ? round2((devendo.size / pagantes.size) * 100) : 0,
     ticketMedio: pagantes.size ? round2(recebimento / pagantes.size) : 0,
     // Faturamento e recebimento de cada semana do mês (relatórios semanais); a soma das semanas fecha com o total do mês.
-    semanas: semanasFinanceiro(jaVenceu, paid, ym),
+    semanas: semanasFinanceiro(jaVenceuFat, paid, ym),
     // Só para o perfil da inadimplência (server/inadPerfil.js): a rotina tira isto antes de gravar o mês.
     _pagadores: { pagantes: [...pagantes].filter((x) => typeof x === "number"), devendo: [...devendo].filter((x) => typeof x === "number") },
   };
