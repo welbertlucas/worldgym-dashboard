@@ -4,8 +4,8 @@
 // Formato: título "Tela: o que mudou"; o texto começa pelo problema da academia e depois diz o que mudou.
 // `artigo` liga ao artigo da Central de ajuda ("Saiba mais"); `tela` abre o lugar ("Ver na tela").
 
-/** "royalties": só quem vê o menu Royalties (dono, Master e quem o dono liberou); "dono": só o dono. */
-export type Publico = "todos" | "dono" | "royalties";
+/** "royalties": só quem vê o menu Royalties (dono, Master e quem o dono liberou); "juridico": só quem vê o menu Jurídico (dono e quem ele liberou); "dono": só o dono. */
+export type Publico = "todos" | "dono" | "royalties" | "juridico";
 export type TipoNovidade = "novo" | "melhoria";
 
 export interface Novidade {
@@ -26,6 +26,11 @@ export interface Novidade {
 export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
+  {
+    id: "2026-11-20-juridico", data: "2026-11-20", tipo: "novo", publico: "juridico", autora: AUTORA, tela: "juridico", artigo: "juridico-o-que-e",
+    titulo: "Jurídico: os processos da rede dentro do Atlas",
+    texto: "Os processos que o escritório jurídico manda todo mês ficavam numa planilha. Agora o menu Jurídico mostra quantos processos a rede tem, quanto está em causa, por empresa, por órgão e por tipo de ação, quais estão sem andamento e a lista completa, com filtros de situação, natureza e empresa. O nome da parte contrária e os textos do processo não entram no Atlas. O menu aparece só para o dono e para quem ele liberar na tela Usuários.",
+  },
   {
     id: "2026-11-20-royalties", data: "2026-11-20", tipo: "novo", publico: "royalties", autora: AUTORA, tela: "royalties", artigo: "royalties-o-que-e",
     titulo: "Royalties: os recebimentos da marca dentro do Atlas",
@@ -207,9 +212,9 @@ export const NOVIDADES: Novidade[] = [
 
 /** Novidades que a pessoa pode ver, da mais nova para a mais antiga. */
 /** Quem vê cada novidade: todos veem as "todos"; o dono vê tudo; as de royalties só vão a quem pode ver o menu Royalties (`royalties`, por padrão igual ao dono). */
-export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono) => publico === "todos" || (publico === "royalties" ? royalties : dono);
-export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono): Novidade[] =>
-  lista.filter((n) => publicoVe(n.publico, dono, royalties)).sort((a, b) => b.data.localeCompare(a.data));
+export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono) => publico === "todos" || (publico === "royalties" ? royalties : publico === "juridico" ? juridico : dono);
+export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono, juridico: boolean = dono): Novidade[] =>
+  lista.filter((n) => publicoVe(n.publico, dono, royalties, juridico)).sort((a, b) => b.data.localeCompare(a.data));
 
 /** Quantas ainda não foram vistas. */
 export const naoVistas = (lista: Novidade[], vistas: Iterable<string>): number => {

@@ -235,6 +235,44 @@ describe("acessos, níveis e registro", () => {
     expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "unidades", unidades: ["Gama"], verRoyalties: true })).code).toBe(403);
   });
 
+  it("jurídico: só o dono vê sem liberação; qualquer nível vê se o dono liberar; ninguém além do dono libera; a API usa a mesma regra", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
+    const criar = async (nome: string, email: string, papel: string, extra: any = {}) => {
+      const c = (await post(tokenDono, { acao: "criar", nome, email, papel, ...extra })).body;
+      await trocaSenha(c.usuario.id, c.senhaProvisoria);
+      return { u: c.usuario, token: criarTokenUsuario(c.usuario.id).token };
+    };
+    const master = await criar("Ana Master", "ana@exemplo.com", "master");
+    const uni = await criar("Caio Unidade", "caio@exemplo.com", "unidades", { unidades: ["Gama"] });
+    const api = (token: string) => chama(royaltiesApi, com(token, { method: "GET", query: { modulo: "juridico" } }));
+    const veLogin = async (token: string) => (await chama(login, com(token, { method: "GET" }))).body.usuario.verJuridico;
+
+    expect(await veLogin(tokenDono)).toBe(true);
+    expect(await veLogin(master.token)).toBe(false);
+    expect(await veLogin(uni.token)).toBe(false);
+    expect((await api(master.token)).code).toBe(403);
+    expect((await api(tokenDono)).body).toEqual({ disponivel: false });
+
+    // liberar o Master e a unidade
+    expect((await post(tokenDono, { acao: "atualizar", id: master.u.id, verJuridico: true })).body.usuario.verJuridico).toBe(true);
+    expect((await post(tokenDono, { acao: "atualizar", id: uni.u.id, verJuridico: true })).body.usuario.verJuridico).toBe(true);
+    expect(await veLogin(master.token)).toBe(true);
+    expect((await api(uni.token)).code).toBe(200);
+    expect((await api(uni.token)).headers["Cache-Control"]).toBe("no-store");
+    // os royalties continuam com a regra deles
+    expect((await chama(royaltiesApi, com(uni.token, { method: "GET" }))).code).toBe(403);
+    // tirar fecha de novo
+    await post(tokenDono, { acao: "atualizar", id: master.u.id, verJuridico: false });
+    expect((await api(master.token)).code).toBe(403);
+
+    // quem gerencia acessos não dá nem tira essa permissão
+    await post(tokenDono, { acao: "atualizar", id: master.u.id, gerenciaAcessos: true });
+    expect((await post(master.token, { acao: "atualizar", id: uni.u.id, verJuridico: false })).code).toBe(403);
+    expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master", verJuridico: true })).code).toBe(403);
+  });
+
   it("api de royalties: sem login 401, só GET, avisa quando ainda não há dados, devolve o modelo e nunca vai para o cache", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;

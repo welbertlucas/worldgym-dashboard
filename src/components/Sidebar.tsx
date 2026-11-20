@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buscarNoMenu, itensDeBusca, itensDoMenu, NAV_RODAPE, type NavItem } from "@/components/nav";
-import { podeGerarRelatorios, podeGerirAcessos, podeVerRoyalties } from "@/lib/auth";
+import { podeGerarRelatorios, podeGerirAcessos, podeVerJuridico, podeVerRoyalties } from "@/lib/auth";
 import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import wgLogo from "@/assets/wg-logo.png";
 
@@ -20,7 +20,7 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   const [consulta, setConsulta] = useState("");
   const [sel, setSel] = useState(0);
   const campo = useRef<HTMLInputElement>(null);
-  const resultados = buscarNoMenu(itensDeBusca([...itensDoMenu(podeGerirAcessos(), true, podeGerarRelatorios(), podeVerRoyalties()), ...NAV_RODAPE]), consulta);
+  const resultados = buscarNoMenu(itensDeBusca([...itensDoMenu(podeGerirAcessos(), true, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico()), ...NAV_RODAPE]), consulta);
   const abrir = (destino: string) => { setConsulta(""); campo.current?.blur(); onChange(destino); };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, resultados.length - 1)); }
@@ -98,7 +98,7 @@ function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: N
 
 /** Telas de trabalho em cima; Novidades e Central de ajuda no rodapé do menu. */
 function NavList({ active, onChange, collapsed = false }: NavProps & { collapsed?: boolean }) {
-  const itens = itensDoMenu(podeGerirAcessos(), false, podeGerarRelatorios(), podeVerRoyalties());
+  const itens = itensDoMenu(podeGerirAcessos(), false, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico());
   const novas = useNovidadesNaoVistas();
   return (
     <>

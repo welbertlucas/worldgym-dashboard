@@ -20,7 +20,7 @@ export interface ArtigoAjuda {
   atualizadoEm: string;
 }
 
-export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "royalties" | "dono";
+export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "royalties" | "juridico" | "dono";
 
 export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; publico: Publico }[] = [
   { id: "comecando", titulo: "Primeiros passos", descricao: "O que é o Atlas, como escolher a unidade e o mês e como achar uma tela.", publico: "todos" },
@@ -29,12 +29,13 @@ export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; public
   { id: "duvidas", titulo: "Dúvidas frequentes", descricao: "Senha, números diferentes do EVO, resumo por e-mail e mais.", publico: "todos" },
   { id: "indicadores", titulo: "O que significa cada indicador", descricao: "Churn, inadimplência, ticket médio e os outros números do Atlas.", publico: "todos" },
   { id: "royalties", titulo: "Royalties", descricao: "Os recebimentos da marca, quem está devendo e como ler cada painel.", publico: "royalties" },
+  { id: "juridico", titulo: "Jurídico", descricao: "Os processos da rede e como ler a tela.", publico: "juridico" },
   { id: "dono", titulo: "Só você vê", descricao: "Usuários, rotinas automáticas e o que só você acompanha.", publico: "dono" },
 ];
 
 const DATA = "2026-11-16";
 const a = (secao: SecaoAjuda, id: string, titulo: string, resumo: string, paragrafos: string[], extra: Partial<ArtigoAjuda> = {}): ArtigoAjuda =>
-  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
+  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : secao === "juridico" ? "juridico" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
 
 const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   // Primeiros passos
@@ -191,6 +192,18 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Em qualquer painel, clicar no nome de uma unidade abre um painel ao lado, com o saldo devedor, quanto foi recebido do que era devido, os dados da cobrança (valor mensal, início, vencimento, último pagamento), os meses sem recebimento, o mês a mês e a observação da planilha. Para fechar, use o botão Fechar, a tecla Esc ou clique fora.",
     "Quando uma unidade não tem cobrança, o painel diz isso e mostra só o que ela já pagou. Quando é de royalties sem valor esperado informado, o saldo aparece como não calculado.",
   ], { tela: "royalties", atualizadoEm: "2026-11-20" }),
+
+  // Jurídico (só quem vê o menu)
+  a("juridico", "juridico-o-que-e", "O que é o menu Jurídico", "Os processos judiciais e extrajudiciais da rede, vindos da planilha do jurídico.", [
+    "Mostra os processos que o escritório jurídico acompanha: quantos são, quanto está em causa, em que empresa e órgão (tribunal, Procon, Ministério Público) estão e quais estão sem andamento. Os dados vêm da planilha que o jurídico manda todo mês e o Atlas lê todo dia.",
+    "O nome da parte contrária (em geral um aluno ou ex-colaborador) e os textos livres do processo (objeto e último andamento) não entram no Atlas: ele guarda só o número, a empresa, o órgão, o tipo, o polo, o valor, o status e a data da última movimentação.",
+    "Quem vê: o dono e quem ele liberar na tela Usuários. A tela é conferida no servidor a cada abertura.",
+  ], { tela: "juridico", atualizadoEm: "2026-11-20" }),
+  a("juridico", "juridico-como-ler", "Como ler a tela", "Cartões, rankings e a lista de processos.", [
+    "Filtros do topo: situação (ativos, arquivados ou todos), natureza (judicial ou extrajudicial) e empresa. Valem para tudo na tela. As empresas são as razões sociais da planilha, não as unidades do Atlas.",
+    "Cartões: Processos (e quantos estão arquivados), Valor em causa (soma do valor da causa; processos sigilosos ou sem valor ficam de fora da soma e aparecem no aviso), Como réu, Judiciais (e quantos são extrajudiciais) e Sem andamento, que conta os processos ativos com a última movimentação há mais de 60 dias ou sem data.",
+    "Por empresa, Por órgão e Por tipo de ação: do que tem mais valor em causa para o que tem menos; a barra é a quantidade de processos. A lista de baixo traz cada processo e pode ser ordenada por maior valor, mais tempo sem andamento ou movimentados há pouco. A data em vermelho é de processo sem andamento.",
+  ], { tela: "juridico", atualizadoEm: "2026-11-20" }),
   // Só o dono
   a("dono", "dono-usuarios", "Usuários e níveis de acesso", "Criar acessos, níveis e o resumo por e-mail.", [
     "Em Usuários você cria acessos de Dono, Master ou Unidades (uma ou mais). A senha provisória vai por e-mail e a pessoa escolhe a própria no primeiro acesso.",
@@ -237,8 +250,8 @@ const INDICADORES: ArtigoAjuda[] = Object.entries(AJUDA)
 
 export const ARTIGOS: ArtigoAjuda[] = [...ARTIGOS_ESCRITOS, ...INDICADORES];
 
-export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties));
-export const secoesPara = (dono: boolean, royalties: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties));
+export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono, juridico: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties, juridico));
+export const secoesPara = (dono: boolean, royalties: boolean = dono, juridico: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties, juridico));
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 

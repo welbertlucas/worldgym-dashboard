@@ -1,0 +1,32 @@
+name: Atualizar jurídico
+
+# Lê a planilha do jurídico (Google Planilhas, só leitura), descarta nome da parte contrária e textos livres e grava os processos no Blob privado
+# do Atlas, mais os totais do mês (juridico/historico). Todo dia às 07:10 de Brasília; à mão quando o jurídico mandar uma versão nova.
+on:
+  schedule:
+    - cron: "10 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: juridico-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Ler a planilha do jurídico
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+          JURIDICO_PLANILHA_ID: ${{ secrets.JURIDICO_PLANILHA_ID }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/juridico-sync.mjs

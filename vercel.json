@@ -18,6 +18,9 @@
       "schedule": "20 6 * * *"
     }
   ],
+  "rewrites": [
+    { "source": "/api/juridico", "destination": "/api/royalties?modulo=juridico" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -22,6 +22,7 @@ describe("ver como (dono simulando outro nível)", () => {
   it("royalties na simulação: como Master o dono continua vendo; como quem tem acesso a unidades, não", () => {
     const dono = { id: "d", nome: "Dono", email: "d@x.com", papel: "dono", unidades: [], verRoyalties: true, geraRelatorios: true } as any;
     expect(aplicarVerComo(dono, "master", nomes).verRoyalties).toBe(true);
+    expect(aplicarVerComo({ ...dono, verJuridico: true }, "master", nomes).verJuridico).toBe(false); // a liberação do jurídico é de cada pessoa
     expect(aplicarVerComo(dono, cabecalhoVerComo({ papel: "unidades", unidades: ["Itapoã"] })["X-Atlas-Ver-Como"], nomes).verRoyalties).toBe(false);
   });
 

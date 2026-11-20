@@ -10,6 +10,7 @@ on:
       - Backup dos usuários
       - Atualizar campanhas do Meta
       - Atualizar Instagram das unidades
+      - Atualizar jurídico
       - Deploy para GitHub Pages
     types: [completed]
 
