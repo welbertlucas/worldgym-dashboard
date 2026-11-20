@@ -11,8 +11,9 @@ export const PASTA_FOTOS = "qualidade/fotos";
 export const FREQUENCIAS = ["visita", "diaria", "semanal", "mensal"];
 /** Quando o item pede foto: nunca, só se for não conforme (a evidência) ou sempre que for respondido. */
 export const FOTOS = ["nenhuma", "nao_conforme", "sempre"];
-/** Tipo do item: o comum (conforme ou não) ou a lista de equipamentos parados (um registro por equipamento: código, descrição e fotos). */
-export const TIPOS = ["conforme", "equipamentos"];
+/** Tipo do item: o comum (conforme ou não), a lista de equipamentos parados (um registro por equipamento: código, descrição e fotos) ou a data de vencimento
+ *  de um documento (o item fica conforme se a data é igual ou depois da data da visita; sem data = não se aplica). */
+export const TIPOS = ["conforme", "equipamentos", "vencimento"];
 export const MAX_EQUIPAMENTOS = 30;
 export const MAX_FOTOS_POR_EQUIPAMENTO = 3;
 export const MAX_MODELOS = 40;
@@ -28,6 +29,7 @@ export class ErroQualidade extends Error {
 
 const texto = (v, max) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 const ehData = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
+const dataDeVencimento = (s) => { const t = String(s ?? ""); return ehData(t) && t >= "2000-01-01" && t <= "2100-12-31" ? t : ""; };
 const horaValida = (h) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(h ?? "")) ? h : "");
 const ehMes = (s) => /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 
@@ -73,11 +75,13 @@ export function montarVisita(bruto, modelo, avaliador, agora = new Date()) {
   const enviadas = new Map((Array.isArray(bruto?.respostas) ? bruto.respostas : []).map((r) => [r?.itemId, r]));
   const respostas = modelo.itens.map((item) => {
     const r = enviadas.get(item.id);
-    const conforme = r?.conforme === true ? true : r?.conforme === false ? false : null;
+    const tipo = item.tipo ?? "conforme";
+    // Documento com validade: a pessoa informa só a data; o Atlas decide se está em dia (vencimento igual ou depois da data da visita).
+    const vencimento = tipo === "vencimento" ? dataDeVencimento(r?.vencimento) : "";
+    const conforme = tipo === "vencimento" ? (vencimento ? vencimento >= data : null) : r?.conforme === true ? true : r?.conforme === false ? false : null;
     const fotos = Array.isArray(r?.fotos) ? r.fotos.filter((f) => typeof f === "string" && /^[0-9a-f-]{36}$/.test(f)).slice(0, MAX_FOTOS_POR_ITEM) : [];
     const comentario = texto(r?.comentario, MAX_COMENTARIO);
     const idsDeFoto = (lista, max) => (Array.isArray(lista) ? lista.filter((f) => typeof f === "string" && /^[0-9a-f-]{36}$/.test(f)).slice(0, max) : []);
-    const tipo = item.tipo ?? "conforme";
     let equipamentos = [];
     if (tipo === "equipamentos" && conforme === false) {
       equipamentos = (Array.isArray(r?.equipamentos) ? r.equipamentos : []).slice(0, MAX_EQUIPAMENTOS)
@@ -86,11 +90,11 @@ export function montarVisita(bruto, modelo, avaliador, agora = new Date()) {
       if (!equipamentos.length) throw new ErroQualidade(`Registre o código de cada equipamento parado em "${item.texto}".`);
       if (item.foto !== "nenhuma" && equipamentos.some((e) => e.fotos.length === 0)) throw new ErroQualidade(`Cada equipamento parado pede uma foto (${equipamentos.find((e) => e.fotos.length === 0).codigo}).`);
     } else {
-      // "Plano de ação obrigatório" do roteiro antigo: item não conforme precisa dizer o que corrigir.
-      if (conforme === false && !comentario) throw new ErroQualidade(`Diga o que precisa ser corrigido em "${item.texto}".`);
+      // "Plano de ação obrigatório" do roteiro antigo: item não conforme precisa dizer o que corrigir (o documento vencido se explica pela data).
+      if (conforme === false && !comentario && tipo !== "vencimento") throw new ErroQualidade(`Diga o que precisa ser corrigido em "${item.texto}".`);
       if ((item.foto === "sempre" && conforme !== null && fotos.length === 0) || (item.foto === "nao_conforme" && conforme === false && fotos.length === 0)) throw new ErroQualidade(`O item "${item.texto}" pede uma foto.`);
     }
-    return { itemId: item.id, grupo: item.grupo, texto: item.texto, peso: item.peso ?? 1, tipo, conforme, comentario, fotos, ...(tipo === "equipamentos" ? { equipamentos } : {}) };
+    return { itemId: item.id, grupo: item.grupo, texto: item.texto, peso: item.peso ?? 1, tipo, conforme, comentario, fotos, ...(tipo === "equipamentos" ? { equipamentos } : {}), ...(tipo === "vencimento" ? { vencimento } : {}) };
   });
   if (respostas.every((r) => r.conforme === null)) throw new ErroQualidade("Responda pelo menos um item.");
   if (respostas.reduce((t, r) => t + r.fotos.length + (r.equipamentos ?? []).reduce((u, e) => u + e.fotos.length, 0), 0) > MAX_FOTOS_POR_VISITA) throw new ErroQualidade(`Uma visita aceita até ${MAX_FOTOS_POR_VISITA} fotos.`);

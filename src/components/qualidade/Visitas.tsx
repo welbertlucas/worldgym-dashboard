@@ -26,6 +26,7 @@ function Detalhe({ v, onApagar }: { v: Visita; onApagar: () => void }) {
               </span>
               <span className="min-w-0 text-foreground">{r.texto}{r.grupo && <span className="block text-xs text-muted-foreground">{r.grupo}</span>}</span>
             </div>
+            {r.vencimento && <p className="mt-1.5 pl-7 text-sm text-muted-foreground">Vencimento: <b className="font-semibold text-foreground">{dataBR(r.vencimento)}</b></p>}
             {r.comentario && <p className="mt-1.5 pl-7 text-sm text-muted-foreground">{r.comentario}</p>}
             {(r.equipamentos ?? []).length > 0 && (
               <ul className="mt-2 space-y-2 pl-7">

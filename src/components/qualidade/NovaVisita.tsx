@@ -10,8 +10,10 @@ import { enviarFoto, reduzirFoto, salvarVisita } from "@/lib/qualidade";
 
 type FotoLocal = { previa: string; dados: string };
 interface EquipamentoLocal { codigo: string; descricao: string; fotos: FotoLocal[] }
-interface Resposta { conforme: boolean | null; comentario: string; fotos: FotoLocal[]; equipamentos: EquipamentoLocal[] }
-const vazia = (): Resposta => ({ conforme: null, comentario: "", fotos: [], equipamentos: [] });
+interface Resposta { conforme: boolean | null; comentario: string; fotos: FotoLocal[]; equipamentos: EquipamentoLocal[]; vencimento: string }
+const vazia = (): Resposta => ({ conforme: null, comentario: "", fotos: [], equipamentos: [], vencimento: "" });
+/** Nos itens de vencimento a pessoa só informa a data: está em dia se ela é igual ou depois da data da visita (o servidor refaz a conta). */
+const efetiva = (item: ItemModelo, r: Resposta, dataVisita: string): Resposta => (item.tipo === "vencimento" ? { ...r, conforme: r.vencimento ? r.vencimento >= dataVisita : null } : r);
 const equipamentoVazio = (): EquipamentoLocal => ({ codigo: "", descricao: "", fotos: [] });
 
 /** Lê a foto escolhida no celular e a devolve já reduzida, com a prévia para mostrar na tela. */
@@ -62,13 +64,15 @@ function Equipamentos({ item, lista, onChange }: { item: ItemModelo; lista: Equi
 }
 
 /** Nota provisória enquanto a pessoa responde (a mesma conta do servidor: conformes entre os respondidos). */
-const notaAgora = (itens: ItemModelo[], rs: Resposta[]) => {
-  const v = itens.map((i, k) => ({ peso: i.peso ?? 1, r: rs[k] })).filter((x) => x.r.conforme !== null);
+const notaAgora = (itens: ItemModelo[], rs: Resposta[], dataVisita: string) => {
+  const v = itens.map((i, k) => ({ peso: i.peso ?? 1, r: efetiva(i, rs[k], dataVisita) })).filter((x) => x.r.conforme !== null);
   const total = v.reduce((t, x) => t + x.peso, 0);
   return total ? (v.filter((x) => x.r.conforme).reduce((t, x) => t + x.peso, 0) / total) * 100 : null;
 };
 
-function Item({ item, r, onChange }: { item: ItemModelo; r: Resposta; onChange: (r: Resposta) => void }) {
+function Item({ item, r: bruta, dataVisita, onChange }: { item: ItemModelo; r: Resposta; dataVisita: string; onChange: (r: Resposta) => void }) {
+  const r = efetiva(item, bruta, dataVisita);
+  const vence = item.tipo === "vencimento";
   const entrada = useRef<HTMLInputElement>(null);
   const [lendo, setLendo] = useState(false);
   const botao = (valor: boolean | null, rotulo: string, ativo: string) => (
@@ -91,15 +95,25 @@ function Item({ item, r, onChange }: { item: ItemModelo; r: Resposta; onChange: 
   return (
     <li className="rounded-xl border border-border bg-white p-3">
       <p className="text-sm font-medium text-foreground">{item.texto}{item.foto === "sempre" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">pede foto</span>}{(item.peso ?? 1) > 1 && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">peso {item.peso}</span>}</p>
-      <div className="mt-2 flex gap-2" role="group" aria-label={`Resposta: ${item.texto}`}>
-        {botao(true, "Conforme", "border-emerald-600 bg-emerald-50 text-emerald-800")}
-        {botao(false, "Não conforme", "border-destructive bg-red-50 text-red-800")}
-        {botao(null, "Não se aplica", "border-foreground/30 bg-secondary text-foreground")}
-      </div>
+      {vence ? (
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <label className="text-xs text-muted-foreground">Data de vencimento
+            <input type="date" value={bruta.vencimento} onChange={(e) => onChange({ ...bruta, vencimento: e.target.value })} aria-label={`Data de vencimento: ${item.texto}`} className="mt-1 block h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          </label>
+          {bruta.vencimento && <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", r.conforme ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800")}>{r.conforme ? "Em dia" : "Vencido"}</span>}
+          {!bruta.vencimento && <span className="text-xs text-muted-foreground">Sem data, o item fica como não se aplica.</span>}
+        </div>
+      ) : (
+        <div className="mt-2 flex gap-2" role="group" aria-label={`Resposta: ${item.texto}`}>
+          {botao(true, "Conforme", "border-emerald-600 bg-emerald-50 text-emerald-800")}
+          {botao(false, "Não conforme", "border-destructive bg-red-50 text-red-800")}
+          {botao(null, "Não se aplica", "border-foreground/30 bg-secondary text-foreground")}
+        </div>
+      )}
       {item.tipo === "equipamentos" && r.conforme === false && <div className="mt-2"><Equipamentos item={item} lista={r.equipamentos} onChange={(equipamentos) => onChange({ ...r, equipamentos })} /></div>}
       {r.conforme !== null && (
         <div className="mt-2 space-y-2">
-          <textarea value={r.comentario} maxLength={1000} rows={2} onChange={(e) => onChange({ ...r, comentario: e.target.value })} placeholder={r.conforme || item.tipo === "equipamentos" ? "Comentário (opcional)" : "O que precisa ser corrigido? (obrigatório)"} aria-label={`Comentário: ${item.texto}`}
+          <textarea value={r.comentario} maxLength={1000} rows={2} onChange={(e) => onChange({ ...r, comentario: e.target.value })} placeholder={r.conforme || item.tipo === "equipamentos" || vence ? "Comentário (opcional)" : "O que precisa ser corrigido? (obrigatório)"} aria-label={`Comentário: ${item.texto}`}
             className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           <div className="flex flex-wrap items-center gap-2">
             {r.fotos.map((f, i) => (
@@ -141,7 +155,7 @@ export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; h
     return [...m.entries()];
   }, [modelo]);
   const lista = (modelo?.itens ?? []).map((i) => respostas[i.id] ?? vazia());
-  const nota = notaAgora(modelo?.itens ?? [], lista);
+  const nota = notaAgora(modelo?.itens ?? [], lista, data);
 
   if (ativos.length === 0) return <ChartCard title="Nova visita"><ChartEmpty>Crie um checklist na aba Checklists para registrar a primeira visita.</ChartEmpty></ChartCard>;
 
@@ -171,7 +185,7 @@ export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; h
             equipamentos.push({ codigo: e.codigo, descricao: e.descricao, fotos: ids });
           }
         }
-        itens.push({ itemId: item.id, conforme: r.conforme, comentario: r.comentario, fotos, ...(item.tipo === "equipamentos" ? { equipamentos } : {}) });
+        itens.push({ itemId: item.id, conforme: item.tipo === "vencimento" ? null : r.conforme, comentario: r.comentario, fotos, ...(item.tipo === "equipamentos" ? { equipamentos } : {}), ...(item.tipo === "vencimento" ? { vencimento: r.vencimento } : {}) });
       }
       const res = await salvarVisita({ modeloId: modelo.id, unidade, data, chegada, saida, respostas: itens, observacao });
       if (!res.ok) { setErro(res.erro); setEnviando(false); return; }
@@ -209,7 +223,7 @@ export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; h
           {grupos.map(([grupo, itens]) => (
             <section key={grupo || "geral"} className="space-y-2">
               {grupo && <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{grupo}</h4>}
-              <ul className="space-y-2">{itens.map((i) => <Item key={i.id} item={i} r={respostas[i.id] ?? vazia()} onChange={(r) => setRespostas((s) => ({ ...s, [i.id]: r }))} />)}</ul>
+              <ul className="space-y-2">{itens.map((i) => <Item key={i.id} item={i} r={respostas[i.id] ?? vazia()} dataVisita={data} onChange={(r) => setRespostas((s) => ({ ...s, [i.id]: r }))} />)}</ul>
             </section>
           ))}
           <div className="flex flex-wrap gap-3">

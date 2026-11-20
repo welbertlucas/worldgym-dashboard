@@ -5,12 +5,12 @@ export const FREQUENCIA_ROTULO: Record<Frequencia, string> = { visita: "Na visit
 
 export type PedeFoto = "nenhuma" | "nao_conforme" | "sempre";
 export const FOTO_ROTULO: Record<PedeFoto, string> = { nenhuma: "Foto opcional", nao_conforme: "Obrigatória se não conforme", sempre: "Sempre obrigatória" };
-export type TipoItem = "conforme" | "equipamentos";
-export const TIPO_ROTULO: Record<TipoItem, string> = { conforme: "Conforme ou não", equipamentos: "Lista de equipamentos parados" };
+export type TipoItem = "conforme" | "equipamentos" | "vencimento";
+export const TIPO_ROTULO: Record<TipoItem, string> = { conforme: "Conforme ou não", equipamentos: "Lista de equipamentos parados", vencimento: "Data de vencimento (certificado)" };
 export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto; tipo?: TipoItem }
 export interface EquipamentoParado { codigo: string; descricao: string; fotos: string[] }
 export interface ModeloChecklist { id: string; nome: string; descricao: string; frequencia: Frequencia; itens: ItemModelo[]; ativo: boolean; atualizadoEm: string }
-export interface RespostaVisita { itemId: string; grupo: string; texto: string; peso?: number; tipo?: TipoItem; conforme: boolean | null; comentario: string; fotos: string[]; equipamentos?: EquipamentoParado[] }
+export interface RespostaVisita { itemId: string; grupo: string; texto: string; peso?: number; tipo?: TipoItem; conforme: boolean | null; comentario: string; fotos: string[]; equipamentos?: EquipamentoParado[]; /** AAAA-MM-DD, nos itens de vencimento. */ vencimento?: string }
 export interface Visita {
   id: string; modeloId: string; modeloNome: string; unidade: string; data: string; mes: string;
   avaliador: { nome: string; email: string }; chegada?: string; saida?: string; respostas: RespostaVisita[]; observacao: string; nota: number | null; criadoEm: string;
@@ -85,7 +85,7 @@ export const MODELO_SUGERIDO: { nome: string; descricao: string; frequencia: Fre
     it("Equipamentos", "Todos os equipamentos de ginástica estão em operação, sem aviso de manutenção? (Se não, registre cada equipamento parado com código e foto.)", 2, "equipamentos"),
     it("Segurança e documentos", "Extintores dentro da validade, saídas de emergência desobstruídas e kit de primeiros socorros (e desfibrilador, se a unidade tiver) disponíveis?", 3),
     it("Segurança e documentos", "Há profissional de educação física (CREF) presente no salão durante o horário de funcionamento?", 3),
-    it("Segurança e documentos", "O Certificado de Regularidade PJ do CREF da unidade está dentro da validade e exposto à vista dos alunos?", 3),
+    it("Segurança e documentos", "Certificado de Regularidade PJ do CREF da unidade: informe a data de vencimento. Ele deve estar exposto à vista dos alunos.", 3, "vencimento"),
     it("Segurança e documentos", "Alvará de funcionamento, licença dos bombeiros e dedetização estão em dia, com os comprovantes à mão?", 3),
     it("Equipe", "A equipe está uniformizada: camisa e calçado fechado do padrão, uniforme limpo e em bom estado?"),
     it("Equipe", "O registro de limpeza do dia está preenchido e atualizado, com horário e responsável?"),
@@ -139,4 +139,20 @@ export function equipamentosParados(visitas: Visita[], hoje: string): ParadoNaUn
     }
   }
   return out.sort((a, b) => b.dias - a.dias || a.unidade.localeCompare(b.unidade, "pt-BR") || a.codigo.localeCompare(b.codigo, "pt-BR"));
+}
+
+/** Aviso de vencimento: documento que vence em menos que isso aparece em atenção. Combinado como ponto de partida: mudar só com o dono. */
+export const DIAS_AVISO_VENCIMENTO = 60;
+export interface CertificadoUnidade { unidade: string; vencimento: string | null; dias: number | null; situacao: "vencido" | "a-vencer" | "em-dia" | "sem-data"; visitaData: string | null }
+/** Vencimento do certificado de cada unidade: o da visita mais recente em que a data foi informada. Unidade sem registro vem no fim, "sem data". */
+export function certificadosPorUnidade(visitas: Visita[], unidades: string[], hoje: string): CertificadoUnidade[] {
+  const doItem = (v: Visita) => v.respostas.find((r) => r.tipo === "vencimento" && r.vencimento);
+  const linhas = unidades.map((unidade): CertificadoUnidade => {
+    const v = visitas.filter((x) => x.unidade === unidade && doItem(x)).sort((a, b) => b.data.localeCompare(a.data) || b.criadoEm.localeCompare(a.criadoEm))[0];
+    if (!v) return { unidade, vencimento: null, dias: null, situacao: "sem-data", visitaData: null };
+    const vencimento = doItem(v)!.vencimento as string;
+    const d = dias(hoje, vencimento);
+    return { unidade, vencimento, dias: d, situacao: d < 0 ? "vencido" : d <= DIAS_AVISO_VENCIMENTO ? "a-vencer" : "em-dia", visitaData: v.data };
+  });
+  return linhas.sort((a, b) => (a.dias ?? Infinity) - (b.dias ?? Infinity) || a.unidade.localeCompare(b.unidade, "pt-BR"));
 }

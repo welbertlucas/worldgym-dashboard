@@ -2,7 +2,7 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 import { type MetricDetail } from "@/components/MetricCard";
 import { cn } from "@/lib/utils";
-import { DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, type DadosQualidade, dataBR, equipamentosParados, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
+import { DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, DIAS_AVISO_VENCIMENTO, type DadosQualidade, certificadosPorUnidade, dataBR, equipamentosParados, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
 import { FotoGuardada } from "@/components/qualidade/Fotos";
 
 const COR_TOM = { good: "bg-emerald-600", warn: "bg-amber-500", bad: "bg-destructive", neutral: "bg-foreground/30" } as const;
@@ -14,6 +14,8 @@ export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; 
   const linhas = resumoPorUnidade(dados.visitas, dados.unidades, hoje);
   const falhos = itensQueMaisFalham(dados.visitas, hoje);
   const parados = equipamentosParados(dados.visitas, hoje);
+  const certificados = certificadosPorUnidade(dados.visitas, dados.unidades, hoje);
+  const temCertificado = certificados.some((c) => c.vencimento);
   const totalUn = dados.unidades.length;
   return (
     <div className="space-y-4">
@@ -57,6 +59,23 @@ export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; 
                   {p.fotos[0] && <FotoGuardada id={p.fotos[0]} />}
                   <span className={cn("whitespace-nowrap text-right text-sm tabular-nums", p.dias > 30 ? "font-semibold text-destructive" : "text-foreground")}>{p.dias === 0 ? "visto hoje" : `${p.dias} dias`}<span className="block text-xs font-normal text-muted-foreground">desde {dataBR(p.desde)}{p.visitas > 1 ? ` · ${p.visitas} visitas` : ""}</span></span>
                 </span>
+              </li>
+            ))}
+          </ul>
+        </ChartCard>
+      )}
+
+      {temCertificado && (
+        <ChartCard title="Certificado PJ do CREF" subtitle={`Vencimento informado na última visita de cada unidade. Atenção quando faltam ${DIAS_AVISO_VENCIMENTO} dias ou menos.`}>
+          <ul className="divide-y divide-border">
+            {certificados.map((c) => (
+              <li key={c.unidade} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="font-medium text-foreground">{c.unidade}</span>
+                {c.vencimento ? (
+                  <span className={cn("whitespace-nowrap text-right tabular-nums", c.situacao === "vencido" ? "font-semibold text-destructive" : c.situacao === "a-vencer" ? "font-semibold text-warning" : "text-foreground")}>
+                    {dataBR(c.vencimento)}<span className="ml-2 text-xs font-normal">{c.situacao === "vencido" ? `vencido há ${Math.abs(c.dias as number)} dias` : c.dias === 0 ? "vence hoje" : `faltam ${c.dias} dias`}</span>
+                  </span>
+                ) : <span className="text-muted-foreground">sem data registrada</span>}
               </li>
             ))}
           </ul>

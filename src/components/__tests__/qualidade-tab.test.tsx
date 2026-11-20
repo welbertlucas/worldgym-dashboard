@@ -41,6 +41,15 @@ describe("Qualidade (menu e telas)", () => {
     expect(html).toContain("desde 18/11/2026");
   });
 
+  it("mostra o painel do certificado PJ do CREF com vencimento e situação", () => {
+    const comCert: Visita = { ...VISITA, respostas: [{ itemId: "c", grupo: "", texto: "Certificado", tipo: "vencimento", conforme: true, comentario: "", fotos: [], vencimento: "2026-12-10" }] };
+    const html = limpo(renderToString(<VisaoGeral dados={{ ...DADOS, visitas: [comCert] }} hoje="2026-11-20" onUnidade={() => {}} />));
+    expect(html).toContain("Certificado PJ do CREF");
+    expect(html).toContain("10/12/2026");
+    expect(html).toContain("faltam 20 dias");
+    expect(html).toContain("sem data registrada");
+  });
+
   it("visão geral sem visita nenhuma não quebra", () => {
     const html = limpo(renderToString(<VisaoGeral dados={{ ...DADOS, visitas: [] }} hoje="2026-11-20" onUnidade={() => {}} />));
     expect(html).toContain("3 de 3");

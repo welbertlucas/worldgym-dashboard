@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { definirArmazem } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
 import * as q from "../../../server/qualidade.js";
-import { DIAS_SEM_VISITA, MODELO_SUGERIDO, equipamentosParados, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, tomDaNota, type Visita } from "@/data/qualidade";
+import { DIAS_SEM_VISITA, MODELO_SUGERIDO, certificadosPorUnidade, equipamentosParados, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, tomDaNota, type Visita } from "@/data/qualidade";
 
 const memoria = () => {
   const m = new Map<string, unknown>();
@@ -126,6 +126,24 @@ describe("visitas", () => {
     expect(() => q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: [{ itemId: m3.itens[0].id, conforme: false, equipamentos: eq30 }, { itemId: m3.itens[1].id, conforme: true, fotos: dez }, { itemId: m3.itens[2].id, conforme: true, fotos: dez }] }, m3, {}, AGORA)).toThrow(/100 fotos/); // 90 + 10 + 10
   });
 
+  it("item de vencimento: a pessoa informa só a data; em dia se for igual ou depois da visita; sem data = não se aplica", () => {
+    const m = q.normalizarModelo({ nome: "R", itens: [{ texto: "Certificado PJ do CREF", tipo: "vencimento", peso: 3, foto: "nao_conforme" }, { texto: "Outro" }] }, AGORA);
+    expect(m.itens[0].tipo).toBe("vencimento");
+    const foto = "11111111-1111-1111-1111-111111111111";
+    const visita = (vencimento: string | undefined, fotos: string[] = [], extra: any = {}) => q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: [{ itemId: m.itens[0].id, conforme: false, vencimento, fotos }, { itemId: m.itens[1].id, conforme: true }], ...extra }, m, {}, AGORA);
+    // o servidor decide pela data, ignorando o "conforme" que veio
+    expect(visita("2027-03-10").respostas[0]).toMatchObject({ conforme: true, vencimento: "2027-03-10", tipo: "vencimento" });
+    expect(visita("2026-11-19").respostas[0].conforme).toBe(true); // vence no dia da visita: ainda em dia
+    expect(() => visita("2026-11-18")).toThrow(/pede uma foto/); // vencido: pede foto (regra do item)
+    const vencido = visita("2026-11-18", [foto]);
+    expect(vencido.respostas[0]).toMatchObject({ conforme: false, comentario: "" }); // sem comentário obrigatório: a data explica
+    expect(vencido.nota).toBe(25); // peso 3 reprovado, peso 1 aprovado
+    // sem data (ou data inválida): não se aplica
+    expect(visita(undefined).respostas[0].conforme).toBeNull();
+    expect(visita("31/12/2026").respostas[0]).toMatchObject({ conforme: null, vencimento: "" });
+    expect(visita("2026-11-19").respostas[1].vencimento).toBeUndefined();
+  });
+
   it("o roteiro sugerido começa com o item de equipamentos parados", () => {
     expect(q.normalizarModelo(MODELO_SUGERIDO).itens[0]).toMatchObject({ tipo: "equipamentos", peso: 2, foto: "nao_conforme" });
   });
@@ -193,5 +211,20 @@ describe("cálculos da tela de qualidade", () => {
     // o código que some da visita seguinte recomeça a contagem quando volta
     const volta = [V({ id: "1", unidade: "A", data: "2026-09-01", mes: "2026-09", respostas: eq(["EQ-1"]) }), V({ id: "2", unidade: "A", data: "2026-10-01", mes: "2026-10", respostas: eq(["EQ-9"]) }), V({ id: "3", unidade: "A", data: "2026-11-10", respostas: eq(["EQ-1"]) })];
     expect(equipamentosParados(volta, HOJE).map((x) => [x.codigo, x.desde, x.visitas])).toEqual([["EQ-1", "2026-11-10", 1]]);
+  });
+
+  it("certificado PJ do CREF: o vencimento da última visita de cada unidade, em ordem de urgência", () => {
+    const venc = (vencimento: string) => [{ itemId: "c", grupo: "", texto: "Certificado", tipo: "vencimento" as const, conforme: null, comentario: "", fotos: [], vencimento }];
+    const vs = [
+      V({ id: "1", unidade: "A", data: "2026-09-01", mes: "2026-09", respostas: venc("2026-10-01") }), // antiga: vale a mais nova
+      V({ id: "2", unidade: "A", data: "2026-11-10", respostas: venc("2027-05-01") }),
+      V({ id: "3", unidade: "B", data: "2026-11-05", respostas: venc("2026-12-10") }),
+      V({ id: "4", unidade: "C", data: "2026-11-05", respostas: venc("2026-11-01") }),
+      V({ id: "5", unidade: "D", data: "2026-11-05", respostas: [] }),
+    ];
+    const l = certificadosPorUnidade(vs, ["A", "B", "C", "D", "E"], HOJE);
+    expect(l.map((x) => [x.unidade, x.vencimento, x.dias, x.situacao])).toEqual([
+      ["C", "2026-11-01", -19, "vencido"], ["B", "2026-12-10", 20, "a-vencer"], ["A", "2027-05-01", 162, "em-dia"], ["D", null, null, "sem-data"], ["E", null, null, "sem-data"],
+    ]);
   });
 });
