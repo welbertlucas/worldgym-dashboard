@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { definirArmazem } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
 import * as q from "../../../server/qualidade.js";
-import { DIAS_SEM_VISITA, MODELO_SUGERIDO, certificadosPorUnidade, equipamentosParados, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, tomDaNota, type Visita } from "@/data/qualidade";
+import { DIAS_SEM_VISITA, MODELO_ABERTURA, MODELO_SUGERIDO, PRAZO_DIAS, certificadosPorUnidade, equipamentosParados, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, rotinaDasUnidades, tomDaNota, type Visita } from "@/data/qualidade";
 
 const memoria = () => {
   const m = new Map<string, unknown>();
@@ -144,6 +144,14 @@ describe("visitas", () => {
     expect(visita("2026-11-19").respostas[1].vencimento).toBeUndefined();
   });
 
+  it("o checklist de abertura sugerido: diário, 10 itens, equipamentos parados primeiro e sem CREF", () => {
+    const m = q.normalizarModelo(MODELO_ABERTURA);
+    expect(m.frequencia).toBe("diaria");
+    expect(m.itens).toHaveLength(10);
+    expect(m.itens[0]).toMatchObject({ tipo: "equipamentos", peso: 2 });
+    expect(m.itens.some((i: any) => /CREF/.test(i.texto))).toBe(false);
+  });
+
   it("o roteiro sugerido começa com o item de equipamentos parados", () => {
     expect(q.normalizarModelo(MODELO_SUGERIDO).itens[0]).toMatchObject({ tipo: "equipamentos", peso: 2, foto: "nao_conforme" });
   });
@@ -158,6 +166,32 @@ describe("visitas", () => {
     expect(await q.visitasRecentes(12, AGORA)).toEqual([]);
     await expect(q.lerFoto(fotoId)).rejects.toThrow(/não encontrada/);
     await expect(q.salvarVisita({ modeloId: "x", unidade, data: "2026-11-19", respostas: [] }, {}, AGORA)).rejects.toThrow(/não existe/);
+  });
+
+  it("envio da unidade: só o checklist que a unidade preenche, só a própria unidade, sempre com a data de hoje; fica à parte das visitas", async () => {
+    const abertura = await q.salvarModelo({ nome: "Abertura", frequencia: "diaria", itens: [{ texto: "Recepção limpa" }] });
+    const roteiro = await q.salvarModelo({ nome: "Roteiro", frequencia: "visita", itens: [{ texto: "Piso" }] });
+    const autor = { nome: "Gerente", email: "g@x.com" };
+    const resp = (m: any) => [{ itemId: m.itens[0].id, conforme: true }];
+    const e = await q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", data: "2020-01-01", chegada: "08:00", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA);
+    expect(e).toMatchObject({ origem: "unidade", unidade: "Asa Norte", data: "2026-11-20", chegada: "", avaliador: { nome: "Gerente" } }); // a data enviada é ignorada
+    await expect(q.salvarEnvio({ modeloId: abertura.id, unidade: "Gama", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA)).rejects.toThrow(/sua unidade/);
+    await expect(q.salvarEnvio({ modeloId: roteiro.id, unidade: "Asa Norte", respostas: resp(roteiro) }, autor, ["Asa Norte"], AGORA)).rejects.toThrow(/não está disponível/);
+    expect((await q.enviosRecentes(30, AGORA)).map((x: any) => x.id)).toEqual([e.id]);
+    expect((await q.enviosRecentes(30, AGORA, ["Gama"]))).toEqual([]);
+    expect(await q.visitasRecentes(12, AGORA)).toEqual([]); // envio não é visita: fora da nota e do ranking
+    expect(q.modelosDaUnidade(await q.lerModelos()).map((m: any) => m.nome)).toEqual(["Abertura"]);
+    // limite por dia e apagar
+    for (let i = 0; i < 4; i += 1) await q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA);
+    await expect(q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA)).rejects.toThrow(/5 envios por dia/);
+    await q.apagarEnvio(e.id, e.mes);
+    expect((await q.enviosRecentes(30, AGORA)).length).toBe(4);
+    // a unidade só enxerga a foto do próprio envio
+    const foto = await q.salvarFoto(JPEG);
+    const m2 = await q.salvarModelo({ nome: "Com foto", frequencia: "semanal", itens: [{ texto: "X", foto: "sempre" }] });
+    await q.salvarEnvio({ modeloId: m2.id, unidade: "Asa Norte", respostas: [{ itemId: m2.itens[0].id, conforme: true, fotos: [foto] }] }, autor, ["Asa Norte"], AGORA);
+    expect(await q.fotoDeEnvioDe(foto, ["Asa Norte"], AGORA)).toBe(true);
+    expect(await q.fotoDeEnvioDe(foto, ["Gama"], AGORA)).toBe(false);
   });
 
   it("foto: só JPEG, tamanho limitado e id válido", async () => {
@@ -226,5 +260,16 @@ describe("cálculos da tela de qualidade", () => {
     expect(l.map((x) => [x.unidade, x.vencimento, x.dias, x.situacao])).toEqual([
       ["C", "2026-11-01", -19, "vencido"], ["B", "2026-12-10", 20, "a-vencer"], ["A", "2027-05-01", 162, "em-dia"], ["D", null, null, "sem-data"], ["E", null, null, "sem-data"],
     ]);
+  });
+
+  it("rotina das unidades: último envio, atraso pelo prazo da frequência (diária 1, semanal 7, mensal 31) e atrasadas primeiro", () => {
+    const modelo = (id: string, frequencia: any, ativo = true) => ({ id, nome: `Checklist ${id}`, descricao: "", frequencia, ativo, itens: [], atualizadoEm: "" });
+    const envio = (unidade: string, modeloId: string, data: string, falha = false) => V({ id: `${unidade}${modeloId}${data}`, unidade, modeloId, modeloNome: `Checklist ${modeloId}`, data, mes: data.slice(0, 7), origem: "unidade", criadoEm: `${data}T10:00:00Z`, respostas: falha ? [{ itemId: "a", grupo: "", texto: "Piso", conforme: false, comentario: "x", fotos: [] }] : [] });
+    const modelos = [modelo("d", "diaria"), modelo("v", "visita"), modelo("s", "semanal", false)];
+    const envios = [envio("A", "d", "2026-11-20"), envio("A", "d", "2026-11-18"), envio("B", "d", "2026-11-19", true), envio("C", "d", "2026-11-10")];
+    const l = rotinaDasUnidades(envios, modelos, ["A", "B", "C", "D"], HOJE);
+    expect(l.map((x) => [x.unidade, x.situacao, x.dias, x.naoConformes])).toEqual([["C", "atrasado", 10, 0], ["D", "nunca", null, 0], ["B", "em-dia", 1, 1], ["A", "em-dia", 0, 0]]);
+    expect(l.every((x) => x.modeloId === "d")).toBe(true); // visita e fora de uso não entram
+    expect(PRAZO_DIAS).toEqual({ visita: 0, diaria: 1, semanal: 7, mensal: 31 });
   });
 });

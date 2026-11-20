@@ -1,7 +1,7 @@
 import { authFetch, API_BASE, type Papel } from "@/lib/auth";
 
 /** `resumo`: recebe o resumo diário por e-mail. `gerenciaAcessos`: Master que o dono liberou a criar e alterar acessos. */
-export interface UsuarioApi { id: string; nome: string; email: string; papel: Papel; unidades: string[]; ativo: boolean; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean; criadoEm: string }
+export interface UsuarioApi { id: string; nome: string; email: string; papel: Papel; unidades: string[]; ativo: boolean; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean; preencheChecklist?: boolean; criadoEm: string }
 /** `evento`: o "esqueci minha senha" (pedido do link, senha redefinida). Entra com ok=false e não conta como entrada nem como senha errada. */
 export interface EntradaRegistro { em: string; email: string; usuarioId: string | null; nome: string | null; ok: boolean; evento?: "redefinicao-pedida" | "senha-redefinida" }
 export interface EntradaAtividade { em: string; usuarioId: string; nome: string; email: string; tela: string; evento: "tela" | "exportar"; /** Unidade do filtro (null = a rede toda) e mês (AAAA-MM); ausentes nos registros antigos. */ unidade?: string | null; mes?: string | null }
@@ -28,6 +28,6 @@ export const criarDono = (c: { nome: string; email: string; senha: string }) => 
 export type EmailDeAcesso = { enviado: boolean; para: string; erro?: string };
 type ComSenha = { usuario: UsuarioApi; senhaProvisoria: string; email?: EmailDeAcesso };
 
-export const criarAcesso = (c: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean }) => enviar<ComSenha>({ acao: "criar", ...c });
-export const atualizarAcesso = (id: string, c: Partial<Pick<UsuarioApi, "nome" | "email" | "papel" | "unidades" | "ativo" | "resumo" | "gerenciaAcessos" | "geraRelatorios" | "verRoyalties" | "verJuridico" | "verQualidade">>) => enviar<{ usuario: UsuarioApi }>({ acao: "atualizar", id, ...c });
+export const criarAcesso = (c: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean; preencheChecklist?: boolean }) => enviar<ComSenha>({ acao: "criar", ...c });
+export const atualizarAcesso = (id: string, c: Partial<Pick<UsuarioApi, "nome" | "email" | "papel" | "unidades" | "ativo" | "resumo" | "gerenciaAcessos" | "geraRelatorios" | "verRoyalties" | "verJuridico" | "verQualidade" | "preencheChecklist">>) => enviar<{ usuario: UsuarioApi }>({ acao: "atualizar", id, ...c });
 export const redefinirSenha = (id: string) => enviar<ComSenha>({ acao: "redefinir", id });

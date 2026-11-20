@@ -4,12 +4,13 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { FOTO_ROTULO, FREQUENCIA_ROTULO, MODELO_SUGERIDO, TIPO_ROTULO, type Frequencia, type ItemModelo, type ModeloChecklist, type PedeFoto, type TipoItem } from "@/data/qualidade";
+import { FOTO_ROTULO, FREQUENCIA_ROTULO, MODELO_ABERTURA, MODELO_SUGERIDO, TIPO_ROTULO, type Frequencia, type ItemModelo, type ModeloChecklist, type PedeFoto, type TipoItem } from "@/data/qualidade";
 import { apagarModelo, salvarModelo } from "@/lib/qualidade";
 
 type Rascunho = { id?: string; nome: string; descricao: string; frequencia: Frequencia; ativo: boolean; itens: (Partial<ItemModelo> & { texto: string; grupo: string; peso: number; foto: PedeFoto; tipo?: TipoItem })[] };
 const novo = (): Rascunho => ({ nome: "", descricao: "", frequencia: "visita", ativo: true, itens: [{ texto: "", grupo: "", peso: 1, foto: "nenhuma" }] });
 const sugerido = (): Rascunho => ({ ...MODELO_SUGERIDO, ativo: true, itens: MODELO_SUGERIDO.itens.map((i) => ({ ...i })) });
+const abertura = (): Rascunho => ({ ...MODELO_ABERTURA, ativo: true, itens: MODELO_ABERTURA.itens.map((i) => ({ ...i })) });
 const deModelo = (m: ModeloChecklist): Rascunho => ({ id: m.id, nome: m.nome, descricao: m.descricao, frequencia: m.frequencia, ativo: m.ativo, itens: m.itens.map((i) => ({ ...i })) });
 
 function Editor({ inicial, onSalvou, onCancelar }: { inicial: Rascunho; onSalvou: () => void; onCancelar: () => void }) {
@@ -101,7 +102,7 @@ export function Modelos({ modelos, onMudou }: { modelos: ModeloChecklist[]; onMu
   };
   if (editando) return <ChartCard title={editando.id ? "Editar checklist" : "Novo checklist"}><Editor inicial={editando} onSalvou={() => { setEditando(null); onMudou(); }} onCancelar={() => setEditando(null)} /></ChartCard>;
   return (
-    <ChartCard title="Checklists" subtitle="As listas de itens que a franqueadora usa nas visitas." legend={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => setEditando(sugerido())}>Usar o roteiro sugerido</Button><Button size="sm" onClick={() => setEditando(novo())}><Plus className="h-4 w-4" aria-hidden /> Novo checklist</Button></div>}>
+    <ChartCard title="Checklists" subtitle="As listas de itens: as da visita da franqueadora e as que a própria unidade preenche (frequência diária, semanal ou mensal)." legend={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => setEditando(sugerido())}>Usar o roteiro sugerido</Button><Button variant="outline" size="sm" onClick={() => setEditando(abertura())}>Usar o checklist de abertura sugerido</Button><Button size="sm" onClick={() => setEditando(novo())}><Plus className="h-4 w-4" aria-hidden /> Novo checklist</Button></div>}>
       {modelos.length === 0 ? (
         <ChartEmpty>Nenhum checklist ainda. Crie o primeiro (ex.: limpeza, uniforme, equipamentos).</ChartEmpty>
       ) : (

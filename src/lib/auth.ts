@@ -11,7 +11,7 @@ export const AUTH_REQUIRED_EVENT = "wg-auth-required";
 
 export type Papel = "dono" | "master" | "unidades";
 /** `papelReal` só vem quando o dono está simulando outro nível ("ver como"). `gerenciaAcessos`: Master liberado pelo dono a criar acessos. */
-export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean; /** Liberado pelo dono a gerar apresentações no menu Relatórios (o dono sempre gera). */ geraRelatorios?: boolean; /** Vê o menu Royalties: dono e Master sempre; quem tem acesso só a unidades, se o dono liberou. O servidor já manda o valor final. */ verRoyalties?: boolean; /** Vê o menu Jurídico: o dono, e quem ele liberou (qualquer nível). */ verJuridico?: boolean; /** Usa o menu Qualidade: o dono, e quem ele liberou (qualquer nível). */ verQualidade?: boolean; /** Ainda usa a senha provisória: precisa escolher a própria antes de ver dados. */ trocarSenha?: boolean }
+export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean; /** Liberado pelo dono a gerar apresentações no menu Relatórios (o dono sempre gera). */ geraRelatorios?: boolean; /** Vê o menu Royalties: dono e Master sempre; quem tem acesso só a unidades, se o dono liberou. O servidor já manda o valor final. */ verRoyalties?: boolean; /** Vê o menu Jurídico: o dono, e quem ele liberou (qualquer nível). */ verJuridico?: boolean; /** Usa o menu Qualidade: o dono, e quem ele liberou (qualquer nível). */ verQualidade?: boolean; /** Preenche o checklist da própria unidade (só quem tem acesso a unidades e o dono liberou; o dono sempre). */ preencheChecklist?: boolean; /** Ainda usa a senha provisória: precisa escolher a própria antes de ver dados. */ trocarSenha?: boolean }
 
 // Quem está logado e se o login pede e-mail (só depois que o dono cria o primeiro acesso). Vem de GET /api/login.
 let usuario: Usuario | null = null;
@@ -33,6 +33,8 @@ export const podeVerRoyalties = () => usuario?.verRoyalties === true;
 export const podeVerJuridico = () => usuario?.verJuridico === true;
 /** Menu Qualidade (checklists e visitas): só o dono e quem ele liberou; o servidor confere de novo a cada pedido. */
 export const podeVerQualidade = () => usuario?.verQualidade === true;
+/** Checklist da unidade (abertura etc.): quem foi liberado a preencher; o servidor confere de novo. */
+export const podePreencherChecklist = () => usuario?.preencheChecklist === true;
 export const podeGerirAcessos = () => usuario?.papel === "dono" || usuario?.gerenciaAcessos === true;
 /** Unidades de quem tem acesso só a algumas; null = enxerga todas. */
 export const unidadesProprias = (): string[] | null => (usuario?.papel === "unidades" ? usuario.unidades : null);

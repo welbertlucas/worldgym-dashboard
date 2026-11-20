@@ -8,6 +8,9 @@ import { UNIDADES_DA_REDE } from "./acesso.js";
 export const ARQUIVO_MODELOS = "qualidade/modelos.json";
 export const PASTA_VISITAS = "qualidade/visitas";
 export const PASTA_FOTOS = "qualidade/fotos";
+/** Envios dos checklists que a própria unidade preenche (abertura etc.): ficam à parte das visitas da franqueadora e não entram na nota nem no ranking. */
+export const PASTA_ENVIOS = "qualidade/envios";
+export const MAX_ENVIOS_POR_DIA = 5;
 export const FREQUENCIAS = ["visita", "diaria", "semanal", "mensal"];
 /** Quando o item pede foto: nunca, só se for não conforme (a evidência) ou sempre que for respondido. */
 export const FOTOS = ["nenhuma", "nao_conforme", "sempre"];
@@ -178,4 +181,57 @@ export async function lerFoto(id) {
   const bytes = await lerBytes(`${PASTA_FOTOS}/${id}.jpg`);
   if (!bytes) throw new ErroQualidade("Foto não encontrada.", 404);
   return bytes;
+}
+
+/** Data de hoje em Brasília (AAAA-MM-DD). */
+export const hojeBrasilia = (agora = new Date()) => new Date(agora.getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+
+/** Checklists que a unidade preenche: os em uso que não são "na visita da franqueadora". */
+export const modelosDaUnidade = (modelos) => modelos.filter((m) => m.ativo !== false && m.frequencia !== "visita");
+
+export async function lerEnvios(mes) {
+  const v = await lerJson(`${PASTA_ENVIOS}/${mes}.json`);
+  return Array.isArray(v) ? v : [];
+}
+/** Envios dos últimos `dias` dias (do mais novo para o mais velho), opcionalmente só de algumas unidades. */
+export async function enviosRecentes(dias = 45, agora = new Date(), unidades = null) {
+  const desde = new Date(agora.getTime() - dias * 86400000);
+  const meses = new Set([hojeBrasilia(agora).slice(0, 7), hojeBrasilia(desde).slice(0, 7)]);
+  const out = [];
+  for (const mes of meses) out.push(...(await lerEnvios(mes)));
+  const corte = hojeBrasilia(desde);
+  return out.filter((e) => e.data >= corte && (!unidades || unidades.includes(e.unidade))).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+}
+
+/**
+ * Envio da unidade: valida como uma visita (mesmos itens, fotos e regras), mas a data é sempre a de hoje, a unidade tem de ser uma das da pessoa e
+ * o checklist tem de ser um dos que a unidade preenche. Quem enviou fica no registro.
+ */
+export async function salvarEnvio(bruto, autor, unidadesPermitidas, agora = new Date()) {
+  const modelo = modelosDaUnidade(await lerModelos()).find((m) => m.id === bruto?.modeloId);
+  if (!modelo) throw new ErroQualidade("Esse checklist não está disponível para a unidade.", 404);
+  const unidade = texto(bruto?.unidade, 80);
+  if (!unidadesPermitidas.includes(unidade)) throw new ErroQualidade("Você só envia o checklist da sua unidade.", 403);
+  const hoje = hojeBrasilia(agora);
+  const envio = { ...montarVisita({ ...bruto, unidade, data: hoje, chegada: "", saida: "" }, modelo, autor, agora), origem: "unidade" };
+  const lista = await lerEnvios(envio.mes);
+  if (lista.filter((e) => e.unidade === unidade && e.data === hoje && e.modeloId === modelo.id).length >= MAX_ENVIOS_POR_DIA) throw new ErroQualidade(`O limite é de ${MAX_ENVIOS_POR_DIA} envios por dia deste checklist.`);
+  await gravarJson(`${PASTA_ENVIOS}/${envio.mes}.json`, [...lista, envio]);
+  return envio;
+}
+export async function apagarEnvio(id, mes) {
+  if (!ehMes(String(mes))) throw new ErroQualidade("Mês inválido.");
+  const lista = await lerEnvios(mes);
+  const e = lista.find((x) => x.id === id);
+  if (!e) throw new ErroQualidade("Envio não encontrado.", 404);
+  await gravarJson(`${PASTA_ENVIOS}/${mes}.json`, lista.filter((x) => x.id !== id));
+  for (const r of e.respostas) {
+    for (const f of r.fotos ?? []) await apagarCaminho(`${PASTA_FOTOS}/${f}.jpg`);
+    for (const q of r.equipamentos ?? []) for (const f of q.fotos ?? []) await apagarCaminho(`${PASTA_FOTOS}/${f}.jpg`);
+  }
+}
+/** A foto está num envio recente de uma das unidades? (a unidade só vê as fotos dos próprios envios) */
+export async function fotoDeEnvioDe(id, unidades, agora = new Date()) {
+  const envios = await enviosRecentes(90, agora, unidades);
+  return envios.some((e) => e.respostas.some((r) => (r.fotos ?? []).includes(id) || (r.equipamentos ?? []).some((q) => (q.fotos ?? []).includes(id))));
 }

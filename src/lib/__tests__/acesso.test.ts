@@ -324,6 +324,71 @@ describe("acessos, níveis e registro", () => {
     expect((await q(tokenDono, { query: { modulo: "qualidade", foto } })).code).toBe(404);
   });
 
+  it("checklist da unidade: quem tem acesso a unidades só preenche e vê o da própria unidade, com a liberação do dono; não vê visitas, notas nem outras unidades", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
+    const criar = async (nome: string, email: string, papel: string, extra: any = {}) => {
+      const c = (await post(tokenDono, { acao: "criar", nome, email, papel, ...extra })).body;
+      await trocaSenha(c.usuario.id, c.senhaProvisoria);
+      return { u: c.usuario, token: criarTokenUsuario(c.usuario.id).token };
+    };
+    const gama = await criar("Gerente Gama", "gama@exemplo.com", "unidades", { unidades: ["Gama"] });
+    const itapoa = await criar("Gerente Itapoã", "itapoa@exemplo.com", "unidades", { unidades: ["Itapoã"] });
+    const master = await criar("Ana Master", "ana@exemplo.com", "master", { verQualidade: true });
+    const q = (token: string, extra: any = {}) => chama(royaltiesApi, com(token, { method: "GET", query: { modulo: "qualidade" }, ...extra }));
+    const qpost = (token: string, body: any) => q(token, { method: "POST", body });
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString("base64");
+
+    expect((await q(gama.token)).code).toBe(403);
+    expect(gama.u.preencheChecklist).toBe(false);
+    expect((await post(tokenDono, { acao: "atualizar", id: gama.u.id, preencheChecklist: true })).body.usuario.preencheChecklist).toBe(true);
+    await post(tokenDono, { acao: "atualizar", id: itapoa.u.id, preencheChecklist: true });
+    expect((await chama(login, com(gama.token, { method: "GET" }))).body.usuario).toMatchObject({ preencheChecklist: true, verQualidade: false });
+
+    // o dono cria o checklist da unidade e um da visita
+    const aber = (await qpost(tokenDono, { acao: "modelo", modelo: { nome: "Abertura", frequencia: "diaria", itens: [{ texto: "Recepção limpa" }] } })).body.modelo;
+    const rot = (await qpost(tokenDono, { acao: "modelo", modelo: { nome: "Roteiro", frequencia: "visita", itens: [{ texto: "Piso" }] } })).body.modelo;
+    await qpost(tokenDono, { acao: "visita", visita: { modeloId: rot.id, unidade: "Gama", data: new Date().toISOString().slice(0, 10), respostas: [{ itemId: rot.itens[0].id, conforme: true }] } });
+
+    // o que a unidade enxerga: só o próprio nome, só o checklist dela, nenhuma visita
+    const lista = (await q(gama.token)).body;
+    expect(lista).toMatchObject({ modo: "unidade", unidades: ["Gama"], visitas: [], envios: [] });
+    expect(lista.modelos.map((m: any) => m.nome)).toEqual(["Abertura"]);
+    // não mexe em checklist nem em visita
+    expect((await qpost(gama.token, { acao: "modelo", modelo: { nome: "x", itens: [{ texto: "a" }] } })).code).toBe(403);
+    expect((await qpost(gama.token, { acao: "visita", visita: {} })).code).toBe(403);
+    expect((await qpost(gama.token, { acao: "envio-apagar", id: "x", mes: "2026-11" })).code).toBe(403);
+
+    // envia o próprio checklist (com foto) e não consegue enviar pela outra unidade nem o checklist da visita
+    const foto = (await qpost(gama.token, { acao: "foto", dados: jpeg })).body.id;
+    const ok = await qpost(gama.token, { acao: "envio", envio: { modeloId: aber.id, unidade: "Gama", respostas: [{ itemId: aber.itens[0].id, conforme: true, fotos: [foto] }] } });
+    expect(ok.code).toBe(200);
+    expect(ok.body.envio).toMatchObject({ origem: "unidade", unidade: "Gama", avaliador: { nome: "Gerente Gama" } });
+    expect((await qpost(gama.token, { acao: "envio", envio: { modeloId: aber.id, unidade: "Itapoã", respostas: [{ itemId: aber.itens[0].id, conforme: true }] } })).code).toBe(403);
+    expect((await qpost(gama.token, { acao: "envio", envio: { modeloId: rot.id, unidade: "Gama", respostas: [{ itemId: rot.itens[0].id, conforme: true }] } })).code).toBe(404);
+    expect((await q(gama.token)).body.envios).toHaveLength(1);
+    expect((await q(itapoa.token)).body.envios).toEqual([]); // a outra unidade não vê
+    // fotos: a unidade só abre as dos próprios envios
+    expect(Buffer.isBuffer((await q(gama.token, { query: { modulo: "qualidade", foto } })).body)).toBe(true);
+    expect((await q(itapoa.token, { query: { modulo: "qualidade", foto } })).code).toBe(404);
+
+    // a franqueadora vê tudo, inclusive o envio, mas só o dono (com verQualidade) preenche no lugar da unidade: Master liberado não tem preencheChecklist
+    const completo = (await q(master.token)).body;
+    expect(completo.modo).toBe("completo");
+    expect(completo.envios).toHaveLength(1);
+    expect(completo.visitas).toHaveLength(1);
+    expect((await qpost(master.token, { acao: "envio", envio: { modeloId: aber.id, unidade: "Gama", respostas: [{ itemId: aber.itens[0].id, conforme: true }] } })).code).toBe(403);
+    // só o dono libera; tirar a liberação fecha
+    await post(tokenDono, { acao: "atualizar", id: master.u.id, gerenciaAcessos: true });
+    expect((await post(master.token, { acao: "atualizar", id: gama.u.id, preencheChecklist: false })).code).toBe(403);
+    await post(tokenDono, { acao: "atualizar", id: gama.u.id, preencheChecklist: false });
+    expect((await q(gama.token)).code).toBe(403);
+    // franqueadora apaga o envio (e a foto)
+    expect((await qpost(master.token, { acao: "envio-apagar", id: ok.body.envio.id, mes: ok.body.envio.mes })).code).toBe(200);
+    expect((await q(tokenDono, { query: { modulo: "qualidade", foto } })).code).toBe(404);
+  });
+
   it("api de royalties: sem login 401, só GET, avisa quando ainda não há dados, devolve o modelo e nunca vai para o cache", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;

@@ -12,7 +12,7 @@ import { FotoGuardada } from "@/components/qualidade/Fotos";
 const CHIP = { good: "bg-success/10 text-success", warn: "bg-warning/10 text-warning", bad: "bg-destructive/10 text-destructive", neutral: "bg-secondary text-muted-foreground" } as const;
 const POR_VEZ = 15;
 
-function Detalhe({ v, onApagar }: { v: Visita; onApagar: () => void }) {
+export function Detalhe({ v, onApagar }: { v: Visita; onApagar?: () => void }) {
   const falhas = v.respostas.filter((r) => r.conforme === false).length;
   return (
     <div className="space-y-3 border-t border-border bg-secondary/30 px-4 py-4">
@@ -43,7 +43,7 @@ function Detalhe({ v, onApagar }: { v: Visita; onApagar: () => void }) {
         ))}
       </ul>
       {v.observacao && <p className="text-sm text-foreground"><b className="font-semibold">Observação:</b> {v.observacao}</p>}
-      <Button variant="outline" size="sm" onClick={onApagar}><Trash2 className="h-4 w-4" aria-hidden /> Apagar esta visita</Button>
+      {onApagar && <Button variant="outline" size="sm" onClick={onApagar}><Trash2 className="h-4 w-4" aria-hidden /> Apagar {v.origem === "unidade" ? "este envio" : "esta visita"}</Button>}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { QualidadeConteudo } from "@/components/tabs/QualidadeTab";
 import { Modelos } from "@/components/qualidade/Modelos";
 import { VisaoGeral } from "@/components/qualidade/VisaoGeral";
 import { NovaVisita } from "@/components/qualidade/NovaVisita";
+import { Rotina } from "@/components/qualidade/Rotina";
+import { ChecklistDaUnidade } from "@/components/qualidade/ChecklistDaUnidade";
 import { itensDoMenu, TODOS_OS_MENUS, nomeDaTela } from "@/components/nav";
 import type { DadosQualidade, Visita } from "@/data/qualidade";
 
@@ -28,7 +30,7 @@ describe("Qualidade (menu e telas)", () => {
 
   it("com dados, abre na visão geral com as abas, os cartões e o ranking", () => {
     const html = limpo(renderToString(<QualidadeConteudo hoje="2026-11-20" estado={{ fase: "pronto", dados: DADOS }} />));
-    for (const t of ["Visão geral", "Nova visita", "Visitas", "Checklists", "Nota média da rede", "Visitas no mês", "Sem visita", "Equipamentos parados", "Itens não conformes", "Nota por unidade", "Itens que mais falham", "Banheiro feminino limpo"]) expect(html).toContain(t);
+    for (const t of ["Visão geral", "Nova visita", "Visitas", "Rotina das unidades", "Checklists", "Nota média da rede", "Visitas no mês", "Sem visita", "Equipamentos parados", "Itens não conformes", "Nota por unidade", "Itens que mais falham", "Banheiro feminino limpo"]) expect(html).toContain(t);
     expect(html).toContain("2 de 3"); // Gama e Itapoã sem visita
   });
 
@@ -69,5 +71,33 @@ describe("Qualidade (menu e telas)", () => {
     const html = limpo(renderToString(<NovaVisita dados={DADOS} hoje="2026-11-20" onSalvou={() => {}} />));
     expect(html).toContain("Escolha a unidade e o checklist para começar");
     expect(html).toContain("Roteiro de visitação");
+  });
+
+  const ABERTURA = { ...MODELO, id: "ab", nome: "Checklist de abertura", frequencia: "diaria" as const };
+  const ENVIO: Visita = { ...VISITA, id: "e1", modeloId: "ab", modeloNome: "Checklist de abertura", unidade: "Asa Norte", data: "2026-11-18", origem: "unidade", avaliador: { nome: "Gerente Asa", email: "g@x.com" } };
+
+  it("rotina das unidades: mostra atrasadas, quem enviou e os não conformes (e orienta quando não há checklist de unidade)", () => {
+    const html = limpo(renderToString(<Rotina dados={{ ...DADOS, modelos: [ABERTURA, MODELO], envios: [ENVIO] }} hoje="2026-11-20" onMudou={() => {}} />));
+    for (const t of ["Rotina das unidades", "Checklist de abertura", "Asa Norte", "Gerente Asa", "Atrasada 1 dia", "Sem envio", "1 não conforme", "Não entra na nota"]) expect(html).toContain(t);
+    expect(html).not.toContain("Roteiro de visitação"); // o da visita não é rotina de unidade
+    expect(limpo(renderToString(<Rotina dados={DADOS} hoje="2026-11-20" onMudou={() => {}} />))).toContain("Nenhum checklist de unidade ainda");
+  });
+
+  it("a unidade vê só os checklists dela e os próprios envios, sem notas nem visitas", () => {
+    const dados: DadosQualidade = { modo: "unidade", unidades: ["Asa Norte"], modelos: [ABERTURA], visitas: [], envios: [ENVIO] };
+    const html = limpo(renderToString(<QualidadeConteudo hoje="2026-11-20" estado={{ fase: "pronto", dados }} />));
+    for (const t of ["Checklists de Asa Norte", "Checklist de abertura", "Preencher agora", "Seus envios", "Atrasado: último envio 18/11/2026"]) expect(html).toContain(t);
+    for (const t of ["Nota média", "Visão geral", "Itens que mais falham", "Gama"]) expect(html).not.toContain(t);
+    expect(limpo(renderToString(<ChecklistDaUnidade dados={{ ...dados, modelos: [], envios: [] }} hoje="2026-11-20" onMudou={() => {}} />))).toContain("Ainda não há checklist");
+  });
+
+  it("formulário da unidade: sem escolha de unidade (uma só), sem data nem nota; mostra o checklist da rotina", () => {
+    const dados: DadosQualidade = { modo: "unidade", unidades: ["Asa Norte"], modelos: [ABERTURA, MODELO], visitas: [], envios: [] };
+    const html = limpo(renderToString(<NovaVisita dados={dados} hoje="2026-11-20" modo="unidade" onSalvou={() => {}} />));
+    expect(html).toContain("Preencher o checklist");
+    expect(html).toContain("Checklist de abertura");
+    expect(html).not.toContain("Roteiro de visitação"); // o da visita fica de fora
+    expect(html).not.toContain("Escolha a unidade");
+    expect(html).not.toContain('aria-label="Data da visita"');
   });
 });

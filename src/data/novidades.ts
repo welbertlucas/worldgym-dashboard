@@ -27,6 +27,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-20-checklist-unidade", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-como-usar",
+    titulo: "Qualidade: a unidade preenche o próprio checklist",
+    texto: "Além da visita da franqueadora, cada unidade agora pode preencher um checklist de rotina (como o de abertura) pelo celular, com fotos. Quem tem acesso a unidades e foi liberado vê o menu Qualidade só com o checklist da própria unidade. Na aba Rotina das unidades você acompanha quem enviou, quem está atrasado e o que veio não conforme, sem aprovar nada e sem mexer na nota do ranking. Equipamentos parados informados pela unidade também aparecem no painel da visão geral.",
+  },
+  {
     id: "2026-11-20-qualidade", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-o-que-e",
     titulo: "Qualidade: checklists e visitas às unidades dentro do Atlas",
     texto: "O roteiro de visitação às unidades (limpeza, uniforme, equipamentos) agora vive no Atlas. O menu Qualidade deixa criar os checklists, registrar a visita a cada unidade item a item (conforme, não conforme ou não se aplica) com comentário e foto, e acompanhar a nota de cada unidade, os itens que mais falham e quem está sem visita. Item não conforme pede o que corrigir; nos itens mais importantes, também uma foto. O menu aparece só para o dono e para quem ele liberar na tela Usuários.",

@@ -1,7 +1,7 @@
 // Qualidade: tipos e cálculos da tela (checklists da franqueadora e visitas às unidades).
 
 export type Frequencia = "visita" | "diaria" | "semanal" | "mensal";
-export const FREQUENCIA_ROTULO: Record<Frequencia, string> = { visita: "Na visita da franqueadora", diaria: "Diária", semanal: "Semanal", mensal: "Mensal" };
+export const FREQUENCIA_ROTULO: Record<Frequencia, string> = { visita: "Na visita da franqueadora", diaria: "Diária (a unidade preenche)", semanal: "Semanal (a unidade preenche)", mensal: "Mensal (a unidade preenche)" };
 
 export type PedeFoto = "nenhuma" | "nao_conforme" | "sempre";
 export const FOTO_ROTULO: Record<PedeFoto, string> = { nenhuma: "Foto opcional", nao_conforme: "Obrigatória se não conforme", sempre: "Sempre obrigatória" };
@@ -12,10 +12,12 @@ export interface EquipamentoParado { codigo: string; descricao: string; fotos: s
 export interface ModeloChecklist { id: string; nome: string; descricao: string; frequencia: Frequencia; itens: ItemModelo[]; ativo: boolean; atualizadoEm: string }
 export interface RespostaVisita { itemId: string; grupo: string; texto: string; peso?: number; tipo?: TipoItem; conforme: boolean | null; comentario: string; fotos: string[]; equipamentos?: EquipamentoParado[]; /** AAAA-MM-DD, nos itens de vencimento. */ vencimento?: string }
 export interface Visita {
+  /** "unidade" nos envios do checklist da própria unidade. */ origem?: "unidade";
   id: string; modeloId: string; modeloNome: string; unidade: string; data: string; mes: string;
   avaliador: { nome: string; email: string }; chegada?: string; saida?: string; respostas: RespostaVisita[]; observacao: string; nota: number | null; criadoEm: string;
 }
-export interface DadosQualidade { unidades: string[]; modelos: ModeloChecklist[]; visitas: Visita[] }
+/** `modo` "completo": dono e liberados (checklists, visitas, notas e o que as unidades enviam); "unidade": só preencher o checklist da própria unidade. */
+export interface DadosQualidade { modo?: "completo" | "unidade"; unidades: string[]; modelos: ModeloChecklist[]; visitas: Visita[]; /** Envios dos checklists que a própria unidade preenche (não entram na nota). */ envios?: Visita[] }
 
 /** Faixas da nota (% de itens conformes) usadas nas cores. Combinadas como ponto de partida: mudar só com o dono. */
 export const NOTA_BOA = 90;
@@ -155,4 +157,42 @@ export function certificadosPorUnidade(visitas: Visita[], unidades: string[], ho
     return { unidade, vencimento, dias: d, situacao: d < 0 ? "vencido" : d <= DIAS_AVISO_VENCIMENTO ? "a-vencer" : "em-dia", visitaData: v.data };
   });
   return linhas.sort((a, b) => (a.dias ?? Infinity) - (b.dias ?? Infinity) || a.unidade.localeCompare(b.unidade, "pt-BR"));
+}
+
+/** Checklist de abertura sugerido para a unidade preencher todo dia pelo celular: curto, só o que a própria unidade confere. Não entra na nota da rede. */
+export const MODELO_ABERTURA: { nome: string; descricao: string; frequencia: Frequencia; itens: Omit<ItemModelo, "id">[] } = {
+  nome: "Checklist de abertura",
+  descricao: "Conferência rápida antes de abrir a unidade. Item não conforme pede o que corrigir; nos itens importantes, também uma foto.",
+  frequencia: "diaria",
+  itens: [
+    it("Equipamentos", "Todos os equipamentos de ginástica estão em operação, sem aviso de manutenção? (Se não, registre cada equipamento parado com código e foto.)", 2, "equipamentos"),
+    it("Recepção e convivência", "Entrada e recepção limpas e organizadas, sem objetos pessoais à vista?"),
+    it("Recepção e convivência", "Área de estar limpa e organizada, sem lixo?"),
+    it("Áreas de treino", "Salão de musculação, cardio e peso livre limpos e organizados, pesos nos suportes?"),
+    it("Banheiros e vestiários", "Banheiros e vestiários abertos, limpos, sem odor, com papel, sabonete e lixeira esvaziada, chuveiros funcionando?", 2),
+    it("Conforto do aluno", "Climatização funcionando e sem lâmpadas queimadas?"),
+    it("Conforto do aluno", "Bebedouros funcionando e som em volume adequado?"),
+    it("Conforto do aluno", "Álcool em gel ou higienizante e papel disponíveis nas áreas de treino?"),
+    it("Equipe", "A equipe do turno está uniformizada, com uniforme limpo e calçado fechado?"),
+    it("Equipe", "O registro de limpeza do turno anterior está preenchido?"),
+  ],
+};
+
+/** Em quantos dias o checklist de cada frequência deve ter um novo envio. Palpite combinado como ponto de partida: mudar só com o dono. */
+export const PRAZO_DIAS: Record<Frequencia, number> = { visita: 0, diaria: 1, semanal: 7, mensal: 31 };
+
+export interface LinhaRotina { unidade: string; modeloId: string; modeloNome: string; frequencia: Frequencia; ultimo: Visita | null; dias: number | null; situacao: "em-dia" | "atrasado" | "nunca"; naoConformes: number }
+/** Rotina das unidades: para cada checklist que a unidade preenche, o último envio, há quantos dias e se está atrasado (mais dias que o prazo da frequência). Atrasadas primeiro. */
+export function rotinaDasUnidades(envios: Visita[], modelos: ModeloChecklist[], unidades: string[], hoje: string): LinhaRotina[] {
+  const rotinas = modelos.filter((m) => m.ativo && m.frequencia !== "visita");
+  const out: LinhaRotina[] = [];
+  for (const m of rotinas) {
+    for (const unidade of unidades) {
+      const ultimo = envios.filter((e) => e.unidade === unidade && e.modeloId === m.id).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm))[0] ?? null;
+      const d = ultimo ? Math.max(0, dias(ultimo.data, hoje)) : null;
+      out.push({ unidade, modeloId: m.id, modeloNome: m.nome, frequencia: m.frequencia, ultimo, dias: d, situacao: d === null ? "nunca" : d > PRAZO_DIAS[m.frequencia] ? "atrasado" : "em-dia", naoConformes: ultimo ? ultimo.respostas.filter((r) => r.conforme === false).length : 0 });
+    }
+  }
+  const peso = { atrasado: 0, nunca: 1, "em-dia": 2 } as const;
+  return out.sort((a, b) => peso[a.situacao] - peso[b.situacao] || (b.dias ?? 0) - (a.dias ?? 0) || b.naoConformes - a.naoConformes || a.unidade.localeCompare(b.unidade, "pt-BR"));
 }

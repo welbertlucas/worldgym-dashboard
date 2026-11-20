@@ -9,6 +9,8 @@ import { VisaoGeral } from "@/components/qualidade/VisaoGeral";
 import { NovaVisita } from "@/components/qualidade/NovaVisita";
 import { Visitas } from "@/components/qualidade/Visitas";
 import { Modelos } from "@/components/qualidade/Modelos";
+import { Rotina } from "@/components/qualidade/Rotina";
+import { ChecklistDaUnidade } from "@/components/qualidade/ChecklistDaUnidade";
 
 export type EstadoQualidade = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; dados: DadosQualidade };
 
@@ -16,6 +18,7 @@ const ABAS: Aba[] = [
   { id: "geral", rotulo: "Visão geral" },
   { id: "visita", rotulo: "Nova visita" },
   { id: "visitas", rotulo: "Visitas" },
+  { id: "rotina", rotulo: "Rotina das unidades" },
   { id: "checklists", rotulo: "Checklists" },
 ];
 
@@ -34,6 +37,7 @@ export function QualidadeConteudo({ estado, hoje = hojeBR(), recarregar = () => 
   if (estado.fase === "carregando") return <ChartCard title="Qualidade"><ChartEmpty>Carregando…</ChartEmpty></ChartCard>;
   if (estado.fase === "erro") return <ChartCard title="Qualidade"><ChartEmpty>{estado.motivo === "permissao" ? "Você não tem acesso a esta tela." : "Não consegui carregar a qualidade agora. Tente de novo em instantes."}</ChartEmpty></ChartCard>;
   const d = estado.dados;
+  if (d.modo === "unidade") return <ChecklistDaUnidade dados={d} hoje={hoje} onMudou={recarregar} />;
   const ativa = abaAtiva(ABAS, aba);
   return (
     <div>
@@ -41,6 +45,7 @@ export function QualidadeConteudo({ estado, hoje = hojeBR(), recarregar = () => 
       {ativa === "geral" && <VisaoGeral dados={d} hoje={hoje} onUnidade={(u) => { setUnidade(u); setAba("visitas"); }} />}
       {ativa === "visita" && <NovaVisita dados={d} hoje={hoje} onSalvou={(u) => { setUnidade(u); setAba("visitas"); recarregar(); }} />}
       {ativa === "visitas" && <Visitas key={unidade} dados={d} unidadeInicial={unidade} onMudou={recarregar} />}
+      {ativa === "rotina" && <Rotina dados={d} hoje={hoje} onMudou={recarregar} />}
       {ativa === "checklists" && <Modelos modelos={d.modelos} onMudou={recarregar} />}
     </div>
   );

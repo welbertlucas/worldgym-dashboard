@@ -19,6 +19,8 @@ export const lerQualidade = () => chamar<DadosQualidade>(`${API_BASE}/qualidade`
 export const salvarModelo = (modelo: Partial<ModeloChecklist>) => post<{ modelo: ModeloChecklist }>({ acao: "modelo", modelo });
 export const apagarModelo = (id: string) => post<{ ok: true }>({ acao: "modelo-apagar", id });
 export const salvarVisita = (visita: unknown) => post<{ visita: Visita }>({ acao: "visita", visita });
+export const salvarEnvio = (envio: unknown) => post<{ envio: Visita }>({ acao: "envio", envio });
+export const apagarEnvio = (id: string, mes: string) => post<{ ok: true }>({ acao: "envio-apagar", id, mes });
 export const apagarVisita = (id: string, mes: string) => post<{ ok: true }>({ acao: "visita-apagar", id, mes });
 export const enviarFoto = (dados: string) => post<{ id: string }>({ acao: "foto", dados });
 

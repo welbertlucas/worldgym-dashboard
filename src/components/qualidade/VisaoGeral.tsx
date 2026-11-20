@@ -13,7 +13,7 @@ export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; 
   const r = resumoDaRede(dados.visitas, dados.unidades, hoje);
   const linhas = resumoPorUnidade(dados.visitas, dados.unidades, hoje);
   const falhos = itensQueMaisFalham(dados.visitas, hoje);
-  const parados = equipamentosParados(dados.visitas, hoje);
+  const parados = equipamentosParados([...dados.visitas, ...(dados.envios ?? [])], hoje);
   const certificados = certificadosPorUnidade(dados.visitas, dados.unidades, hoje);
   const temCertificado = certificados.some((c) => c.vencimento);
   const totalUn = dados.unidades.length;
@@ -50,7 +50,7 @@ export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; 
       </ChartCard>
 
       {parados.length > 0 && (
-        <ChartCard title="Equipamentos parados" subtitle={`${parados.length} ${parados.length === 1 ? "equipamento parado" : "equipamentos parados"} na última visita de cada unidade. O prazo conta as visitas seguidas em que o mesmo código apareceu.`}>
+        <ChartCard title="Equipamentos parados" subtitle={`${parados.length} ${parados.length === 1 ? "equipamento parado" : "equipamentos parados"} no último registro de cada unidade (visita ou checklist da unidade). O prazo conta os registros seguidos em que o mesmo código apareceu.`}>
           <ul className="divide-y divide-border">
             {parados.map((p) => (
               <li key={`${p.unidade}|${p.codigo}`} className="flex flex-wrap items-center justify-between gap-3 py-2.5">

@@ -6,7 +6,7 @@ import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { type DadosQualidade, type ItemModelo, type ModeloChecklist, pctTexto } from "@/data/qualidade";
-import { enviarFoto, reduzirFoto, salvarVisita } from "@/lib/qualidade";
+import { enviarFoto, reduzirFoto, salvarEnvio, salvarVisita } from "@/lib/qualidade";
 
 type FotoLocal = { previa: string; dados: string };
 interface EquipamentoLocal { codigo: string; descricao: string; fotos: FotoLocal[] }
@@ -137,9 +137,11 @@ function Item({ item, r: bruta, dataVisita, onChange }: { item: ItemModelo; r: R
 }
 
 /** A visita da franqueadora: escolhe a unidade e o checklist, responde item a item (conforme, não conforme ou não se aplica), comenta e fotografa. */
-export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; hoje: string; onSalvou: (unidade: string) => void }) {
-  const ativos = dados.modelos.filter((m) => m.ativo);
-  const [unidade, setUnidade] = useState("");
+export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: DadosQualidade; hoje: string; modo?: "visita" | "unidade"; onSalvou: (unidade: string) => void }) {
+  // No modo "unidade" a própria unidade preenche o checklist de rotina: a data é sempre a de hoje e só entram os checklists que ela preenche.
+  const daUnidade = modo === "unidade";
+  const ativos = dados.modelos.filter((m) => m.ativo && (!daUnidade || m.frequencia !== "visita"));
+  const [unidade, setUnidade] = useState(daUnidade && dados.unidades.length === 1 ? dados.unidades[0] : "");
   const [modeloId, setModeloId] = useState("");
   const [data, setData] = useState(hoje);
   const [respostas, setRespostas] = useState<Record<string, Resposta>>({});
@@ -157,7 +159,7 @@ export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; h
   const lista = (modelo?.itens ?? []).map((i) => respostas[i.id] ?? vazia());
   const nota = notaAgora(modelo?.itens ?? [], lista, data);
 
-  if (ativos.length === 0) return <ChartCard title="Nova visita"><ChartEmpty>Crie um checklist na aba Checklists para registrar a primeira visita.</ChartEmpty></ChartCard>;
+  if (ativos.length === 0) return <ChartCard title={daUnidade ? "Checklist da unidade" : "Nova visita"}><ChartEmpty>{daUnidade ? "Ainda não há checklist disponível para a sua unidade." : "Crie um checklist na aba Checklists para registrar a primeira visita."}</ChartEmpty></ChartCard>;
 
   const enviar = async () => {
     if (!modelo) return;
@@ -187,9 +189,11 @@ export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; h
         }
         itens.push({ itemId: item.id, conforme: item.tipo === "vencimento" ? null : r.conforme, comentario: r.comentario, fotos, ...(item.tipo === "equipamentos" ? { equipamentos } : {}), ...(item.tipo === "vencimento" ? { vencimento: r.vencimento } : {}) });
       }
-      const res = await salvarVisita({ modeloId: modelo.id, unidade, data, chegada, saida, respostas: itens, observacao });
+      const res = daUnidade
+        ? await salvarEnvio({ modeloId: modelo.id, unidade, respostas: itens, observacao })
+        : await salvarVisita({ modeloId: modelo.id, unidade, data, chegada, saida, respostas: itens, observacao });
       if (!res.ok) { setErro(res.erro); setEnviando(false); return; }
-      toast({ title: "Visita registrada", description: `${unidade}: nota ${pctTexto(res.dados.visita.nota)}.` });
+      toast(daUnidade ? { title: "Checklist enviado", description: `${unidade}: ${modelo.nome}.` } : { title: "Visita registrada", description: `${unidade}: nota ${pctTexto((res.dados as { visita: { nota: number | null } }).visita.nota)}.` });
       setRespostas({}); setObservacao(""); setModeloId(""); setChegada(""); setSaida("");
       onSalvou(unidade);
     } catch {
@@ -199,23 +203,23 @@ export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; h
   };
 
   return (
-    <ChartCard title="Nova visita" subtitle="Escolha a unidade e o checklist, responda cada item e fotografe o que for preciso.">
+    <ChartCard title={daUnidade ? "Preencher o checklist" : "Nova visita"} subtitle={daUnidade ? "Responda cada item e fotografe o que for preciso. O envio vale para hoje." : "Escolha a unidade e o checklist, responda cada item e fotografe o que for preciso."}>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="text-xs text-muted-foreground">Unidade
+        {!(daUnidade && dados.unidades.length === 1) && <label className="text-xs text-muted-foreground">Unidade
           <Select aria-label="Unidade visitada" className="mt-1 h-9 w-56 max-w-full" value={unidade} onChange={(e) => setUnidade(e.target.value)}>
             <option value="">Escolha…</option>
             {dados.unidades.map((u) => <option key={u} value={u}>{u}</option>)}
           </Select>
-        </label>
+        </label>}
         <label className="text-xs text-muted-foreground">Checklist
           <Select aria-label="Checklist da visita" className="mt-1 h-9 w-64 max-w-full" value={modeloId} onChange={(e) => { setModeloId(e.target.value); setRespostas({}); }}>
             <option value="">Escolha…</option>
             {ativos.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
           </Select>
         </label>
-        <label className="text-xs text-muted-foreground">Data
+        {!daUnidade && <label className="text-xs text-muted-foreground">Data
           <input type="date" value={data} max={hoje} onChange={(e) => setData(e.target.value)} aria-label="Data da visita" className="mt-1 h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-        </label>
+        </label>}
       </div>
 
       {modelo && unidade && (
@@ -226,25 +230,25 @@ export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; h
               <ul className="space-y-2">{itens.map((i) => <Item key={i.id} item={i} r={respostas[i.id] ?? vazia()} dataVisita={data} onChange={(r) => setRespostas((s) => ({ ...s, [i.id]: r }))} />)}</ul>
             </section>
           ))}
-          <div className="flex flex-wrap gap-3">
+          {!daUnidade && <div className="flex flex-wrap gap-3">
             <label className="text-xs text-muted-foreground">Chegada (opcional)
               <input type="time" value={chegada} onChange={(e) => setChegada(e.target.value)} aria-label="Hora de chegada" className="mt-1 block h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </label>
             <label className="text-xs text-muted-foreground">Saída (opcional)
               <input type="time" value={saida} onChange={(e) => setSaida(e.target.value)} aria-label="Hora de saída" className="mt-1 block h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </label>
-          </div>
-          <label className="block text-xs text-muted-foreground">Observação geral (ocorrências que exigiram orientação à equipe, o que ficou combinado…)
+          </div>}
+          <label className="block text-xs text-muted-foreground">Observação geral (opcional)
             <textarea value={observacao} maxLength={500} onChange={(e) => setObservacao(e.target.value)} rows={2} className="mt-1 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </label>
           {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={() => void enviar()} disabled={enviando}><Check className="h-4 w-4" aria-hidden />{enviando ? "Enviando..." : "Registrar visita"}</Button>
-            <span className="text-sm text-muted-foreground">Nota até agora: <b className="font-semibold text-foreground tabular-nums">{pctTexto(nota === null ? null : Math.round(nota * 10) / 10)}</b></span>
+            <Button onClick={() => void enviar()} disabled={enviando}><Check className="h-4 w-4" aria-hidden />{enviando ? "Enviando..." : daUnidade ? "Enviar checklist" : "Registrar visita"}</Button>
+            {!daUnidade && <span className="text-sm text-muted-foreground">Nota até agora: <b className="font-semibold text-foreground tabular-nums">{pctTexto(nota === null ? null : Math.round(nota * 10) / 10)}</b></span>}
           </div>
         </div>
       )}
-      {(!modelo || !unidade) && <p className="mt-4 text-sm text-muted-foreground">Escolha a unidade e o checklist para começar.</p>}
+      {(!modelo || !unidade) && <p className="mt-4 text-sm text-muted-foreground">{daUnidade && dados.unidades.length === 1 ? "Escolha o checklist para começar." : "Escolha a unidade e o checklist para começar."}</p>}
     </ChartCard>
   );
 }

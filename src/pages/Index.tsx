@@ -56,7 +56,7 @@ import {
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
+import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podePreencherChecklist, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -562,7 +562,7 @@ const Index = () => {
 
         {activeTab === "juridico" && podeVerJuridico() && <JuridicoTab />}
 
-        {activeTab === "qualidade" && podeVerQualidade() && <QualidadeTab />}
+        {activeTab === "qualidade" && (podeVerQualidade() || podePreencherChecklist()) && <QualidadeTab />}
 
         {activeTab === "relatorios" && podeGerarRelatorios() && <RelatoriosTab dados={dashboardData} atualizadoEm={evoAtualizadoEm} metas={metasData} vigentes={vigentes} />}
 
