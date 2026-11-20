@@ -98,3 +98,17 @@ export const brl0 = (v: number) => reais(Math.round(v), 0);
 /** Número curto para caber no arco do cartão: "R$ 1,3 mi" de 1 milhão para cima. */
 export const curto = (v: number) => (Math.abs(v) >= 1e6 ? `R$ ${(v / 1e6).toFixed(2).replace(".", ",")} mi` : brl0(v));
 export const dataBR = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
+
+/** CSV dos processos do filtro, na ordem escolhida (separador ";" e vírgula decimal, como o Excel em português espera). Só o que a tela já mostra. */
+export function csvDeProcessos(ps: Processo[], hoje: string): string {
+  const q = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const linhas = [["Processo", "Ano", "Empresa", "Órgão", "Juízo", "Tipo de ação", "Natureza", "Polo", "Valor da causa (R$)", "Status", "Última movimentação", "Dias sem movimentação", "Sem andamento"].map(q).join(";")];
+  for (const p of ps) {
+    const dias = diasSemMovimento(p, hoje);
+    linhas.push([
+      q(p.numero), p.ano === null ? "" : String(p.ano), q(p.empresa), q(p.orgao), q(p.juizo), q(p.tipo), q(p.natureza === "judicial" ? "Judicial" : "Extrajudicial"), q(p.polo),
+      p.valor === null ? q(p.sigiloso ? "Sigiloso" : "") : p.valor.toFixed(2).replace(".", ","), q(p.arquivado ? "Arquivado" : p.status), q(dataBR(p.ultimaMov).replace("—", "")), dias === null ? "" : String(dias), q(parado(p, hoje) ? "Sim" : "Não"),
+    ].join(";"));
+  }
+  return `\uFEFF${linhas.join("\r\n")}`;
+}

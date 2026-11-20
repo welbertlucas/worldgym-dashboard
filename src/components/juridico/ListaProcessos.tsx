@@ -1,9 +1,22 @@
 import { useState } from "react";
+import { Download } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { cn } from "@/lib/utils";
-import { type Ordem, type Processo, DIAS_PARADO, brl, dataBR, diasSemMovimento, ordenar, parado } from "@/data/juridico";
+import { type Ordem, type Processo, DIAS_PARADO, brl, csvDeProcessos, dataBR, diasSemMovimento, ordenar, parado } from "@/data/juridico";
 
 const POR_VEZ = 10;
+
+/** Baixa o CSV dos processos do filtro atual, na ordem em que estão na tela. */
+function baixarCsv(lista: Processo[], hoje: string) {
+  const blob = new Blob([csvDeProcessos(lista, hoje)], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `processos-juridico-${hoje}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 
 /** A lista dos processos do filtro: número, empresa, órgão, tipo, polo, valor e última movimentação (os parados em destaque). */
 export function ListaProcessos({ processos, hoje }: { processos: Processo[]; hoje: string }) {
@@ -16,13 +29,20 @@ export function ListaProcessos({ processos, hoje }: { processos: Processo[]; hoj
       title="Processos"
       subtitle={`${processos.length} no filtro atual. Sem andamento = última movimentação há mais de ${DIAS_PARADO} dias.`}
       legend={
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">Ordenar por
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <label className="flex items-center gap-2">Ordenar por
           <select value={ordem} onChange={(e) => { setOrdem(e.target.value as Ordem); setQuantos(POR_VEZ); }} aria-label="Ordenar processos" className="h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring">
             <option value="valor">Maior valor</option>
             <option value="parados">Mais tempo sem andamento</option>
             <option value="recentes">Movimentados há pouco</option>
           </select>
         </label>
+        {lista.length > 0 && (
+          <button type="button" onClick={() => baixarCsv(lista, hoje)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Download className="h-3.5 w-3.5" aria-hidden />Exportar CSV
+          </button>
+        )}
+        </div>
       }
     >
       {processos.length === 0 ? (

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
 import { chaveDaEmpresa, dataDoProcesso, montarJuridico, nomeDaEmpresa, parseAba, resumoDoMes, valorDaCausa } from "../../../server/juridico.js";
-import { agrupar, diasSemMovimento, empresasDe, filtrar, filtroInicial, ordenar, parado, resumo, type Processo } from "@/data/juridico";
+import { agrupar, csvDeProcessos, diasSemMovimento, empresasDe, filtrar, filtroInicial, ordenar, parado, resumo, type Processo } from "@/data/juridico";
 
 const CAB = ["Ano", "Número do Processo", "Unidade", "Polo da Ação", "Parte Contrária", "Judicial / Extrajudicial", "Tribunal", "Juízo", "Tipo de Ação", "Objeto da Ação", "Valor da Causa", "Status do Processo", "Data da Última Movimentação", "Último Andamento"];
 // Dados inventados (nada da planilha real). Serial 46310 = 2026-10-15.
@@ -80,5 +80,15 @@ describe("cálculos da tela de jurídico", () => {
     expect(ordenar(ativos, "valor").map((p) => p.numero)).toEqual(["1", "3", "2"]);
     expect(ordenar(ativos, "parados").map((p) => p.numero)).toEqual(["2", "3", "1"]);
     expect(ordenar(ativos, "recentes").map((p) => p.numero)).toEqual(["1", "3", "2"]);
+  });
+
+  it("o CSV leva os processos do filtro, com valor em vírgula, sigiloso escrito e a marca de sem andamento", () => {
+    const csv = csvDeProcessos(filtrar(ps, filtroInicial), HOJE).replace(/^\uFEFF/, "").split("\r\n");
+    expect(csv).toHaveLength(4);
+    expect(csv[0]).toContain('"Processo";"Ano";"Empresa"');
+    expect(csv[1]).toBe('"1";2026;"Alfa";"TJDF";"";"T";"Judicial";"Réu";10000,00;"Ativo";"15/11/2026";5;"Não"');
+    expect(csv[2]).toContain('"Sigiloso"');
+    expect(csv[2]).toContain('"Sim"');
+    expect(csv[3]).toContain('"Extrajudicial";"Autor";0,00');
   });
 });

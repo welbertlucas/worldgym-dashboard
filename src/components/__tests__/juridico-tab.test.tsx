@@ -27,6 +27,7 @@ describe("Jurídico (menu e tela)", () => {
     const html = limpo(renderToString(<JuridicoConteudo hoje="2026-11-20" estado={{ fase: "pronto", dados: { disponivel: true, ...MODELO } }} />));
     for (const t of ["Processos", "Valor em causa", "Como réu", "Judiciais", "Sem andamento", "Por empresa", "Por órgão", "Por tipo de ação", "Alfa Ltda", "PROCON-GO", "Sigiloso"]) expect(html).toContain(t);
     expect(html).toContain("1 arquivado na planilha");
+    expect(html).toContain("Exportar CSV");
     expect(html).toContain("nome da parte contrária");
     expect(html).not.toContain("Arquivado</");
   });
