@@ -23,7 +23,7 @@ export function MatrizSituacao({ c, f, onUnidade }: { c: ContextoRoyalties; f: F
       subtitle={`${todos || periodoTodo.length <= 12 ? "Todos os meses do período" : "Últimos 12 meses do período"}. Mostra o que está nas células da planilha de controle, sem recalcular`}
       legend={
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          {(["pago", "naopago", "na"] as const).map((s) => <span key={s} className="flex items-center gap-1.5"><span className={cn("inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-semibold", SIT[s].classe)} aria-hidden>{SIT[s].marca}</span>{SIT[s].texto}</span>)}
+          {(["pago", "naopago"] as const).map((s) => <span key={s} className="flex items-center gap-1.5"><span className={cn("inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-semibold", SIT[s].classe)} aria-hidden>{SIT[s].marca}</span>{SIT[s].texto}</span>)}
         </div>
       }
     >
@@ -49,10 +49,10 @@ export function MatrizSituacao({ c, f, onUnidade }: { c: ContextoRoyalties; f: F
                   {l.celulas.map((x) => (
                     <td
                       key={x.key}
-                      className={cn("h-6 min-w-6 rounded text-center font-semibold", SIT[x.situacao].classe, c.parcial.has(x.key) && "opacity-70")}
+                      className={cn("h-6 min-w-6 rounded text-center font-semibold", x.situacao === "na" ? "bg-transparent" : SIT[x.situacao].classe, c.parcial.has(x.key) && "opacity-70")}
                       title={`${l.unidade}, ${c.rotulo[x.key]}: ${SIT[x.situacao].texto}${x.devido ? ` · devido ${brl(x.devido)}` : ""} · recebido ${brl(x.recebido)}${c.parcial.has(x.key) ? " · mês parcial" : ""}${x.ajuste ? " · ajuste manual" : ""}`}
                       aria-label={`${c.rotulo[x.key]}: ${SIT[x.situacao].texto}`}
-                    >{SIT[x.situacao].marca}</td>
+                    >{x.situacao === "na" ? "" : SIT[x.situacao].marca}</td>
                   ))}
                   <td className="px-2 py-1 text-right tabular-nums text-muted-foreground">{l.naoPagos ?? ""}</td>
                   <td className={cn("px-2 py-1 text-right tabular-nums", l.saldo > 0.005 ? "font-semibold text-destructive" : "text-muted-foreground")}>{brl0(l.saldo)}</td>

@@ -1,3 +1,5 @@
+import { CalendarRange } from "lucide-react";
+import { Chip } from "@/components/DateFilter";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { type ContextoRoyalties, type FiltroRoyalties, filtroInicial, saldoDe, brl0 } from "@/data/royalties";
@@ -14,24 +16,20 @@ export function FiltrosRoyalties({ c, f, onChange }: { c: ContextoRoyalties; f: 
     return c.keys[f.de] === ks[0] && c.keys[f.ate] === ks[ks.length - 1];
   };
   const rotulo = (k: string) => c.rotulo[k] + (c.parcial.has(k) ? "*" : "");
+  const opcoes = c.keys.map((k, i) => <option key={k} value={i}>{rotulo(k)}</option>).reverse();
   const mudou = JSON.stringify(f) !== JSON.stringify(filtroInicial(c));
   const unidades = c.m.unidades.map((u) => u.nome).filter((u) => (f.tipo === "all" || c.tipoDe[u] === f.tipo) && (!f.soDevedoras || saldoDe(c, u) > 0.005));
 
   return (
     <div className="card-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-        <label className="text-xs text-muted-foreground">
-          De
-          <Select aria-label="Mês inicial" className="mt-1 h-9 w-32" value={f.de} onChange={(e) => { const de = Number(e.target.value); onChange({ ...f, de, ate: Math.max(de, f.ate) }); }}>
-            {c.keys.map((k, i) => <option key={k} value={i}>{rotulo(k)}</option>)}
-          </Select>
-        </label>
-        <label className="text-xs text-muted-foreground">
-          Até
-          <Select aria-label="Mês final" className="mt-1 h-9 w-32" value={f.ate} onChange={(e) => { const ate = Number(e.target.value); onChange({ ...f, ate, de: Math.min(f.de, ate) }); }}>
-            {c.keys.map((k, i) => <option key={k} value={i}>{rotulo(k)}</option>)}
-          </Select>
-        </label>
+        <div role="group" aria-label="Período" className="flex flex-wrap items-center gap-2">
+          <Chip id="royalties-de" rotulo="De" valor={rotulo(c.keys[f.de])} ativo icone={<CalendarRange className="h-4 w-4" />} value={String(f.de)}
+            onChange={(v) => { const de = Number(v); onChange({ ...f, de, ate: Math.max(de, f.ate) }); }}>{opcoes}</Chip>
+          <Chip id="royalties-ate" rotulo="Até" valor={rotulo(c.keys[f.ate])} ativo icone={<CalendarRange className="h-4 w-4" />} value={String(f.ate)}
+            onChange={(v) => { const ate = Number(v); onChange({ ...f, ate, de: Math.min(f.de, ate) }); }}
+            aoLimpar={todo ? undefined : () => onChange({ ...f, de: 0, ate: c.keys.length - 1 })} rotuloLimpar="Voltar a todo o período">{opcoes}</Chip>
+        </div>
         <div role="group" aria-label="Atalhos de período" className="flex flex-wrap rounded-xl border border-border bg-white p-0.5">
           <button type="button" aria-pressed={todo} className={botao(todo)} onClick={() => onChange({ ...f, de: 0, ate: c.keys.length - 1 })}>Todos</button>
           {anos.map((a) => {
