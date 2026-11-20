@@ -9,8 +9,8 @@ import { filtrarMes, filtrarMeses } from "../server/visibilidade.js";
 const TTL_MS = 10 * 60 * 1000;
 let memo = null;
 
-async function todosOsMeses() {
-  if (memo && Date.now() - memo.em < TTL_MS) return memo.dados;
+async function todosOsMeses(fresco = false) {
+  if (!fresco && memo && Date.now() - memo.em < TTL_MS) return memo.dados;
   // 1 leitura do arquivo consolidado; se ainda não existir, cai no caminho antigo (listagem + 1 leitura por mês).
   let dados = await loadAll();
   if (!dados) {
@@ -27,19 +27,23 @@ export default async function handler(req, res) {
   const sessao = await exigirLogin(req, res);
   if (!sessao) return;
 
+  // O dono (papelReal vale também no "Ver como") vê sempre o dado mais novo: sem cache no navegador e sem a memória da instância.
+  const fresco = (sessao.papelReal ?? sessao.papel) === "dono";
+  const cache = fresco ? "no-store" : "private, max-age=300";
+
   try {
     const { month, all } = req.query;
     // ?all=1: todos os meses numa só resposta (o painel abre com uma consulta em vez de 36).
     if (all) {
-      const dados = await todosOsMeses();
-      res.setHeader("Cache-Control", "private, max-age=300");
+      const dados = await todosOsMeses(fresco);
+      res.setHeader("Cache-Control", cache);
       return res.status(200).json({ months: filtrarMeses(dados, sessao) });
     }
     if (!month) return res.status(200).json({ months: await listMonths() });
     if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: "month deve ser AAAA-MM" });
     const data = await loadMonth(month);
     if (!data) return res.status(404).json({ error: "mês ainda não calculado" });
-    res.setHeader("Cache-Control", "private, max-age=300");
+    res.setHeader("Cache-Control", cache);
     return res.status(200).json(filtrarMes(data, sessao));
   } catch (err) {
     return res.status(500).json({ error: String(err.message ?? err) });
