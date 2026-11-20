@@ -145,6 +145,16 @@ describe("OndeMoramAlunos", () => {
     expect(html).toMatch(/5(<!-- -->)? sem endereço/);
   });
 
+  it("o ranking mostra os 10 maiores, junta o resto em 'Outros' e fecha com o total do mapa", async () => {
+    const { OndeMoramAlunos } = await import("@/components/unidades/OndeMoramAlunos");
+    const bairros = Array.from({ length: 12 }, (_, i) => [`Bairro ${i + 1}`, "Cidade", 10, -15.7, -47.7 - i / 100]);
+    const html = renderToString(<OndeMoramAlunos unit="Rede" dados={{ ...SEM_MAPA, bairros: bairros as never }} />);
+    expect(html).toMatch(/Outros(<!-- -->)? (<!-- -->)?2(<!-- -->)? bairros/);
+    expect(html).toContain("Total localizado");
+    expect(html).toContain("Ver os 12 bairros");
+    expect(html).not.toContain("Bairro 11<");
+  });
+
   it("sem dados, orienta em vez de mostrar mapa vazio", async () => {
     const { OndeMoramAlunos } = await import("@/components/unidades/OndeMoramAlunos");
     expect(renderToString(<OndeMoramAlunos unit="Itapoã" dados={SEM_MAPA} />)).toContain("Ainda não há bairros");

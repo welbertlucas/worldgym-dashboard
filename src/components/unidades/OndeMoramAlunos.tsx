@@ -58,6 +58,7 @@ const ROTULO_ALUNOS: Record<Modo, string> = { ativos: "alunos ativos hoje", inat
 /** Onde moram os alunos: bolhas no mapa e ranking dos bairros, de quem está ativo, de quem saiu nos últimos 12 meses ou dos dois. Só contagens por bairro; nenhum endereço de aluno é guardado. */
 export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDados }) {
   const [ranking, setRanking] = useState(true);
+  const [todos, setTodos] = useState(false);
   const [modo, setModo] = useState<Modo>("ativos");
   const { pinos } = dados;
   const bairros = modo === "ativos" ? dados.bairros : modo === "inativos" ? dados.inativos : somarBairros([dados.bairros, dados.inativos]);
@@ -85,8 +86,13 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
   }
   const total = bairros.reduce((s, b) => s + b[2], 0);
   const aprox = bairros.filter((b) => b[5]).reduce((s, b) => s + b[2], 0);
-  const top = [...bairros].sort((a, b) => b[2] - a[2]).slice(0, 10);
-  const max = top[0][2];
+  const ordenados = [...bairros].sort((a, b) => b[2] - a[2]);
+  const top = todos ? ordenados : ordenados.slice(0, 10);
+  const max = ordenados[0][2];
+  // O ranking mostra os 10 maiores; o resto vira uma linha só, para a lista fechar com o total do mapa.
+  const restoBairros = todos ? 0 : ordenados.length - top.length;
+  const restoAlunos = todos ? 0 : total - top.reduce((s, b) => s + b[2], 0);
+  const pct = (n: number) => ((n / total) * 100).toFixed(1).replace(".", ",");
   return (
     <ChartCard title="Onde moram os alunos" subtitle={subtitle}>
       {filtro}
@@ -97,12 +103,31 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
             {top.map(([nome, cidade, n]) => (
               <li key={`${nome}|${cidade}`} className="text-sm">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="min-w-0 truncate font-medium text-foreground">{nome}{cidade && <span className="font-normal text-muted-foreground"> · {cidade}</span>}</span>
-                  <span className="shrink-0 tabular-nums text-foreground">{fmt(n)} <span className="text-xs text-muted-foreground">({((n / total) * 100).toFixed(1).replace(".", ",")}%)</span></span>
+                  <span className="min-w-0 truncate font-medium text-foreground" title={cidade ? `${nome} · ${cidade}` : nome}>{nome}{cidade && <span className="font-normal text-muted-foreground"> · {cidade}</span>}</span>
+                  <span className="shrink-0 tabular-nums text-foreground">{fmt(n)} <span className="text-xs text-muted-foreground">({pct(n)}%)</span></span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary" aria-hidden><div className={`h-full rounded-full ${modo === "inativos" ? "bg-[#f59e0b]/80" : "bg-[#3b82f6]/70"}`} style={{ width: `${(n / max) * 100}%` }} /></div>
               </li>
             ))}
+            {restoBairros > 0 && (
+              <li className="border-t border-border pt-3 text-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate text-muted-foreground">Outros {fmt(restoBairros)} bairros</span>
+                  <span className="shrink-0 tabular-nums text-foreground">{fmt(restoAlunos)} <span className="text-xs text-muted-foreground">({pct(restoAlunos)}%)</span></span>
+                </div>
+              </li>
+            )}
+            <li className="flex items-baseline justify-between gap-3 border-t border-border pt-3 text-sm font-medium">
+              <span className="text-foreground">Total localizado</span>
+              <span className="shrink-0 tabular-nums text-foreground">{fmt(total)}</span>
+            </li>
+            {bairros.length > 10 && (
+              <li className="list-none">
+                <button type="button" onClick={() => setTodos((v) => !v)} aria-expanded={todos} className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                  {todos ? "Mostrar só os 10 maiores" : `Ver os ${fmt(bairros.length)} bairros`}
+                </button>
+              </li>
+            )}
           </ol>
         )}
       </div>
