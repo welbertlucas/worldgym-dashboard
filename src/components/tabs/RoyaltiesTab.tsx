@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Landmark } from "lucide-react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
+import { Notice } from "@/components/Notice";
 import { API_BASE, authFetch } from "@/lib/auth";
+import { contexto, filtroInicial, type FiltroRoyalties, type ModeloRoyalties } from "@/data/royalties";
+import { FiltrosRoyalties } from "@/components/royalties/FiltrosRoyalties";
+import { ResumoRoyalties } from "@/components/royalties/ResumoRoyalties";
+import { RecebidoPorMes } from "@/components/royalties/RecebidoPorMes";
+import { QuemDeve } from "@/components/royalties/QuemDeve";
+import { MatrizSituacao } from "@/components/royalties/MatrizSituacao";
+import { NotasRoyalties } from "@/components/royalties/NotasRoyalties";
 
 /** O que a API de royalties devolve: `disponivel: false` até a rotina de royalties enviar o primeiro modelo. */
-export type RespostaRoyalties =
-  | { disponivel: false }
-  | { disponivel: true; meses?: { key: string; label: string }[]; unidades?: { nome: string; tipo: string }[]; meta?: { geradoEm?: string; planilha?: string } };
+export type RespostaRoyalties = { disponivel: false } | ({ disponivel: true } & ModeloRoyalties);
 
 type Estado = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; dados: RespostaRoyalties };
 
@@ -41,12 +47,26 @@ export function RoyaltiesConteudo({ estado }: { estado: Estado }) {
       </ChartCard>
     );
   }
+  return <PainelRoyalties modelo={d} />;
+}
+
+/** Os painéis, com os filtros do topo valendo para todos eles. */
+export function PainelRoyalties({ modelo }: { modelo: ModeloRoyalties }) {
+  const c = useMemo(() => contexto(modelo), [modelo]);
+  const [f, setF] = useState<FiltroRoyalties>(() => filtroInicial(c));
   return (
-    <ChartCard title="Royalties" subtitle="Recebimentos da marca (taxa fixa e royalties) e inadimplência por unidade">
-      <p className="text-sm text-muted-foreground">
-        Dados recebidos{d.meta?.geradoEm ? ` em ${d.meta.geradoEm}` : ""}: {d.meses?.length ?? 0} meses e {d.unidades?.length ?? 0} unidades. Os painéis chegam na próxima etapa.
-      </p>
-    </ChartCard>
+    <div className="space-y-4">
+      {modelo.meta.stale && (
+        <Notice icon="alert">A leitura da planilha falhou em {modelo.meta.stale.tentativa}. Você está vendo a última versão conferida, de {modelo.meta.geradoEm}.</Notice>
+      )}
+      <p className="text-xs text-muted-foreground">Dados de <b className="font-semibold text-foreground">{modelo.meta.geradoEm}</b>, recebimentos até {c.rotulo[c.keys[c.keys.length - 1]]}.</p>
+      <FiltrosRoyalties c={c} f={f} onChange={setF} />
+      <ResumoRoyalties c={c} f={f} />
+      <RecebidoPorMes c={c} f={f} />
+      <QuemDeve c={c} f={f} />
+      <MatrizSituacao c={c} f={f} />
+      <NotasRoyalties c={c} />
+    </div>
   );
 }
 
@@ -60,7 +80,7 @@ export function RoyaltiesTab() {
   }, []);
   return (
     <section className="space-y-4">
-      <SectionTitle level="page" hint="Só para dono, Master e quem foi liberado em Usuários.">
+      <SectionTitle level="page">
         <span className="inline-flex items-center gap-2"><Landmark className="h-6 w-6" aria-hidden />Royalties</span>
       </SectionTitle>
       <RoyaltiesConteudo estado={estado} />

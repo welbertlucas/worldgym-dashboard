@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { RoyaltiesConteudo } from "@/components/tabs/RoyaltiesTab";
 import { itensDoMenu, TODOS_OS_MENUS, nomeDaTela } from "@/components/nav";
+import { MODELO } from "@/data/__tests__/royalties-fixture";
+
+/** O React separa textos vizinhos com comentários vazios; tira para procurar a frase inteira. */
+const limpo = (h: string) => h.replace(/<!-- -->/g, "");
 
 describe("Royalties (menu e tela)", () => {
   it("o item só entra no menu para quem pode ver, e a busca acha por 'royalties'", () => {
@@ -19,8 +23,17 @@ describe("Royalties (menu e tela)", () => {
     expect(renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: false } }} />)).toContain("ainda não foram enviados");
   });
 
-  it("com dados, resume quantos meses e unidades chegaram", () => {
-    const html = renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: true, meses: [{ key: "2026-11", label: "nov/26" }], unidades: [{ nome: "Gama", tipo: "Taxa fixa" }, { nome: "Itapoã", tipo: "Royalties" }] } }} />);
-    expect(html).toMatch(/1(<!-- -->)? meses e (<!-- -->)?2(<!-- -->)? unidades/);
+  it("com dados, mostra os painéis: resumo, recebido por mês, quem está devendo, matriz e notas", () => {
+    const html = limpo(renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: true, ...MODELO } }} />));
+    for (const t of ["Resumo", "Recebido por mês", "Quem está devendo", "Situação de pagamento mês a mês", "Notas e premissas"]) expect(html).toContain(t);
+    expect(html).toContain("Alfa");
+    expect(html).toContain("Exportar CSV");
+    expect(html).toContain("abr/26 ainda é parcial");
+  });
+
+  it("leitura que falhou na planilha mostra o aviso de versão antiga", () => {
+    const modelo = { ...MODELO, meta: { ...MODELO.meta, stale: { motivo: "teste", tentativa: "21/11/2026 08:17" } } };
+    const html = limpo(renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: true, ...modelo } }} />));
+    expect(html).toContain("A leitura da planilha falhou em 21/11/2026 08:17");
   });
 });
