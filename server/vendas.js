@@ -14,6 +14,8 @@ import { semanaDoDia } from "./semanas.js";
 const ONLINE = 2;
 /** saleSource da recorrência automática (a renovação mensal do cartão): confere com o "Total de vendas recorrentes" do Gerencial do EVO. */
 const RECORRENCIA = 11;
+/** Renovação automática do cartão: origem 11, ou sem origem (nos meses já fechados o EVO traz a recorrência sem `saleSource`; venda manual e online sempre trazem). */
+const ehRecorrencia = (s) => s.saleSource === RECORRENCIA || s.saleSource == null;
 const upper = (i) => String(i.item || i.description || "").toUpperCase();
 
 /**
@@ -183,7 +185,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
         if (sem) sem.novosContratos += 1;
       }
       // "Contratos vendidos" como no Gerencial do EVO: toda venda de contrato lançada na recepção ou online (matrícula, rematrícula e renovação manual), sem a recorrência automática, a diária e o personal.
-      if (i.idMembership && s.saleSource !== RECORRENCIA && cat !== "diarias" && !/PERSONAL/.test(upper(i))) u.vendasContratos += 1;
+      if (i.idMembership && !ehRecorrencia(s) && cat !== "diarias" && !/PERSONAL/.test(upper(i))) u.vendasContratos += 1;
       if (s.saleSource === ONLINE) { u.vendasOnline += i.saleValue || 0; if (sem) sem.vendasOnline += i.saleValue || 0; }
       if (i.idMembership && /PERSONAL/.test(upper(i))) { u.personal += i.saleValue || 0; if (sem) sem.personal += i.saleValue || 0; }
       if (cat) { u[cat] += i.saleValue || 0; if (sem && cat in sem) sem[cat] += i.saleValue || 0; }

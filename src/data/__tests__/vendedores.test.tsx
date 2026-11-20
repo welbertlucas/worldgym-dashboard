@@ -97,6 +97,16 @@ describe("contratos vendidos como no Gerencial do EVO (server/vendas.js)", () =>
       venda("Ana", [{ item: "CAMISETA", saleValue: 40 }], { saleSource: 1 }), // sem contrato: não conta
     ], new Map(), 30)["Asa Norte"];
     expect(por.vendasContratos).toBe(3);
-    expect(por.novosContratos).toBe(2 + 1 /* o personal sem renovação */ ); // a conta de "novos" segue como antes
+    expect(por.novosContratos).toBe(2 + 1 /* o personal sem renovação */); // a conta de "novos" segue como antes
+  });
+
+  it("nos meses fechados a recorrência vem sem origem: também fica de fora; venda manual e online (com origem) continua dentro", () => {
+    const por = resumirVendas([
+      venda("Ana", [plano(100)], { saleSource: 1, registrationKind: "enrollment" }), // manual: conta
+      venda("Ana", [plano(100)], { saleSource: 2, registrationKind: "enrollment" }), // online: conta
+      venda(null, [plano(100, 99)], { saleSource: null, registrationKind: "renewal", idSaleRecurrency: 7 }), // recorrência sem origem: não conta
+      venda(null, [plano(100, 99)], { saleSource: 11, registrationKind: "renewal", idSaleRecurrency: 7 }), // recorrência com origem 11: não conta
+    ], new Map(), 30)["Asa Norte"];
+    expect(por.vendasContratos).toBe(2);
   });
 });
