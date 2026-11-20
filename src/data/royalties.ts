@@ -30,6 +30,8 @@ export interface ModeloRoyalties {
   devido: Record<string, Record<string, number>>;
   situacao: Record<string, Record<string, Situacao>>;
   situacaoNaoPagos: Record<string, number>;
+  /** Unidade -> data do último pagamento (AAAA-MM-DD). */
+  ultimoPagamento?: Record<string, string>;
   mesesComplemento?: string[];
   matrizOcultas?: string[];
   situacaoAjustes?: { unidade: string; mes: string; planilha: string; exibido: string }[];

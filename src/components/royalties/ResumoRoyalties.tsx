@@ -1,6 +1,6 @@
 import { Notice } from "@/components/Notice";
 import { ChartCard } from "@/components/ChartCard";
-import { type ContextoRoyalties, type FiltroRoyalties, brl, brl0, fraseDeAbertura, naoMapeadoNo, periodo, pct, resumoDoPeriodo } from "@/data/royalties";
+import { type ContextoRoyalties, type FiltroRoyalties, brl, brl0, fraseDeAbertura, naoMapeadoNo, periodo, pct, resumoDoPeriodo, saldoDe } from "@/data/royalties";
 import { COR_FIXA, COR_ROYALTIES } from "@/components/royalties/cores";
 
 function Numero({ rotulo, valor, apoio, cor, destaque }: { rotulo: string; valor: string; apoio?: React.ReactNode; cor?: string; destaque?: boolean }) {
@@ -14,7 +14,7 @@ function Numero({ rotulo, valor, apoio, cor, destaque }: { rotulo: string; valor
 }
 
 /** Abertura do menu: a frase do período e os números que ela resume (recebido, modalidades, saldo devedor e inadimplentes). */
-export function ResumoRoyalties({ c, f }: { c: ContextoRoyalties; f: FiltroRoyalties }) {
+export function ResumoRoyalties({ c, f, onUnidade }: { c: ContextoRoyalties; f: FiltroRoyalties; onUnidade?: (u: string) => void }) {
   const ks = periodo(c, f);
   const r = resumoDoPeriodo(c, f);
   const parciais = ks.filter((k) => c.parcial.has(k));
@@ -40,7 +40,20 @@ export function ResumoRoyalties({ c, f }: { c: ContextoRoyalties; f: FiltroRoyal
           <Numero rotulo="Saldo devedor total" valor={brl(r.saldoTotal)} destaque={r.saldoTotal > 0}
             apoio={r.saldoTotal > 0 ? `Taxa fixa ${brl0(r.saldoFixa)} · royalties ${brl0(r.saldoRoyalties)}${apuracao ? `, posição em ${c.rotulo[apuracao] ?? apuracao}` : ""}` : "Tudo em dia"} />
         )}
-        {r.cobradas.length > 0 && <Numero rotulo="Unidades inadimplentes" valor={`${r.devedoras.length} de ${r.cobradas.length}`} apoio="Unidades com cobrança fixa ou royalties esperados" />}
+        {r.cobradas.length > 0 && (
+          <Numero rotulo="Unidades inadimplentes" valor={`${r.devedoras.length} de ${r.cobradas.length}`}
+            apoio={
+              <>
+                <span className="mb-1.5 flex flex-wrap gap-1" role="list" aria-label="Unidades com cobrança, as devedoras em vermelho">
+                  {[...r.cobradas].sort((a, b) => saldoDe(c, b) - saldoDe(c, a)).map((u) => (
+                    <button key={u} type="button" role="listitem" onClick={() => onUnidade?.(u)} title={`${u}${saldoDe(c, u) > 0.005 ? `: deve ${brl0(saldoDe(c, u))}` : ": em dia"}`} aria-label={`${u}: ${saldoDe(c, u) > 0.005 ? `deve ${brl0(saldoDe(c, u))}` : "em dia"}`}
+                      className={`h-2.5 w-2.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${saldoDe(c, u) > 0.005 ? "bg-destructive" : "bg-border"}`} />
+                  ))}
+                </span>
+                Unidades com cobrança fixa ou royalties esperados
+              </>
+            } />
+        )}
       </div>
     </ChartCard>
   );

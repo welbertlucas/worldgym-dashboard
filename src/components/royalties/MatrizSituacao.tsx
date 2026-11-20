@@ -11,7 +11,7 @@ const SIT: Record<Situacao, { marca: string; texto: string; classe: string }> = 
 };
 
 /** Situação de pagamento mês a mês: uma linha por unidade com cobrança, em ordem de saldo devedor. Usa o mesmo período do filtro do topo. */
-export function MatrizSituacao({ c, f }: { c: ContextoRoyalties; f: FiltroRoyalties }) {
+export function MatrizSituacao({ c, f, onUnidade }: { c: ContextoRoyalties; f: FiltroRoyalties; onUnidade?: (u: string) => void }) {
   const ks = periodo(c, f);
   const linhas = matrizDeSituacao(c, f, ks);
   return (
@@ -31,7 +31,7 @@ export function MatrizSituacao({ c, f }: { c: ContextoRoyalties; f: FiltroRoyalt
           <table className="w-full border-separate border-spacing-0.5 text-xs" aria-label="Situação de pagamento por unidade e mês">
             <thead>
               <tr>
-                <th scope="col" className="sticky left-0 z-10 bg-card px-2 py-1 text-left font-medium text-muted-foreground">Unidade</th>
+                <th scope="col" className="sticky left-0 z-10 bg-white px-2 py-1 text-left font-medium text-muted-foreground">Unidade</th>
                 {ks.map((k) => <th key={k} scope="col" className={cn("px-1 py-1 text-center font-medium whitespace-nowrap", c.parcial.has(k) ? "text-warning" : "text-muted-foreground")}>{c.rotulo[k]}{c.parcial.has(k) ? "*" : ""}</th>)}
                 <th scope="col" className="px-2 py-1 text-right font-medium text-muted-foreground whitespace-nowrap">Não pagos</th>
                 <th scope="col" className="px-2 py-1 text-right font-medium text-muted-foreground">Saldo</th>
@@ -40,8 +40,8 @@ export function MatrizSituacao({ c, f }: { c: ContextoRoyalties; f: FiltroRoyalt
             <tbody>
               {linhas.map((l) => (
                 <tr key={l.unidade}>
-                  <th scope="row" className="sticky left-0 z-10 bg-card px-2 py-1 text-left font-medium whitespace-nowrap text-foreground">
-                    <span className="mr-2 inline-block h-2 w-2 rounded-full align-middle" style={{ background: corDaModalidade(l.tipo) }} title={MODALIDADE[l.tipo]} aria-hidden />{l.unidade}
+                  <th scope="row" className="sticky left-0 z-10 bg-white px-2 py-1 text-left font-medium whitespace-nowrap text-foreground">
+                    <span className="mr-2 inline-block h-2 w-2 rounded-full align-middle" style={{ background: corDaModalidade(l.tipo) }} title={MODALIDADE[l.tipo]} aria-hidden /><button type="button" onClick={() => onUnidade?.(l.unidade)} className="underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">{l.unidade}</button>
                   </th>
                   {l.celulas.map((x) => (
                     <td

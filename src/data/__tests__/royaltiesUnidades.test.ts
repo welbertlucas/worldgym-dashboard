@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { contexto, filtroInicial, type ModeloRoyalties } from "@/data/royalties";
+import { MODELO as MODELO_BASE } from "./royalties-fixture";
 import {
-  alertasDeRoyalties, marcacoesDeRoyalties, mostraRoyalties, primeiroRecebimento, quadrosDeEsperado, semEsperado, serieDeRoyalties, textoDaMarcacao, unidadesDeRoyalties,
+  alertasDeRoyalties, detalheDaUnidade, marcacoesDeRoyalties, mostraRoyalties, primeiroRecebimento, quadrosDeEsperado, semEsperado, serieDeRoyalties, textoDaMarcacao, unidadesDeRoyalties,
 } from "@/data/royaltiesUnidades";
 
 /** Nove meses fictícios: Zeta (royalties sem valor esperado) cai, para, é compensada e depois "sobe"; Eta (com valor esperado) abre em mar/26. */
@@ -86,5 +87,46 @@ describe("royalties por unidade: série, alertas e esperado", () => {
     expect(q.recebidoNoPeriodo).toBe(20 + 20 + 0 + 5 + 20 + 20 + 20);
     expect(q.saldo).toBe(15);
     expect(maximo).toBe(20);
+  });
+});
+
+
+/** O formato de moeda usa espaço não quebrável entre R$ e o número; os textos esperados aqui usam espaço comum. */
+const n = (t: string) => t.replace(/\u00a0/g, " ");
+const fatos = (d: { fatos: [string, string][] }) => Object.fromEntries(d.fatos.map(([k, v]) => [k, n(v)]));
+
+describe("detalhe da unidade", () => {
+  const cb = contexto(MODELO_BASE);
+
+  it("unidade de taxa fixa com cobrança: dados da cobrança, progresso, meses sem recebimento e observação", () => {
+    const d = detalheDaUnidade(cb, "Alfa")!;
+    expect(d.tipo).toBe("fixa");
+    expect(n(d.saldoTexto)).toBe("R$ 200,00");
+    expect(fatos(d)).toMatchObject({ "Valor mensal": "R$ 100,00", "Início da cobrança": "jan/26", Vencimento: "Dia 10", "Último pagamento": "10/02/2026", "Total devido": "R$ 400,00", "Total recebido": "R$ 200,00" });
+    expect(d.progresso?.percentual).toBe(50);
+    expect(n(d.progresso!.texto)).toBe("Recebido R$ 200,00 de R$ 400,00 devidos até abr/26.");
+    expect(d.mesesSemRecebimento).toEqual(["mar/26", "abr/26"]);
+    expect(d.naoPagos).toBe(2);
+    expect(d.obs).toBe("Acordo em duas parcelas.");
+    expect(d.meses).toHaveLength(4);
+    expect(d.meses[2].situacao).toBe("naopago");
+  });
+
+  it("taxa fixa fora de Pendências não tem cobrança; royalties sem valor esperado não têm saldo calculado", () => {
+    const sem = detalheDaUnidade(cb, "Sigma")!;
+    expect(sem.semCobranca).toBe(true);
+    expect(sem.saldoTexto).toBe("Sem cobrança");
+    expect(fatos(sem)).toMatchObject({ "Total recebido": "R$ 7,00", "Primeiro pagamento": "jan/26", "Último pagamento": "Nenhum", Cobrança: "Sem cobrança" });
+    expect(sem.progresso).toBeNull();
+    const delta = detalheDaUnidade(cb, "Delta")!;
+    expect(delta.saldoTexto).toBe("Não calculado");
+    expect(fatos(delta)).toMatchObject({ "Valor mensal": "Variável", "Esperado informado": "Não informado", "Saldo devedor": "Não calculado" });
+  });
+
+  it("royalties com valor esperado mostram o progresso do esperado; unidade desconhecida não tem detalhe", () => {
+    const gama = detalheDaUnidade(cb, "Gama")!;
+    expect(n(gama.saldoTexto)).toBe("R$ 15,00");
+    expect(n(gama.progresso!.texto)).toBe("Recebido R$ 65,00 de R$ 80,00 devidos (esperado informado).");
+    expect(detalheDaUnidade(cb, "Inexistente")).toBeNull();
   });
 });

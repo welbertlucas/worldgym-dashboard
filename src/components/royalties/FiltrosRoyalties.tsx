@@ -32,19 +32,19 @@ export function FiltrosRoyalties({ c, f, onChange }: { c: ContextoRoyalties; f: 
             {c.keys.map((k, i) => <option key={k} value={i}>{rotulo(k)}</option>)}
           </Select>
         </label>
-        <div role="group" aria-label="Atalhos de período" className="flex flex-wrap rounded-xl border border-border bg-card p-0.5">
+        <div role="group" aria-label="Atalhos de período" className="flex flex-wrap rounded-xl border border-border bg-white p-0.5">
           <button type="button" aria-pressed={todo} className={botao(todo)} onClick={() => onChange({ ...f, de: 0, ate: c.keys.length - 1 })}>Todos</button>
           {anos.map((a) => {
             const ks = c.keys.filter((k) => k.startsWith(a));
             return <button key={a} type="button" aria-pressed={anoAtivo(a)} className={botao(anoAtivo(a))} onClick={() => onChange({ ...f, de: c.keys.indexOf(ks[0]), ate: c.keys.indexOf(ks[ks.length - 1]) })}>{a}</button>;
           })}
         </div>
-        <div role="group" aria-label="Modalidade" className="flex rounded-xl border border-border bg-card p-0.5">
+        <div role="group" aria-label="Modalidade" className="flex rounded-xl border border-border bg-white p-0.5">
           {([["all", "Todas"], ["fixa", "Taxa fixa"], ["royalties", "Royalties"]] as const).map(([v, r]) => (
             <button key={v} type="button" aria-pressed={f.tipo === v} className={botao(f.tipo === v)} onClick={() => onChange({ ...f, tipo: v, unidades: v === "all" ? f.unidades : f.unidades.filter((u) => c.tipoDe[u] === v) })}>{r}</button>
           ))}
         </div>
-        <div role="group" aria-label="Quais unidades" className="flex rounded-xl border border-border bg-card p-0.5">
+        <div role="group" aria-label="Quais unidades" className="flex rounded-xl border border-border bg-white p-0.5">
           <button type="button" aria-pressed={!f.soDevedoras} className={botao(!f.soDevedoras)} onClick={() => onChange({ ...f, soDevedoras: false })}>Todas</button>
           <button type="button" aria-pressed={f.soDevedoras} className={botao(f.soDevedoras)} onClick={() => onChange({ ...f, soDevedoras: true, unidades: f.unidades.filter((u) => saldoDe(c, u) > 0.005) })}>Só devedoras</button>
         </div>

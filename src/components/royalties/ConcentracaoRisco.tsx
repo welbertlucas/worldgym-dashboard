@@ -22,7 +22,7 @@ function Faixa({ linhas, valor, total, destaques }: { linhas: LinhaConcentracao[
 }
 
 /** Concentração e risco: quanto cada unidade pesa no recebido e no saldo devedor, e quanto as três maiores devedoras concentram. */
-export function ConcentracaoRisco({ c, f }: { c: ContextoRoyalties; f: FiltroRoyalties }) {
+export function ConcentracaoRisco({ c, f, onUnidade }: { c: ContextoRoyalties; f: FiltroRoyalties; onUnidade?: (u: string) => void }) {
   const [todas, setTodas] = useState(false);
   const k = concentracao(c, f);
   const frase = fraseDeConcentracao(k);
@@ -67,7 +67,7 @@ export function ConcentracaoRisco({ c, f }: { c: ContextoRoyalties; f: FiltroRoy
                   if (devedora) acumulado += parte;
                   return (
                     <tr key={x.unidade} className={cn("border-t border-border", destaques.has(x.unidade) && "bg-destructive/5")}>
-                      <th scope="row" className="py-1.5 pr-2 text-left font-medium text-foreground">{x.unidade}</th>
+                      <th scope="row" className="py-1.5 pr-2 text-left font-medium text-foreground"><button type="button" onClick={() => onUnidade?.(x.unidade)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">{x.unidade}</button></th>
                       <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{k.totalRecebido ? pct(x.recebido / k.totalRecebido) : "—"}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{devedora ? pct(parte) : "—"}</td>
                       <td className="py-1.5 pl-2 text-right tabular-nums text-muted-foreground">{devedora ? pct(acumulado) : ""}</td>

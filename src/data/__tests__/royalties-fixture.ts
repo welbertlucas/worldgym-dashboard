@@ -29,6 +29,7 @@ export const MODELO: ModeloRoyalties = {
     Oculta: { "2026-01": "naopago", "2026-02": "naopago", "2026-03": "naopago", "2026-04": "naopago" },
   },
   situacaoNaoPagos: { Alfa: 2, Beta: 0, Gama: 1 },
+  ultimoPagamento: { Alfa: "2026-02-10", Beta: "2026-04-10" },
   mesesComplemento: ["2026-04"],
   matrizOcultas: ["Oculta"],
   situacaoAjustes: [{ unidade: "Beta", mes: "2026-02", planilha: "Não pago", exibido: "Pago" }],

@@ -1,6 +1,6 @@
 // Royalties por unidade: série de cada unidade de royalties, as marcações de mês sem pagamento, queda forte e pico, as aberturas e o quadro
 // "esperado x recebido". As regras seguem o painel original: royalties variáveis só têm saldo calculado quando a planilha informa o valor esperado.
-import { type ContextoRoyalties, type FiltroRoyalties, brl, devidoTotal, listaEmTexto, pct, periodo, recebidoDe, saldoDe, soma, unidadeNoFiltro } from "@/data/royalties";
+import { type ContextoRoyalties, type FiltroRoyalties, type Modalidade, type Situacao, brl, devidoTotal, listaEmTexto, pct, periodo, recebidoDe, saldoDe, semCobranca, soma, temSaldoCalculado, unidadeNoFiltro } from "@/data/royalties";
 
 export type TipoMarcacao = "zero" | "queda" | "pico";
 export interface Marcacao { t: TipoMarcacao; esp?: number; comp?: string | null; val?: number; avg?: number; var?: number }
@@ -120,4 +120,68 @@ export function quadrosDeEsperado(c: ContextoRoyalties, f: FiltroRoyalties): { q
     };
   });
   return { quadros, maximo: Math.max(1, ...quadros.flatMap((q) => q.meses.flatMap((m) => [m.esperado, m.recebido]))) };
+}
+
+export interface DetalheDaUnidade {
+  unidade: string;
+  tipo: Modalidade;
+  /** Mostra "Sem cobrança" / "Não calculado" em vez de um valor quando não há saldo calculado. */
+  saldo: number;
+  saldoTexto: string;
+  semCobranca: boolean;
+  progresso: { percentual: number; texto: string } | null;
+  fatos: [string, string][];
+  mesesSemRecebimento: string[];
+  naoPagos: number | null;
+  meses: { key: string; label: string; recebido: number; situacao: Situacao | null }[];
+  maiorRecebido: number;
+  obs: string;
+}
+
+const dataBR = (iso?: string | null) => (iso ? iso.split("-").reverse().join("/") : "");
+
+/** O painel de uma unidade: o que a planilha diz dela, com os dados que mudam conforme seja sem cobrança, de taxa fixa ou de royalties. */
+export function detalheDaUnidade(c: ContextoRoyalties, u: string): DetalheDaUnidade | null {
+  const tipo = c.tipoDe[u];
+  if (!tipo) return null;
+  const p = c.pend[u];
+  const fixa = tipo === "fixa";
+  const saldo = saldoDe(c, u);
+  const recebidoTotal = recebidoDe(c, u, c.keys);
+  const devido = fixa ? p?.devido || 0 : devidoTotal(c, u);
+  const ultimo = dataBR(c.m.ultimoPagamento?.[u]);
+  const sem = semCobranca(c, u);
+  const primeiro = c.keys.find((k) => (c.m.recebido[u]?.[k] || 0) > 0);
+  const inicioRoy = inicioDeRoyalties(c, u);
+  const calculado = temSaldoCalculado(c, u);
+  const apuracao = c.m.pendencias.apuracao;
+
+  const fatos: [string, string][] = sem
+    ? [["Total recebido", brl(recebidoTotal)], ["Primeiro pagamento", primeiro ? c.rotulo[primeiro] : "Nenhum"], ["Último pagamento", ultimo || "Nenhum"], ["Cobrança", "Sem cobrança"]]
+    : fixa
+      ? [
+        ["Valor mensal", brl(p?.valorMensal ?? 0)], ["Início da cobrança", (p?.inicio && c.rotulo[p.inicio]) || p?.inicio || "—"], ["Vencimento", p?.vencimento ? `Dia ${p.vencimento}` : "—"], ["Último pagamento", ultimo || "Nenhum"],
+        ["Total devido", brl(p?.devido ?? 0)], ["Total recebido", brl(recebidoTotal)], ["Saldo da apuração", brl(p?.saldoApuracao ?? 0)], ["Dívida anterior ou acordo", brl(p?.dividaAnterior ?? 0)],
+      ]
+      : [
+        ["Valor mensal", "Variável"], ["Início", inicioRoy >= 0 ? c.rotulo[c.keys[inicioRoy]] : "—"], ["Total recebido", brl(recebidoTotal)], ["Último pagamento", ultimo || "Nenhum"],
+        ["Esperado informado", devido ? brl(devido) : "Não informado"], ["Saldo devedor", calculado ? brl(saldo) : "Não calculado"],
+      ];
+
+  const quitada = fixa && recebidoTotal >= devido && !!p?.dividaAnterior;
+  const progresso = devido
+    ? {
+      percentual: Math.min(100, (recebidoTotal / devido) * 100),
+      texto: `Recebido ${brl(recebidoTotal)} de ${brl(devido)} devidos${fixa ? ` até ${(apuracao && c.rotulo[apuracao]) || apuracao}` : " (esperado informado)"}.${quitada ? " As mensalidades estão quitadas; o saldo é de dívida anterior ou acordo." : ""}`,
+    }
+    : null;
+  const situacao = c.m.situacao[u];
+  const meses = c.keys.map((k) => ({ key: k, label: c.rotulo[k], recebido: c.m.recebido[u]?.[k] || 0, situacao: situacao ? situacao[k] ?? "na" : null }));
+  const mesesSemRecebimento = (p?.mesesSemRecebimento ?? []).map((k) => c.rotulo[k] || k);
+  return {
+    unidade: u, tipo, saldo, semCobranca: sem,
+    saldoTexto: calculado ? brl(saldo) : sem ? "Sem cobrança" : "Não calculado",
+    progresso, fatos, mesesSemRecebimento, naoPagos: c.m.situacaoNaoPagos[u] ?? null, meses,
+    maiorRecebido: Math.max(1, ...meses.map((m) => m.recebido)), obs: p?.obs ?? "",
+  };
 }

@@ -3,9 +3,11 @@ import { renderToString } from "react-dom/server";
 import { RoyaltiesConteudo } from "@/components/tabs/RoyaltiesTab";
 import { itensDoMenu, TODOS_OS_MENUS, nomeDaTela } from "@/components/nav";
 import { MODELO } from "@/data/__tests__/royalties-fixture";
+import { DetalheDaUnidade } from "@/components/royalties/DetalheDaUnidade";
+import { contexto } from "@/data/royalties";
 
 /** O React separa textos vizinhos com comentários vazios; tira para procurar a frase inteira. */
-const limpo = (h: string) => h.replace(/<!-- -->/g, "");
+const limpo = (h: string) => h.replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
 
 describe("Royalties (menu e tela)", () => {
   it("o item só entra no menu para quem pode ver, e a busca acha por 'royalties'", () => {
@@ -39,5 +41,19 @@ describe("Royalties (menu e tela)", () => {
     const modelo = { ...MODELO, meta: { ...MODELO.meta, stale: { motivo: "teste", tentativa: "21/11/2026 08:17" } } };
     const html = limpo(renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: true, ...modelo } }} />));
     expect(html).toContain("A leitura da planilha falhou em 21/11/2026 08:17");
+  });
+
+  it("o detalhe da unidade é um painel (dialog) com saldo, dados da cobrança, meses sem recebimento e observação", () => {
+    const c = contexto(MODELO);
+    const html = limpo(renderToString(<DetalheDaUnidade c={c} unidade="Alfa" onFechar={() => {}} />));
+    expect(html).toContain('aria-modal="true"');
+    for (const t of ["Alfa", "Taxa fixa", "Saldo devedor total", "R$ 200,00", "Dia 10", "Meses sem recebimento (2)", "mar/26", "Recebido mês a mês e situação", "Acordo em duas parcelas."]) expect(html).toContain(t);
+    expect(limpo(renderToString(<DetalheDaUnidade c={c} unidade="Sigma" onFechar={() => {}} />))).toContain("Sem cobrança");
+    expect(renderToString(<DetalheDaUnidade c={c} unidade="Inexistente" onFechar={() => {}} />)).toBe("");
+  });
+
+  it("as devedoras são botões que abrem o detalhe", () => {
+    const html = limpo(renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: true, ...MODELO } }} />));
+    expect(html).toContain("Alfa: deve R$ 200. Abrir o detalhe");
   });
 });

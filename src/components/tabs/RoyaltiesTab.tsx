@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Landmark } from "lucide-react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
@@ -14,6 +14,7 @@ import { RoyaltiesPorUnidade } from "@/components/royalties/RoyaltiesPorUnidade"
 import { EsperadoRecebido } from "@/components/royalties/EsperadoRecebido";
 import { MatrizSituacao } from "@/components/royalties/MatrizSituacao";
 import { NotasRoyalties } from "@/components/royalties/NotasRoyalties";
+import { DetalheDaUnidade } from "@/components/royalties/DetalheDaUnidade";
 
 /** O que a API de royalties devolve: `disponivel: false` até a rotina de royalties enviar o primeiro modelo. */
 export type RespostaRoyalties = { disponivel: false } | ({ disponivel: true } & ModeloRoyalties);
@@ -57,6 +58,8 @@ export function RoyaltiesConteudo({ estado }: { estado: Estado }) {
 export function PainelRoyalties({ modelo }: { modelo: ModeloRoyalties }) {
   const c = useMemo(() => contexto(modelo), [modelo]);
   const [f, setF] = useState<FiltroRoyalties>(() => filtroInicial(c));
+  const [detalhe, setDetalhe] = useState<string | null>(null);
+  const fechar = useCallback(() => setDetalhe(null), []);
   return (
     <div className="space-y-4">
       {modelo.meta.stale && (
@@ -64,16 +67,17 @@ export function PainelRoyalties({ modelo }: { modelo: ModeloRoyalties }) {
       )}
       <p className="text-xs text-muted-foreground">Dados de <b className="font-semibold text-foreground">{modelo.meta.geradoEm}</b>, recebimentos até {c.rotulo[c.keys[c.keys.length - 1]]}.</p>
       <FiltrosRoyalties c={c} f={f} onChange={setF} />
-      <ResumoRoyalties c={c} f={f} />
+      <ResumoRoyalties c={c} f={f} onUnidade={setDetalhe} />
       <RecebidoPorMes c={c} f={f} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <QuemDeve c={c} f={f} />
-        <ConcentracaoRisco c={c} f={f} />
+        <QuemDeve c={c} f={f} onUnidade={setDetalhe} />
+        <ConcentracaoRisco c={c} f={f} onUnidade={setDetalhe} />
       </div>
-      <MatrizSituacao c={c} f={f} />
-      <RoyaltiesPorUnidade c={c} f={f} onUnidade={(u) => setF({ ...f, tipo: "all", unidades: [u] })} />
-      <EsperadoRecebido c={c} f={f} onUnidade={(u) => setF({ ...f, tipo: "all", unidades: [u] })} />
+      <MatrizSituacao c={c} f={f} onUnidade={setDetalhe} />
+      <RoyaltiesPorUnidade c={c} f={f} onUnidade={setDetalhe} />
+      <EsperadoRecebido c={c} f={f} onUnidade={setDetalhe} />
       <NotasRoyalties c={c} />
+      {detalhe && <DetalheDaUnidade c={c} unidade={detalhe} onFechar={fechar} />}
     </div>
   );
 }
