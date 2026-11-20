@@ -9,7 +9,7 @@ import { FiltrosRoyalties } from "@/components/royalties/FiltrosRoyalties";
 import { ResumoRoyalties } from "@/components/royalties/ResumoRoyalties";
 import { RecebidoPorMes } from "@/components/royalties/RecebidoPorMes";
 import { QuemDeve } from "@/components/royalties/QuemDeve";
-import { ConcentracaoRisco } from "@/components/royalties/ConcentracaoRisco";
+import { Recolhivel } from "@/components/royalties/Recolhivel";
 import { RoyaltiesPorUnidade } from "@/components/royalties/RoyaltiesPorUnidade";
 import { EsperadoRecebido } from "@/components/royalties/EsperadoRecebido";
 import { MatrizSituacao } from "@/components/royalties/MatrizSituacao";
@@ -69,14 +69,15 @@ export function PainelRoyalties({ modelo }: { modelo: ModeloRoyalties }) {
       <FiltrosRoyalties c={c} f={f} onChange={setF} />
       <ResumoRoyalties c={c} f={f} onUnidade={setDetalhe} />
       <RecebidoPorMes c={c} f={f} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <QuemDeve c={c} f={f} onUnidade={setDetalhe} />
-        <ConcentracaoRisco c={c} f={f} onUnidade={setDetalhe} />
-      </div>
+      <QuemDeve c={c} f={f} onUnidade={setDetalhe} />
       <MatrizSituacao c={c} f={f} onUnidade={setDetalhe} />
-      <RoyaltiesPorUnidade c={c} f={f} onUnidade={setDetalhe} />
-      <EsperadoRecebido c={c} f={f} onUnidade={setDetalhe} />
-      <NotasRoyalties c={c} />
+      <Recolhivel titulo="Mais análises" apoio="Royalties por unidade, com as marcações de mês sem pagamento e queda, e o esperado contra o recebido">
+        <RoyaltiesPorUnidade c={c} f={f} onUnidade={setDetalhe} />
+        <EsperadoRecebido c={c} f={f} onUnidade={setDetalhe} />
+      </Recolhivel>
+      <Recolhivel titulo="Notas e premissas" apoio="O que a planilha e a diretoria definiram e muda a leitura dos números">
+        <NotasRoyalties c={c} />
+      </Recolhivel>
       {detalhe && <DetalheDaUnidade c={c} unidade={detalhe} onFechar={fechar} />}
     </div>
   );

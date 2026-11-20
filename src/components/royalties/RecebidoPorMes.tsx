@@ -22,7 +22,6 @@ export function RecebidoPorMes({ c, f }: { c: ContextoRoyalties; f: FiltroRoyalt
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {mostrarFixa && <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: COR_FIXA }} aria-hidden />Taxa fixa</span>}
           {mostrarRoy && <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: COR_ROYALTIES }} aria-hidden />Royalties</span>}
-          {parciais.length > 0 && <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-warning/30" aria-hidden />Mês parcial</span>}
         </div>
       }
     >

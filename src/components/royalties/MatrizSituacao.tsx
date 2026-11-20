@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { corDaModalidade } from "@/components/royalties/cores";
 import { cn } from "@/lib/utils";
@@ -12,12 +13,14 @@ const SIT: Record<Situacao, { marca: string; texto: string; classe: string }> = 
 
 /** Situação de pagamento mês a mês: uma linha por unidade com cobrança, em ordem de saldo devedor. Usa o mesmo período do filtro do topo. */
 export function MatrizSituacao({ c, f, onUnidade }: { c: ContextoRoyalties; f: FiltroRoyalties; onUnidade?: (u: string) => void }) {
-  const ks = periodo(c, f);
+  const [todos, setTodos] = useState(false);
+  const periodoTodo = periodo(c, f);
+  const ks = todos ? periodoTodo : periodoTodo.slice(-12);
   const linhas = matrizDeSituacao(c, f, ks);
   return (
     <ChartCard
       title="Situação de pagamento mês a mês"
-      subtitle="Mostra o que está nas células da planilha de controle, sem recalcular"
+      subtitle={`${todos || periodoTodo.length <= 12 ? "Todos os meses do período" : "Últimos 12 meses do período"}. Mostra o que está nas células da planilha de controle, sem recalcular`}
       legend={
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {(["pago", "naopago", "na"] as const).map((s) => <span key={s} className="flex items-center gap-1.5"><span className={cn("inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-semibold", SIT[s].classe)} aria-hidden>{SIT[s].marca}</span>{SIT[s].texto}</span>)}
@@ -58,6 +61,11 @@ export function MatrizSituacao({ c, f, onUnidade }: { c: ContextoRoyalties; f: F
             </tbody>
           </table>
         </div>
+      )}
+      {periodoTodo.length > 12 && (
+        <button type="button" onClick={() => setTodos((v) => !v)} className="mt-3 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+          {todos ? "Ver só os últimos 12 meses" : `Ver os ${periodoTodo.length} meses do período`}
+        </button>
       )}
     </ChartCard>
   );

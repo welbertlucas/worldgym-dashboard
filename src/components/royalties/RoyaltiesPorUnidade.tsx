@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { TooltipCard } from "@/components/ChartTooltip";
@@ -17,6 +18,7 @@ const PILULA: Record<TomMarcacao, string> = { bad: "bg-red-100 text-red-800", pe
 
 /** Royalties por unidade: quanto cada unidade de royalties pagou em cada mês, com as marcações de mês sem pagamento, queda forte, pico e abertura. */
 export function RoyaltiesPorUnidade({ c, f, onUnidade }: { c: ContextoRoyalties; f: FiltroRoyalties; onUnidade?: (u: string) => void }) {
+  const [todosAlertas, setTodosAlertas] = useState(false);
   if (!mostraRoyalties(c, f)) return null;
   const ks = periodo(c, f);
   const todas = unidadesDeRoyalties(c);
@@ -100,13 +102,18 @@ export function RoyaltiesPorUnidade({ c, f, onUnidade }: { c: ContextoRoyalties;
 
           {alertas.length > 0 && (
             <ul className="space-y-1.5 text-sm" aria-label="Marcações dos royalties no período">
-              {alertas.map((a, i) => (
+              {(todosAlertas ? alertas : alertas.slice(0, 5)).map((a, i) => (
                 <li key={`${a.unidade}-${a.ordem}-${i}`} className="flex items-start gap-2">
                   <span className={cn("mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-xs font-medium", PILULA[a.tom])}>{a.rotulo}</span>
                   <span className="text-muted-foreground"><b className="font-semibold text-foreground">{a.unidade}</b>: {a.texto}</span>
                 </li>
               ))}
             </ul>
+          )}
+          {alertas.length > 5 && (
+            <button type="button" onClick={() => setTodosAlertas((v) => !v)} className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+              {todosAlertas ? "Mostrar só os 5 mais recentes" : `Ver os ${alertas.length} alertas`}
+            </button>
           )}
         </div>
       )}

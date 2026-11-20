@@ -1,7 +1,8 @@
 import { Download } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { corDaModalidade } from "@/components/royalties/cores";
-import { type ContextoRoyalties, type FiltroRoyalties, MODALIDADE, brl, brl0, csvDeDevedoras, devedoras, pct, soma } from "@/data/royalties";
+import { cn } from "@/lib/utils";
+import { type ContextoRoyalties, type FiltroRoyalties, MODALIDADE, brl, brl0, concentracao, csvDeDevedoras, devedoras, fraseDeConcentracao, pct, soma } from "@/data/royalties";
 
 /** Baixa o CSV das devedoras do filtro atual (o mesmo arquivo que o painel original gera). */
 function baixarCsv(c: ContextoRoyalties, f: FiltroRoyalties) {
@@ -18,6 +19,9 @@ function baixarCsv(c: ContextoRoyalties, f: FiltroRoyalties) {
 /** Quem está devendo: o saldo devedor total de cada unidade, em barras, com a composição e a observação da planilha. */
 export function QuemDeve({ c, f, onUnidade }: { c: ContextoRoyalties; f: FiltroRoyalties; onUnidade?: (u: string) => void }) {
   const lista = devedoras(c, f);
+  const k = concentracao(c, f);
+  const frase = fraseDeConcentracao(k);
+  const maiores = new Set(k.maiores);
   const total = soma(lista.map((d) => d.saldo));
   const maior = Math.max(1, ...lista.map((d) => d.saldo));
   const apuracao = c.m.pendencias.apuracao;
@@ -25,7 +29,7 @@ export function QuemDeve({ c, f, onUnidade }: { c: ContextoRoyalties; f: FiltroR
   return (
     <ChartCard
       title="Quem está devendo"
-      subtitle={`Saldo devedor total por unidade, posição em ${apuracao ? c.rotulo[apuracao] ?? apuracao : "hoje"}. Clique numa unidade para ver o detalhe e a observação.`}
+      subtitle={<>{`Saldo devedor por unidade, posição em ${apuracao ? c.rotulo[apuracao] ?? apuracao : "hoje"}. `}{lista.length > 0 && <>{frase.antes}{frase.destaque && <b className="font-semibold text-foreground">{frase.destaque}</b>}{frase.depois} Clique numa unidade para ver o detalhe.</>}</>}
       legend={
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {modalidades.map((m) => <span key={m} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: corDaModalidade(m) }} aria-hidden />{MODALIDADE[m]}</span>)}
@@ -46,7 +50,7 @@ export function QuemDeve({ c, f, onUnidade }: { c: ContextoRoyalties; f: FiltroR
               <button
                 type="button"
                 onClick={() => onUnidade?.(d.unidade)}
-                className="grid w-full grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 rounded-lg px-1 py-1.5 text-left text-sm hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={cn("grid w-full grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 rounded-lg px-1 py-1.5 text-left text-sm hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", maiores.has(d.unidade) && "bg-destructive/5")}
                 aria-label={`${d.unidade}: deve ${brl0(d.saldo)}. Abrir o detalhe`}
               >
                 <span className="truncate font-medium text-foreground">{d.unidade}</span>
