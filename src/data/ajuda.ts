@@ -83,7 +83,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   ], { tela: "riscos/mes", imagem: "alertas" }),
   a("telas", "tela-comercial", "Comercial", "Vendas, oportunidades e receitas complementares.", [
     "Resumo: novos contratos, cancelamentos, vendas online e conversão.",
-    "Vendas: vendas por dia, projeção de fechamento, os planos mais vendidos e os vendedores que mais vendem (contratos novos e rematrículas, com o valor; cada unidade vê os nomes só da própria equipe).",
+    "Vendas: vendas por dia, projeção de fechamento, os 10 planos mais vendidos e os vendedores que mais vendem (contratos novos e rematrículas, com o valor; cada unidade vê os nomes só da própria equipe).",
     "Oportunidades: de onde vêm, o perfil, o tempo até fechar e os consultores que mais convertem. Na tabela por unidade, a coluna \"De cadastros antigos\" mostra quem se cadastrou em meses anteriores e fechou neste mês; ela não entra na taxa de conversão.",
     "Receitas complementares: diárias, personal, brinquedoteca, WG Plus, Pro+, camisetas e coqueteleiras.",
   ], { tela: "comercial", imagem: "comercial" }),

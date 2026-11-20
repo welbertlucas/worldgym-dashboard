@@ -4,7 +4,7 @@ import { MiniRosca } from "@/components/MiniRosca";
 import { InfoTip } from "@/components/InfoTip";
 import type { TipoVenda } from "@/data/dashboardData";
 
-const TOP = 5;
+const TOP = 10;
 const moeda = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const AJUDA_TIPO_VENDA =
   "Matrícula: aluno novo. Rematrícula: ex-aluno que volta depois do prazo de renovação do EVO (hoje, 30 dias após o fim do contrato). " +

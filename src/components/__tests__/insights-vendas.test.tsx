@@ -16,18 +16,20 @@ describe("contratos mais vendidos", () => {
     expect(somarContratosVendidos(us)).toEqual([["WG 30", 15, 2848.5], ["ANUAL", 2, 2400]]);
     expect(somarTipoVenda(us)).toEqual({ novo: [13, 2949.5], remat: [4, 2299], renov: [100, 1] });
   });
-  it("mostra os 5 primeiros, a participação e o tipo de venda", () => {
+  it("mostra os 10 primeiros, a participação e o tipo de venda", () => {
+    const planos = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"].map((n, i) => [n, 20 - i, (20 - i) * 100]);
     const total = {
-      contratosVendidos: [["A", 50, 5000], ["B", 30, 3000], ["C", 10, 1000], ["D", 5, 500], ["E", 3, 300], ["F", 2, 200]],
+      contratosVendidos: planos,
       tipoVenda: { novo: [80, 8000], remat: [20, 2000], renov: [500, 50000] },
       duracaoVenda: [70, 10, 5, 15, 0],
     } as unknown as UnitData;
     const h = limpo(renderToString(<ContratosVendidos total={total} monthLabel="Outubro de 2026" partial={false} unitLabel="Rede" />));
     expect(h).toContain("Contratos mais vendidos");
-    expect(h).toContain("5º");
-    expect(h).not.toContain(">F<");
+    expect(h).toContain("10º");
+    expect(h).not.toContain("11º");
+    expect(h).not.toContain(">K<");
     expect(h).toContain("Rematrícula");
-    expect(h).toContain("98%"); // os 5 primeiros somam 98 de 100
+    expect(h).toContain("Os 10 primeiros somam");
   });
   it("tipo de venda: matrículas, rematrículas e renovações de contrato (sem a recorrência automática), com o \"i\" explicativo", () => {
     const tv: TipoVenda = { novo: [80, 8000], remat: [20, 2000], renov: [500, 50000], auto: [470, 47000] };
