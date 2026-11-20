@@ -2,7 +2,8 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 import { type MetricDetail } from "@/components/MetricCard";
 import { cn } from "@/lib/utils";
-import { DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, type DadosQualidade, dataBR, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
+import { DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, type DadosQualidade, dataBR, equipamentosParados, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
+import { FotoGuardada } from "@/components/qualidade/Fotos";
 
 const COR_TOM = { good: "bg-emerald-600", warn: "bg-amber-500", bad: "bg-destructive", neutral: "bg-foreground/30" } as const;
 const neutro = (text: string): MetricDetail => ({ text, tone: "neutral" });
@@ -12,14 +13,16 @@ export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; 
   const r = resumoDaRede(dados.visitas, dados.unidades, hoje);
   const linhas = resumoPorUnidade(dados.visitas, dados.unidades, hoje);
   const falhos = itensQueMaisFalham(dados.visitas, hoje);
+  const parados = equipamentosParados(dados.visitas, hoje);
   const totalUn = dados.unidades.length;
   return (
     <div className="space-y-4">
       <div className="card-surface overflow-hidden">
-        <div className="-mr-px -mb-px grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="-mr-px -mb-px grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
           <KpiGaugeCard title="Nota média da rede" value={pctTexto(r.notaMedia)} fill={(r.notaMedia ?? 0) / 100} marker={null} tone={tomDaNota(r.notaMedia)} details={[neutro(`Itens conformes, últimos ${DIAS_DA_MEDIA} dias`)]} />
           <KpiGaugeCard title="Visitas no mês" value={String(r.visitasNoMes)} fill={totalUn ? Math.min(1, r.visitasNoMes / totalUn) : 0} marker={null} tone="neutral" details={[neutro(`${totalUn} unidades na rede`)]} />
           <KpiGaugeCard title="Sem visita" value={`${r.semVisita} de ${totalUn}`} fill={totalUn ? r.semVisita / totalUn : 0} marker={null} tone={r.semVisita > 0 ? "bad" : "good"} details={[neutro(`Há mais de ${DIAS_SEM_VISITA} dias ou nunca visitadas`)]} />
+          <KpiGaugeCard title="Equipamentos parados" value={String(parados.length)} fill={0} marker={null} tone={parados.length > 0 ? "warn" : "good"} details={[neutro(parados.length ? `${new Set(parados.map((p) => p.unidade)).size} unidade${new Set(parados.map((p) => p.unidade)).size === 1 ? "" : "s"}` : "Nenhum na última visita")]} />
           <KpiGaugeCard title="Itens não conformes" value={String(r.naoConformes)} fill={0} marker={null} tone={r.naoConformes > 0 ? "warn" : "good"} details={[neutro(`Nos últimos ${DIAS_DA_MEDIA} dias`)]} />
         </div>
       </div>
@@ -43,6 +46,22 @@ export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; 
           ))}
         </ol>
       </ChartCard>
+
+      {parados.length > 0 && (
+        <ChartCard title="Equipamentos parados" subtitle={`${parados.length} ${parados.length === 1 ? "equipamento parado" : "equipamentos parados"} na última visita de cada unidade. O prazo conta as visitas seguidas em que o mesmo código apareceu.`}>
+          <ul className="divide-y divide-border">
+            {parados.map((p) => (
+              <li key={`${p.unidade}|${p.codigo}`} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0 text-sm"><span className="font-medium text-foreground">{p.unidade}</span> · <span className="text-foreground">{p.codigo}</span>{p.descricao && <span className="block text-xs text-muted-foreground">{p.descricao}</span>}</span>
+                <span className="flex items-center gap-3">
+                  {p.fotos[0] && <FotoGuardada id={p.fotos[0]} />}
+                  <span className={cn("whitespace-nowrap text-right text-sm tabular-nums", p.dias > 30 ? "font-semibold text-destructive" : "text-foreground")}>{p.dias === 0 ? "visto hoje" : `${p.dias} dias`}<span className="block text-xs font-normal text-muted-foreground">desde {dataBR(p.desde)}{p.visitas > 1 ? ` · ${p.visitas} visitas` : ""}</span></span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </ChartCard>
+      )}
 
       <ChartCard title="Itens que mais falham" subtitle={`Entre as respostas dos últimos ${DIAS_DA_MEDIA} dias, os itens com mais "não conforme" em proporção.`}>
         {falhos.length === 0 ? (

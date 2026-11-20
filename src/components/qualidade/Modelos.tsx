@@ -4,10 +4,10 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { FOTO_ROTULO, FREQUENCIA_ROTULO, MODELO_SUGERIDO, type Frequencia, type ItemModelo, type ModeloChecklist, type PedeFoto } from "@/data/qualidade";
+import { FOTO_ROTULO, FREQUENCIA_ROTULO, MODELO_SUGERIDO, TIPO_ROTULO, type Frequencia, type ItemModelo, type ModeloChecklist, type PedeFoto, type TipoItem } from "@/data/qualidade";
 import { apagarModelo, salvarModelo } from "@/lib/qualidade";
 
-type Rascunho = { id?: string; nome: string; descricao: string; frequencia: Frequencia; ativo: boolean; itens: (Partial<ItemModelo> & { texto: string; grupo: string; peso: number; foto: PedeFoto })[] };
+type Rascunho = { id?: string; nome: string; descricao: string; frequencia: Frequencia; ativo: boolean; itens: (Partial<ItemModelo> & { texto: string; grupo: string; peso: number; foto: PedeFoto; tipo?: TipoItem })[] };
 const novo = (): Rascunho => ({ nome: "", descricao: "", frequencia: "visita", ativo: true, itens: [{ texto: "", grupo: "", peso: 1, foto: "nenhuma" }] });
 const sugerido = (): Rascunho => ({ ...MODELO_SUGERIDO, ativo: true, itens: MODELO_SUGERIDO.itens.map((i) => ({ ...i })) });
 const deModelo = (m: ModeloChecklist): Rascunho => ({ id: m.id, nome: m.nome, descricao: m.descricao, frequencia: m.frequencia, ativo: m.ativo, itens: m.itens.map((i) => ({ ...i })) });
@@ -62,6 +62,9 @@ function Editor({ inicial, onSalvou, onCancelar }: { inicial: Rascunho; onSalvou
               <button type="button" aria-label="Descer o item" onClick={() => mover(i, 1)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary"><ArrowDown className="h-4 w-4" aria-hidden /></button>
               <button type="button" aria-label="Remover o item" onClick={() => setM((s) => ({ ...s, itens: s.itens.filter((_, j) => j !== i) }))} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary"><Trash2 className="h-4 w-4" aria-hidden /></button>
             </span>
+            <Select aria-label={`Tipo do item ${i + 1}`} className="h-9 sm:col-span-full sm:w-72" value={it.tipo ?? "conforme"} onChange={(e) => item(i, { tipo: e.target.value as TipoItem })}>
+              {(Object.keys(TIPO_ROTULO) as TipoItem[]).map((t) => <option key={t} value={t}>{TIPO_ROTULO[t]}</option>)}
+            </Select>
           </div>
         ))}
         <Button type="button" variant="outline" size="sm" onClick={() => setM((s) => ({ ...s, itens: [...s.itens, { texto: "", grupo: s.itens[s.itens.length - 1]?.grupo ?? "", peso: 1, foto: "nenhuma" }] }))}><Plus className="h-4 w-4" aria-hidden /> Item</Button>

@@ -28,8 +28,17 @@ describe("Qualidade (menu e telas)", () => {
 
   it("com dados, abre na visão geral com as abas, os cartões e o ranking", () => {
     const html = limpo(renderToString(<QualidadeConteudo hoje="2026-11-20" estado={{ fase: "pronto", dados: DADOS }} />));
-    for (const t of ["Visão geral", "Nova visita", "Visitas", "Checklists", "Nota média da rede", "Visitas no mês", "Sem visita", "Itens não conformes", "Nota por unidade", "Itens que mais falham", "Banheiro feminino limpo"]) expect(html).toContain(t);
+    for (const t of ["Visão geral", "Nova visita", "Visitas", "Checklists", "Nota média da rede", "Visitas no mês", "Sem visita", "Equipamentos parados", "Itens não conformes", "Nota por unidade", "Itens que mais falham", "Banheiro feminino limpo"]) expect(html).toContain(t);
     expect(html).toContain("2 de 3"); // Gama e Itapoã sem visita
+  });
+
+  it("mostra o painel de equipamentos parados com código, descrição e há quanto tempo", () => {
+    const comEq: Visita = { ...VISITA, respostas: [{ itemId: "e", grupo: "", texto: "Equipamentos", tipo: "equipamentos", conforme: false, comentario: "", fotos: [], equipamentos: [{ codigo: "EQ-77", descricao: "esteira 3 travada", fotos: [] }] }] };
+    const html = limpo(renderToString(<VisaoGeral dados={{ ...DADOS, visitas: [comEq] }} hoje="2026-11-20" onUnidade={() => {}} />));
+    expect(html).toContain("1 equipamento parado");
+    expect(html).toContain("EQ-77");
+    expect(html).toContain("esteira 3 travada");
+    expect(html).toContain("desde 18/11/2026");
   });
 
   it("visão geral sem visita nenhuma não quebra", () => {

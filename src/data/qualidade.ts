@@ -5,9 +5,12 @@ export const FREQUENCIA_ROTULO: Record<Frequencia, string> = { visita: "Na visit
 
 export type PedeFoto = "nenhuma" | "nao_conforme" | "sempre";
 export const FOTO_ROTULO: Record<PedeFoto, string> = { nenhuma: "Foto opcional", nao_conforme: "Obrigatória se não conforme", sempre: "Sempre obrigatória" };
-export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto }
+export type TipoItem = "conforme" | "equipamentos";
+export const TIPO_ROTULO: Record<TipoItem, string> = { conforme: "Conforme ou não", equipamentos: "Lista de equipamentos parados" };
+export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto; tipo?: TipoItem }
+export interface EquipamentoParado { codigo: string; descricao: string; fotos: string[] }
 export interface ModeloChecklist { id: string; nome: string; descricao: string; frequencia: Frequencia; itens: ItemModelo[]; ativo: boolean; atualizadoEm: string }
-export interface RespostaVisita { itemId: string; grupo: string; texto: string; peso?: number; conforme: boolean | null; comentario: string; fotos: string[] }
+export interface RespostaVisita { itemId: string; grupo: string; texto: string; peso?: number; tipo?: TipoItem; conforme: boolean | null; comentario: string; fotos: string[]; equipamentos?: EquipamentoParado[] }
 export interface Visita {
   id: string; modeloId: string; modeloNome: string; unidade: string; data: string; mes: string;
   avaliador: { nome: string; email: string }; chegada?: string; saida?: string; respostas: RespostaVisita[]; observacao: string; nota: number | null; criadoEm: string;
@@ -73,13 +76,13 @@ export function resumoDaRede(visitas: Visita[], unidades: string[], hoje: string
 /** Roteiro sugerido, baseado no questionário de visitação que a rede já usa, com os pontos fracos dele corrigidos: critério verificável em cada item,
  *  pergunta sempre no sentido "está certo?" (Sim = conforme), peso maior nos itens críticos (segurança e documentos 3; equipamentos e banheiros 2) e foto obrigatória quando não conforme só nos itens importantes (peso 2 ou 3). */
 // Foto obrigatória (quando não conforme) só nos itens importantes, os de peso 2 ou 3; nos demais ela é opcional.
-const it = (grupo: string, texto: string, peso = 1): Omit<ItemModelo, "id"> => ({ grupo, texto, peso, foto: peso > 1 ? "nao_conforme" : "nenhuma" });
+const it = (grupo: string, texto: string, peso = 1, tipo: TipoItem = "conforme"): Omit<ItemModelo, "id"> => ({ grupo, texto, peso, foto: peso > 1 ? "nao_conforme" : "nenhuma", tipo });
 export const MODELO_SUGERIDO: { nome: string; descricao: string; frequencia: Frequencia; itens: Omit<ItemModelo, "id">[] } = {
   nome: "Roteiro de visitação às unidades",
   descricao: "Limpeza, organização, uniforme, segurança e equipamentos. Item não conforme pede a correção; nos itens importantes, também uma foto.",
   frequencia: "visita",
   itens: [
-    it("Equipamentos", "Todos os equipamentos de ginástica estão em operação, sem aviso de manutenção? (Se não, anote o código de cada equipamento parado no comentário.)", 2),
+    it("Equipamentos", "Todos os equipamentos de ginástica estão em operação, sem aviso de manutenção? (Se não, registre cada equipamento parado com código e foto.)", 2, "equipamentos"),
     it("Segurança e documentos", "Extintores dentro da validade, saídas de emergência desobstruídas e kit de primeiros socorros (e desfibrilador, se a unidade tiver) disponíveis?", 3),
     it("Segurança e documentos", "Há profissional de educação física (CREF) presente no salão durante o horário de funcionamento?", 3),
     it("Segurança e documentos", "O Certificado de Regularidade PJ do CREF da unidade está dentro da validade e exposto à vista dos alunos?", 3),
@@ -109,3 +112,31 @@ export const MODELO_SUGERIDO: { nome: string; descricao: string; frequencia: Fre
     it("Áreas de apoio", "DML e depósito: produtos de limpeza identificados e organizados, fora do alcance de alunos, sem vazamento, passagem livre e sem entulho?"),
   ],
 };
+
+export interface ParadoNaUnidade { unidade: string; codigo: string; descricao: string; fotos: string[]; desde: string; visitas: number; dias: number; visitaId: string }
+/**
+ * Equipamentos parados hoje em cada unidade: os da visita mais recente que tem o item de equipamentos. O "parado desde" é a primeira das visitas
+ * seguidas, até a mais recente, em que o mesmo código apareceu (se o código sumiu numa visita, a contagem recomeça quando ele volta).
+ */
+export function equipamentosParados(visitas: Visita[], hoje: string): ParadoNaUnidade[] {
+  const out: ParadoNaUnidade[] = [];
+  const porUnidade = new Map<string, Visita[]>();
+  for (const v of visitas) if (v.respostas.some((r) => r.tipo === "equipamentos" && r.conforme !== null)) porUnidade.set(v.unidade, [...(porUnidade.get(v.unidade) ?? []), v]);
+  for (const [unidade, lista] of porUnidade) {
+    const ordem = [...lista].sort((a, b) => b.data.localeCompare(a.data) || b.criadoEm.localeCompare(a.criadoEm)); // da mais nova para a mais velha
+    const doItem = (v: Visita) => v.respostas.find((r) => r.tipo === "equipamentos" && r.conforme !== null);
+    const ultima = ordem[0];
+    for (const e of doItem(ultima)?.equipamentos ?? []) {
+      const chave = e.codigo.trim().toLowerCase();
+      let desde = ultima.data;
+      let n = 1;
+      for (const v of ordem.slice(1)) {
+        if (!(doItem(v)?.equipamentos ?? []).some((x) => x.codigo.trim().toLowerCase() === chave)) break;
+        desde = v.data;
+        n += 1;
+      }
+      out.push({ unidade, codigo: e.codigo, descricao: e.descricao, fotos: e.fotos, desde, visitas: n, dias: Math.max(0, dias(desde, hoje)), visitaId: ultima.id });
+    }
+  }
+  return out.sort((a, b) => b.dias - a.dias || a.unidade.localeCompare(b.unidade, "pt-BR") || a.codigo.localeCompare(b.codigo, "pt-BR"));
+}

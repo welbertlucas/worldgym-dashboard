@@ -27,6 +27,16 @@ function Detalhe({ v, onApagar }: { v: Visita; onApagar: () => void }) {
               <span className="min-w-0 text-foreground">{r.texto}{r.grupo && <span className="block text-xs text-muted-foreground">{r.grupo}</span>}</span>
             </div>
             {r.comentario && <p className="mt-1.5 pl-7 text-sm text-muted-foreground">{r.comentario}</p>}
+            {(r.equipamentos ?? []).length > 0 && (
+              <ul className="mt-2 space-y-2 pl-7">
+                {(r.equipamentos ?? []).map((e, i) => (
+                  <li key={`${e.codigo}-${i}`} className="rounded-lg border border-border px-3 py-2">
+                    <p className="text-sm text-foreground"><b className="font-semibold">{e.codigo}</b>{e.descricao && <span className="text-muted-foreground"> · {e.descricao}</span>}</p>
+                    {e.fotos.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{e.fotos.map((f) => <FotoGuardada key={f} id={f} />)}</div>}
+                  </li>
+                ))}
+              </ul>
+            )}
             {r.fotos.length > 0 && <div className="mt-2 flex flex-wrap gap-2 pl-7">{r.fotos.map((f) => <FotoGuardada key={f} id={f} />)}</div>}
           </li>
         ))}

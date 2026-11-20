@@ -11,9 +11,15 @@ export const PASTA_FOTOS = "qualidade/fotos";
 export const FREQUENCIAS = ["visita", "diaria", "semanal", "mensal"];
 /** Quando o item pede foto: nunca, só se for não conforme (a evidência) ou sempre que for respondido. */
 export const FOTOS = ["nenhuma", "nao_conforme", "sempre"];
+/** Tipo do item: o comum (conforme ou não) ou a lista de equipamentos parados (um registro por equipamento: código, descrição e fotos). */
+export const TIPOS = ["conforme", "equipamentos"];
+export const MAX_EQUIPAMENTOS = 30;
+export const MAX_FOTOS_POR_EQUIPAMENTO = 3;
 export const MAX_MODELOS = 40;
 export const MAX_ITENS = 80;
-export const MAX_FOTOS_POR_ITEM = 3;
+export const MAX_FOTOS_POR_ITEM = 10;
+export const MAX_FOTOS_POR_VISITA = 100;
+export const MAX_COMENTARIO = 1000;
 export const MAX_BYTES_FOTO = 700 * 1024;
 
 export class ErroQualidade extends Error {
@@ -40,7 +46,8 @@ export function normalizarModelo(bruto, agora = new Date()) {
     ids.add(id);
     const peso = Math.min(10, Math.max(1, Math.round(Number(i?.peso) || 1)));
     const foto = FOTOS.includes(i?.foto) ? i.foto : "nenhuma";
-    return { id, grupo: texto(i?.grupo, 60), texto: t, peso, foto };
+    const tipo = TIPOS.includes(i?.tipo) ? i.tipo : "conforme";
+    return { id, grupo: texto(i?.grupo, 60), texto: t, peso, foto, tipo };
   });
   const id = typeof bruto?.id === "string" && /^[a-z0-9-]{4,40}$/.test(bruto.id) ? bruto.id : randomUUID().slice(0, 8);
   return { id, nome, descricao: texto(bruto?.descricao, 200), frequencia, itens, ativo: bruto?.ativo !== false, atualizadoEm: agora.toISOString() };
@@ -68,13 +75,25 @@ export function montarVisita(bruto, modelo, avaliador, agora = new Date()) {
     const r = enviadas.get(item.id);
     const conforme = r?.conforme === true ? true : r?.conforme === false ? false : null;
     const fotos = Array.isArray(r?.fotos) ? r.fotos.filter((f) => typeof f === "string" && /^[0-9a-f-]{36}$/.test(f)).slice(0, MAX_FOTOS_POR_ITEM) : [];
-    const comentario = texto(r?.comentario, 300);
-    // "Plano de ação obrigatório" do roteiro antigo: item não conforme precisa dizer o que corrigir.
-    if (conforme === false && !comentario) throw new ErroQualidade(`Diga o que precisa ser corrigido em "${item.texto}".`);
-    if ((item.foto === "sempre" && conforme !== null && fotos.length === 0) || (item.foto === "nao_conforme" && conforme === false && fotos.length === 0)) throw new ErroQualidade(`O item "${item.texto}" pede uma foto.`);
-    return { itemId: item.id, grupo: item.grupo, texto: item.texto, peso: item.peso ?? 1, conforme, comentario, fotos };
+    const comentario = texto(r?.comentario, MAX_COMENTARIO);
+    const idsDeFoto = (lista, max) => (Array.isArray(lista) ? lista.filter((f) => typeof f === "string" && /^[0-9a-f-]{36}$/.test(f)).slice(0, max) : []);
+    const tipo = item.tipo ?? "conforme";
+    let equipamentos = [];
+    if (tipo === "equipamentos" && conforme === false) {
+      equipamentos = (Array.isArray(r?.equipamentos) ? r.equipamentos : []).slice(0, MAX_EQUIPAMENTOS)
+        .map((e) => ({ codigo: texto(e?.codigo, 40), descricao: texto(e?.descricao, 200), fotos: idsDeFoto(e?.fotos, MAX_FOTOS_POR_EQUIPAMENTO) }))
+        .filter((e) => e.codigo);
+      if (!equipamentos.length) throw new ErroQualidade(`Registre o código de cada equipamento parado em "${item.texto}".`);
+      if (item.foto !== "nenhuma" && equipamentos.some((e) => e.fotos.length === 0)) throw new ErroQualidade(`Cada equipamento parado pede uma foto (${equipamentos.find((e) => e.fotos.length === 0).codigo}).`);
+    } else {
+      // "Plano de ação obrigatório" do roteiro antigo: item não conforme precisa dizer o que corrigir.
+      if (conforme === false && !comentario) throw new ErroQualidade(`Diga o que precisa ser corrigido em "${item.texto}".`);
+      if ((item.foto === "sempre" && conforme !== null && fotos.length === 0) || (item.foto === "nao_conforme" && conforme === false && fotos.length === 0)) throw new ErroQualidade(`O item "${item.texto}" pede uma foto.`);
+    }
+    return { itemId: item.id, grupo: item.grupo, texto: item.texto, peso: item.peso ?? 1, tipo, conforme, comentario, fotos, ...(tipo === "equipamentos" ? { equipamentos } : {}) };
   });
   if (respostas.every((r) => r.conforme === null)) throw new ErroQualidade("Responda pelo menos um item.");
+  if (respostas.reduce((t, r) => t + r.fotos.length + (r.equipamentos ?? []).reduce((u, e) => u + e.fotos.length, 0), 0) > MAX_FOTOS_POR_VISITA) throw new ErroQualidade(`Uma visita aceita até ${MAX_FOTOS_POR_VISITA} fotos.`);
   return {
     id: randomUUID(), modeloId: modelo.id, modeloNome: modelo.nome, unidade, data, mes: data.slice(0, 7),
     avaliador: { nome: texto(avaliador?.nome, 80), email: texto(avaliador?.email, 120) },
@@ -138,7 +157,10 @@ export async function apagarVisita(id, mes) {
   const v = lista.find((x) => x.id === id);
   if (!v) throw new ErroQualidade("Visita não encontrada.", 404);
   await gravarJson(`${PASTA_VISITAS}/${mes}.json`, lista.filter((x) => x.id !== id));
-  for (const r of v.respostas) for (const f of r.fotos ?? []) await apagarCaminho(`${PASTA_FOTOS}/${f}.jpg`);
+  for (const r of v.respostas) {
+    for (const f of r.fotos ?? []) await apagarCaminho(`${PASTA_FOTOS}/${f}.jpg`);
+    for (const e of r.equipamentos ?? []) for (const f of e.fotos ?? []) await apagarCaminho(`${PASTA_FOTOS}/${f}.jpg`);
+  }
 }
 
 export async function salvarFoto(base64) {

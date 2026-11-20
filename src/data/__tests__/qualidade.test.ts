@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { definirArmazem } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
 import * as q from "../../../server/qualidade.js";
-import { DIAS_SEM_VISITA, MODELO_SUGERIDO, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, tomDaNota, type Visita } from "@/data/qualidade";
+import { DIAS_SEM_VISITA, MODELO_SUGERIDO, equipamentosParados, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, tomDaNota, type Visita } from "@/data/qualidade";
 
 const memoria = () => {
   const m = new Map<string, unknown>();
@@ -87,6 +87,49 @@ describe("visitas", () => {
     expect(base([{ itemId: m.itens[2].id, conforme: true }], { chegada: "25:99" })().chegada).toBe("");
   });
 
+  it("aceita comentário longo (até 1000 caracteres) e até 10 fotos por item, com teto de 100 por visita", () => {
+    const m = q.normalizarModelo({ nome: "R", itens: [{ texto: "Equipamentos" }, { texto: "Outro" }] }, AGORA);
+    const id = (n: number) => `${String(n).padStart(8, "0")}-1111-1111-1111-111111111111`;
+    const fotos = (n: number) => Array.from({ length: n }, (_, i) => id(i));
+    const codigos = Array.from({ length: 10 }, (_, i) => `EQ-${1000 + i} esteira com a esteira travada`).join(", ");
+    const v = q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: [{ itemId: m.itens[0].id, conforme: false, comentario: codigos, fotos: fotos(15) }] }, m, {}, AGORA);
+    expect(v.respostas[0].comentario).toBe(codigos);
+    expect(v.respostas[0].fotos).toHaveLength(10);
+    const muitas = m.itens.map((i: any) => ({ itemId: i.id, conforme: true, fotos: fotos(10) }));
+    expect(q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: muitas }, m, {}, AGORA).respostas.reduce((t: number, r: any) => t + r.fotos.length, 0)).toBe(20);
+    const trinta = Array.from({ length: 11 }, (_, i) => ({ ...m.itens[0], id: `it-${i}00${i}` }));
+    const grande = q.normalizarModelo({ nome: "G", itens: trinta.map((x) => ({ id: x.id, texto: `Item ${x.id}` })) }, AGORA);
+    const resp = grande.itens.map((i: any) => ({ itemId: i.id, conforme: true, fotos: fotos(10) }));
+    expect(() => q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: resp }, grande, {}, AGORA)).toThrow(/100 fotos/);
+  });
+
+  it("item de equipamentos parados: um registro por equipamento (código, descrição, foto); sem registro ou sem foto não vale", async () => {
+    const m = q.normalizarModelo({ nome: "R", itens: [{ texto: "Equipamentos em operação?", tipo: "equipamentos", foto: "nao_conforme", peso: 2 }, { texto: "Outro" }] }, AGORA);
+    expect(m.itens[0].tipo).toBe("equipamentos");
+    expect(m.itens[1].tipo).toBe("conforme");
+    const foto = "11111111-1111-1111-1111-111111111111";
+    const visita = (equipamentos: any[], extra: any = {}) => () => q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: [{ itemId: m.itens[0].id, conforme: false, equipamentos, ...extra }] }, m, {}, AGORA);
+    expect(visita([])).toThrow(/código de cada equipamento/);
+    expect(visita([{ codigo: "  ", descricao: "x", fotos: [foto] }])).toThrow(/código de cada equipamento/);
+    expect(visita([{ codigo: "EQ-1", descricao: "esteira travada" }])).toThrow(/pede uma foto \(EQ-1\)/);
+    const v = visita([{ codigo: " EQ-1 ", descricao: " esteira  travada ", fotos: [foto, foto, foto, foto] }, { codigo: "EQ-2", fotos: [foto] }])();
+    expect(v.respostas[0].equipamentos).toEqual([{ codigo: "EQ-1", descricao: "esteira travada", fotos: [foto, foto, foto] }, { codigo: "EQ-2", descricao: "", fotos: [foto] }]);
+    expect(v.respostas[0].conforme).toBe(false); // o comentário não é obrigatório: o registro dos equipamentos faz esse papel
+    expect(v.nota).toBe(0);
+    // em operação: não guarda lista nenhuma
+    const ok = q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: [{ itemId: m.itens[0].id, conforme: true, equipamentos: [{ codigo: "X", fotos: [foto] }] }] }, m, {}, AGORA);
+    expect(ok.respostas[0].equipamentos).toEqual([]);
+    // as fotos dos equipamentos contam no teto da visita e são apagadas com ela
+    const eq30 = Array.from({ length: 30 }, (_, i) => ({ codigo: `E${i}`, fotos: [foto, foto, foto] }));
+    const m3 = q.normalizarModelo({ nome: "R3", itens: [{ texto: "Equipamentos?", tipo: "equipamentos" }, { texto: "A" }, { texto: "B" }] }, AGORA);
+    const dez = Array.from({ length: 10 }, () => foto);
+    expect(() => q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: [{ itemId: m3.itens[0].id, conforme: false, equipamentos: eq30 }, { itemId: m3.itens[1].id, conforme: true, fotos: dez }, { itemId: m3.itens[2].id, conforme: true, fotos: dez }] }, m3, {}, AGORA)).toThrow(/100 fotos/); // 90 + 10 + 10
+  });
+
+  it("o roteiro sugerido começa com o item de equipamentos parados", () => {
+    expect(q.normalizarModelo(MODELO_SUGERIDO).itens[0]).toMatchObject({ tipo: "equipamentos", peso: 2, foto: "nao_conforme" });
+  });
+
   it("grava por mês, lista as recentes e apaga a visita com as fotos", async () => {
     const m = await q.salvarModelo({ nome: "Roteiro", itens: [{ texto: "Sala", foto: "sempre" }] });
     const fotoId = await q.salvarFoto(JPEG);
@@ -134,5 +177,21 @@ describe("cálculos da tela de qualidade", () => {
     const f = itensQueMaisFalham(vs, HOJE);
     expect(f.map((x) => [x.texto, x.falhas, x.respondidas, x.unidades])).toEqual([["Piso", 2, 3, 2], ["Sala", 1, 2, 1]]);
     expect([tomDaNota(95), tomDaNota(80), tomDaNota(50), tomDaNota(null)]).toEqual(["good", "warn", "bad", "neutral"]);
+  });
+
+  it("equipamentos parados: os da última visita de cada unidade, com 'desde' pelas visitas seguidas", () => {
+    const eq = (codigos: string[], conforme = false) => [{ itemId: "e", grupo: "", texto: "Equipamentos", tipo: "equipamentos" as const, conforme, comentario: "", fotos: [], equipamentos: codigos.map((codigo) => ({ codigo, descricao: `${codigo} parado`, fotos: ["f"] })) }];
+    const vs = [
+      V({ id: "1", unidade: "A", data: "2026-09-01", mes: "2026-09", respostas: eq(["EQ-1"]) }),
+      V({ id: "2", unidade: "A", data: "2026-10-01", mes: "2026-10", respostas: eq(["EQ-1", "EQ-2"]) }),
+      V({ id: "3", unidade: "A", data: "2026-11-10", respostas: eq(["eq-1", "EQ-3"]) }),
+      V({ id: "4", unidade: "B", data: "2026-11-05", respostas: eq([], true) }), // tudo em operação
+      V({ id: "5", unidade: "C", data: "2026-11-01", respostas: [] }), // visita sem o item
+    ];
+    const p = equipamentosParados(vs, HOJE);
+    expect(p.map((x) => [x.unidade, x.codigo, x.desde, x.visitas, x.dias])).toEqual([["A", "eq-1", "2026-09-01", 3, 80], ["A", "EQ-3", "2026-11-10", 1, 10]]);
+    // o código que some da visita seguinte recomeça a contagem quando volta
+    const volta = [V({ id: "1", unidade: "A", data: "2026-09-01", mes: "2026-09", respostas: eq(["EQ-1"]) }), V({ id: "2", unidade: "A", data: "2026-10-01", mes: "2026-10", respostas: eq(["EQ-9"]) }), V({ id: "3", unidade: "A", data: "2026-11-10", respostas: eq(["EQ-1"]) })];
+    expect(equipamentosParados(volta, HOJE).map((x) => [x.codigo, x.desde, x.visitas])).toEqual([["EQ-1", "2026-11-10", 1]]);
   });
 });

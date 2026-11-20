@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Camera, Check, X } from "lucide-react";
+import { Camera, Check, Plus, X } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -8,8 +8,58 @@ import { cn } from "@/lib/utils";
 import { type DadosQualidade, type ItemModelo, type ModeloChecklist, pctTexto } from "@/data/qualidade";
 import { enviarFoto, reduzirFoto, salvarVisita } from "@/lib/qualidade";
 
-interface Resposta { conforme: boolean | null; comentario: string; fotos: { previa: string; dados: string }[] }
-const vazia = (): Resposta => ({ conforme: null, comentario: "", fotos: [] });
+type FotoLocal = { previa: string; dados: string };
+interface EquipamentoLocal { codigo: string; descricao: string; fotos: FotoLocal[] }
+interface Resposta { conforme: boolean | null; comentario: string; fotos: FotoLocal[]; equipamentos: EquipamentoLocal[] }
+const vazia = (): Resposta => ({ conforme: null, comentario: "", fotos: [], equipamentos: [] });
+const equipamentoVazio = (): EquipamentoLocal => ({ codigo: "", descricao: "", fotos: [] });
+
+/** Lê a foto escolhida no celular e a devolve já reduzida, com a prévia para mostrar na tela. */
+async function lerFoto(arquivo: File): Promise<FotoLocal> {
+  const dados = await reduzirFoto(arquivo);
+  return { previa: `data:image/jpeg;base64,${dados}`, dados };
+}
+
+/** A lista de equipamentos parados: um registro por equipamento, com código, descrição e foto. */
+function Equipamentos({ item, lista, onChange }: { item: ItemModelo; lista: EquipamentoLocal[]; onChange: (l: EquipamentoLocal[]) => void }) {
+  const exigeFoto = item.foto !== "nenhuma";
+  const edita = (i: number, campos: Partial<EquipamentoLocal>) => onChange(lista.map((e, j) => (j === i ? { ...e, ...campos } : e)));
+  const foto = async (i: number, arquivo: File | undefined, entrada: HTMLInputElement) => {
+    if (!arquivo) return;
+    try { edita(i, { fotos: [...lista[i].fotos, await lerFoto(arquivo)].slice(0, 3) }); } catch { toast({ title: "Não consegui usar essa foto", description: "Tente outra ou tire de novo.", variant: "destructive" }); }
+    entrada.value = "";
+  };
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground">Equipamentos parados ({lista.length}){exigeFoto ? ": cada um pede código e foto" : ""}</p>
+      {lista.map((e, i) => (
+        <div key={i} className="rounded-xl border border-border bg-secondary/30 p-2">
+          <div className="grid gap-2 sm:grid-cols-[10rem_minmax(0,1fr)_auto]">
+            <input value={e.codigo} maxLength={40} onChange={(ev) => edita(i, { codigo: ev.target.value })} placeholder="Código" aria-label={`Código do equipamento ${i + 1}`} className="h-9 rounded-lg border border-input bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input value={e.descricao} maxLength={200} onChange={(ev) => edita(i, { descricao: ev.target.value })} placeholder="O que está parado? (ex.: esteira 3, travada)" aria-label={`Descrição do equipamento ${i + 1}`} className="h-9 rounded-lg border border-input bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            <button type="button" aria-label={`Remover o equipamento ${i + 1}`} onClick={() => onChange(lista.filter((_, j) => j !== i))} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary"><X className="h-4 w-4" aria-hidden /></button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {e.fotos.map((f, k) => (
+              <span key={k} className="relative">
+                <img src={f.previa} alt={`Foto do equipamento ${e.codigo || i + 1}`} className="h-16 w-16 rounded-lg object-cover" />
+                <button type="button" aria-label="Remover a foto" onClick={() => edita(i, { fotos: e.fotos.filter((_, j) => j !== k) })} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background"><X className="h-3 w-3" aria-hidden /></button>
+              </span>
+            ))}
+            {e.fotos.length < 3 && (
+              <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-input bg-white px-3 text-sm font-medium hover:bg-secondary focus-within:ring-2 focus-within:ring-ring">
+                <Camera className="h-4 w-4" aria-hidden />Foto
+                <input type="file" accept="image/*" capture="environment" className="sr-only" aria-label={`Foto do equipamento ${i + 1}`} onChange={(ev) => void foto(i, ev.target.files?.[0], ev.target)} />
+              </label>
+            )}
+            {exigeFoto && e.fotos.length === 0 && <span className="text-xs font-medium text-destructive">Foto obrigatória</span>}
+          </div>
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" onClick={() => onChange([...lista, equipamentoVazio()])}><Plus className="h-4 w-4" aria-hidden /> Equipamento parado</Button>
+    </div>
+  );
+}
 
 /** Nota provisória enquanto a pessoa responde (a mesma conta do servidor: conformes entre os respondidos). */
 const notaAgora = (itens: ItemModelo[], rs: Resposta[]) => {
@@ -22,7 +72,7 @@ function Item({ item, r, onChange }: { item: ItemModelo; r: Resposta; onChange: 
   const entrada = useRef<HTMLInputElement>(null);
   const [lendo, setLendo] = useState(false);
   const botao = (valor: boolean | null, rotulo: string, ativo: string) => (
-    <button type="button" aria-pressed={r.conforme === valor} onClick={() => onChange({ ...r, conforme: r.conforme === valor ? null : valor })}
+    <button type="button" aria-pressed={r.conforme === valor} onClick={() => { const c = r.conforme === valor ? null : valor; onChange({ ...r, conforme: c, equipamentos: item.tipo === "equipamentos" && c === false && r.equipamentos.length === 0 ? [equipamentoVazio()] : r.equipamentos }); }}
       className={cn("flex-1 rounded-lg border px-2 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", r.conforme === valor ? ativo : "border-border bg-white text-muted-foreground hover:bg-secondary")}>{rotulo}</button>
   );
   const adicionar = async (arquivo: File | undefined) => {
@@ -30,7 +80,7 @@ function Item({ item, r, onChange }: { item: ItemModelo; r: Resposta; onChange: 
     setLendo(true);
     try {
       const dados = await reduzirFoto(arquivo);
-      onChange({ ...r, fotos: [...r.fotos, { previa: `data:image/jpeg;base64,${dados}`, dados }].slice(0, 3) });
+      onChange({ ...r, fotos: [...r.fotos, { previa: `data:image/jpeg;base64,${dados}`, dados }].slice(0, 10) });
     } catch {
       toast({ title: "Não consegui usar essa foto", description: "Tente outra ou tire de novo.", variant: "destructive" });
     } finally {
@@ -46,10 +96,11 @@ function Item({ item, r, onChange }: { item: ItemModelo; r: Resposta; onChange: 
         {botao(false, "Não conforme", "border-destructive bg-red-50 text-red-800")}
         {botao(null, "Não se aplica", "border-foreground/30 bg-secondary text-foreground")}
       </div>
+      {item.tipo === "equipamentos" && r.conforme === false && <div className="mt-2"><Equipamentos item={item} lista={r.equipamentos} onChange={(equipamentos) => onChange({ ...r, equipamentos })} /></div>}
       {r.conforme !== null && (
         <div className="mt-2 space-y-2">
-          <input type="text" value={r.comentario} maxLength={300} onChange={(e) => onChange({ ...r, comentario: e.target.value })} placeholder={r.conforme ? "Comentário (opcional)" : "O que precisa ser corrigido? (obrigatório)"} aria-label={`Comentário: ${item.texto}`}
-            className="h-9 w-full rounded-lg border border-input bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          <textarea value={r.comentario} maxLength={1000} rows={2} onChange={(e) => onChange({ ...r, comentario: e.target.value })} placeholder={r.conforme || item.tipo === "equipamentos" ? "Comentário (opcional)" : "O que precisa ser corrigido? (obrigatório)"} aria-label={`Comentário: ${item.texto}`}
+            className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           <div className="flex flex-wrap items-center gap-2">
             {r.fotos.map((f, i) => (
               <span key={i} className="relative">
@@ -57,8 +108,8 @@ function Item({ item, r, onChange }: { item: ItemModelo; r: Resposta; onChange: 
                 <button type="button" aria-label="Remover a foto" onClick={() => onChange({ ...r, fotos: r.fotos.filter((_, j) => j !== i) })} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background"><X className="h-3 w-3" aria-hidden /></button>
               </span>
             ))}
-            {r.conforme === false && item.foto === "nao_conforme" && r.fotos.length === 0 && <span className="text-xs font-medium text-destructive">Foto obrigatória neste item.</span>}
-            {r.fotos.length < 3 && (
+            {r.conforme === false && item.tipo !== "equipamentos" && item.foto === "nao_conforme" && r.fotos.length === 0 && <span className="text-xs font-medium text-destructive">Foto obrigatória neste item.</span>}
+            {r.fotos.length < 10 && (
               <>
                 <input ref={entrada} type="file" accept="image/*" capture="environment" className="sr-only" aria-label={`Adicionar foto: ${item.texto}`} onChange={(e) => void adicionar(e.target.files?.[0])} />
                 <Button type="button" variant="outline" size="sm" disabled={lendo} onClick={() => entrada.current?.click()}><Camera className="h-4 w-4" aria-hidden />{lendo ? "Lendo..." : "Foto"}</Button>
@@ -108,7 +159,19 @@ export function NovaVisita({ dados, hoje, onSalvou }: { dados: DadosQualidade; h
           if (!up.ok) { setErro(up.erro); setEnviando(false); return; }
           fotos.push(up.dados.id);
         }
-        itens.push({ itemId: item.id, conforme: r.conforme, comentario: r.comentario, fotos });
+        const equipamentos = [];
+        if (item.tipo === "equipamentos" && r.conforme === false) {
+          for (const e of r.equipamentos.filter((x) => x.codigo.trim())) {
+            const ids: string[] = [];
+            for (const f of e.fotos) {
+              const up = await enviarFoto(f.dados);
+              if (!up.ok) { setErro(up.erro); setEnviando(false); return; }
+              ids.push(up.dados.id);
+            }
+            equipamentos.push({ codigo: e.codigo, descricao: e.descricao, fotos: ids });
+          }
+        }
+        itens.push({ itemId: item.id, conforme: r.conforme, comentario: r.comentario, fotos, ...(item.tipo === "equipamentos" ? { equipamentos } : {}) });
       }
       const res = await salvarVisita({ modeloId: modelo.id, unidade, data, chegada, saida, respostas: itens, observacao });
       if (!res.ok) { setErro(res.erro); setEnviando(false); return; }
