@@ -25,6 +25,7 @@ import { VendedoresVendas } from "@/components/VendedoresVendas";
 import { OportunidadesPorUnidade } from "@/components/OportunidadesPorUnidade";
 import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components/ContratosVendidos";
 import { BandeirasCartao, FormasPagamento, GatewaysCartao } from "@/components/FormasPagamento";
+import { TaxaCartaoPorUnidade } from "@/components/TaxaCartaoPorUnidade";
 import { InadPerfilCard } from "@/components/clientes/CancelPerfilCard";
 import { AvisoVerComo, VerComo } from "@/components/VerComo";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
@@ -56,7 +57,7 @@ import {
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podePreencherChecklist, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
+import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -491,6 +492,7 @@ const Index = () => {
                 <BandeirasCartao total={kpiCtx.cur.total} monthLabel={mes} unitLabel={quem} />
                 <GatewaysCartao total={kpiCtx.cur.total} monthLabel={mes} unitLabel={quem} />
                 <TaxasCobradas total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
+                {podeCompararTaxasCartao() && !selectedUnit && <div className="xl:col-span-2"><TaxaCartaoPorUnidade units={fullMonthData.units} monthLabel={mes} /></div>}
               </div>
             )}
             {aba === "cobranca" && (

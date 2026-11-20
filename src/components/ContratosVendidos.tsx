@@ -157,7 +157,8 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
 type Linha = [string, number, number];
 
 /** Lista numerada por valor, com barra proporcional ao primeiro. */
-function RankingPorValor({ lista, rotulo }: { lista: Linha[]; rotulo: string }) {
+/** `semQuantidade`: mostra só o valor (multas, taxas e ajustes: a quantidade não importa). */
+function RankingPorValor({ lista, rotulo, semQuantidade = false }: { lista: Linha[]; rotulo: string; semQuantidade?: boolean }) {
   const maior = lista[0][2] || 1;
   return (
     <ol className="space-y-3" aria-label={rotulo}>
@@ -165,7 +166,7 @@ function RankingPorValor({ lista, rotulo }: { lista: Linha[]; rotulo: string }) 
         <li key={nome} className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
           <span className="text-sm font-semibold tabular-nums text-muted-foreground">{k + 1}º</span>
           <span className="truncate text-sm text-foreground" title={nome}>{nome}</span>
-          <span className="text-sm font-semibold tabular-nums text-foreground">{moeda(v)} <span className="font-normal text-muted-foreground">· {q.toLocaleString("pt-BR")} un.</span></span>
+          <span className="text-sm font-semibold tabular-nums text-foreground">{moeda(v)}{!semQuantidade && <span className="font-normal text-muted-foreground"> · {q.toLocaleString("pt-BR")} un.</span>}</span>
           <div className="col-span-2 col-start-2 h-2 rounded-full bg-secondary" aria-hidden>
             <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max((v / maior) * 100, 1.5)}%` }} />
           </div>
@@ -193,7 +194,7 @@ export function TaxasCobradas({ total, monthLabel, partial, unitLabel }: { total
   const subtitle = <>{unitLabel} • {monthLabel}{partial && " (mês em andamento: valores parciais)"}</>;
   const lista = (total.taxasCobradas ?? []).slice(0, 8);
   if (!lista.length) return <ChartCard title="Multas, taxas e ajustes" subtitle={subtitle}><ChartEmpty>Sem multas, taxas ou ajustes lançados no EVO neste mês.</ChartEmpty></ChartCard>;
-  const [soma, multasQ, multasV] = total.taxasResumo ?? [0, 0, 0];
+  const [soma, , multasV] = total.taxasResumo ?? [0, 0, 0];
   return (
     <ChartCard
       title="Multas, taxas e ajustes"
@@ -201,11 +202,11 @@ export function TaxasCobradas({ total, monthLabel, partial, unitLabel }: { total
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
           <HeadlineStat label="Total cobrado" value={moeda(soma)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
-          <HeadlineStat label="Multas de cancelamento" value={`${moeda(multasV)} (${multasQ.toLocaleString("pt-BR")})`} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
+          <HeadlineStat label="Multas de cancelamento" value={moeda(multasV)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
         </div>
       }
     >
-      <RankingPorValor lista={lista} rotulo="Multas, taxas e ajustes cobrados" />
+      <RankingPorValor lista={lista} rotulo="Multas, taxas e ajustes cobrados" semQuantidade />
       <p className="mt-4 text-xs text-muted-foreground">Cobranças avulsas que não são produto: multa de cancelamento, pró-rata por mudança do dia de cobrança, taxa de adesão, inadimplência renegociada, contestação de cartão e ajustes. Pelo nome no EVO, ordenadas pelo valor do mês.</p>
     </ChartCard>
   );

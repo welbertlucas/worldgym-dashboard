@@ -347,6 +347,9 @@ describe("planos por família e taxas fora dos produtos", () => {
     const h = limpo(renderToString(<TaxasCobradas total={{ taxasCobradas: [["MULTA X", 2, 619.8]], taxasResumo: [669.8, 2, 619.8] } as unknown as UnitData} monthLabel="Out" partial={false} unitLabel="Rede" />));
     expect(h).toContain("Multas, taxas e ajustes");
     expect(h).toContain("670");
+    expect(h).toContain("620"); // multas de cancelamento, só o valor
+    expect(h).not.toContain("un."); // sem a quantidade de cobranças
+    expect(h).not.toContain("(2)");
   });
 });
 
