@@ -15,6 +15,8 @@ export const UNIDADES_DA_REDE = Object.values(UNIT_NAMES);
 
 const ARQUIVO = "acesso/usuarios.json";
 const TTL_MS = 60 * 1000;
+/** Espera antes de reler uma lista de usuários que voltou vazia. */
+const ESPERA_RELEITURA_MS = 300;
 let memo = null;
 
 export class ErroAcesso extends Error {
@@ -30,7 +32,20 @@ const emailValido = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 1
 /** Lista de usuários (com cache de 1 minuto por instância: abrir o painel não lê o Blob toda vez). */
 export async function listarUsuarios(agora = Date.now()) {
   if (memo && agora - memo.em < TTL_MS) return memo.lista;
-  const lista = (await lerJson(ARQUIVO)) ?? [];
+  let lista = await lerJson(ARQUIVO);
+  // Uma leitura que volta vazia, com acessos já criados, não é "não há ninguém": o armazenamento às vezes diz "não achei" por um instante
+  // (instância nova, falha passageira) e isso derrubava o login de quem estava usando o Atlas. Confere de novo; se ainda vier vazio e já
+  // havia lista, segue com a anterior e tenta outra vez em instantes.
+  if (!lista || lista.length === 0) {
+    await new Promise((r) => setTimeout(r, ESPERA_RELEITURA_MS));
+    lista = await lerJson(ARQUIVO);
+    if ((!lista || lista.length === 0) && memo?.lista?.length) {
+      console.warn("acesso: a lista de usuários veio vazia; mantida a anterior");
+      memo = { em: agora - TTL_MS + 10_000, lista: memo.lista }; // vale por mais 10 s e tenta de novo
+      return memo.lista;
+    }
+  }
+  lista = lista ?? [];
   memo = { em: agora, lista };
   return lista;
 }

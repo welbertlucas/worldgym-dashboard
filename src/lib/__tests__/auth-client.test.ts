@@ -54,6 +54,35 @@ describe("senha no navegador", () => {
     expect(window.dispatchEvent).toHaveBeenCalled();
   });
 
+  it("um 401 passageiro de login não derruba a sessão: repete uma vez e segue", async () => {
+    store["wg-dashboard-token"] = "valido";
+    const f = vi.fn()
+      .mockResolvedValueOnce(json({ error: "login necessário" }, 401))
+      .mockResolvedValueOnce(json({ ok: true }));
+    vi.stubGlobal("fetch", f);
+    const res = await authFetch("https://x/api/indicadores");
+    expect(res.status).toBe(200);
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(getToken()).toBe("valido");
+  });
+
+  it("se o 401 de login continua na segunda vez, apaga o token e pede o login", async () => {
+    store["wg-dashboard-token"] = "velho";
+    const f = vi.fn().mockImplementation(async () => json({ error: "login necessário" }, 401));
+    vi.stubGlobal("fetch", f);
+    await authFetch("https://x/api/indicadores");
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(getToken()).toBe("");
+  });
+
+  it("401 que não é de login (ex.: senha atual errada) não é repetido", async () => {
+    store["wg-dashboard-token"] = "velho";
+    const f = vi.fn().mockImplementation(async () => json({ error: "A senha atual não confere." }, 401));
+    vi.stubGlobal("fetch", f);
+    await authFetch("https://x/api/senha", { method: "POST" });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
   it("só pede login quando a senha está ligada e o visitante não está logado", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ protegido: true, logado: false })));
     expect(await precisaDeLogin()).toBe(true);

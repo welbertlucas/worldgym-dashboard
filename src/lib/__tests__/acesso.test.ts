@@ -652,3 +652,31 @@ describe("avisos de segurança por e-mail", () => {
     expect(r).toEqual([false, false, false, false, true]);
   });
 });
+
+describe("lista de usuários: leitura vazia passageira", () => {
+  it("se a leitura volta vazia mas já havia lista, relê e, se continuar vazia, mantém a anterior", async () => {
+    const u = [{ id: "a", email: "a@x.com", papel: "dono" }];
+    let chamadas = 0;
+    let vazio = false;
+    definirArmazem({ async ler() { chamadas++; return vazio ? null : structuredClone(u); }, async gravar() {} });
+    acesso.limparCache();
+    const t0 = 1_000_000;
+    expect(await acesso.listarUsuarios(t0)).toEqual(u); // leitura normal
+    vazio = true;
+    const antes = chamadas;
+    expect(await acesso.listarUsuarios(t0 + 61_000)).toEqual(u); // memória vencida, armazenamento vazio: segue com a anterior
+    expect(chamadas - antes).toBe(2); // leu, esperou e releu
+    definirArmazem(null);
+    acesso.limparCache();
+  });
+
+  it("se a releitura traz a lista, usa a nova", async () => {
+    const u = [{ id: "a", email: "a@x.com", papel: "dono" }];
+    let n = 0;
+    definirArmazem({ async ler() { n++; return n === 1 ? null : structuredClone(u); }, async gravar() {} });
+    acesso.limparCache();
+    expect(await acesso.listarUsuarios(1_000_000)).toEqual(u);
+    definirArmazem(null);
+    acesso.limparCache();
+  });
+});

@@ -116,11 +116,26 @@ export function vigiarSessao(agora: () => number = Date.now): () => void {
   };
 }
 
+/** Espera antes de repetir um pedido recusado com 401, para não derrubar o login por uma falha passageira. */
+export const ESPERA_401_MS = 800;
+
+/** O 401 é de "login necessário" (e não, por exemplo, de senha atual errada). */
+const recusouPorLogin = async (r: Response) => { try { return ((await r.clone().json()) as { error?: string }).error === "login necessário"; } catch { return false; } };
+
 /** fetch com o token; se o servidor recusar (senha trocada ou token vencido), pede o login de novo. */
 export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
   const token = getToken();
   const headers = { ...(init?.headers as Record<string, string> | undefined), ...(token ? { Authorization: `Bearer ${token}`, ...cabecalhoVerComo() } : {}) };
-  const res = await fetch(url, init || token ? { ...init, headers } : undefined);
+  const enviar = () => fetch(url, init || token ? { ...init, headers } : undefined);
+  let res = await enviar();
+  // Um 401 pode ser passageiro (o servidor falhou um instante ao conferir o acesso). Antes de derrubar o login, e o das outras abas, tenta de novo uma vez.
+  if (res.status === 401 && token && (await recusouPorLogin(res))) {
+    await new Promise((r) => setTimeout(r, ESPERA_401_MS));
+    if (getToken() === token) {
+      const de_novo = await enviar();
+      if (de_novo.status !== 401) res = de_novo;
+    }
+  }
   guardarRenovado(res);
   if (res.status === 401) {
     logout();
