@@ -1,5 +1,5 @@
-import { CalendarRange } from "lucide-react";
-import { Chip } from "@/components/DateFilter";
+import { useState } from "react";
+import { SeletorPeriodo } from "@/components/executiva/SeletorPeriodo";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { type ContextoRoyalties, type FiltroRoyalties, filtroInicial, saldoDe, brl0 } from "@/data/royalties";
@@ -9,6 +9,7 @@ const botao = (ativo: boolean) =>
 
 /** Filtros do topo: período (de, até e atalhos por ano), modalidade, só devedoras e unidade. Tudo muda na hora, sem pedir nada ao servidor. */
 export function FiltrosRoyalties({ c, f, onChange }: { c: ContextoRoyalties; f: FiltroRoyalties; onChange: (f: FiltroRoyalties) => void }) {
+  const [ligado, setLigado] = useState(false); // "Ver por período" ligado: aparecem o De e o Até
   const anos = [...new Set(c.keys.map((k) => k.slice(0, 4)))];
   const todo = f.de === 0 && f.ate === c.keys.length - 1;
   const anoAtivo = (a: string) => {
@@ -16,20 +17,22 @@ export function FiltrosRoyalties({ c, f, onChange }: { c: ContextoRoyalties; f: 
     return c.keys[f.de] === ks[0] && c.keys[f.ate] === ks[ks.length - 1];
   };
   const rotulo = (k: string) => c.rotulo[k] + (c.parcial.has(k) ? "*" : "");
-  const opcoes = c.keys.map((k, i) => <option key={k} value={i}>{rotulo(k)}</option>).reverse();
   const mudou = JSON.stringify(f) !== JSON.stringify(filtroInicial(c));
   const unidades = c.m.unidades.map((u) => u.nome).filter((u) => (f.tipo === "all" || c.tipoDe[u] === f.tipo) && (!f.soDevedoras || saldoDe(c, u) > 0.005));
 
   return (
     <div className="card-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-        <div role="group" aria-label="Período" className="flex flex-wrap items-center gap-2">
-          <Chip id="royalties-de" rotulo="De" valor={rotulo(c.keys[f.de])} ativo icone={<CalendarRange className="h-4 w-4" />} value={String(f.de)}
-            onChange={(v) => { const de = Number(v); onChange({ ...f, de, ate: Math.max(de, f.ate) }); }}>{opcoes}</Chip>
-          <Chip id="royalties-ate" rotulo="Até" valor={rotulo(c.keys[f.ate])} ativo icone={<CalendarRange className="h-4 w-4" />} value={String(f.ate)}
-            onChange={(v) => { const ate = Number(v); onChange({ ...f, ate, de: Math.min(f.de, ate) }); }}
-            aoLimpar={todo ? undefined : () => onChange({ ...f, de: 0, ate: c.keys.length - 1 })} rotuloLimpar="Voltar a todo o período">{opcoes}</Chip>
-        </div>
+        <SeletorPeriodo
+          meses={c.keys}
+          ate={c.keys[c.keys.length - 1]}
+          periodo={ligado || !todo ? { de: c.keys[f.de], ate: c.keys[f.ate] } : null}
+          aoMudar={(p) => {
+            if (!p) { setLigado(false); onChange({ ...f, de: 0, ate: c.keys.length - 1 }); return; }
+            setLigado(true);
+            onChange({ ...f, de: c.keys.indexOf(p.de), ate: c.keys.indexOf(p.ate) });
+          }}
+        />
         <div role="group" aria-label="Atalhos de período" className="flex flex-wrap rounded-xl border border-border bg-white p-0.5">
           <button type="button" aria-pressed={todo} className={botao(todo)} onClick={() => onChange({ ...f, de: 0, ate: c.keys.length - 1 })}>Todos</button>
           {anos.map((a) => {
