@@ -111,6 +111,17 @@ export function aplicarVerComo(sessao, pedido, nomesValidos = Object.values(UNIT
 }
 const pedidoVerComo = (req) => req.headers?.[CABECALHO_VER_COMO.toLowerCase()];
 
+/**
+ * "Ver como uma pessoa" ("pessoa:<id>"): o dono vê o Atlas exatamente como aquela pessoa vê, com o nível, as unidades e as liberações dela (royalties,
+ * jurídico, qualidade, checklist da unidade...). Só vale para o dono e para uma pessoa ativa que não seja o dono. É SOMENTE CONSULTA: qualquer
+ * pedido que grave algo (enviar checklist, trocar senha, criar acesso...) é recusado enquanto a simulação está ligada.
+ */
+export function sessaoComoPessoa(sessao, pedido, lista) {
+  if (!sessao || sessao.papel !== "dono" || typeof pedido !== "string" || !pedido.startsWith("pessoa:")) return null;
+  const alvo = lista.find((x) => x.id === pedido.slice(7) && x.ativo !== false && x.papel !== "dono");
+  return alvo ? { ...sessaoDe(alvo), trocarSenha: false, papelReal: "dono", somenteLeitura: true, simulaNome: alvo.nome } : null;
+}
+
 /** Quem está fazendo o pedido, ou null. Confere o usuário na lista a cada vez (desativado = fora).
  *  Com `res`, renova o login (mais o tempo sem uso do nível, a partir de agora, até o teto) mandando o token novo no cabeçalho X-Atlas-Token. */
 export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
@@ -129,7 +140,8 @@ export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
   const noTeto = t.exp >= desde + TETO_SESSAO_MS;
   const resta = t.exp - agora;
   if (res && !noTeto && (resta <= inat - RENOVAR_APOS_MS || resta > inat || !t.desde)) res.setHeader(CABECALHO_TOKEN, criarTokenUsuario(u.id, agora, { papel: u.papel, desde }).token);
-  return aplicarVerComo(sessaoDe(u), pedidoVerComo(req));
+  const base = sessaoDe(u);
+  return sessaoComoPessoa(base, pedidoVerComo(req), lista) ?? aplicarVerComo(base, pedidoVerComo(req));
 }
 
 /**
@@ -156,6 +168,12 @@ export async function exigirLogin(req, res, { papeis } = {}) {
     if (sessao.trocarSenha) {
       res.setHeader("Cache-Control", "no-store");
       res.status(403).json({ error: "troque a senha para continuar", trocarSenha: true });
+      return false;
+    }
+    // Vendo como outra pessoa: só consulta. Nada é gravado em nome dela.
+    if (sessao.somenteLeitura && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      res.setHeader("Cache-Control", "no-store");
+      res.status(403).json({ error: `Você está vendo o Atlas como ${sessao.simulaNome}: só consulta. Volte a ver como dono para fazer alterações.` });
       return false;
     }
     if (papeis && !papeis.includes(sessao.papel)) {

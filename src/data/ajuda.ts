@@ -235,10 +235,11 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Cada arquivo gerado aparece no registro de atividades, com quem gerou, o mês e a unidade (quando é uma só). O rodapé de cada slide leva o e-mail de quem gerou e a data. No Ver como, o menu continua aparecendo, com os dados do nível simulado.",
     "Os textos de análise, as avaliações dos clientes e as ações por unidade continuam sendo escritos à mão no PowerPoint.",
   ], { tela: "relatorios", atualizadoEm: "2026-11-17" }),
-  a("dono", "dono-ver-como", "Ver como", "Olhar o Atlas como um Master ou como uma unidade.", [
+  a("dono", "dono-ver-como", "Ver como", "Olhar o Atlas como um Master, como uma unidade ou como uma pessoa específica.", [
     "O botão Ver como, no cabeçalho, mostra o Atlas exatamente como outro nível vê. Vale só na aba do navegador em que foi ligado.",
     "Enquanto estiver vendo como outro nível, o que é só seu (como esta seção) some da tela. O menu Relatórios continua aparecendo, com os dados do nível simulado, para você testar o que a pessoa receberia.",
-  ], { atualizadoEm: "2026-11-17" }),
+    "Ver como Master ou como uma unidade simula só o nível, sem as liberações de cada pessoa (royalties, jurídico, qualidade, checklist da unidade): esses menus ficam fechados. Para ver exatamente o que uma pessoa vê, com as liberações dela, escolha Uma pessoa no Ver como e depois o nome. Nesse modo é só consulta: nada é gravado em nome dela (enviar checklist, trocar senha e mexer em acessos são recusados), e o seu acesso não aparece no registro de atividades.",
+  ], { atualizadoEm: "2026-11-20" }),
   a("dono", "dono-uso-do-plano", "Quem está usando o plano", "Ranking do mês e uso do Plano de ação por unidade.", [
     "No Plano de ação, com a rede selecionada, o quadro tem duas visões. \"Uso por unidade\" mostra quantos itens cada unidade marcou como feitos no mês e quando foi a última marcação; as que nunca marcaram aparecem primeiro.",
     "\"Ranking do mês\" mede quanto do plano cada unidade resolveu: itens marcados como feitos cujo alerta saiu da leitura do EVO, sobre o total de itens (resolvidos mais pendentes). Vale a proporção, não a quantidade, para a unidade com poucos problemas não ficar atrás da que tem muitos.",

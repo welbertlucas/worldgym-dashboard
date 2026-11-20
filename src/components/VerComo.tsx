@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Eye } from "lucide-react";
 import { definirVerComo, getVerComo, podeVerComo, simulando } from "@/lib/auth";
+import { listarAcessos } from "@/lib/usuarios";
 import { getAvailableUnits } from "@/data/dashboardData";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +17,14 @@ function unidadesReais(): string[] {
   try { return JSON.parse(sessionStorage.getItem(UNIDADES_KEY) ?? "[]") as string[]; } catch { return []; }
 }
 
-type Escolha = "dono" | "master" | "unidades";
+// Pessoas (acessos criados), guardadas enquanto o dono vê tudo: com a simulação de uma pessoa ligada, a lista de usuários deixa de responder ao dono.
+const PESSOAS_KEY = "atlas-pessoas-reais";
+type Pessoa = { id: string; nome: string; email: string; papel: string; ativo: boolean };
+function pessoasGuardadas(): Pessoa[] {
+  try { return JSON.parse(sessionStorage.getItem(PESSOAS_KEY) ?? "[]") as Pessoa[]; } catch { return []; }
+}
+
+type Escolha = "dono" | "master" | "unidades" | "pessoa";
 
 /** Seletor "Ver como" do cabeçalho: só para o dono. Abre um painel com Dono, Master ou uma ou mais unidades. */
 export function VerComo({ className }: { className?: string }) {
@@ -24,6 +32,20 @@ export function VerComo({ className }: { className?: string }) {
   const [aberto, setAberto] = useState(false);
   const [escolha, setEscolha] = useState<Escolha>(atual?.papel ?? "dono");
   const [marcadas, setMarcadas] = useState<string[]>(atual?.papel === "unidades" ? atual.unidades : []);
+  const [pessoas, setPessoas] = useState<Pessoa[]>(pessoasGuardadas);
+  const [pessoaId, setPessoaId] = useState(atual?.papel === "pessoa" ? atual.id : "");
+  // Quem é dono de verdade busca a lista de acessos uma vez (fora da simulação) e a guarda para as próximas trocas.
+  useEffect(() => {
+    if (simulando() || !podeVerComo()) return;
+    let vivo = true;
+    void listarAcessos().then((r) => {
+      if (!vivo || !r.ok) return;
+      const lista = r.dados.usuarios.filter((u) => u.papel !== "dono" && u.ativo).map((u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, ativo: u.ativo }));
+      try { sessionStorage.setItem(PESSOAS_KEY, JSON.stringify(lista)); } catch { /* nada */ }
+      setPessoas(lista);
+    });
+    return () => { vivo = false; };
+  }, []);
   const caixa = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!aberto) return;
@@ -35,10 +57,13 @@ export function VerComo({ className }: { className?: string }) {
   }, [aberto]);
   if (!podeVerComo()) return null;
   const unidades = unidadesReais();
-  const rotulo = !atual ? "Dono" : atual.papel === "master" ? "Master" : atual.unidades.length === 1 ? atual.unidades[0] : `${atual.unidades.length} unidades`;
+  const rotulo = !atual ? "Dono" : atual.papel === "master" ? "Master" : atual.papel === "pessoa" ? atual.nome : atual.unidades.length === 1 ? atual.unidades[0] : `${atual.unidades.length} unidades`;
   const alterna = (u: string) => setMarcadas((m) => (m.includes(u) ? m.filter((x) => x !== u) : [...m, u]));
-  const podeAplicar = escolha !== "unidades" || marcadas.length > 0;
-  const aplicar = () => definirVerComo(escolha === "dono" ? null : escolha === "master" ? { papel: "master" } : { papel: "unidades", unidades: marcadas });
+  const podeAplicar = escolha === "pessoa" ? Boolean(pessoaId) : escolha !== "unidades" || marcadas.length > 0;
+  const aplicar = () => {
+    if (escolha === "pessoa") { const p = pessoas.find((x) => x.id === pessoaId); if (p) definirVerComo({ papel: "pessoa", id: p.id, nome: p.nome }); return; }
+    definirVerComo(escolha === "dono" ? null : escolha === "master" ? { papel: "master" } : { papel: "unidades", unidades: marcadas });
+  };
   const opcao = (id: Escolha, texto: string) => (
     <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-secondary">
       <input type="radio" name="ver-como" checked={escolha === id} onChange={() => setEscolha(id)} className="accent-primary" />
@@ -65,6 +90,7 @@ export function VerComo({ className }: { className?: string }) {
           {opcao("dono", "Dono (você)")}
           {opcao("master", "Master")}
           {opcao("unidades", "Acesso de unidades")}
+          {opcao("pessoa", "Uma pessoa (com as liberações dela)")}
           {escolha === "unidades" && (
             <div className="mt-1 border-t border-border pt-2">
               <div className="mb-1 flex items-center justify-between px-2 text-xs text-muted-foreground">
@@ -83,6 +109,17 @@ export function VerComo({ className }: { className?: string }) {
               </ul>
             </div>
           )}
+          {escolha === "pessoa" && (
+            <div className="mt-1 border-t border-border pt-2">
+              <p className="mb-1 px-2 text-xs text-muted-foreground">Você vê o Atlas exatamente como ela vê, só para consulta.</p>
+              {pessoas.length === 0 ? <p className="px-2 py-1 text-sm text-muted-foreground">Nenhum acesso criado ainda.</p> : (
+                <select value={pessoaId} onChange={(e) => setPessoaId(e.target.value)} aria-label="Pessoa" className="h-9 w-full rounded-lg border border-input bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">Escolha…</option>
+                  {pessoas.map((p) => <option key={p.id} value={p.id}>{p.nome} · {p.papel === "master" ? "Master" : "Unidades"}</option>)}
+                </select>
+              )}
+            </div>
+          )}
           <div className="mt-2 flex justify-end gap-2 border-t border-border pt-2">
             <button type="button" onClick={() => setAberto(false)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary">Cancelar</button>
             <button type="button" disabled={!podeAplicar} onClick={aplicar} className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/90 disabled:opacity-40">Ver o painel</button>
@@ -97,10 +134,10 @@ export function VerComo({ className }: { className?: string }) {
 export function AvisoVerComo() {
   if (!simulando()) return null;
   const v = getVerComo();
-  const quem = v?.papel === "unidades" ? `o acesso de ${v.unidades.join(", ")}` : "Master";
+  const quem = v?.papel === "unidades" ? `o acesso de ${v.unidades.join(", ")}` : v?.papel === "pessoa" ? v.nome : "Master";
   return (
     <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/10 px-3 py-2 text-sm sm:px-6 lg:px-8">
-      <span className="text-foreground">Você está vendo o Atlas como <b>{quem}</b>: menus e dados são exatamente os desse nível.</span>
+      <span className="text-foreground">Você está vendo o Atlas como <b>{quem}</b>: menus e dados são exatamente os {v?.papel === "pessoa" ? "dela, só para consulta" : "desse nível"}.</span>
       <button type="button" onClick={() => definirVerComo(null)} className="rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:bg-foreground/90">Voltar a ver como dono</button>
     </div>
   );

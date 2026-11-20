@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS da função serverless
-import { aplicarVerComo } from "../../../api/_auth.js";
+import { aplicarVerComo, sessaoComoPessoa } from "../../../api/_auth.js";
 import { cabecalhoVerComo } from "@/lib/auth";
 
 const dono = { id: "1", nome: "Dono", email: "d@x", papel: "dono", unidades: [], legado: false };
@@ -42,5 +42,20 @@ describe("ver como (dono simulando outro nível)", () => {
     expect(cabecalhoVerComo(null)).toEqual({});
     expect(cabecalhoVerComo({ papel: "master" })).toEqual({ "X-Atlas-Ver-Como": "master" });
     expect(cabecalhoVerComo({ papel: "unidades", unidades: ["Itapoã", "Gama"] })["X-Atlas-Ver-Como"]).toBe("unidades:Itapo%C3%A3%7CGama");
+  });
+
+  it("ver como uma pessoa: o dono recebe o nível, as unidades e as liberações dela, só para consulta; pedido inválido é ignorado", () => {
+    const gerente = { id: "g1", nome: "Gerente Gama", email: "g@x.com", papel: "unidades", unidades: ["Gama"], ativo: true, preencheChecklist: true, trocarSenha: true };
+    const inativo = { ...gerente, id: "g2", ativo: false };
+    const outroDono = { ...dono, id: "d2" };
+    const lista = [dono, gerente, inativo, outroDono];
+    const s = sessaoComoPessoa({ ...dono, papel: "dono" }, "pessoa:g1", lista);
+    expect(s).toMatchObject({ id: "g1", papel: "unidades", unidades: ["Gama"], preencheChecklist: true, verQualidade: false, papelReal: "dono", somenteLeitura: true, simulaNome: "Gerente Gama", trocarSenha: false });
+    expect(sessaoComoPessoa({ ...dono }, "pessoa:g2", lista)).toBeNull(); // inativa
+    expect(sessaoComoPessoa({ ...dono }, "pessoa:d2", lista)).toBeNull(); // outro dono
+    expect(sessaoComoPessoa({ ...dono }, "pessoa:nao-existe", lista)).toBeNull();
+    expect(sessaoComoPessoa({ ...dono, papel: "master" }, "pessoa:g1", lista)).toBeNull(); // só o dono simula
+    expect(sessaoComoPessoa({ ...dono }, "master", lista)).toBeNull();
+    expect(cabecalhoVerComo({ papel: "pessoa", id: "g1", nome: "Gerente Gama" })).toEqual({ "X-Atlas-Ver-Como": "pessoa:g1" });
   });
 });

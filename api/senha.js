@@ -16,6 +16,7 @@ export default async function handler(req, res) {
   try {
     const sessao = await sessaoDaRequisicao(req, res);
     if (!sessao) return res.status(401).json({ error: "login necessário" });
+    if (sessao.somenteLeitura) return res.status(403).json({ error: `Você está vendo o Atlas como ${sessao.simulaNome}: só consulta.` });
     if (sessao.legado) return res.status(409).json({ error: "Crie primeiro a sua conta de dono." });
     const chaveUsuario = `senha:${sessao.id}`, chaveIp = `ip:${enderecoDe(req)}`;
     const espera = Math.max(await bloqueadoPor(chaveUsuario), await bloqueadoPor(chaveIp));

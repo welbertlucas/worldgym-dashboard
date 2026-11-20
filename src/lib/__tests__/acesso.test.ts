@@ -389,6 +389,37 @@ describe("acessos, níveis e registro", () => {
     expect((await q(tokenDono, { query: { modulo: "qualidade", foto } })).code).toBe(404);
   });
 
+  it("ver como uma pessoa: o dono vê o menu e os dados exatamente como ela, mas nada é gravado em nome dela", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any, headers: any = {}) => chama(usuarios, { headers: { authorization: `Bearer ${token}`, ...headers }, method: "POST", body });
+    const c = (await post(tokenDono, { acao: "criar", nome: "Gerente Gama", email: "gama@exemplo.com", papel: "unidades", unidades: ["Gama"], preencheChecklist: true })).body;
+    await trocaSenha(c.usuario.id, c.senhaProvisoria);
+    const como = { "x-atlas-ver-como": `pessoa:${c.usuario.id}` };
+    const comoPessoa = (extra: any = {}) => ({ headers: { authorization: `Bearer ${tokenDono}`, ...como }, ...extra });
+
+    // o menu: a resposta do login é a da pessoa (com as liberações dela) e leva o aviso de quem está sendo simulado
+    const l = (await chama(login, comoPessoa({ method: "GET" }))).body.usuario;
+    expect(l).toMatchObject({ papel: "unidades", unidades: ["Gama"], preencheChecklist: true, verQualidade: false, verJuridico: false, papelReal: "dono", simulaNome: "Gerente Gama" });
+    // os dados: o que a unidade enxerga na Qualidade
+    const q = await chama(royaltiesApi, comoPessoa({ method: "GET", query: { modulo: "qualidade" } }));
+    expect(q.body).toMatchObject({ modo: "unidade", unidades: ["Gama"] });
+    expect((await chama(royaltiesApi, comoPessoa({ method: "GET" }))).code).toBe(403); // royalties: ela não tem
+    // só consulta: enviar checklist, trocar senha ou mexer em acessos é recusado
+    const envio = await chama(royaltiesApi, comoPessoa({ method: "POST", query: { modulo: "qualidade" }, body: { acao: "foto", dados: "AAAA" } }));
+    expect(envio.code).toBe(403);
+    expect(envio.body.error).toMatch(/só consulta/);
+    expect((await chama(senhaApi, comoPessoa({ method: "POST", body: { atual: "x", nova: "senha-nova-12345" } }))).code).toBe(403);
+    expect((await post(tokenDono, { acao: "atualizar", id: c.usuario.id, ativo: false }, como)).code).toBe(403); // nem a tela de usuários (ela é Unidades, sem permissão)
+    // sem o cabeçalho, o dono segue sendo dono
+    expect((await chama(login, com(tokenDono, { method: "GET" }))).body.usuario).toMatchObject({ papel: "dono" });
+    // quem não é dono não consegue simular outra pessoa
+    const outro = (await post(tokenDono, { acao: "criar", nome: "Ana Master", email: "ana@exemplo.com", papel: "master" })).body;
+    await trocaSenha(outro.usuario.id, outro.senhaProvisoria);
+    const tokenAna = criarTokenUsuario(outro.usuario.id).token;
+    expect((await chama(login, { headers: { authorization: `Bearer ${tokenAna}`, ...como }, method: "GET" })).body.usuario).toMatchObject({ papel: "master" });
+  });
+
   it("api de royalties: sem login 401, só GET, avisa quando ainda não há dados, devolve o modelo e nunca vai para o cache", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;

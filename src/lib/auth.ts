@@ -42,7 +42,7 @@ export const unidadesProprias = (): string[] | null => (usuario?.papel === "unid
 // "Ver como": o dono olha o painel como Master ou como o acesso de algumas unidades. Vale só nesta aba do navegador
 // (sessionStorage) e vai em cada pedido no cabeçalho X-Atlas-Ver-Como; quem decide o que aparece é o servidor.
 const VER_COMO_KEY = "atlas-ver-como";
-export type VerComo = { papel: "master" } | { papel: "unidades"; unidades: string[] };
+export type VerComo = { papel: "master" } | { papel: "unidades"; unidades: string[] } | { papel: "pessoa"; id: string; nome: string };
 export function getVerComo(): VerComo | null {
   try { const v = sessionStorage.getItem(VER_COMO_KEY); return v ? (JSON.parse(v) as VerComo) : null; } catch { return null; }
 }
@@ -52,7 +52,7 @@ export function definirVerComo(v: VerComo | null) {
   window.location.reload();
 }
 export const cabecalhoVerComo = (v: VerComo | null = getVerComo()): Record<string, string> =>
-  !v ? {} : { "X-Atlas-Ver-Como": v.papel === "master" ? "master" : `unidades:${encodeURIComponent(v.unidades.join("|"))}` };
+  !v ? {} : { "X-Atlas-Ver-Como": v.papel === "master" ? "master" : v.papel === "pessoa" ? `pessoa:${v.id}` : `unidades:${encodeURIComponent(v.unidades.join("|"))}` };
 /** O dono está vendo o painel como outro nível. */
 export const simulando = () => usuario?.papelReal === "dono";
 /** Quem pode usar o "ver como": o dono de verdade (simulando ou não), com login por e-mail. */
