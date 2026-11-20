@@ -117,7 +117,7 @@ export function AcessosTab() {
               {mostrados.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
                   <td className="px-5 py-3"><div className="font-medium text-foreground"><button type="button" onClick={() => setDetalhe(u)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" title="Ver último acesso e histórico">{u.nome}</button>{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
-                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}</td>
+                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
                   <td className="px-3 py-3">
@@ -211,7 +211,7 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
   inicial: UsuarioApi | null;
   /** Só o dono vê a opção "Pode gerenciar acessos". */
   podeLiberar: boolean;
-  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean }) => Promise<string | null>;
+  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean }) => Promise<string | null>;
   onCancelar?: () => void;
 }) {
   const [nome, setNome] = useState(inicial?.nome ?? "");
@@ -221,6 +221,7 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
   const [resumo, setResumo] = useState(inicial?.resumo !== false);
   const [gerencia, setGerencia] = useState(inicial?.gerenciaAcessos === true);
   const [relatorios, setRelatorios] = useState(inicial?.geraRelatorios === true);
+  const [royalties, setRoyalties] = useState(inicial?.papel === "unidades" && inicial?.verRoyalties === true);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -229,7 +230,7 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
     e.preventDefault();
     setEnviando(true);
     setErro("");
-    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios } : {}) });
+    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties } : {}) });
     setEnviando(false);
     if (r) return setErro(r);
     if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); setRelatorios(false); }
@@ -275,6 +276,12 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={relatorios} onChange={(e) => setRelatorios(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
           <span>Pode gerar relatórios <span className="block text-xs text-muted-foreground">Mostra o menu Relatórios, onde a pessoa monta e baixa a apresentação (.pptx) dos dados que ela já enxerga. Cada download fica no registro de atividades.</span></span>
+        </label>
+      )}
+      {podeLiberar && papel === "unidades" && (
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={royalties} onChange={(e) => setRoyalties(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+          <span>Pode ver royalties <span className="block text-xs text-muted-foreground">Mostra o menu Royalties, com os recebimentos da marca de toda a rede. Dono e Master já veem; quem tem acesso só a unidades precisa desta liberação.</span></span>
         </label>
       )}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}

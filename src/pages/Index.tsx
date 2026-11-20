@@ -56,7 +56,7 @@ import {
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, sair, unidadesProprias } from "@/lib/auth";
+import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -88,6 +88,7 @@ const RiscosTab = telaSobDemanda(() => import("@/components/tabs/RiscosTab"), "R
 const MetasTab = telaSobDemanda(() => import("@/components/tabs/MetasTab"), "MetasTab");
 const AcessosTab = telaSobDemanda(() => import("@/components/tabs/AcessosTab"), "AcessosTab");
 const RelatoriosTab = telaSobDemanda(() => import("@/components/tabs/RelatoriosTab"), "RelatoriosTab");
+const RoyaltiesTab = telaSobDemanda(() => import("@/components/tabs/RoyaltiesTab"), "RoyaltiesTab");
 const AjudaTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "AjudaTab");
 const NovidadesTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "NovidadesTab");
 
@@ -206,7 +207,7 @@ const Index = () => {
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = activeTab === "executiva";
   /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
-  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "ajuda" || activeTab === "novidades";
+  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
@@ -554,6 +555,8 @@ const Index = () => {
         })()}
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
+
+        {activeTab === "royalties" && podeVerRoyalties() && <RoyaltiesTab />}
 
         {activeTab === "relatorios" && podeGerarRelatorios() && <RelatoriosTab dados={dashboardData} atualizadoEm={evoAtualizadoEm} metas={metasData} vigentes={vigentes} />}
 

@@ -19,6 +19,12 @@ describe("ver como (dono simulando outro nível)", () => {
     expect(aplicarVerComo(comRelatorios, "unidades:Gama", nomes)).toMatchObject({ papel: "unidades", geraRelatorios: true, gerenciaAcessos: false });
   });
 
+  it("royalties na simulação: como Master o dono continua vendo; como quem tem acesso a unidades, não", () => {
+    const dono = { id: "d", nome: "Dono", email: "d@x.com", papel: "dono", unidades: [], verRoyalties: true, geraRelatorios: true } as any;
+    expect(aplicarVerComo(dono, "master", nomes).verRoyalties).toBe(true);
+    expect(aplicarVerComo(dono, cabecalhoVerComo({ papel: "unidades", unidades: ["Itapoã"] })["X-Atlas-Ver-Como"], nomes).verRoyalties).toBe(false);
+  });
+
   it("ignora pedido inválido e quem não é dono não consegue simular", () => {
     expect(aplicarVerComo(dono, "unidades:Inventada", nomes)).toBe(dono);
     expect(aplicarVerComo(dono, "admin", nomes)).toBe(dono);

@@ -11,7 +11,7 @@ export const AUTH_REQUIRED_EVENT = "wg-auth-required";
 
 export type Papel = "dono" | "master" | "unidades";
 /** `papelReal` só vem quando o dono está simulando outro nível ("ver como"). `gerenciaAcessos`: Master liberado pelo dono a criar acessos. */
-export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean; /** Liberado pelo dono a gerar apresentações no menu Relatórios (o dono sempre gera). */ geraRelatorios?: boolean; /** Ainda usa a senha provisória: precisa escolher a própria antes de ver dados. */ trocarSenha?: boolean }
+export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean; /** Liberado pelo dono a gerar apresentações no menu Relatórios (o dono sempre gera). */ geraRelatorios?: boolean; /** Vê o menu Royalties: dono e Master sempre; quem tem acesso só a unidades, se o dono liberou. O servidor já manda o valor final. */ verRoyalties?: boolean; /** Ainda usa a senha provisória: precisa escolher a própria antes de ver dados. */ trocarSenha?: boolean }
 
 // Quem está logado e se o login pede e-mail (só depois que o dono cria o primeiro acesso). Vem de GET /api/login.
 let usuario: Usuario | null = null;
@@ -27,6 +27,8 @@ export const ehDono = () => papelAtual() === "dono";
 export const podeAtualizar = () => ehDono();
 /** Menu Relatórios: só o dono e quem ele liberou. */
 export const podeGerarRelatorios = () => usuario?.papel === "dono" || usuario?.geraRelatorios === true;
+/** Menu Royalties (recebimentos da marca): só quem o servidor diz que pode; o servidor confere de novo a cada pedido. */
+export const podeVerRoyalties = () => usuario?.verRoyalties === true;
 export const podeGerirAcessos = () => usuario?.papel === "dono" || usuario?.gerenciaAcessos === true;
 /** Unidades de quem tem acesso só a algumas; null = enxerga todas. */
 export const unidadesProprias = (): string[] | null => (usuario?.papel === "unidades" ? usuario.unidades : null);

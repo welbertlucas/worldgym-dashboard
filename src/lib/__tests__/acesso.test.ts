@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // @ts-expect-error módulos JS do servidor
-import { definirArmazem } from "../../../server/armazem.js";
+import { definirArmazem, gravarJson } from "../../../server/armazem.js";
 // @ts-expect-error módulos JS do servidor
 import * as acesso from "../../../server/acesso.js";
 // @ts-expect-error módulos JS do servidor
@@ -13,6 +13,8 @@ import usuarios from "../../../api/usuarios.js";
 import senhaApi from "../../../api/senha.js";
 // @ts-expect-error módulos JS do servidor
 import atividadeApi from "../../../api/atividade.js";
+// @ts-expect-error módulos JS do servidor
+import royaltiesApi from "../../../api/royalties.js";
 // @ts-expect-error módulos JS do servidor
 import * as avisos from "../../../server/avisos.js";
 // @ts-expect-error módulos JS do servidor
@@ -193,6 +195,59 @@ describe("acessos, níveis e registro", () => {
     const bia = (await post(tokenDono, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master" })).body.usuario;
     expect((await post(tokenAna, { acao: "atualizar", id: bia.id, geraRelatorios: true })).code).toBe(403);
     expect((await post(tokenAna, { acao: "criar", nome: "Caio", email: "caio@exemplo.com", papel: "master", geraRelatorios: true })).code).toBe(403);
+  });
+
+  it("royalties: dono e Master veem sempre; quem tem acesso só a unidades, só se o dono liberar; ninguém além do dono libera", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
+    const criar = async (nome: string, email: string, papel: string, extra: any = {}) => {
+      const c = (await post(tokenDono, { acao: "criar", nome, email, papel, ...extra })).body;
+      await trocaSenha(c.usuario.id, c.senhaProvisoria);
+      return { u: c.usuario, token: criarTokenUsuario(c.usuario.id).token };
+    };
+    const master = await criar("Ana Master", "ana@exemplo.com", "master");
+    const uni = await criar("Caio Unidade", "caio@exemplo.com", "unidades", { unidades: ["Gama"] });
+    const veLogin = async (token: string) => (await chama(login, com(token, { method: "GET" }))).body.usuario.verRoyalties;
+
+    expect(await veLogin(tokenDono)).toBe(true);
+    expect(await veLogin(master.token)).toBe(true);
+    expect(await veLogin(uni.token)).toBe(false);
+    expect(uni.u.verRoyalties).toBe(false);
+
+    // sem liberação: 403; com liberação: 200
+    expect((await chama(royaltiesApi, com(uni.token, { method: "GET" }))).code).toBe(403);
+    expect((await post(tokenDono, { acao: "atualizar", id: uni.u.id, verRoyalties: true })).body.usuario.verRoyalties).toBe(true);
+    expect(await veLogin(uni.token)).toBe(true);
+    expect((await chama(royaltiesApi, com(uni.token, { method: "GET" }))).code).toBe(200);
+    // tirar a liberação fecha de novo
+    await post(tokenDono, { acao: "atualizar", id: uni.u.id, verRoyalties: false });
+    expect((await chama(royaltiesApi, com(uni.token, { method: "GET" }))).code).toBe(403);
+
+    // a marca só vale para quem tem acesso a unidades: no Master ela não fica gravada
+    const m2 = (await post(tokenDono, { acao: "atualizar", id: master.u.id, verRoyalties: false })).body.usuario;
+    expect(m2.verRoyalties).toBe(true);
+    expect((await chama(royaltiesApi, com(master.token, { method: "GET" }))).code).toBe(200);
+
+    // quem gerencia acessos (Master liberado) não dá nem tira essa permissão
+    await post(tokenDono, { acao: "atualizar", id: master.u.id, gerenciaAcessos: true });
+    expect((await post(master.token, { acao: "atualizar", id: uni.u.id, verRoyalties: true })).code).toBe(403);
+    expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "unidades", unidades: ["Gama"], verRoyalties: true })).code).toBe(403);
+  });
+
+  it("api de royalties: sem login 401, só GET, avisa quando ainda não há dados, devolve o modelo e nunca vai para o cache", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    expect((await chama(royaltiesApi, { method: "GET" })).code).toBe(401);
+    expect((await chama(royaltiesApi, com(tokenDono, { method: "POST" }))).code).toBe(405);
+    const vazio = await chama(royaltiesApi, com(tokenDono, { method: "GET" }));
+    expect(vazio.body).toEqual({ disponivel: false });
+    expect(vazio.headers["Cache-Control"]).toBe("no-store");
+    await gravarJson("royalties/dados.json", { meses: [{ key: "2026-11", label: "nov/26" }], unidades: [{ nome: "Gama", tipo: "Taxa fixa" }] });
+    const cheio = await chama(royaltiesApi, com(tokenDono, { method: "GET" }));
+    expect(cheio.code).toBe(200);
+    expect(cheio.body).toMatchObject({ disponivel: true, meses: [{ key: "2026-11" }] });
+    expect(cheio.headers["Cache-Control"]).toBe("no-store");
   });
 
   it("Master liberado pelo dono gerencia acessos, mas não mexe no dono, não passa a permissão adiante nem muda o próprio nível", async () => {
