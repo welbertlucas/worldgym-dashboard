@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  contexto, csvDeDevedoras, devedoras, filtroInicial, fraseDeAbertura, matrizDeSituacao, resumoDoPeriodo, saldoDe, semCobranca, serieMensal, temSaldoCalculado, unidadesFiltradas,
+  concentracao, contexto, csvDeDevedoras, fraseDeConcentracao, devedoras, filtroInicial, fraseDeAbertura, matrizDeSituacao, resumoDoPeriodo, saldoDe, semCobranca, serieMensal, temSaldoCalculado, unidadesFiltradas,
 } from "@/data/royalties";
 import { MODELO } from "./royalties-fixture";
 
@@ -70,5 +70,24 @@ describe("royalties: devedoras, série e matriz", () => {
     expect(m[2].celulas[1]).toMatchObject({ situacao: "pago", ajuste: true });
     expect(matrizDeSituacao(c, { ...f0, tipo: "fixa" }).map((l) => l.unidade)).toEqual(["Alfa", "Beta"]);
     expect(saldoDe(c, "Delta")).toBe(0);
+  });
+});
+
+describe("royalties: concentração e risco", () => {
+  it("separa quem tem saldo (do maior ao menor) de quem não tem (da que mais pagou à que menos pagou)", () => {
+    const k = concentracao(c, f0);
+    expect(k.comSaldo.map((x) => x.unidade)).toEqual(["Alfa", "Gama"]);
+    expect(k.semSaldo.map((x) => x.unidade)).toEqual(["Beta", "Sigma", "Delta"]); // 200, 7 e 4 recebidos
+    expect(k.totalSaldo).toBe(215);
+    expect(k.totalRecebido).toBe(200 + 200 + 65 + 4 + 7); // sem o que não tem unidade: a concentração é por unidade
+  });
+
+  it("a frase muda com 3 ou mais devedoras, 1 ou 2 devedoras e nenhuma", () => {
+    expect(fraseDeConcentracao(concentracao(c, f0))).toEqual({ antes: "Alfa e Gama concentram todo o saldo devedor do filtro.", destaque: null, depois: "" });
+    expect(fraseDeConcentracao(concentracao(c, { ...f0, unidades: ["Alfa"] })).antes).toBe("Alfa concentra todo o saldo devedor do filtro.");
+    expect(fraseDeConcentracao(concentracao(c, { ...f0, unidades: ["Beta"] })).antes).toBe("Nenhum saldo devedor no filtro atual.");
+    const tres = contexto({ ...MODELO, pendencias: { ...MODELO.pendencias, linhas: [...MODELO.pendencias.linhas, { ...MODELO.pendencias.linhas[1], unidade: "Sigma", saldoTotal: 85 }] } });
+    const k3 = concentracao(tres, filtroInicial(tres));
+    expect(fraseDeConcentracao(k3)).toMatchObject({ antes: "As três maiores devedoras, Alfa, Sigma e Gama, somam ", destaque: "100%", depois: " do saldo devedor." });
   });
 });

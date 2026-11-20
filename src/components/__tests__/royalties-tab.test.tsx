@@ -28,6 +28,8 @@ describe("Royalties (menu e tela)", () => {
     for (const t of ["Resumo", "Recebido por mês", "Quem está devendo", "Situação de pagamento mês a mês", "Notas e premissas"]) expect(html).toContain(t);
     expect(html).toContain("Alfa");
     expect(html).toContain("Exportar CSV");
+    // a observação da planilha não vem aberta: só aparece ao clicar na unidade
+    expect(html).not.toContain("Acordo em duas parcelas.");
     expect(html).toContain("abr/26 ainda é parcial");
   });
 

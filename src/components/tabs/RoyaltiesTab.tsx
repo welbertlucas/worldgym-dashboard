@@ -9,6 +9,7 @@ import { FiltrosRoyalties } from "@/components/royalties/FiltrosRoyalties";
 import { ResumoRoyalties } from "@/components/royalties/ResumoRoyalties";
 import { RecebidoPorMes } from "@/components/royalties/RecebidoPorMes";
 import { QuemDeve } from "@/components/royalties/QuemDeve";
+import { ConcentracaoRisco } from "@/components/royalties/ConcentracaoRisco";
 import { MatrizSituacao } from "@/components/royalties/MatrizSituacao";
 import { NotasRoyalties } from "@/components/royalties/NotasRoyalties";
 
@@ -63,7 +64,10 @@ export function PainelRoyalties({ modelo }: { modelo: ModeloRoyalties }) {
       <FiltrosRoyalties c={c} f={f} onChange={setF} />
       <ResumoRoyalties c={c} f={f} />
       <RecebidoPorMes c={c} f={f} />
-      <QuemDeve c={c} f={f} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <QuemDeve c={c} f={f} />
+        <ConcentracaoRisco c={c} f={f} />
+      </div>
       <MatrizSituacao c={c} f={f} />
       <NotasRoyalties c={c} />
     </div>

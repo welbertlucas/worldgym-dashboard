@@ -172,6 +172,38 @@ export function fraseDeAbertura(c: ContextoRoyalties, f: FiltroRoyalties, r: Res
   return `${brl0(r.total)}${qual} recebidos entre ${entre}. ${r.saldoTotal > 0 ? unidadesEmAberto : "Nenhum valor em aberto."}`;
 }
 
+export interface LinhaConcentracao { unidade: string; tipo: Modalidade; recebido: number; saldo: number }
+export interface Concentracao {
+  totalRecebido: number;
+  totalSaldo: number;
+  /** Com saldo devedor, do maior para o menor. */
+  comSaldo: LinhaConcentracao[];
+  /** Sem saldo, da que mais pagou para a que menos pagou. */
+  semSaldo: LinhaConcentracao[];
+  /** As três maiores devedoras e quanto elas somam do saldo (0 a 1). */
+  maiores: string[];
+  fracaoMaiores: number;
+}
+
+/** Concentração: quanto cada unidade pesa no recebido e no saldo devedor do filtro atual, e quanto as três maiores devedoras concentram. */
+export function concentracao(c: ContextoRoyalties, f: FiltroRoyalties): Concentracao {
+  const ks = periodo(c, f);
+  const linhas = unidadesFiltradas(c, f).map((u) => ({ unidade: u, tipo: c.tipoDe[u], recebido: recebidoDe(c, u, ks), saldo: saldoDe(c, u) }));
+  const totalRecebido = soma(linhas.map((x) => x.recebido));
+  const totalSaldo = soma(linhas.map((x) => x.saldo));
+  const comSaldo = linhas.filter((x) => x.saldo > SEM_SALDO).sort((a, b) => b.saldo - a.saldo || a.unidade.localeCompare(b.unidade, "pt-BR"));
+  const semSaldo = linhas.filter((x) => x.saldo <= SEM_SALDO).sort((a, b) => b.recebido - a.recebido);
+  const top = comSaldo.slice(0, 3);
+  return { totalRecebido, totalSaldo, comSaldo, semSaldo, maiores: top.map((x) => x.unidade), fracaoMaiores: totalSaldo ? soma(top.map((x) => x.saldo)) / totalSaldo : 0 };
+}
+
+/** A frase de abertura da concentração, em partes, para o número poder ir em negrito. */
+export function fraseDeConcentracao(k: Concentracao): { antes: string; destaque: string | null; depois: string } {
+  if (k.comSaldo.length >= 3) return { antes: `As três maiores devedoras, ${lista(k.maiores)}, somam `, destaque: pct(k.fracaoMaiores), depois: " do saldo devedor." };
+  if (k.comSaldo.length) return { antes: `${lista(k.maiores)} ${k.comSaldo.length > 1 ? "concentram" : "concentra"} todo o saldo devedor do filtro.`, destaque: null, depois: "" };
+  return { antes: "Nenhum saldo devedor no filtro atual.", destaque: null, depois: "" };
+}
+
 /** Texto curto dos componentes do saldo de uma unidade (tooltip e lista de devedoras). */
 export function componentesDoSaldo(l: LinhaPendencia): string {
   return [l.saldoApuracao ? `Apuração ${brl(l.saldoApuracao)}` : "", l.dividaAnterior ? `dívida anterior/acordo ${brl(l.dividaAnterior)}` : "", l.variavel ? "royalties com valor esperado" : ""].filter(Boolean).join(" · ");
