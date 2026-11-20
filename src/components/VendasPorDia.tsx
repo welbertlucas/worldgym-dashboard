@@ -74,7 +74,7 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
       subtitle={subtitle}
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
-          <HeadlineStat label={partial ? "Novos contratos até agora" : "Novos contratos no mês"} value={int(realizado)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
+          <HeadlineStat label={partial ? "Matrículas e rematrículas até agora" : "Matrículas e rematrículas no mês"} value={int(realizado)} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
           {proj && <HeadlineStat label="Projeção para o fechamento" value={`≈ ${int(proj.valor)}`} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />}
           {nivel && <HeadlineStat label="No ritmo, a meta fecha em" value={TIER_LABEL[nivel]} swatch={<span className={`h-2 w-2 rounded-full ${nivel === "abaixo" ? "bg-destructive" : "bg-primary/60"}`} />} />}
           {Math.max(...visiveis, 0) > 0
@@ -98,7 +98,7 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
             </p>
           )}
           <p className="mt-2 text-sm text-muted-foreground">
-            Como chegamos nesse número: em {dias} dias saíram {int(proj.realizado)} novos contratos. {hist.length ? `Em ${hist.map(([m]) => curto(m)).join(", ")}, até o dia ${dias} tinham saído` : "Sem meses anteriores para comparar: no ritmo linear, esses dias são"} {dec(proj.fatia * 100)}% das vendas do mês
+            Como chegamos nesse número: em {dias} dias saíram {int(proj.realizado)} matrículas e rematrículas. {hist.length ? `Em ${hist.map(([m]) => curto(m)).join(", ")}, até o dia ${dias} tinham saído` : "Sem meses anteriores para comparar: no ritmo linear, esses dias são"} {dec(proj.fatia * 100)}% das vendas do mês
             {` (${int(proj.realizado)} ÷ ${dec(proj.fatia * 100)}% ≈ ${int(proj.valor)})`}
             {prox && prox.value > realizado && n > dias && <>; para o {TIER_LABEL[prox.tier]} faltam {int(prox.value - realizado)}, cerca de {dec((prox.value - realizado) / (n - dias))} por dia</>}.
           </p>
@@ -107,7 +107,7 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div>
-          <table className="w-full table-fixed border-separate border-spacing-1 text-xs" aria-label={`Novos contratos por dia em ${monthLabel}`}>
+          <table className="w-full table-fixed border-separate border-spacing-1 text-xs" aria-label={`Matrículas e rematrículas por dia em ${monthLabel}`}>
             <thead>
               <tr>{SEMANA.map((d) => <th key={d.sem} scope="col" className="pb-1 font-medium text-muted-foreground">{d.nome}</th>)}</tr>
             </thead>
@@ -150,7 +150,7 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
               {mediaMes && <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-primary" />{maiusc(mesNome)}{partial && " (até agora)"}</span>}
               {hist.length > 0 && <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-foreground/30" />Média {refNome}</span>}
             </div>
-            <ul className="space-y-2.5" aria-label="Média de novos contratos por dia da semana">
+            <ul className="space-y-2.5" aria-label="Média de matrículas e rematrículas por dia da semana">
               {SEMANA.map((d) => (
                 <li key={d.sem} className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.75rem] items-center gap-2 text-sm">
                   <span className={d.sem === melhorMes ? "font-semibold text-foreground" : "text-muted-foreground"}>{d.nome}</span>
@@ -177,7 +177,7 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
       </div>
 
       <p className="mt-4 text-xs text-muted-foreground">
-        Novos contratos (matrícula e rematrícula, sem renovação automática e sem diária) pelo dia da venda no EVO; o horário da venda não é confiável no EVO, por isso o mapa é por dia.
+        Matrículas e rematrículas (os contratos novos, sem renovação e sem diária) pelo dia da venda no EVO; o horário da venda não é confiável no EVO, por isso o mapa é por dia.
         {partial && " Dias tracejados ainda não fecharam (o EVO é lido de madrugada, então o dia de hoje entra amanhã)."}
         {partial && ` A projeção aparece a partir do dia ${DIAS_MINIMOS}: divide o realizado pela parte das vendas que os 3 meses anteriores tinham feito até o mesmo dia. Nos testes com jul–out/2026, errou em média 2% a 8% na rede e 12% a 15% numa unidade entre os dias 10 e 15, menos perto do fim do mês; é uma estimativa, não uma promessa.`}
       </p>

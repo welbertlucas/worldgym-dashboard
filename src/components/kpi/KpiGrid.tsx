@@ -31,6 +31,8 @@ export interface KpiSpec {
   projecao?: boolean;
   /** Zero significa "sem dado" (notas, NPS, receitas ainda não lançadas). */
   noDataIfZero?: boolean;
+  /** Mês em andamento: não escreve o "N% de X de <mês anterior>" embaixo do número (o medidor continua comparando com o mês anterior). */
+  semTextoDoMesAnterior?: boolean;
 }
 
 const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Recebimento"]);
@@ -38,7 +40,7 @@ const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Recebime
 function sourceOf(title: string, v: MonthView): string {
   if (EVO_TITLES.has(title)) return "EVO";
   if (title === "Inadimplência" && v.total.inadimplenciaEvo) return "EVO";
-  if (["Contratos Vendidos", "Novos Contratos", "Saldo de Clientes", "Vendas Online", "Diárias", "Camisetas", "Coqueteleiras", "Brinquedoteca", "WG Plus", "Pro+", "Receita Complementar"].includes(title) && v.total.vendasEvo) return "EVO";
+  if (["Total de Vendas", "Contratos Vendidos", "Novos Contratos", "Saldo de Clientes", "Vendas Online", "Diárias", "Camisetas", "Coqueteleiras", "Brinquedoteca", "WG Plus", "Pro+", "Receita Complementar"].includes(title) && v.total.vendasEvo) return "EVO";
   if (title === "Renovação" && v.total.renovacoesEvo) return "EVO";
   if (title === "Taxa de Personal" && v.total.personalEvo) return "EVO";
   if ((title === "Conversão de Cadastros" || title === "Conversão") && v.total.icvEvo) return "EVO";
@@ -106,7 +108,7 @@ export function KpiTile({ ctx, spec }: { ctx: KpiContext; spec: KpiSpec }) {
   const proj = spec.projecao && partial ? projetarFechamento(cur, fracaoDoMes(curV.month, evoAtualizadoEm ? new Date(evoAtualizadoEm) : new Date())) : null;
   const projDetalhe: MetricDetail | undefined = proj ? { text: `Projeção do mês: ${spec.fmt(proj)}`, tone: "neutral" } : undefined;
   const details = spec.kind === "flow" && partial
-    ? only(...extra, projDetalhe, base && base > 0 ? { text: `${Math.floor((cur / base) * 100)}% de ${spec.fmt(base)} de ${prevLabel}`, tone: "neutral" } : undefined)
+    ? only(...extra, projDetalhe, base && base > 0 && !spec.semTextoDoMesAnterior ? { text: `${Math.floor((cur / base) * 100)}% de ${spec.fmt(base)} de ${prevLabel}`, tone: "neutral" } : undefined)
     : only(...extra, variation(cur, base, mode, higher, prevLabel), variation(cur, lyVal, mode, higher, lyLabel));
 
   // Mês em andamento: as variações das taxas também ficam neutras (a base ainda é pequena).

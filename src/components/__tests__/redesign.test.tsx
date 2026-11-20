@@ -91,7 +91,7 @@ describe("mês em andamento", () => {
     ).replace(/<!-- -->/g, "");
     expect(html).toContain("em andamento");
     expect(html).toContain("Em andamento");
-    expect(html).toContain("provisória");
+    expect(html).toContain("provisório");
     expect(html).toMatch(/100% de R\$[^<]* de /); // faturamento parcial = quanto do mês anterior já foi alcançado
     expect(html).not.toContain("vs. set. de 2025"); // sem comparativo anual em mês parcial
   });

@@ -26,6 +26,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-20-total-de-vendas", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial", artigo: "diferente-do-evo",
+    titulo: "Comercial: Total de vendas como no EVO",
+    texto: "O Faturamento do Atlas soma as cobranças que venceram no mês e por isso nunca batia com o Total de vendas do Gerencial do EVO. Agora o Comercial também tem o cartão Total de vendas, que soma o valor das vendas de contrato do mês como o EVO faz, separado em recepção, cartão recorrente e online. O Faturamento continua em Financeiro. O cartão aparece nos meses em que o EVO já foi lido de novo; nos outros, fica sem dado.",
+  },
+  {
     id: "2026-11-20-contratos-vendidos-evo", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial", artigo: "diferente-do-evo",
     titulo: "Comercial: Contratos Vendidos como no EVO",
     texto: "O número de contratos do Atlas não batia com o do Gerencial do EVO, porque o Atlas contava só os contratos novos. Agora o cartão do Comercial se chama Contratos Vendidos e soma o mesmo que o EVO: matrículas, rematrículas e renovações feitas na recepção, sem a renovação automática do cartão, a diária e o personal. As metas de novos contratos e o Saldo de Clientes continuam contando só matrículas e rematrículas. O cartão aparece nos meses em que o EVO já foi lido de novo; nos outros, fica sem dado.",

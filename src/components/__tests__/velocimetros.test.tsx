@@ -180,7 +180,7 @@ import { viewFor } from "@/data/kpiView";
 
 describe("indicadores em meia-lua nas demais abas", () => {
   const A = month("2026-08", [unit("A", { faturamento: 1000, novosContratos: 100, vendasContratos: 100, diarias: 0, notaGoogle: 0 }), unit("B", { faturamento: 500, novosContratos: 50, vendasContratos: 50 })]);
-  const B = month("2026-09", [unit("A", { faturamento: 1100, novosContratos: 80, vendasContratos: 80, diarias: 50, notaGoogle: 4.5 }), unit("B", { faturamento: 400, novosContratos: 50, vendasContratos: 50 })]);
+  const B = month("2026-09", [unit("A", { faturamento: 1100, novosContratos: 80, vendasContratos: 80, vendasManuais: 1000, vendasRecorrentes: 9000, vendasOnlineContratos: 100, diarias: 50, notaGoogle: 4.5 }), unit("B", { faturamento: 400, novosContratos: 50, vendasContratos: 50 })]);
   const ctx = (partial = false): KpiContext => ({ cur: B, prev: A, partial });
   const html = (spec: (typeof comercialSpecs)[number], c = ctx()) => renderToString(<KpiTile ctx={c} spec={spec} />).replace(/<!-- -->/g, "");
   const find = (specs: typeof comercialSpecs, t: string) => specs.find((s) => s.title === t)!;
@@ -199,10 +199,24 @@ describe("indicadores em meia-lua nas demais abas", () => {
     expect(html(find(comercialSpecs, "Conversão de Cadastros"))).not.toContain("oportunidades cadastradas");
   });
 
+  it("total de vendas soma recepção, recorrente e online das unidades e mostra a parcela de cada uma", () => {
+    const h = html(find(comercialSpecs, "Total de Vendas"));
+    expect(h).toMatch(/10\.100/); // 1.000 + 9.000 + 100
+    expect(h).toContain("Recepção");
+    expect(h).toContain("Cartão recorrente");
+    expect(h).toContain("Online");
+  });
+
   it("contratos vendidos somam as unidades e comparam com o mês anterior citando o mês", () => {
     const h = html(find(comercialSpecs, "Contratos Vendidos"));
     expect(h).toContain("130"); // 80 + 50
     expect(h).toContain("-13,3% vs. ago. de 2026");
+  });
+
+  it("contratos vendidos, em mês em andamento, não escreve o texto de % do mês anterior (mas a projeção continua)", () => {
+    const h = html(find(comercialSpecs, "Contratos Vendidos"), ctx(true));
+    expect(h).not.toMatch(/\d+% de .+ de ago\. de 2026/);
+    expect(h).toContain("Projeção do mês");
   });
 
   it("mês em andamento: fluxo mostra % do mês anterior; taxa/nível compara direto; ambos marcados", () => {

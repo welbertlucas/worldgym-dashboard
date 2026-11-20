@@ -109,4 +109,18 @@ describe("contratos vendidos como no Gerencial do EVO (server/vendas.js)", () =>
     ], new Map(), 30)["Asa Norte"];
     expect(por.vendasContratos).toBe(2);
   });
+
+  it("total de vendas por origem: recepção, recorrência (origem 11 ou sem origem) e online, só de contratos", () => {
+    const por = resumirVendas([
+      venda("Ana", [{ ...plano(100), saleValue: 100 }], { saleSource: 1, registrationKind: "enrollment" }),
+      venda("Ana", [{ idMembership: 3, item: "TAXA DE PERSONAL", saleValue: 300 }], { saleSource: 1 }), // personal conta no total, como no EVO
+      venda("Ana", [{ idMembership: 1, saleValue: 25 }], { saleSource: 2, registrationKind: "enrollment" }),
+      venda(null, [{ idMembership: 1, idMembershipRenewed: 9, saleValue: 140 }], { saleSource: 11, registrationKind: "renewal" }),
+      venda(null, [{ idMembership: 1, idMembershipRenewed: 9, saleValue: 60 }], { saleSource: null, registrationKind: "renewal" }),
+      venda("Ana", [{ item: "CAMISETA", saleValue: 40 }], { saleSource: 1 }), // avulso: fora do total de contratos
+    ], new Map(), 30)["Asa Norte"];
+    expect(por.vendasManuais).toBe(400);
+    expect(por.vendasOnlineContratos).toBe(25);
+    expect(por.vendasRecorrentes).toBe(200);
+  });
 });

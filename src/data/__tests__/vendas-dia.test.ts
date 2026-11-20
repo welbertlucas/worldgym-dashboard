@@ -60,7 +60,7 @@ describe("vendas por dia do mês", () => {
   it("card: calendário, sem dado e mês fechado sem projeção", () => {
     const total = { vendasDia: Array.from({ length: 31 }, (_, i) => (i === 4 ? 40 : 10)) } as unknown as UnitData;
     const h = renderToString(createElement(VendasPorDia, { total, month: "2026-10", partial: false, unit: "Gama", atualizadoEm: null, metas: [] })).replace(/<!-- -->/g, "");
-    expect(h).toContain("Novos contratos no mês");
+    expect(h).toContain("Matrículas e rematrículas no mês");
     expect(h).toContain("340"); // 30 × 10 + 40
     expect(h).toContain("5/10"); // maior dia
     expect(h).toContain("Dia que mais vendeu em outubro"); // o próprio mês, não os anteriores

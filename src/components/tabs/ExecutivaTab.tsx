@@ -124,8 +124,8 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
     <div className="space-y-8 sm:space-y-10">
       {partial && (
         <Notice>
-          <b>{formatMonthLong(month.month)} está em andamento</b> — os valores são parciais e a comparação com o mês anterior é provisória.
-          {evalMonth && <> O plano de ação abaixo é de {formatMonthLong(month.month)}; a comparação entre unidades é de <b>{formatMonthLong(evalMonth)}</b>, o último mês fechado.</>}
+          <b>{formatMonthLong(month.month)} está em andamento</b> — valores e comparação provisórios.
+          {evalMonth && <> Plano de ação: {formatMonthLong(month.month).split(" de ")[0]}. Unidades comparadas em <b>{formatMonthLong(evalMonth)}</b>, último mês fechado.</>}
         </Notice>
       )}
 
