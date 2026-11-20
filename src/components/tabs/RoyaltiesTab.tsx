@@ -10,6 +10,8 @@ import { ResumoRoyalties } from "@/components/royalties/ResumoRoyalties";
 import { RecebidoPorMes } from "@/components/royalties/RecebidoPorMes";
 import { QuemDeve } from "@/components/royalties/QuemDeve";
 import { ConcentracaoRisco } from "@/components/royalties/ConcentracaoRisco";
+import { RoyaltiesPorUnidade } from "@/components/royalties/RoyaltiesPorUnidade";
+import { EsperadoRecebido } from "@/components/royalties/EsperadoRecebido";
 import { MatrizSituacao } from "@/components/royalties/MatrizSituacao";
 import { NotasRoyalties } from "@/components/royalties/NotasRoyalties";
 
@@ -69,6 +71,8 @@ export function PainelRoyalties({ modelo }: { modelo: ModeloRoyalties }) {
         <ConcentracaoRisco c={c} f={f} />
       </div>
       <MatrizSituacao c={c} f={f} />
+      <RoyaltiesPorUnidade c={c} f={f} onUnidade={(u) => setF({ ...f, tipo: "all", unidades: [u] })} />
+      <EsperadoRecebido c={c} f={f} onUnidade={(u) => setF({ ...f, tipo: "all", unidades: [u] })} />
       <NotasRoyalties c={c} />
     </div>
   );

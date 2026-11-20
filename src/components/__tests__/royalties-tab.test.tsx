@@ -31,6 +31,8 @@ describe("Royalties (menu e tela)", () => {
     // a observação da planilha não vem aberta: só aparece ao clicar na unidade
     expect(html).not.toContain("Acordo em duas parcelas.");
     expect(html).toContain("abr/26 ainda é parcial");
+    expect(html).toContain("Royalties por unidade");
+    expect(html).toContain("Esperado e recebido");
   });
 
   it("leitura que falhou na planilha mostra o aviso de versão antiga", () => {

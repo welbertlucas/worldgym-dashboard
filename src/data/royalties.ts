@@ -35,6 +35,8 @@ export interface ModeloRoyalties {
   situacaoAjustes?: { unidade: string; mes: string; planilha: string; exibido: string }[];
   notasExtra?: string[];
   premissas?: string[];
+  /** Unidade -> quando abriu (texto), para a marca de abertura no gráfico de royalties. */
+  aberturas?: Record<string, string>;
   meta: { geradoEm: string; planilha?: string; stale?: { motivo: string; tentativa: string } | null };
 }
 
