@@ -105,14 +105,12 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
       ...(top ? [{ text: `${Math.floor((previsao / top.value) * 100)}% da meta ${TIER_LABEL[top.tier]} (${formatMetaValue("faturamento", top.value)})`, tone: "neutral" as const }] : []),
     ];
   };
-  const recebRatio = t.faturamento ? (t.recebimento / t.faturamento) * 100 : 0;
+  // Quanto do que foi cobrado (títulos) já foi pago: as duas pontas pela conta das cobranças. O Faturamento do cartão é o Total de Vendas, outra conta.
+  const cobrado = t.faturamentoTitulos ?? t.faturamento;
+  const recebRatio = cobrado ? (t.recebimento / cobrado) * 100 : 0;
   const specs: KpiSpec[] = [
     faturamentoSpec,
-    // Só no mês em andamento: o que ainda vai vencer até o fim do mês somado ao que já venceu (mês fechado = faturamento).
-    ...(parcial && t.previsaoFaturamento !== undefined
-      ? [{ title: "Previsão de faturamento", kind: "flow" as const, pick: (v: MonthData) => v.total.previsaoFaturamento ?? v.total.faturamento, fmt: formatAbbreviatedNumber, extra: noPeriodo ? undefined : ritmoDaMeta(t.previsaoFaturamento!) }]
-      : []),
-    { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do faturamento`, tone: "neutral" }] },
+    { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do que foi cobrado`, tone: "neutral" }] },
     { title: "Vendas Online", kind: "flow", pick: (v) => v.total.vendasOnline, fmt: brl },
     { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pctText },
     { title: "Inadimplência", kind: "rate", rateKey: "inadimplenciaPerc", pick: (v) => v.total.inadimplenciaPerc, fmt: pctText },

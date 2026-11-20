@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error módulos JS do servidor
 import { parseMetas, situacaoMeta } from "../../../server/metas.js";
 // @ts-expect-error módulos JS do servidor
-import { valoresDoDia, montarResumo, renderizarEmail, totalizar, unidadesDoUsuario, alertasDe, mesmoDiaMesAnterior, diaAnterior, dadosDeHoje, fotoDe, assunto, textoPrevia, enviarEmail, chaveDoEnvio, enviarSmtp, envioConfigurado, remetente, anexosSmtp, gruposDeAlertas } from "../../../server/resumo.js";
+import { indicadores, valoresDoDia, montarResumo, renderizarEmail, totalizar, unidadesDoUsuario, alertasDe, mesmoDiaMesAnterior, diaAnterior, dadosDeHoje, fotoDe, assunto, textoPrevia, enviarEmail, chaveDoEnvio, enviarSmtp, envioConfigurado, remetente, anexosSmtp, gruposDeAlertas } from "../../../server/resumo.js";
 
 const un = (name: string, o: any = {}) => ({ name, faturamento: 1000, recebimento: 800, vendasOnline: 600, diarias: 100, personal: 50, pagantes: 100, adimplentes: 90, inadimplentes: 10, oportunidades: 50, conversoes: 10, ativosIni: 110, contratosVendidos: [["Anual", 6, 3000], ["Mensal", 9, 1800], ["Semestral", 2, 1600], ["Trimestral", 1, 400]], ativosFim: 120, aVencer: 10, naoRenovados: 2, cancelados: 3, novosContratos: 7, npsPromotores: 8, npsDetratores: 2, npsRespostas: 10, ...o });
 const agora = "2026-11-10T04:00:00.000Z";
@@ -332,6 +332,38 @@ describe("resumo diário", () => {
     const h2 = renderizarEmail(semAlerta, { papel: "unidades" });
     expect(h2).toContain(">Abrir o Atlas<");
     expect(h2).toContain("mailto:lucas.lima@worldgymbrasil.com.br"); // sem configuração, vale o contato padrão
+  });
+});
+
+describe("faturamento do e-mail = Total de Vendas do EVO (a mesma conta do painel)", () => {
+  const venda = (name: string, manual: number, recorrente: number, online: number, o: any = {}) => un(name, { faturamento: 999, vendasManuais: manual, vendasRecorrentes: recorrente, vendasOnlineContratos: online, ...o });
+  const mesesV = [{ month: "2026-11", generatedAt: agora, units: [venda("Asa Norte", 100, 50, 11), venda("Gama", 20, 30, 0)] }];
+
+  it("o faturamento do e-mail é recepção + cartão recorrente + online; sem vendas lidas (ou lidas zeradas), fica o dos títulos", () => {
+    expect(indicadores(venda("Asa Norte", 100, 50, 11))).toMatchObject({ faturamento: 161, fatV: 1 });
+    expect(indicadores(un("Gama", { faturamento: 700 }))).toMatchObject({ faturamento: 700, fatV: 0 });
+    expect(indicadores(venda("Itapoã", 0, 0, 0, { faturamento: 400 }))).toMatchObject({ faturamento: 400, fatV: 0 });
+    const r = montarResumo(mesesV, { papel: "master", nome: "Ana" }, "2026-11-10");
+    expect(r.total.faturamento).toBe(211);
+    expect(r.total.fatV).toBe(1);
+  });
+
+  it("foto de ontem ou do mês passado feita pela conta antiga não compara faturamento (nem alerta); com a mesma conta, compara", () => {
+    const antiga = { dia: "2026-10-09", units: { "Asa Norte": fotoDe({ units: [un("Asa Norte", { faturamento: 1000 })] }, "x").units["Asa Norte"], Gama: fotoDe({ units: [un("Gama", { faturamento: 1000 })] }, "x").units["Gama"] } };
+    const r = montarResumo(mesesV, { papel: "master", nome: "Ana" }, "2026-11-10", antiga, null, antiga);
+    expect(r.totalRef.faturamento).toBeNull(); // 211 contra 2.000 dos títulos viraria "queda de 89%": não compara
+    expect(r.dia.faturamento).toBeNull(); // a foto de ontem também é da conta antiga
+    expect(r.alertas.some((a: any) => /Faturamento abaixo/.test(a.titulo))).toBe(false);
+    const html = renderizarEmail(r, { nome: "Ana" });
+    expect(html).not.toContain("O faturamento de ontem foi de");
+    expect(html).toMatch(/O faturamento do mês soma/);
+    expect(assunto(r)).toContain("no mês");
+    // fotos feitas com a conta nova (têm a marca): o dia e o mesmo dia do mês passado comparam normalmente
+    const nova = { dia: "2026-11-09", units: { "Asa Norte": indicadores(venda("Asa Norte", 80, 40, 11)), Gama: indicadores(venda("Gama", 10, 20, 0)) } };
+    const r2 = montarResumo(mesesV, { papel: "master", nome: "Ana" }, "2026-11-10", nova, null, nova);
+    expect(r2.dia.faturamento).toBe(211 - 161); // 50 vendidos no dia
+    expect(r2.totalRef.faturamento).toBe(161);
+    expect(assunto(r2)).toContain("ontem");
   });
 });
 

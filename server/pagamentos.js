@@ -47,7 +47,8 @@ function somarCartaoPor(titulos, campo) {
 }
 
 /**
- * Por gateway (adquirente), no cartão (crédito e débito): [quantidade de cobranças pagas, taxas registradas pelo EVO no campo `fees`].
+ * Por gateway (adquirente), no cartão (crédito e débito): [quantidade de cobranças pagas, taxas registradas pelo EVO no campo `fees`,
+ * quantas dessas cobranças têm taxa registrada]. O terceiro número mostra o quanto a taxa está completa: cobrança sem taxa entra como zero.
  * Só totais: nada de aluno. O valor recebido por gateway sai de `somarGateways`.
  */
 export function somarGatewaysDet(titulos) {
@@ -55,9 +56,9 @@ export function somarGatewaysDet(titulos) {
   for (const r of titulos) {
     if (!live(r) || !(r.ammountPaid > 0) || !/card/i.test(r.paymentType?.name ?? "")) continue;
     const nome = r.cardAcquirer?.trim() || "Não informada";
-    const o = (out[nome] ??= [0, 0]);
+    const o = (out[nome] ??= [0, 0, 0]);
     o[0] += 1;
-    o[1] += Number(r.fees) > 0 ? Number(r.fees) : 0;
+    if (Number(r.fees) > 0) { o[1] += Number(r.fees); o[2] += 1; }
   }
   for (const k of Object.keys(out)) out[k][1] = round2(out[k][1]);
   return out;

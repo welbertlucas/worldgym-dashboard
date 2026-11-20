@@ -171,6 +171,8 @@ export interface UnitData {
   ativosEvo?: boolean;
   /** Mês em andamento: o que ainda vai vencer até o fim do mês + o já vencido (vem do EVO). */
   previsaoFaturamento?: number;
+  /** Faturamento pela conta dos títulos (cobranças que já venceram no mês), guardado quando o faturamento da unidade passa a ser o Total de Vendas: serve à projeção "o que ainda vai vencer". */
+  faturamentoTitulos?: number;
   /** Contratos ativos hoje (foto do EVO; só existe no mês corrente). */
   alunosAtivos?: number;
   contratosAtivos?: number;
@@ -221,7 +223,8 @@ export interface UnitData {
   /** Recebido no mês em cartão por gateway / adquirente (Stone → valor). */
   gatewaysCartao?: Record<string, number>;
   /** Por gateway: [cobranças de cartão pagas no mês, taxas registradas no campo `fees` do EVO]. Meses antigos não têm. */
-  gatewaysDet?: Record<string, [number, number]>;
+  /** Por gateway: [cobranças pagas, taxas registradas pelo EVO, cobranças com taxa registrada]. O terceiro número não existe nos meses lidos antes dele. */
+  gatewaysDet?: Record<string, DetGateway>;
 }
 
 /** [quantidade, valor] por tipo de venda. `auto` (parte de `renov`) = renovação automática de plano de recorrência mensal; meses antigos não têm. */
@@ -711,14 +714,24 @@ export function somarMapas(ms: (Record<string, number> | undefined)[]): Record<s
   return out;
 }
 
-/** Soma mapas nome → [quantidade, valor] de várias unidades (gateways: cobranças e taxas). */
-export function somarDet(ms: (Record<string, [number, number]> | undefined)[]): Record<string, [number, number]> {
-  const out: Record<string, [number, number]> = {};
-  for (const m of ms) for (const [k, [n, v]] of Object.entries(m ?? {})) { const o = (out[k] ??= [0, 0]); o[0] += n; o[1] = Math.round((o[1] + v) * 100) / 100; }
-  return out;
+export type DetGateway = [number, number, number?];
+/**
+ * Soma mapas nome → [cobranças, taxas, cobranças com taxa] de várias unidades. Se alguma das partes não tem o terceiro número (mês lido antes dele),
+ * a soma também não tem: não dá para dizer o quanto da taxa está completa.
+ */
+export function somarDet(ms: (Record<string, DetGateway> | undefined)[]): Record<string, DetGateway> {
+  const out: Record<string, [number, number, number]> = {};
+  const semCobertura = new Set<string>();
+  for (const m of ms) for (const [k, t] of Object.entries(m ?? {})) {
+    const o = (out[k] ??= [0, 0, 0]);
+    o[0] += t[0];
+    o[1] = Math.round((o[1] + t[1]) * 100) / 100;
+    if (t[2] === undefined) semCobertura.add(k); else o[2] += t[2];
+  }
+  return Object.fromEntries(Object.entries(out).map(([k, o]) => [k, semCobertura.has(k) ? ([o[0], o[1]] as DetGateway) : (o as DetGateway)]));
 }
 /** Como `normalizarNomes`, para mapas [quantidade, valor]: o mesmo gateway escrito de jeitos diferentes vira um só. */
-export function normalizarDet(m: Record<string, [number, number]>, f: (n: string) => string): Record<string, [number, number]> {
+export function normalizarDet(m: Record<string, DetGateway>, f: (n: string) => string): Record<string, DetGateway> {
   return somarDet(Object.entries(m).map(([k, v]) => ({ [f(k)]: v })));
 }
 
@@ -832,9 +845,9 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       unit.recebimento = e.recebimento;
       unit.previsaoFaturamento = e.previsaoFaturamento;
       // Um só faturamento em todo o Atlas: o Total de Vendas do EVO. Sem vendas lidas no mês (ou lidas zeradas com cobrança existindo), fica a conta antiga
-      // dos títulos. A previsão por títulos deixa de valer onde a nova conta vale: a projeção do mês vem do ritmo de vendas.
+      // dos títulos. A previsão por títulos (o que ainda vai vencer no mês) segue guardada com o faturamento dos títulos ao lado: a projeção do Financeiro usa as duas.
       const tv = totalDeVendas(e);
-      if (tv !== null && (tv > 0 || !e.faturamento)) { unit.faturamento = tv; unit.previsaoFaturamento = undefined; }
+      if (tv !== null && (tv > 0 || !e.faturamento)) { unit.faturamento = tv; unit.faturamentoTitulos = e.faturamento; }
       // Etapa 2: inadimplência vem do EVO quando o mês já foi calculado com ela (bateu com a planilha em
       // 0,2 p.p. de diferença mediana).
       if (e.inadimplentes !== undefined) {
@@ -954,7 +967,10 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       faturamento: md.units.reduce((s, u) => s + u.faturamento, 0),
       recebimento: md.units.reduce((s, u) => s + u.recebimento, 0),
       ...(md.units.some((u) => u.previsaoFaturamento !== undefined)
-        ? { previsaoFaturamento: md.units.reduce((s, u) => s + (u.previsaoFaturamento ?? u.faturamento), 0) }
+        ? {
+            previsaoFaturamento: md.units.reduce((s, u) => s + (u.previsaoFaturamento ?? u.faturamentoTitulos ?? u.faturamento), 0),
+            ...(md.units.some((u) => u.faturamentoTitulos !== undefined) ? { faturamentoTitulos: md.units.reduce((s, u) => s + (u.faturamentoTitulos ?? u.faturamento), 0) } : {}),
+          }
         : {}),
       ...(evo.units.some((e) => e.cancelados !== undefined && e.ativosIni !== undefined)
         ? (() => {

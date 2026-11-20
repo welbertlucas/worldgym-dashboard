@@ -92,7 +92,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   ], { tela: "comercial", imagem: "comercial" }),
   a("telas", "tela-financeiro", "Financeiro", "Faturamento, recebimento, inadimplência e notas fiscais.", [
     "Resumo: faturamento, recebimento, inadimplência e ticket médio, com a previsão de faturamento até o fim do mês.",
-    "Recebimento: formas de pagamento, bandeiras de cartão e taxas cobradas. No cartão, o gateway (Stone, Rede, Cielo...) mostra quanto entrou por cada um, quantas cobranças foram e o ticket; quando o EVO informa, também as taxas e quanto elas pesam no recebido.",
+    "Recebimento: formas de pagamento, bandeiras de cartão e taxas cobradas. No cartão, o gateway (Stone, Rede, Cielo...) mostra quanto entrou por cada um, quantas cobranças foram e o ticket; quando o EVO informa, também as taxas e quanto elas pesam no recebido. Esse percentual é a taxa que o EVO registrou, não a cobrada no extrato da operadora; a cobrança sem taxa registrada entra como zero, e por isso o card diz em quantos % das cobranças há taxa registrada (abaixo de 90% o número fica marcado como incompleto).",
     "Inadimplência: cobranças de cartão recusadas, saldo devedor por unidade e o perfil de quem está em atraso.",
     "Notas fiscais: notas emitidas no mês por unidade.",
   ], { tela: "financeiro", imagem: "financeiro" }),

@@ -67,7 +67,7 @@ describe("mergeEvo: previsão de faturamento", () => {
 });
 
 describe("mergeEvo: um só faturamento (o Total de Vendas do EVO)", () => {
-  it("o faturamento da unidade vira recepção + cartão recorrente + online, e a previsão por títulos deixa de valer", () => {
+  it("o faturamento da unidade vira recepção + cartão recorrente + online; a previsão e o faturamento por títulos seguem guardados para a projeção", () => {
     const data = [month("2026-11", [unit("Gama"), unit("Itapoã")])];
     mergeEvo(data, [{ month: "2026-11", units: [
       { name: "Gama", faturamento: 174, recebimento: 150, previsaoFaturamento: 200, vendasManuais: 100, vendasRecorrentes: 50, vendasOnlineContratos: 11 },
@@ -75,8 +75,9 @@ describe("mergeEvo: um só faturamento (o Total de Vendas do EVO)", () => {
     ] }]);
     expect(data[0].units.map((u) => u.faturamento)).toEqual([161, 10]);
     expect(data[0].total.faturamento).toBe(171);
-    expect(data[0].units.every((u) => u.previsaoFaturamento === undefined)).toBe(true);
-    expect(data[0].total.previsaoFaturamento).toBeUndefined();
+    expect(data[0].units.map((u) => [u.previsaoFaturamento, u.faturamentoTitulos])).toEqual([[200, 174], [30, 20]]);
+    expect(data[0].total.previsaoFaturamento).toBe(230);
+    expect(data[0].total.faturamentoTitulos).toBe(194); // o que já venceu pelos títulos: base de "o que ainda vai vencer" (230 - 194)
     expect(data[0].total.recebimento).toBe(165); // o recebimento não muda
   });
 

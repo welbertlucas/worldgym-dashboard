@@ -10,6 +10,12 @@ import { lerJson, gravarJson } from "./armazem.js";
 import { INDICADORES_META, situacaoMeta, formatarMeta } from "./metas.js";
 import { alertasLiberacoes } from "./alertasLiberacoes.js";
 
+/**
+ * Faturamento do Atlas = Total de Vendas do EVO (recepção + cartão recorrente + online), a mesma conta do painel (src/data/dashboardData.ts, totalDeVendas).
+ * null quando o mês não tem as vendas lidas; então vale o faturamento dos títulos, a conta antiga.
+ */
+export const totalDeVendas = (u) => (u.vendasManuais === undefined && u.vendasRecorrentes === undefined && u.vendasOnlineContratos === undefined ? null : (Number(u.vendasManuais) || 0) + (Number(u.vendasRecorrentes) || 0) + (Number(u.vendasOnlineContratos) || 0));
+
 export const unidadesDoUsuario = (u) => (u.papel === "unidades" ? (u.unidades ?? []) : UNIDADES_DA_REDE);
 
 // ---------- números ----------
@@ -21,8 +27,11 @@ export const complementar = (x) => ["diarias", "personal", "camisetas", "coquete
 
 /** O que interessa de uma unidade no mês (e que a foto diária guarda). */
 export function indicadores(x) {
+  // `fatV` marca o faturamento que é o Total de Vendas (a foto diária guarda a marca): fotos antigas, feitas com a conta dos títulos, não se comparam com ele.
+  const tv = totalDeVendas(x);
+  const usaVendas = tv !== null && (tv > 0 || !num(x.faturamento));
   const o = {
-    faturamento: num(x.faturamento), recebimento: num(x.recebimento), vendasOnline: num(x.vendasOnline), complementar: complementar(x),
+    faturamento: usaVendas ? tv : num(x.faturamento), fatV: usaVendas ? 1 : 0, recebimento: num(x.recebimento), vendasOnline: num(x.vendasOnline), complementar: complementar(x),
     adimplentes: num(x.adimplentes), inadimplentes: num(x.inadimplentes), pagantes: num(x.pagantes) || num(x.adimplentes) + num(x.inadimplentes),
     cancelados: num(x.cancelados), aVencer: num(x.aVencer), naoRenovados: num(x.naoRenovados),
     renovados: Math.max(0, num(x.aVencer) - num(x.naoRenovados)), recuperadas: num(x.cobrancas?.recuperadas ?? x.recuperadas),
@@ -48,6 +57,7 @@ export function totalizar(lista) {
   t.inadimplenciaPerc = pctInad(t);
   t.conversao = taxaConversao(t.oportunidades, t.conversoes);
   t.contratos = somarContratos(lista);
+  t.fatV = lista.length > 0 && lista.every((x) => x.fatV) ? 1 : 0; // todos com o faturamento por vendas
   return t;
 }
 
@@ -65,6 +75,8 @@ const ADITIVOS = ["faturamento", "vendasOnline", "novosContratos", "complementar
 export function valoresDoDia(atual, base) {
   if (!base) return null;
   const d = Object.fromEntries(ADITIVOS.map((k) => [k, Math.max(0, num(atual[k]) - num(base[k]))]));
+  // O faturamento do dia só vale se os dois lados usam a mesma conta (foto de ontem feita pelos títulos não serve): senão fica null e o e-mail mostra o do mês.
+  if (!(base.zero || (base.fatV ? 1 : 0) === (atual.fatV ? 1 : 0))) d.faturamento = null;
   d.conversao = taxaConversao(d.oportunidades, d.conversoes);
   d.nps = d.npsRespostas > 0 ? Math.round(((d.npsPromotores - d.npsDetratores) / d.npsRespostas) * 100) : null;
   d.adimplentes = base.zero ? null : num(atual.adimplentes) - num(base.adimplentes);
@@ -286,8 +298,12 @@ export function montarResumo(meses, usuario, hoje = hojeBR(), ref = null, metas 
   // Gestor ou sócio de mais de uma unidade: o e-mail é a soma das unidades dele, com a que mais faturou e a que mais caiu.
   const maisDeUma = usuario.papel === "unidades" && atuais.length > 1;
   const refs = ref ? Object.entries(ref.units ?? {}).filter(([n]) => nomes.has(n)).map(([nome, v]) => ({ nome, ...v })) : [];
+  // Foto do mesmo dia do mês passado feita com outra conta de faturamento (títulos x Total de Vendas): não compara o faturamento (null = sem comparação); as outras comparações seguem.
+  let contasDiferentes = false;
+  for (const r of refs) if ((r.fatV ? 1 : 0) !== (atuais.find((a) => a.nome === r.nome)?.fatV ? 1 : 0)) { r.faturamento = null; contasDiferentes = true; }
   const total = totalizar(atuais);
   const totalRef = refs.length ? totalizar(refs) : null;
+  if (totalRef && (contasDiferentes || (totalRef.fatV ? 1 : 0) !== (total.fatV ? 1 : 0))) totalRef.faturamento = null;
   const multi = atuais.length > 1;
   const ve = vigentesDoUsuario(vigentes, nomes, usuario.papel);
   const alertas = ve ? ve.alertas : alertasDe(total, totalRef, multi ? (usuario.papel === "unidades" ? "Suas unidades" : "A rede") : atuais[0].nome);
@@ -326,7 +342,7 @@ const dataCurta = (ms) => { const d = new Date(ms); return `${pad(d.getUTCDate()
 export function assunto(r) {
   if (r.desatualizado) return `World Gym Atlas · resumo de ${dataCurta(r.ateDia)}`;
   const quem = r.unidade ?? (r.maisDeUma ? "Suas unidades" : "Rede World Gym");
-  return `${quem}: ${r.dia ? `${brl(r.dia.faturamento)} ontem` : `${brl(r.total.faturamento)} no mês`}`;
+  return `${quem}: ${r.dia && r.dia.faturamento !== null ? `${brl(r.dia.faturamento)} ontem` : `${brl(r.total.faturamento)} no mês`}`;
 }
 
 /** Quanto falta para a meta ouro de faturamento ("" sem meta). Vai na prévia, não no assunto (o assunto ficava longo demais). */
@@ -474,7 +490,7 @@ export function renderizarEmail(r, usuario, { url = "https://atlas.worldgymacade
 
   // ---- caixa "No resumo de hoje" (como o "Na edição de hoje" do Resumo BP)
   const destaques = [
-    ["💰", d ? `${b(brl(d.faturamento))} de faturamento ontem` : `${b(brl(t.faturamento))} de faturamento no mês`],
+    ["💰", d && d.faturamento !== null ? `${b(brl(d.faturamento))} de faturamento ontem` : `${b(brl(t.faturamento))} de faturamento no mês`],
     ["🛒", d ? `${d.novosContratos ? b(`${int(d.novosContratos)} ${d.novosContratos === 1 ? "contrato vendido" : "contratos vendidos"}`) : "Nenhum contrato vendido"} e ${b(brl(d.vendasOnline))} em vendas online ontem` : `${b(int(t.novosContratos))} contratos vendidos no mês`],
     ["🤝", `${d ? (d.cancelados ? `${b(int(d.cancelados))} ${d.cancelados === 1 ? "cancelamento" : "cancelamentos"} ontem` : "Nenhum cancelamento ontem") : `${b(int(t.cancelados))} cancelamentos no mês`}; inadimplência em ${b(`${virg(t.inadimplenciaPerc)}%`)}`],
     ...(t.nps !== null ? [["⭐", `NPS ${b(String(t.nps))} no mês`]] : []),
@@ -500,7 +516,7 @@ ${destaques.map(([e, txt]) => `<p style="margin:0 0 12px;font-family:${sans};fon
   const vContr = ontem(d?.novosContratos, (x) => `${int(x)} ${x === 1 ? "contrato novo" : "contratos novos"}`, "nenhum contrato novo");
   const fatMes = `${b(brl(t.faturamento))}${entre(vari(t.faturamento, f?.faturamento))}`;
   const vendas = secao("Vendas", "💰", `
-<p style="${P}">${d ? `O faturamento de ontem foi de ${b(brl(d.faturamento))}, e o mês já soma ${fatMes}.` : `O faturamento do mês soma ${fatMes}.`} ${metaTxt}</p>${fraseUnidades(r.destaquesUnidades)}
+<p style="${P}">${d && d.faturamento !== null ? `O faturamento de ontem foi de ${b(brl(d.faturamento))}, e o mês já soma ${fatMes}.` : `O faturamento do mês soma ${fatMes}.`} ${metaTxt}</p>${fraseUnidades(r.destaquesUnidades)}
 <p style="${P}">${d ? `Ontem entraram ${vOnline ? `${b(vOnline)} em vendas online` : "nenhuma venda online"} e ${b(vContr)}. ` : ""}No mês, são ${b(`${int(t.novosContratos)} contratos vendidos`)}${entre(vari(t.novosContratos, f?.novosContratos))} e ${b(brl(t.vendasOnline))} em vendas online${entre(vari(t.vendasOnline, f?.vendasOnline))}.</p>
 <p style="${P}">As receitas complementares somaram ${d ? `${b(brl(d.complementar))} ontem e ` : ""}${b(brl(t.complementar))} no mês${entre(vari(t.complementar, f?.complementar))}. A conversão média está em ${b(`${virg(t.conversao ?? 0)}%`)}${entre(vari(t.conversao, convRef, { pp: true }))}.</p>`);
 

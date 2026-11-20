@@ -47,5 +47,6 @@ export function projecaoFaturamento(total: UnitData, month: string, partial: boo
   const ticket = tv && nVendas > 0 ? (tv.novo[1] + tv.remat[1]) / nVendas : 0;
   const faltam = contratos ? Math.max(0, contratos.valor - (total.novosContratos ?? contratos.realizado)) : 0;
   const vendasFuturas = contratos && ticket ? faltam * ticket : null;
-  return { jaVenceu: total.faturamento, lancado, vendasFuturas, estimativa: lancado + (vendasFuturas ?? 0), faltam, ticket, contratos };
+  // O que já venceu é pela conta dos títulos (o "lançado" também é): o faturamento do Atlas, que é o Total de Vendas, mede outra coisa.
+  return { jaVenceu: total.faturamentoTitulos ?? total.faturamento, lancado, vendasFuturas, estimativa: lancado + (vendasFuturas ?? 0), faltam, ticket, contratos };
 }

@@ -208,16 +208,24 @@ describe("formas de pagamento", () => {
   it("conta as cobranças e soma as taxas por gateway, só no cartão e só o que foi pago", () => {
     const t = (forma: string, acq: string | null, v: number, fees?: number) => ({ paymentType: { id: 1, name: forma }, cardAcquirer: acq, ammountPaid: v, fees, idMemberPayer: 1 });
     const det = somarGatewaysDet([t("Credit card", "Stone", 100, 1.7), t("Debit card", "Stone", 50, 0.55), t("Credit card", "Rede", 200, 0), t("Credit card", null, 10, 0.1), t("Deposit", "Stone", 99, 9), t("Credit card", "Stone", 0, 5)]);
-    expect(det).toEqual({ Stone: [2, 2.25], Rede: [1, 0], "Não informada": [1, 0.1] });
+    expect(det).toEqual({ Stone: [2, 2.25, 2], Rede: [1, 0, 0], "Não informada": [1, 0.1, 1] }); // o terceiro número: cobranças com taxa registrada
     // o mesmo gateway escrito de jeitos diferentes e a soma entre unidades
-    expect(normalizarDet({ Redecard: [2, 1], REDE: [3, 2] }, nomeGateway)).toEqual({ Rede: [5, 3] });
+    expect(normalizarDet({ Redecard: [2, 1], REDE: [3, 2] }, nomeGateway)).toEqual({ Rede: [5, 3] }); // meses antigos, sem o terceiro número
+    expect(normalizarDet({ Redecard: [2, 1, 1], REDE: [3, 2, 3] }, nomeGateway)).toEqual({ Rede: [5, 3, 4] });
     expect(somarDet([{ Stone: [2, 1.5] }, undefined, { Stone: [1, 0.25], Rede: [4, 0] }])).toEqual({ Stone: [3, 1.75], Rede: [4, 0] });
+    // soma com o terceiro número só se todas as partes o têm (senão não dá para dizer o quanto está completo)
+    expect(somarDet([{ Stone: [2, 1.5, 2] }, { Stone: [1, 0.25, 1], Rede: [4, 0, 0] }])).toEqual({ Stone: [3, 1.75, 3], Rede: [4, 0, 0] });
+    expect(somarDet([{ Stone: [2, 1.5, 2] }, { Stone: [1, 0.25] }])).toEqual({ Stone: [3, 1.75] });
   });
   it("o card de gateway mostra cobranças, ticket e taxas quando o mês tem o detalhe, e segue sem ele nos meses antigos", () => {
     const sp = (x?: string) => x?.replace(/\u00a0/g, " ");
     expect(sp(detalheDoGateway([689, 820], 109467))).toBe("689 cobranças · ticket R$ 159 · taxas R$ 820 (0,75%)");
     expect(sp(detalheDoGateway([1, 0], 50))).toBe("1 cobrança · ticket R$ 50");
     expect(detalheDoGateway(undefined, 100)).toBeUndefined();
+    // com o quanto a taxa está completa
+    expect(sp(detalheDoGateway([1408, 2040.15, 1407], 191542.66))).toBe("1.408 cobranças · ticket R$ 136 · taxas R$ 2.040 (1,07%) · taxa registrada em 100% das cobranças");
+    expect(sp(detalheDoGateway([88, 29.4, 31], 11555.53))).toBe("88 cobranças · ticket R$ 131 · taxas R$ 29 (0,25%) · taxa registrada em 35% das cobranças (incompleta)");
+    expect(sp(detalheDoGateway([10, 0, 0], 1000))).toBe("10 cobranças · ticket R$ 100 · sem taxa registrada no EVO");
     const com = renderToString(<GatewaysCartao total={{ gatewaysCartao: { Stone: 700, Rede: 300 }, gatewaysDet: { Stone: [7, 14] } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
     expect(com).toContain("7 cobranças");
     expect(com).toContain("taxas");

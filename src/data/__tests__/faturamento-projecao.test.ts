@@ -15,6 +15,13 @@ describe("FaturamentoProjecao", () => {
     expect(t).toContain("Como é calculado");
     expect(t).toContain("75,0% do total"); // 600 mil de 800 mil
   });
+  it("com o faturamento sendo o Total de Vendas: o que já venceu vem dos títulos, não do cartão Faturamento", () => {
+    // faturamento 700 mil (vendas) e 600 mil de títulos que já venceram, de 800 mil lançados: já venceu 75%, e ainda vai vencer 200 mil
+    const t = h({ total: { faturamento: 700000, faturamentoTitulos: 600000, previsaoFaturamento: 800000 } as Partial<UnitData> }).replace(/\u00a0/g, " ");
+    expect(t).toContain("75,0% do total");
+    expect(t).toContain("mais R$ 200.000");
+    expect(t).toContain("Conta pelas cobranças (títulos)");
+  });
   it("sem vendas por dia: só o lançado, avisando da estimativa", () => {
     const t = h({}).replace(/\u00a0/g, " ");
     expect(t).not.toContain("Estimativa de fechamento");

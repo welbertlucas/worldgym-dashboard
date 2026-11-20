@@ -36,7 +36,7 @@ export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm,
   return (
     <ChartCard
       title="Projeção de faturamento até o final do mês"
-      subtitle={<>{unit ?? "Rede"} • {formatMonthLong(month)} (mês em andamento)</>}
+      subtitle={<>{unit ?? "Rede"} • {formatMonthLong(month)} (mês em andamento). Conta pelas cobranças (títulos) lançadas no EVO, por isso pode diferir do cartão Faturamento, que mostra as vendas do mês.</>}
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
           <HeadlineStat label="Já lançado no EVO" value={brl(lancado)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
