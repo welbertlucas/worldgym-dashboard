@@ -32,6 +32,9 @@ export const CONTAS = [
   // DF&GO; o dashboard-leitura recebeu "Ver desempenho" em 12/11/2026. Ponte Alta soma as duas contas dela.
   { id: "1481281986831660", conta: "World Gym Jardim Ingá", unidade: "Jardim Ingá-GO", token: "DFGO" },
   { id: "937567348598291", conta: "World Gym Ponte Alta", unidade: "Ponte Alta", token: "DFGO" },
+  // Anúncios de Goiânia: conta do portfólio World Gym Goiânia (id 661959090343608), compartilhada com o DF&GO só com
+  // "Ver desempenho" e atribuída ao dashboard-leitura em 20/11/2026. Soma com a "WG 15 - Goiânia Pro", que vem vazia.
+  { id: "27363913456584109", conta: "C.A WorldGYN", unidade: "Goiânia Pro-GO", token: "DFGO" },
 ];
 
 const LEAD = new Set(["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"]);
