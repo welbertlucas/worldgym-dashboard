@@ -31,17 +31,19 @@ interface Props {
   source?: string;
   /** Como o indicador é calculado (botão "i"). */
   help?: string;
+  /** Cor própria do arco (substitui a do tom). */
+  color?: string;
 }
 
 /** Indicador em meia-lua: número dentro do arco, comparado ao mês anterior (marca no arco + chips). */
-export function KpiGaugeCard({ title, value, fill, marker, tone, details, partial, footer, source, help }: Props) {
+export function KpiGaugeCard({ title, value, fill, marker, tone, details, partial, footer, source, help, color }: Props) {
   return (
     <div className={cn("p-5 flex flex-col items-center gap-3 text-center", TILE_FRAME)}>
       <div className="flex w-full items-center justify-between gap-2">
         <h4 className="flex items-center gap-1 text-sm font-medium text-muted-foreground">{title}{help && <InfoTip label={title}>{help}</InfoTip>}</h4>
         {partial && <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">Em andamento</span>}
       </div>
-      <HalfMoon fill={fill} marker={marker} color={TONE_COLOR[tone]} label={`${title}: ${value}${partial ? " (parcial, mês em andamento)" : ""}`} className="max-w-[13rem]">
+      <HalfMoon fill={fill} marker={marker} color={color ?? TONE_COLOR[tone]} label={`${title}: ${value}${partial ? " (parcial, mês em andamento)" : ""}`} className="max-w-[13rem]">
         <span className="font-display text-[2rem] leading-none font-semibold tracking-tight text-foreground tabular-nums">{value}</span>
       </HalfMoon>
       {details.length > 0 && (
