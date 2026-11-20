@@ -179,8 +179,8 @@ import { MetasKpiCard } from "@/components/executiva/MetasKpiCard";
 import { viewFor } from "@/data/kpiView";
 
 describe("indicadores em meia-lua nas demais abas", () => {
-  const A = month("2026-08", [unit("A", { faturamento: 1000, novosContratos: 100, diarias: 0, notaGoogle: 0 }), unit("B", { faturamento: 500, novosContratos: 50 })]);
-  const B = month("2026-09", [unit("A", { faturamento: 1100, novosContratos: 80, diarias: 50, notaGoogle: 4.5 }), unit("B", { faturamento: 400, novosContratos: 50 })]);
+  const A = month("2026-08", [unit("A", { faturamento: 1000, novosContratos: 100, vendasContratos: 100, diarias: 0, notaGoogle: 0 }), unit("B", { faturamento: 500, novosContratos: 50, vendasContratos: 50 })]);
+  const B = month("2026-09", [unit("A", { faturamento: 1100, novosContratos: 80, vendasContratos: 80, diarias: 50, notaGoogle: 4.5 }), unit("B", { faturamento: 400, novosContratos: 50, vendasContratos: 50 })]);
   const ctx = (partial = false): KpiContext => ({ cur: B, prev: A, partial });
   const html = (spec: (typeof comercialSpecs)[number], c = ctx()) => renderToString(<KpiTile ctx={c} spec={spec} />).replace(/<!-- -->/g, "");
   const find = (specs: typeof comercialSpecs, t: string) => specs.find((s) => s.title === t)!;
@@ -199,8 +199,8 @@ describe("indicadores em meia-lua nas demais abas", () => {
     expect(html(find(comercialSpecs, "Conversão de Cadastros"))).not.toContain("oportunidades cadastradas");
   });
 
-  it("novos contratos somam as unidades e comparam com o mês anterior citando o mês", () => {
-    const h = html(find(comercialSpecs, "Novos Contratos"));
+  it("contratos vendidos somam as unidades e comparam com o mês anterior citando o mês", () => {
+    const h = html(find(comercialSpecs, "Contratos Vendidos"));
     expect(h).toContain("130"); // 80 + 50
     expect(h).toContain("-13,3% vs. ago. de 2026");
   });

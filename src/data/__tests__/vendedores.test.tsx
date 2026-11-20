@@ -84,3 +84,19 @@ describe("card Vendedores que mais vendem", () => {
     expect(h).toContain("Sem vendas de plano por vendedor");
   });
 });
+
+describe("contratos vendidos como no Gerencial do EVO (server/vendas.js)", () => {
+  it("soma matrícula, rematrícula e renovação feitas na recepção ou online; fica de fora a recorrência automática, a diária e o personal", () => {
+    const por = resumirVendas([
+      venda("Ana", [plano(100)], { saleSource: 1, registrationKind: "enrollment" }), // matrícula
+      venda("Ana", [plano(100)], { saleSource: 2, registrationKind: "re-enrollment" }), // online
+      venda("Ana", [plano(100, 99)], { saleSource: 1, registrationKind: "renewal" }), // renovação na recepção: conta
+      venda(null, [plano(100, 99)], { saleSource: 11, registrationKind: "renewal" }), // recorrência automática: não conta
+      venda("Ana", [{ idMembership: 3, item: "TAXA DE PERSONAL", saleValue: 300 }], { saleSource: 1 }), // personal: não conta
+      venda("Ana", [{ idMembership: 4, item: "WG DIÁRIA 30,00", saleValue: 30 }], { saleSource: 1 }), // diária: não conta
+      venda("Ana", [{ item: "CAMISETA", saleValue: 40 }], { saleSource: 1 }), // sem contrato: não conta
+    ], new Map(), 30)["Asa Norte"];
+    expect(por.vendasContratos).toBe(3);
+    expect(por.novosContratos).toBe(2 + 1 /* o personal sem renovação */ ); // a conta de "novos" segue como antes
+  });
+});

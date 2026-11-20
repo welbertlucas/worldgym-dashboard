@@ -153,7 +153,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   a("duvidas", "diferente-do-evo", "Por que um número é diferente do que vejo no EVO?", "O Atlas usa regras próprias e é gravado de madrugada.", [
     "Cada indicador tem uma regra de cálculo, explicada em “O que significa cada indicador” e no botão “i” de cada card. O painel Gerencial do EVO usa outras regras, e o número dele muda durante o dia. O Atlas é gravado de madrugada, então os dois só batem por acaso.",
     "Faturamento: o Atlas soma as cobranças (títulos) que venceram no mês, pagas ou não, e deixa de fora as cobranças de saldo devedor, que são dívida de antes. O “Total de vendas” do EVO soma as vendas lançadas. Os dois medem coisas diferentes, e o EVO ainda tira vendas ao longo do dia, como as de cartão recusado.",
-    "Contratos vendidos: o Atlas conta só contratos novos (matrículas e rematrículas) e deixa de fora as renovações e as diárias. O EVO conta também as renovações feitas na recepção.",
+    "Contratos vendidos: o cartão Contratos Vendidos do Atlas segue o do EVO e soma matrículas, rematrículas e renovações feitas na recepção, sem a renovação automática do cartão, a diária e o personal. Já as metas de novos contratos e o Saldo de Clientes continuam contando só matrículas e rematrículas (contratos novos), sem as renovações.",
     "Conversão: segue o relatório de cadastro e conversão de oportunidades, e não o número de visitantes do Resumo gerencial do EVO, que usa outra regra e também conta quem se cadastrou antes e fechou agora. Esse grupo aparece à parte, na coluna “De cadastros antigos” de Oportunidades por unidade.",
     "Se mesmo assim o número parecer errado, avise quem liberou o seu acesso.",
   ], { atualizadoEm: "2026-11-20" }),

@@ -17,7 +17,7 @@ export const oportunidadesCadastradas = (v: MonthView): MetricDetail[] =>
   v.total.oportunidades > 0 ? [{ text: `${int(v.total.oportunidades)} oportunidades cadastradas`, tone: "neutral" }] : [];
 
 export const comercialSpecs: KpiSpec[] = [
-  { title: "Novos Contratos", kind: "flow", projecao: true, pick: (v) => sumUnits(v, (u) => u.novosContratos), fmt: int },
+  { title: "Contratos Vendidos", kind: "flow", noDataIfZero: true, projecao: true, extra: [{ text: "Como no Gerencial do EVO: inclui renovações feitas na recepção", tone: "neutral" }], pick: (v) => sumUnits(v, (u) => u.vendasContratos ?? 0), fmt: int },
   { title: "Saldo de Clientes", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
   {
     title: "Conversão de Cadastros", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pct,
