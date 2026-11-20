@@ -39,6 +39,7 @@ export function AcessosTab() {
   const [editando, setEditando] = useState<UsuarioApi | null>(null);
   const [consulta, setConsulta] = useState("");
   const [quantos, setQuantos] = useState(ACESSOS_POR_VEZ);
+  const [ordem, setOrdem] = useState<"nome" | "recentes" | "antigos">("nome");
 
   const carregar = useCallback(async () => {
     const [a, r, at] = await Promise.all([listarAcessos(), lerRegistro(), ehDono() ? lerAtividade() : Promise.resolve(null)]);
@@ -62,7 +63,16 @@ export function AcessosTab() {
   if (dados.legado) return <PrimeiroDono />;
 
   // 10 de cada vez ("Ver mais"); com busca, todos os encontrados.
-  const achados = filtrarAcessos(dados.usuarios, consulta);
+  const filtrados = filtrarAcessos(dados.usuarios, consulta);
+  // "Último acesso": do mais recente para o mais antigo (quem nunca entrou fica no fim); "Mais antigos" inverte, com quem nunca entrou primeiro.
+  const quandoFoi = (u: UsuarioApi) => { const e = ultimoAcesso.get(u.email); return e ? Date.parse(e) : null; };
+  const achados = ordem === "nome" ? filtrados : [...filtrados].sort((a, b) => {
+    const x = quandoFoi(a), y = quandoFoi(b);
+    if (x === y) return 0;
+    if (x === null) return ordem === "recentes" ? 1 : -1;
+    if (y === null) return ordem === "recentes" ? -1 : 1;
+    return ordem === "recentes" ? y - x : x - y;
+  });
   const mostrados = consulta.trim() ? achados : achados.slice(0, quantos);
   const restantes = achados.length - mostrados.length;
   const mostrarSenha = (nome: string, senha: string, email?: EmailDeAcesso) => setSenhaNova({ nome, senha, email });
@@ -103,6 +113,13 @@ export function AcessosTab() {
       <section aria-labelledby="ac-lista" className="card-surface overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
           <h3 id="ac-lista" className="text-base font-semibold text-foreground">Acessos criados <span className="font-normal text-muted-foreground">({dados.usuarios.length})</span></h3>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">Ordenar por
+            <select value={ordem} onChange={(e) => { setOrdem(e.target.value as typeof ordem); setQuantos(ACESSOS_POR_VEZ); }} aria-label="Ordenar acessos" className="h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              <option value="nome">Nome</option>
+              <option value="recentes">Último acesso (mais recente)</option>
+              <option value="antigos">Último acesso (mais antigo)</option>
+            </select>
+          </label>
           <label className="flex w-full max-w-xs items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-ring">
             <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
             <input type="search" value={consulta} onChange={(e) => setConsulta(e.target.value)} placeholder="Buscar por nome, e-mail ou unidade" aria-label="Buscar acessos" className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
