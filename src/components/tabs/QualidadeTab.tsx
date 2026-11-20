@@ -46,7 +46,7 @@ export function QualidadeConteudo({ estado, hoje = hojeBR(), recarregar = () => 
       {ativa === "visita" && <NovaVisita dados={d} hoje={hoje} onSalvou={(u) => { setUnidade(u); setAba("visitas"); recarregar(); }} />}
       {ativa === "visitas" && <Visitas key={unidade} dados={d} unidadeInicial={unidade} onMudou={recarregar} />}
       {ativa === "rotina" && <Rotina dados={d} hoje={hoje} onMudou={recarregar} />}
-      {ativa === "checklists" && <Modelos modelos={d.modelos} onMudou={recarregar} />}
+      {ativa === "checklists" && <Modelos modelos={d.modelos} unidades={d.unidades} onMudou={recarregar} />}
     </div>
   );
 }

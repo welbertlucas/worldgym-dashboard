@@ -7,18 +7,21 @@ import { toast } from "@/hooks/use-toast";
 import { FOTO_ROTULO, FREQUENCIA_ROTULO, MODELO_ABERTURA, MODELO_SUGERIDO, TIPO_ROTULO, type Frequencia, type ItemModelo, type ModeloChecklist, type PedeFoto, type TipoItem } from "@/data/qualidade";
 import { apagarModelo, salvarModelo } from "@/lib/qualidade";
 
-type Rascunho = { id?: string; nome: string; descricao: string; frequencia: Frequencia; ativo: boolean; itens: (Partial<ItemModelo> & { texto: string; grupo: string; peso: number; foto: PedeFoto; tipo?: TipoItem })[] };
+type Rascunho = { id?: string; nome: string; descricao: string; frequencia: Frequencia; ativo: boolean; itens: (Partial<ItemModelo> & { texto: string; grupo: string; peso: number; foto: PedeFoto; tipo?: TipoItem; foraDe?: string[] })[] };
 const novo = (): Rascunho => ({ nome: "", descricao: "", frequencia: "visita", ativo: true, itens: [{ texto: "", grupo: "", peso: 1, foto: "nenhuma" }] });
 const sugerido = (): Rascunho => ({ ...MODELO_SUGERIDO, ativo: true, itens: MODELO_SUGERIDO.itens.map((i) => ({ ...i })) });
 const abertura = (): Rascunho => ({ ...MODELO_ABERTURA, ativo: true, itens: MODELO_ABERTURA.itens.map((i) => ({ ...i })) });
 const deModelo = (m: ModeloChecklist): Rascunho => ({ id: m.id, nome: m.nome, descricao: m.descricao, frequencia: m.frequencia, ativo: m.ativo, itens: m.itens.map((i) => ({ ...i })) });
 
-function Editor({ inicial, onSalvou, onCancelar }: { inicial: Rascunho; onSalvou: () => void; onCancelar: () => void }) {
+function Editor({ inicial, unidades, onSalvou, onCancelar }: { inicial: Rascunho; unidades: string[]; onSalvou: () => void; onCancelar: () => void }) {
   const [m, setM] = useState(inicial);
   const [colar, setColar] = useState("");
+  const [unidadeAjuste, setUnidadeAjuste] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
   const item = (i: number, campos: Partial<Rascunho["itens"][number]>) => setM((s) => ({ ...s, itens: s.itens.map((x, j) => (j === i ? { ...x, ...campos } : x)) }));
+  /** Marca ou desmarca uma unidade na lista "não vale" de um item (valer = tirar da lista). */
+  const valeNa = (i: number, u: string, vale: boolean) => setM((s) => ({ ...s, itens: s.itens.map((x, j) => { if (j !== i) return x; const fora = new Set(x.foraDe ?? []); if (vale) fora.delete(u); else fora.add(u); return { ...x, foraDe: [...fora] }; }) }));
   const mover = (i: number, d: number) => setM((s) => { const a = [...s.itens]; const j = i + d; if (j < 0 || j >= a.length) return s; [a[i], a[j]] = [a[j], a[i]]; return { ...s, itens: a }; });
   const salvar = async () => {
     setErro("");
@@ -66,10 +69,40 @@ function Editor({ inicial, onSalvou, onCancelar }: { inicial: Rascunho; onSalvou
             <Select aria-label={`Tipo do item ${i + 1}`} className="h-9 sm:col-span-full sm:w-72" value={it.tipo ?? "conforme"} onChange={(e) => item(i, { tipo: e.target.value as TipoItem })}>
               {(Object.keys(TIPO_ROTULO) as TipoItem[]).map((t) => <option key={t} value={t}>{TIPO_ROTULO[t]}</option>)}
             </Select>
+            <details className="sm:col-span-full">
+              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">Vale para: {(it.foraDe ?? []).length === 0 ? "todas as unidades" : `${unidades.length - (it.foraDe ?? []).length} de ${unidades.length} unidades`}</summary>
+              <div className="mt-2 space-y-2 rounded-lg bg-secondary/30 p-2">
+                <div className="flex gap-3 text-xs">
+                  <button type="button" onClick={() => item(i, { foraDe: [] })} className="font-medium underline-offset-2 hover:underline">Todas</button>
+                  <button type="button" onClick={() => item(i, { foraDe: [...unidades] })} className="font-medium underline-offset-2 hover:underline">Nenhuma</button>
+                </div>
+                <div className="grid gap-x-3 gap-y-1 sm:grid-cols-3">
+                  {unidades.map((u) => (
+                    <label key={u} className="flex items-center gap-1.5 text-xs text-foreground"><input type="checkbox" checked={!(it.foraDe ?? []).includes(u)} onChange={(e) => valeNa(i, u, e.target.checked)} className="h-3.5 w-3.5 rounded border-input accent-[hsl(var(--primary))]" />{u}</label>
+                  ))}
+                </div>
+              </div>
+            </details>
           </div>
         ))}
         <Button type="button" variant="outline" size="sm" onClick={() => setM((s) => ({ ...s, itens: [...s.itens, { texto: "", grupo: s.itens[s.itens.length - 1]?.grupo ?? "", peso: 1, foto: "nenhuma" }] }))}><Plus className="h-4 w-4" aria-hidden /> Item</Button>
       </div>
+
+      <details className="rounded-xl border border-border bg-secondary/30 p-3">
+        <summary className="cursor-pointer text-sm font-medium text-foreground">Ajustar por unidade (quais itens valem para cada uma)</summary>
+        <p className="mt-2 text-xs text-muted-foreground">Escolha a unidade e desmarque os itens que não existem nela (ex.: área de lutas). O item que não vale não é perguntado na visita e não conta na nota dessa unidade. Também dá para ajustar item por item, em "Vale para", na linha de cada item.</p>
+        <Select aria-label="Unidade a ajustar" className="mt-2 h-9 w-64 max-w-full" value={unidadeAjuste} onChange={(e) => setUnidadeAjuste(e.target.value)}>
+          <option value="">Escolha a unidade…</option>
+          {unidades.map((u) => <option key={u} value={u}>{u}{m.itens.some((i) => (i.foraDe ?? []).includes(u)) ? ` · ${m.itens.filter((i) => (i.foraDe ?? []).includes(u)).length} fora` : ""}</option>)}
+        </Select>
+        {unidadeAjuste && (
+          <ul className="mt-2 space-y-1">
+            {m.itens.map((it, i) => it.texto.trim() && (
+              <li key={i}><label className="flex items-start gap-2 text-sm text-foreground"><input type="checkbox" checked={!(it.foraDe ?? []).includes(unidadeAjuste)} onChange={(e) => valeNa(i, unidadeAjuste, e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" /><span>{it.texto}{it.grupo && <span className="text-xs text-muted-foreground"> · {it.grupo}</span>}</span></label></li>
+            ))}
+          </ul>
+        )}
+      </details>
 
       <details className="rounded-xl border border-border bg-secondary/30 p-3">
         <summary className="cursor-pointer text-sm font-medium text-foreground">Colar vários itens de uma vez</summary>
@@ -92,7 +125,7 @@ function Editor({ inicial, onSalvou, onCancelar }: { inicial: Rascunho; onSalvou
 }
 
 /** Os checklists da franqueadora: criar, editar, tirar de uso e apagar. As visitas já feitas guardam o próprio texto e não mudam. */
-export function Modelos({ modelos, onMudou }: { modelos: ModeloChecklist[]; onMudou: () => void }) {
+export function Modelos({ modelos, unidades = [], onMudou }: { modelos: ModeloChecklist[]; unidades?: string[]; onMudou: () => void }) {
   const [editando, setEditando] = useState<Rascunho | null>(null);
   const apagar = async (m: ModeloChecklist) => {
     if (!window.confirm(`Apagar o checklist "${m.nome}"? As visitas já registradas continuam; só deixa de poder ser escolhido.`)) return;
@@ -100,7 +133,7 @@ export function Modelos({ modelos, onMudou }: { modelos: ModeloChecklist[]; onMu
     if (!r.ok) return toast({ title: "Não consegui apagar", description: r.erro, variant: "destructive" });
     onMudou();
   };
-  if (editando) return <ChartCard title={editando.id ? "Editar checklist" : "Novo checklist"}><Editor inicial={editando} onSalvou={() => { setEditando(null); onMudou(); }} onCancelar={() => setEditando(null)} /></ChartCard>;
+  if (editando) return <ChartCard title={editando.id ? "Editar checklist" : "Novo checklist"}><Editor inicial={editando} unidades={unidades} onSalvou={() => { setEditando(null); onMudou(); }} onCancelar={() => setEditando(null)} /></ChartCard>;
   return (
     <ChartCard title="Checklists" subtitle="As listas de itens: as da visita da franqueadora e as que a própria unidade preenche (frequência diária, semanal ou mensal)." legend={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => setEditando(sugerido())}>Usar o roteiro sugerido</Button><Button variant="outline" size="sm" onClick={() => setEditando(abertura())}>Usar o checklist de abertura sugerido</Button><Button size="sm" onClick={() => setEditando(novo())}><Plus className="h-4 w-4" aria-hidden /> Novo checklist</Button></div>}>
       {modelos.length === 0 ? (
@@ -110,7 +143,7 @@ export function Modelos({ modelos, onMudou }: { modelos: ModeloChecklist[]; onMu
           {modelos.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-b-0">
               <span className="min-w-0 text-sm"><span className="font-medium text-foreground">{m.nome}</span>{!m.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Fora de uso</span>}
-                <span className="block text-xs text-muted-foreground">{m.itens.length} itens · {FREQUENCIA_ROTULO[m.frequencia]}{m.itens.some((i) => i.foto !== "nenhuma") ? ` · ${m.itens.filter((i) => i.foto !== "nenhuma").length} pedem foto` : ""}</span></span>
+                <span className="block text-xs text-muted-foreground">{m.itens.length} itens · {FREQUENCIA_ROTULO[m.frequencia]}{m.itens.some((i) => i.foto !== "nenhuma") ? ` · ${m.itens.filter((i) => i.foto !== "nenhuma").length} pedem foto` : ""}{m.itens.some((i) => (i.foraDe ?? []).length > 0) ? ` · ${m.itens.filter((i) => (i.foraDe ?? []).length > 0).length} com unidades de fora` : ""}</span></span>
               <span className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setEditando(deModelo(m))}>Editar</Button><Button variant="ghost" size="sm" onClick={() => void apagar(m)} aria-label={`Apagar ${m.nome}`}><Trash2 className="h-4 w-4" aria-hidden /></Button></span>
             </li>
           ))}

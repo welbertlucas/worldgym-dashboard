@@ -7,7 +7,7 @@ import { NovaVisita } from "@/components/qualidade/NovaVisita";
 import { Rotina } from "@/components/qualidade/Rotina";
 import { ChecklistDaUnidade } from "@/components/qualidade/ChecklistDaUnidade";
 import { itensDoMenu, TODOS_OS_MENUS, nomeDaTela } from "@/components/nav";
-import type { DadosQualidade, Visita } from "@/data/qualidade";
+import { itensDaUnidade, type DadosQualidade, type Visita } from "@/data/qualidade";
 
 const limpo = (h: string) => h.replace(/<!-- -->/g, "").replace(/ /g, " ");
 const MODELO = { id: "m1", nome: "Roteiro de visitação", descricao: "", frequencia: "visita" as const, ativo: true, atualizadoEm: "2026-11-20T00:00:00Z", itens: [{ id: "i1", grupo: "Banheiros", texto: "Banheiro feminino limpo", peso: 2, foto: "nao_conforme" as const }, { id: "i2", grupo: "Equipe", texto: "Equipe uniformizada", peso: 1, foto: "nenhuma" as const }] };
@@ -63,7 +63,16 @@ describe("Qualidade (menu e telas)", () => {
     expect(html).toContain("Roteiro de visitação");
     expect(html).toContain("2 itens");
     expect(html).toContain("Usar o roteiro sugerido");
+    const comFora = { ...MODELO, itens: [{ ...MODELO.itens[0], foraDe: ["Gama"] }, MODELO.itens[1]] };
+    expect(limpo(renderToString(<Modelos modelos={[comFora]} unidades={["Asa Norte", "Gama"]} onMudou={() => {}} />))).toContain("1 com unidades de fora");
     expect(limpo(renderToString(<Modelos modelos={[]} onMudou={() => {}} />))).toContain("Crie o primeiro");
+  });
+
+  it("nova visita: o item que não vale para a unidade escolhida não aparece", () => {
+    const m = { ...MODELO, itens: [MODELO.itens[0], { ...MODELO.itens[1], foraDe: ["Gama"] }] };
+    // sem unidade escolhida o formulário nem abre; o filtro vale pelo helper usado na tela
+    expect(itensDaUnidade(m.itens, "Gama").map((i: any) => i.texto)).toEqual(["Banheiro feminino limpo"]);
+    expect(itensDaUnidade(m.itens, "Asa Norte")).toHaveLength(2);
   });
 
   it("nova visita: sem checklist avisa; com checklist pede unidade e checklist", () => {

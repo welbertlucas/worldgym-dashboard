@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { type DadosQualidade, type ItemModelo, type ModeloChecklist, pctTexto } from "@/data/qualidade";
+import { type DadosQualidade, type ItemModelo, type ModeloChecklist, itensDaUnidade, pctTexto } from "@/data/qualidade";
 import { enviarFoto, reduzirFoto, salvarEnvio, salvarVisita } from "@/lib/qualidade";
 
 type FotoLocal = { previa: string; dados: string };
@@ -151,13 +151,15 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const modelo: ModeloChecklist | undefined = ativos.find((m) => m.id === modeloId);
+  // Só os itens que valem para a unidade escolhida (o que não vale para ela nem é perguntado nem conta na nota).
+  const itens = useMemo(() => itensDaUnidade(modelo?.itens ?? [], unidade), [modelo, unidade]);
   const grupos = useMemo(() => {
     const m = new Map<string, ItemModelo[]>();
-    for (const i of modelo?.itens ?? []) m.set(i.grupo, [...(m.get(i.grupo) ?? []), i]);
+    for (const i of itens) m.set(i.grupo, [...(m.get(i.grupo) ?? []), i]);
     return [...m.entries()];
-  }, [modelo]);
-  const lista = (modelo?.itens ?? []).map((i) => respostas[i.id] ?? vazia());
-  const nota = notaAgora(modelo?.itens ?? [], lista, data);
+  }, [itens]);
+  const lista = itens.map((i) => respostas[i.id] ?? vazia());
+  const nota = notaAgora(itens, lista, data);
 
   if (ativos.length === 0) return <ChartCard title={daUnidade ? "Checklist da unidade" : "Nova visita"}><ChartEmpty>{daUnidade ? "Ainda não há checklist disponível para a sua unidade." : "Crie um checklist na aba Checklists para registrar a primeira visita."}</ChartEmpty></ChartCard>;
 
@@ -166,8 +168,8 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
     setErro("");
     setEnviando(true);
     try {
-      const itens = [];
-      for (const item of modelo.itens) {
+      const itensEnviados = [];
+      for (const item of itens) {
         const r = respostas[item.id] ?? vazia();
         const fotos: string[] = [];
         for (const f of r.fotos) {
@@ -187,11 +189,11 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
             equipamentos.push({ codigo: e.codigo, descricao: e.descricao, fotos: ids });
           }
         }
-        itens.push({ itemId: item.id, conforme: item.tipo === "vencimento" ? null : r.conforme, comentario: r.comentario, fotos, ...(item.tipo === "equipamentos" ? { equipamentos } : {}), ...(item.tipo === "vencimento" ? { vencimento: r.vencimento } : {}) });
+        itensEnviados.push({ itemId: item.id, conforme: item.tipo === "vencimento" ? null : r.conforme, comentario: r.comentario, fotos, ...(item.tipo === "equipamentos" ? { equipamentos } : {}), ...(item.tipo === "vencimento" ? { vencimento: r.vencimento } : {}) });
       }
       const res = daUnidade
-        ? await salvarEnvio({ modeloId: modelo.id, unidade, respostas: itens, observacao })
-        : await salvarVisita({ modeloId: modelo.id, unidade, data, chegada, saida, respostas: itens, observacao });
+        ? await salvarEnvio({ modeloId: modelo.id, unidade, respostas: itensEnviados, observacao })
+        : await salvarVisita({ modeloId: modelo.id, unidade, data, chegada, saida, respostas: itensEnviados, observacao });
       if (!res.ok) { setErro(res.erro); setEnviando(false); return; }
       toast(daUnidade ? { title: "Checklist enviado", description: `${unidade}: ${modelo.nome}.` } : { title: "Visita registrada", description: `${unidade}: nota ${pctTexto((res.dados as { visita: { nota: number | null } }).visita.nota)}.` });
       setRespostas({}); setObservacao(""); setModeloId(""); setChegada(""); setSaida("");

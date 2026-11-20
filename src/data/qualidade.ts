@@ -7,7 +7,9 @@ export type PedeFoto = "nenhuma" | "nao_conforme" | "sempre";
 export const FOTO_ROTULO: Record<PedeFoto, string> = { nenhuma: "Foto opcional", nao_conforme: "Obrigatória se não conforme", sempre: "Sempre obrigatória" };
 export type TipoItem = "conforme" | "equipamentos" | "vencimento";
 export const TIPO_ROTULO: Record<TipoItem, string> = { conforme: "Conforme ou não", equipamentos: "Lista de equipamentos parados", vencimento: "Data de vencimento (certificado)" };
-export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto; tipo?: TipoItem }
+export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto; tipo?: TipoItem; /** Unidades em que o item não vale (vale para todas as outras). */ foraDe?: string[] }
+/** Itens do checklist que valem para a unidade (os marcados como "não vale" para ela ficam de fora). */
+export const itensDaUnidade = (itens: ItemModelo[], unidade: string): ItemModelo[] => itens.filter((i) => !(i.foraDe ?? []).includes(unidade));
 export interface EquipamentoParado { codigo: string; descricao: string; fotos: string[] }
 export interface ModeloChecklist { id: string; nome: string; descricao: string; frequencia: Frequencia; itens: ItemModelo[]; ativo: boolean; atualizadoEm: string }
 export interface RespostaVisita { itemId: string; grupo: string; texto: string; peso?: number; tipo?: TipoItem; conforme: boolean | null; comentario: string; fotos: string[]; equipamentos?: EquipamentoParado[]; /** AAAA-MM-DD, nos itens de vencimento. */ vencimento?: string }
@@ -188,6 +190,7 @@ export function rotinaDasUnidades(envios: Visita[], modelos: ModeloChecklist[], 
   const out: LinhaRotina[] = [];
   for (const m of rotinas) {
     for (const unidade of unidades) {
+      if (m.itens.length > 0 && itensDaUnidade(m.itens, unidade).length === 0) continue; // nenhum item vale para essa unidade
       const ultimo = envios.filter((e) => e.unidade === unidade && e.modeloId === m.id).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm))[0] ?? null;
       const d = ultimo ? Math.max(0, dias(ultimo.data, hoje)) : null;
       out.push({ unidade, modeloId: m.id, modeloNome: m.nome, frequencia: m.frequencia, ultimo, dias: d, situacao: d === null ? "nunca" : d > PRAZO_DIAS[m.frequencia] ? "atrasado" : "em-dia", naoConformes: ultimo ? ultimo.respostas.filter((r) => r.conforme === false).length : 0 });

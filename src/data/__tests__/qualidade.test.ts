@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { definirArmazem } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
 import * as q from "../../../server/qualidade.js";
-import { DIAS_SEM_VISITA, MODELO_ABERTURA, MODELO_SUGERIDO, PRAZO_DIAS, certificadosPorUnidade, equipamentosParados, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, rotinaDasUnidades, tomDaNota, type Visita } from "@/data/qualidade";
+import { DIAS_SEM_VISITA, MODELO_ABERTURA, MODELO_SUGERIDO, PRAZO_DIAS, certificadosPorUnidade, equipamentosParados, itensDaUnidade, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, rotinaDasUnidades, tomDaNota, type Visita } from "@/data/qualidade";
 
 const memoria = () => {
   const m = new Map<string, unknown>();
@@ -144,6 +144,26 @@ describe("visitas", () => {
     expect(visita("2026-11-19").respostas[1].vencimento).toBeUndefined();
   });
 
+  it("itens por unidade: o que não vale para a unidade não é perguntado nem conta na nota; unidade nova já recebe tudo", () => {
+    const m = q.normalizarModelo({ nome: "R", itens: [{ texto: "Piso", foraDe: [] }, { texto: "Área de lutas", foraDe: ["Gama", "Gama", "Inventada"] }, { texto: "Sala" }] }, AGORA);
+    expect(m.itens[0].foraDe).toBeUndefined();
+    expect(m.itens[1].foraDe).toEqual(["Gama"]); // sem repetição e só unidades da rede
+    const ids = m.itens.map((i: any) => i.id);
+    const todas = (u: string) => q.montarVisita({ unidade: u, data: "2026-11-19", respostas: ids.map((id: string) => ({ itemId: id, conforme: id === ids[1] ? false : true, comentario: "x" })) }, m, {}, AGORA);
+    // Asa Norte tem a área de lutas (reprovada): 2 de 3
+    expect(todas("Asa Norte").respostas.map((r: any) => r.itemId)).toEqual(ids);
+    expect(todas("Asa Norte").nota).toBe(66.7);
+    // Gama não tem: o item sai da visita e da nota, mesmo que a tela mande a resposta
+    const g = todas("Gama");
+    expect(g.respostas.map((r: any) => r.itemId)).toEqual([ids[0], ids[2]]);
+    expect(g.nota).toBe(100);
+    // se nenhum item vale para a unidade, não há visita
+    const so = q.normalizarModelo({ nome: "S", itens: [{ texto: "Só em Gama", foraDe: ["Asa Norte"] }] }, AGORA);
+    expect(() => q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: [{ itemId: so.itens[0].id, conforme: true }] }, so, {}, AGORA)).toThrow(/Nenhum item/);
+    expect(itensDaUnidade(m.itens, "Gama").map((i) => i.texto)).toEqual(["Piso", "Sala"]);
+    expect(itensDaUnidade(m.itens, "Itapoã")).toHaveLength(3);
+  });
+
   it("o checklist de abertura sugerido: diário, 10 itens, equipamentos parados primeiro e sem CREF", () => {
     const m = q.normalizarModelo(MODELO_ABERTURA);
     expect(m.frequencia).toBe("diaria");
@@ -266,6 +286,8 @@ describe("cálculos da tela de qualidade", () => {
     const modelo = (id: string, frequencia: any, ativo = true) => ({ id, nome: `Checklist ${id}`, descricao: "", frequencia, ativo, itens: [], atualizadoEm: "" });
     const envio = (unidade: string, modeloId: string, data: string, falha = false) => V({ id: `${unidade}${modeloId}${data}`, unidade, modeloId, modeloNome: `Checklist ${modeloId}`, data, mes: data.slice(0, 7), origem: "unidade", criadoEm: `${data}T10:00:00Z`, respostas: falha ? [{ itemId: "a", grupo: "", texto: "Piso", conforme: false, comentario: "x", fotos: [] }] : [] });
     const modelos = [modelo("d", "diaria"), modelo("v", "visita"), modelo("s", "semanal", false)];
+    const soEmA = { ...modelo("x", "diaria"), itens: [{ id: "i", grupo: "", texto: "t", peso: 1, foto: "nenhuma" as const, foraDe: ["B", "C", "D"] }] };
+    expect(rotinaDasUnidades([], [soEmA], ["A", "B"], HOJE).map((x) => x.unidade)).toEqual(["A"]); // nenhum item vale para B: não é cobrada
     const envios = [envio("A", "d", "2026-11-20"), envio("A", "d", "2026-11-18"), envio("B", "d", "2026-11-19", true), envio("C", "d", "2026-11-10")];
     const l = rotinaDasUnidades(envios, modelos, ["A", "B", "C", "D"], HOJE);
     expect(l.map((x) => [x.unidade, x.situacao, x.dias, x.naoConformes])).toEqual([["C", "atrasado", 10, 0], ["D", "nunca", null, 0], ["B", "em-dia", 1, 1], ["A", "em-dia", 0, 0]]);

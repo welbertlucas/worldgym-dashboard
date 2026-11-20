@@ -52,7 +52,9 @@ export function normalizarModelo(bruto, agora = new Date()) {
     const peso = Math.min(10, Math.max(1, Math.round(Number(i?.peso) || 1)));
     const foto = FOTOS.includes(i?.foto) ? i.foto : "nenhuma";
     const tipo = TIPOS.includes(i?.tipo) ? i.tipo : "conforme";
-    return { id, grupo: texto(i?.grupo, 60), texto: t, peso, foto, tipo };
+    // Unidades em que o item NÃO vale (a unidade nova já nasce com todos os itens); só nomes de unidades da rede, sem repetir.
+    const foraDe = [...new Set((Array.isArray(i?.foraDe) ? i.foraDe : []).filter((u) => UNIDADES_DA_REDE.includes(u)))];
+    return { id, grupo: texto(i?.grupo, 60), texto: t, peso, foto, tipo, ...(foraDe.length ? { foraDe } : {}) };
   });
   const id = typeof bruto?.id === "string" && /^[a-z0-9-]{4,40}$/.test(bruto.id) ? bruto.id : randomUUID().slice(0, 8);
   return { id, nome, descricao: texto(bruto?.descricao, 200), frequencia, itens, ativo: bruto?.ativo !== false, atualizadoEm: agora.toISOString() };
@@ -76,7 +78,10 @@ export function montarVisita(bruto, modelo, avaliador, agora = new Date()) {
   if (!ehData(data)) throw new ErroQualidade("Data inválida.");
   if (Date.parse(`${data}T00:00:00Z`) > agora.getTime() + 36 * 3600 * 1000) throw new ErroQualidade("A data da visita não pode ser no futuro.");
   const enviadas = new Map((Array.isArray(bruto?.respostas) ? bruto.respostas : []).map((r) => [r?.itemId, r]));
-  const respostas = modelo.itens.map((item) => {
+  // Só entram os itens que valem para esta unidade: o que não vale nem é perguntado nem conta na nota.
+  const itensDaUnidade = modelo.itens.filter((i) => !(i.foraDe ?? []).includes(unidade));
+  if (!itensDaUnidade.length) throw new ErroQualidade("Nenhum item deste checklist vale para essa unidade.");
+  const respostas = itensDaUnidade.map((item) => {
     const r = enviadas.get(item.id);
     const tipo = item.tipo ?? "conforme";
     // Documento com validade: a pessoa informa só a data; o Atlas decide se está em dia (vencimento igual ou depois da data da visita).
