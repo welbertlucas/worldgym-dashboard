@@ -1,4 +1,4 @@
-import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, Presentation, Landmark, Scale, type LucideIcon } from "lucide-react";
+import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, Presentation, Landmark, Scale, ClipboardCheck, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
@@ -31,15 +31,17 @@ const USUARIOS: NavItem = { id: "acessos", label: "Usuários", icon: KeyRound };
 const ROYALTIES: NavItem = { id: "royalties", label: "Royalties", icon: Landmark };
 /** Só aparece para o dono e quem ele liberou. */
 const JURIDICO: NavItem = { id: "juridico", label: "Jurídico", icon: Scale };
+/** Só aparece para o dono e quem ele liberou. */
+const QUALIDADE: NavItem = { id: "qualidade", label: "Qualidade", icon: ClipboardCheck };
 /** Só aparece para quem o dono liberou (e para o dono). */
 const RELATORIOS: NavItem = { id: "relatorios", label: "Relatórios", icon: Presentation };
 /** Todos os menus que têm endereço (#id). */
-export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, ROYALTIES, JURIDICO, RELATORIOS, ...NAV_RODAPE, USUARIOS];
+export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, ROYALTIES, JURIDICO, QUALIDADE, RELATORIOS, ...NAV_RODAPE, USUARIOS];
 
 /** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. `comOcultos` serve à busca, que ainda acha as telas fora da barra lateral. */
-export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorios = false, royalties = false, juridico = false): NavItem[] => {
+export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorios = false, royalties = false, juridico = false, qualidade = false): NavItem[] => {
   const base = comOcultos ? NAV_ITEMS : NAV_ITEMS.filter((i) => !i.oculto);
-  return [...base, ...(royalties ? [ROYALTIES] : []), ...(juridico ? [JURIDICO] : []), ...(relatorios ? [RELATORIOS] : []), ...(gerirAcessos ? [USUARIOS] : [])];
+  return [...base, ...(royalties ? [ROYALTIES] : []), ...(juridico ? [JURIDICO] : []), ...(qualidade ? [QUALIDADE] : []), ...(relatorios ? [RELATORIOS] : []), ...(gerirAcessos ? [USUARIOS] : [])];
 };
 
 /** "comercial/vendas" → "Comercial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
@@ -120,6 +122,7 @@ const PALAVRAS: Record<string, string> = {
   novidades: "novidades o que mudou novo melhoria atualizacoes lancamentos",
   royalties: "royalties taxa fixa recebimentos marca franquia devedores inadimplencia saldo devedor matriz situacao",
   juridico: "juridico processos acoes judiciais extrajudiciais procon tribunal advogado valor da causa contencioso risco",
+  qualidade: "qualidade checklist visita vistoria limpeza uniforme organizacao padrao unidade auditoria nota fotos roteiro",
   relatorios: "relatorio apresentacao pptx powerpoint slides exportar baixar report operacional",
   acessos: "usuarios senha permissoes login niveis quem entra no painel",
 };

@@ -73,7 +73,9 @@ export const verRoyalties = (u) => u?.papel === "dono" || u?.papel === "master" 
 export const precisaTrocarSenha = (u) => u?.trocarSenha === true || (u?.trocarSenha === undefined && u?.papel !== "dono");
 /** Menu Jurídico (processos da rede, dado sensível): o dono vê; qualquer outro nível só se o dono liberou. */
 export const verJuridico = (u) => u?.papel === "dono" || u?.verJuridico === true;
-export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel !== "dono" && geraRelatorios(u), verRoyalties: verRoyalties(u), verJuridico: verJuridico(u), trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
+/** Menu Qualidade (checklists e visitas às unidades): o dono vê; qualquer outro nível só se o dono liberou. */
+export const verQualidade = (u) => u?.papel === "dono" || u?.verQualidade === true;
+export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel !== "dono" && geraRelatorios(u), verRoyalties: verRoyalties(u), verJuridico: verJuridico(u), verQualidade: verQualidade(u), trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
 
 /**
  * Quem não é dono, mas gerencia acessos (ator com gerenciaAcessos), não mexe na conta do dono nem na de outro que
@@ -87,6 +89,7 @@ function conferirAtor(ator, alvo, campos = {}) {
   if (campos.geraRelatorios !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de gerar relatórios.", 403);
   if (campos.verRoyalties !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de ver royalties.", 403);
   if (campos.verJuridico !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de ver o jurídico.", 403);
+  if (campos.verQualidade !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de usar a qualidade.", 403);
   if (alvo?.id === ator.id && ((campos.papel !== undefined && campos.papel !== alvo.papel) || campos.ativo === false)) {
     throw new ErroAcesso("Você não pode mudar o seu próprio nível nem se desativar.", 403);
   }
@@ -139,16 +142,16 @@ export async function criarDono({ nome, email, senha }) {
 }
 
 /** Cria um acesso com senha provisória (mostrada uma única vez ao dono). */
-export async function criarUsuario({ nome, email, papel, unidades, resumo = true, gerenciaAcessos: gerencia, geraRelatorios: relatorios, verRoyalties: royalties, verJuridico: juridico }, ator = null) {
+export async function criarUsuario({ nome, email, papel, unidades, resumo = true, gerenciaAcessos: gerencia, geraRelatorios: relatorios, verRoyalties: royalties, verJuridico: juridico, verQualidade: qualidade }, ator = null) {
   const lista = await lerFresco();
   if (papel === "dono" || !PAPEIS.includes(papel)) throw new ErroAcesso("Nível inválido.");
-  conferirAtor(ator, null, { gerenciaAcessos: gerencia || undefined, geraRelatorios: relatorios || undefined, verRoyalties: royalties || undefined, verJuridico: juridico || undefined });
+  conferirAtor(ator, null, { gerenciaAcessos: gerencia || undefined, geraRelatorios: relatorios || undefined, verRoyalties: royalties || undefined, verJuridico: juridico || undefined, verQualidade: qualidade || undefined });
   const dados = validarBasico({ nome, email }, lista);
   const senhaProvisoria = gerarSenhaProvisoria();
   const u = {
     id: randomUUID(), ...dados, papel,
     unidades: papel === "unidades" ? validarUnidades(unidades) : [],
-    ativo: true, resumo: resumo !== false, ...(papel === "master" && gerencia === true ? { gerenciaAcessos: true } : {}), ...(relatorios === true ? { geraRelatorios: true } : {}), ...(papel === "unidades" && royalties === true ? { verRoyalties: true } : {}), ...(juridico === true ? { verJuridico: true } : {}),
+    ativo: true, resumo: resumo !== false, ...(papel === "master" && gerencia === true ? { gerenciaAcessos: true } : {}), ...(relatorios === true ? { geraRelatorios: true } : {}), ...(papel === "unidades" && royalties === true ? { verRoyalties: true } : {}), ...(juridico === true ? { verJuridico: true } : {}), ...(qualidade === true ? { verQualidade: true } : {}),
     hash: hashSenha(senhaProvisoria), trocarSenha: true, criadoEm: new Date().toISOString(),
   };
   await salvar([...lista, u]);
@@ -202,6 +205,8 @@ export async function atualizarUsuario(id, campos, ator = null) {
   if (u.papel !== "unidades") delete u.verRoyalties; // dono e Master sempre veem; a marca só vale para quem tem acesso a unidades
   if (campos.verJuridico !== undefined) u.verJuridico = Boolean(campos.verJuridico);
   if (u.papel === "dono") delete u.verJuridico; // o dono sempre vê
+  if (campos.verQualidade !== undefined) u.verQualidade = Boolean(campos.verQualidade);
+  if (u.papel === "dono") delete u.verQualidade;
   await salvar(lista);
   return publico(u);
 }

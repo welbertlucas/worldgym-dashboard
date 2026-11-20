@@ -19,7 +19,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/juridico", "destination": "/api/royalties?modulo=juridico" }
+    { "source": "/api/juridico", "destination": "/api/royalties?modulo=juridico" },
+    { "source": "/api/qualidade", "destination": "/api/royalties?modulo=qualidade" }
   ],
   "headers": [
     {

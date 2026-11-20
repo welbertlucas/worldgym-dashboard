@@ -1,0 +1,63 @@
+import { ChartCard, ChartEmpty } from "@/components/ChartCard";
+import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
+import { type MetricDetail } from "@/components/MetricCard";
+import { cn } from "@/lib/utils";
+import { DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, type DadosQualidade, dataBR, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
+
+const COR_TOM = { good: "bg-emerald-600", warn: "bg-amber-500", bad: "bg-destructive", neutral: "bg-foreground/30" } as const;
+const neutro = (text: string): MetricDetail => ({ text, tone: "neutral" });
+
+/** Visão da rede: cartões do Atlas, ranking de unidades pela nota média dos últimos 90 dias e os itens que mais falham. */
+export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; hoje: string; onUnidade: (u: string) => void }) {
+  const r = resumoDaRede(dados.visitas, dados.unidades, hoje);
+  const linhas = resumoPorUnidade(dados.visitas, dados.unidades, hoje);
+  const falhos = itensQueMaisFalham(dados.visitas, hoje);
+  const totalUn = dados.unidades.length;
+  return (
+    <div className="space-y-4">
+      <div className="card-surface overflow-hidden">
+        <div className="-mr-px -mb-px grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiGaugeCard title="Nota média da rede" value={pctTexto(r.notaMedia)} fill={(r.notaMedia ?? 0) / 100} marker={null} tone={tomDaNota(r.notaMedia)} details={[neutro(`Itens conformes, últimos ${DIAS_DA_MEDIA} dias`)]} />
+          <KpiGaugeCard title="Visitas no mês" value={String(r.visitasNoMes)} fill={totalUn ? Math.min(1, r.visitasNoMes / totalUn) : 0} marker={null} tone="neutral" details={[neutro(`${totalUn} unidades na rede`)]} />
+          <KpiGaugeCard title="Sem visita" value={`${r.semVisita} de ${totalUn}`} fill={totalUn ? r.semVisita / totalUn : 0} marker={null} tone={r.semVisita > 0 ? "bad" : "good"} details={[neutro(`Há mais de ${DIAS_SEM_VISITA} dias ou nunca visitadas`)]} />
+          <KpiGaugeCard title="Itens não conformes" value={String(r.naoConformes)} fill={0} marker={null} tone={r.naoConformes > 0 ? "warn" : "good"} details={[neutro(`Nos últimos ${DIAS_DA_MEDIA} dias`)]} />
+        </div>
+      </div>
+
+      <ChartCard title="Nota por unidade" subtitle={`Média das visitas dos últimos ${DIAS_DA_MEDIA} dias. Verde a partir de ${NOTA_BOA}%, amarelo a partir de ${NOTA_ATENCAO}%, vermelho abaixo.`}>
+        <ol className="space-y-1" aria-label="Nota por unidade">
+          {linhas.map((l, i) => (
+            <li key={l.unidade}>
+              <button type="button" onClick={() => onUnidade(l.unidade)} className="grid w-full grid-cols-[1.75rem_minmax(0,1fr)_auto] sm:grid-cols-[1.75rem_12rem_minmax(0,1fr)_11rem] items-center gap-x-3 gap-y-1 rounded-lg px-1 py-1 text-left hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", l.media !== null && i < 3 ? "bg-foreground text-background" : "bg-secondary text-muted-foreground")}>{i + 1}</span>
+                <span className="truncate text-sm font-medium text-foreground">{l.unidade}</span>
+                <span className="sm:order-4 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-foreground">
+                  {l.media !== null ? pctTexto(l.media) : <span className="font-normal text-muted-foreground">{l.ultima ? "sem nota recente" : "sem visita"}</span>}
+                  {l.ultima && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{dataBR(l.ultima.data)}</span>}
+                </span>
+                <span className="relative col-span-3 h-5 rounded-md bg-secondary/70 sm:order-3 sm:col-span-1" aria-hidden>
+                  {l.media !== null && <span className={cn("absolute inset-y-0 left-0 rounded-md", COR_TOM[tomDaNota(l.media)])} style={{ width: `${Math.max(l.media, 1)}%` }} />}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </ChartCard>
+
+      <ChartCard title="Itens que mais falham" subtitle={`Entre as respostas dos últimos ${DIAS_DA_MEDIA} dias, os itens com mais "não conforme" em proporção.`}>
+        {falhos.length === 0 ? (
+          <ChartEmpty>Nenhum item não conforme nos últimos {DIAS_DA_MEDIA} dias.</ChartEmpty>
+        ) : (
+          <ul className="divide-y divide-border">
+            {falhos.map((g) => (
+              <li key={`${g.modelo}|${g.texto}`} className="flex items-baseline justify-between gap-4 py-2 text-sm">
+                <span className="min-w-0"><span className="text-foreground">{g.texto}</span><span className="block text-xs text-muted-foreground">{g.modelo}</span></span>
+                <span className="shrink-0 whitespace-nowrap text-right tabular-nums text-foreground">{g.falhas} de {g.respondidas}<span className="block text-xs text-muted-foreground">{g.unidades} {g.unidades === 1 ? "unidade" : "unidades"}</span></span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </ChartCard>
+    </div>
+  );
+}

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronRight, CircleHelp, ImageIcon, KeyRound, Landmark, LayoutDashboard, MapPin, Rocket, Scale, Search, ShieldAlert, type LucideIcon } from "lucide-react";
+import { BookOpen, ChevronRight, CircleHelp, ImageIcon, ClipboardCheck, KeyRound, Landmark, LayoutDashboard, MapPin, Rocket, Scale, Search, ShieldAlert, type LucideIcon } from "lucide-react";
 import { lerVistas, marcarVistas } from "@/lib/novidadesVistas";
 import { buscarNovidades, novidadesPara, type Novidade } from "@/data/novidades";
 import { cn } from "@/lib/utils";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ondeFica } from "@/components/nav";
-import { API_BASE, authFetch, ehDono, podeGerarRelatorios, podeVerJuridico, podeVerRoyalties } from "@/lib/auth";
+import { API_BASE, authFetch, ehDono, podeGerarRelatorios, podeVerJuridico, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
 import { artigosPara, buscarAjuda, secoesPara, SECOES, type ArtigoAjuda, type SecaoAjuda } from "@/data/ajuda";
 
 /** O botão que abre a tela só aparece se a pessoa tem a tela (o menu Relatórios é liberado por pessoa). */
@@ -52,7 +52,7 @@ function Avatar({ autora, tamanho }: { autora: string; tamanho: "p" | "g" }) {
 
 const dataLonga = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
 const foco = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const ICONE_DA_SECAO: Record<SecaoAjuda, LucideIcon> = { comecando: Rocket, telas: LayoutDashboard, alertas: ShieldAlert, duvidas: CircleHelp, indicadores: BookOpen, royalties: Landmark, juridico: Scale, dono: KeyRound };
+const ICONE_DA_SECAO: Record<SecaoAjuda, LucideIcon> = { comecando: Rocket, telas: LayoutDashboard, alertas: ShieldAlert, duvidas: CircleHelp, indicadores: BookOpen, royalties: Landmark, juridico: Scale, qualidade: ClipboardCheck, dono: KeyRound };
 const secao = (id: SecaoAjuda) => SECOES.find((s) => s.id === id)!;
 
 /** Caminho no topo: Central de ajuda › Seção (cada parte volta para lá). */
@@ -105,6 +105,7 @@ function Artigo({ artigo, relacionados, onAba, onAbrirTela }: { artigo: ArtigoAj
             {artigo.publico === "dono" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só você vê</span>}
             {artigo.publico === "royalties" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só quem vê Royalties</span>}
             {artigo.publico === "juridico" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só quem vê o Jurídico</span>}
+            {artigo.publico === "qualidade" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só quem usa Qualidade</span>}
           </p>
         </div>
       </header>
@@ -156,8 +157,9 @@ export function AjudaTab({ aba, onAba, onAbrirTela }: { aba: string | null; onAb
   const dono = ehDono();
   const royalties = podeVerRoyalties();
   const juridico = podeVerJuridico();
-  const artigos = artigosPara(dono, undefined, royalties, juridico);
-  const secoes = secoesPara(dono, royalties, juridico);
+  const qualidade = podeVerQualidade();
+  const artigos = artigosPara(dono, undefined, royalties, juridico, qualidade);
+  const secoes = secoesPara(dono, royalties, juridico, qualidade);
   const [consulta, setConsulta] = useState("");
   const daSecao = (id: SecaoAjuda) => artigos.filter((x) => x.secao === id);
   /** Abrir um artigo ou seção limpa a busca. */
@@ -213,6 +215,7 @@ export function AjudaTab({ aba, onAba, onAbrirTela }: { aba: string | null; onAb
                     {s.publico === "dono" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só você vê</span>}
                     {s.publico === "royalties" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem vê Royalties</span>}
                     {s.publico === "juridico" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem vê o Jurídico</span>}
+                    {s.publico === "qualidade" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem usa Qualidade</span>}
                   </span>
                   <span className="block text-sm text-muted-foreground">{s.descricao}</span>
                   <Autoras lista={lista} />
@@ -250,6 +253,7 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
         {n.publico === "dono" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só você vê</span>}
         {n.publico === "royalties" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem vê Royalties</span>}
         {n.publico === "juridico" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem vê o Jurídico</span>}
+        {n.publico === "qualidade" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem usa Qualidade</span>}
         {nova && <span className="ml-auto inline-flex items-center gap-1 font-medium text-primary-ink"><span className="h-2 w-2 rounded-full bg-primary" aria-hidden />Não lida</span>}
       </div>
       <h4 className="mt-2 text-base font-semibold text-foreground">{n.titulo}</h4>
@@ -266,7 +270,7 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
 
 /** Novidades: da mais nova para a mais antiga, agrupadas por mês, 10 de cada vez ("Ver mais"); com busca, todos os resultados. As não vistas ficam marcadas enquanto a tela está aberta, e o número do menu some. */
 export function NovidadesTab({ onAbrirTela }: { onAbrirTela: (destino: string) => void }) {
-  const [lista] = useState(() => novidadesPara(ehDono(), undefined, podeVerRoyalties(), podeVerJuridico()));
+  const [lista] = useState(() => novidadesPara(ehDono(), undefined, podeVerRoyalties(), podeVerJuridico(), podeVerQualidade()));
   const [novas] = useState(() => { const v = new Set(lerVistas()); return new Set(lista.filter((n) => !v.has(n.id)).map((n) => n.id)); });
   const [consulta, setConsulta] = useState("");
   // 10 de cada vez; as não lidas aparecem sempre, mesmo que passem de 10.

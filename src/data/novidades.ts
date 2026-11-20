@@ -5,7 +5,7 @@
 // `artigo` liga ao artigo da Central de ajuda ("Saiba mais"); `tela` abre o lugar ("Ver na tela").
 
 /** "royalties": só quem vê o menu Royalties (dono, Master e quem o dono liberou); "juridico": só quem vê o menu Jurídico (dono e quem ele liberou); "dono": só o dono. */
-export type Publico = "todos" | "dono" | "royalties" | "juridico";
+export type Publico = "todos" | "dono" | "royalties" | "juridico" | "qualidade";
 export type TipoNovidade = "novo" | "melhoria";
 
 export interface Novidade {
@@ -26,6 +26,11 @@ export interface Novidade {
 export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
+  {
+    id: "2026-11-20-qualidade", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-o-que-e",
+    titulo: "Qualidade: checklists e visitas às unidades dentro do Atlas",
+    texto: "O roteiro de visitação às unidades (limpeza, uniforme, equipamentos) agora vive no Atlas. O menu Qualidade deixa criar os checklists, registrar a visita a cada unidade item a item (conforme, não conforme ou não se aplica) com comentário e foto, e acompanhar a nota de cada unidade, os itens que mais falham e quem está sem visita. Item não conforme pede o que corrigir; nos itens mais importantes, também uma foto. O menu aparece só para o dono e para quem ele liberar na tela Usuários.",
+  },
   {
     id: "2026-11-20-juridico", data: "2026-11-20", tipo: "novo", publico: "juridico", autora: AUTORA, tela: "juridico", artigo: "juridico-o-que-e",
     titulo: "Jurídico: os processos da rede dentro do Atlas",
@@ -212,9 +217,9 @@ export const NOVIDADES: Novidade[] = [
 
 /** Novidades que a pessoa pode ver, da mais nova para a mais antiga. */
 /** Quem vê cada novidade: todos veem as "todos"; o dono vê tudo; as de royalties só vão a quem pode ver o menu Royalties (`royalties`, por padrão igual ao dono). */
-export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono) => publico === "todos" || (publico === "royalties" ? royalties : publico === "juridico" ? juridico : dono);
-export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono, juridico: boolean = dono): Novidade[] =>
-  lista.filter((n) => publicoVe(n.publico, dono, royalties, juridico)).sort((a, b) => b.data.localeCompare(a.data));
+export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono) => publico === "todos" || (publico === "royalties" ? royalties : publico === "juridico" ? juridico : publico === "qualidade" ? qualidade : dono);
+export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono): Novidade[] =>
+  lista.filter((n) => publicoVe(n.publico, dono, royalties, juridico, qualidade)).sort((a, b) => b.data.localeCompare(a.data));
 
 /** Quantas ainda não foram vistas. */
 export const naoVistas = (lista: Novidade[], vistas: Iterable<string>): number => {

@@ -25,6 +25,7 @@ const memoria = () => {
   return {
     m, async ler(c: string) { return (m.get(c) as unknown) ?? null; }, async gravar(c: string, d: unknown) { m.set(c, structuredClone(d)); },
     async listar(p: string) { return [...m.keys()].filter((k) => k.startsWith(p)); }, async apagar(c: string) { m.delete(c); },
+    async gravarBytes(c: string, b: Buffer) { m.set(c, b); }, async lerBytes(c: string) { return (m.get(c) as Buffer) ?? null; },
   };
 };
 const res = () => {
@@ -33,6 +34,7 @@ const res = () => {
   r.status = (c: number) => { r.code = c; return r; };
   r.json = (b: unknown) => { r.body = b; return r; };
   r.end = () => r;
+  r.send = (b: unknown) => { r.body = b; return r; };
   return r;
 };
 const chama = async (h: any, req: any) => { const r = res(); await h({ headers: {}, query: {}, ...req }, r); return r; };
@@ -271,6 +273,55 @@ describe("acessos, níveis e registro", () => {
     await post(tokenDono, { acao: "atualizar", id: master.u.id, gerenciaAcessos: true });
     expect((await post(master.token, { acao: "atualizar", id: uni.u.id, verJuridico: false })).code).toBe(403);
     expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master", verJuridico: true })).code).toBe(403);
+  });
+
+  it("qualidade: só o dono e quem ele liberou; liberado cria checklist, registra visita com foto e vê a foto; ninguém além do dono libera", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
+    const criar = async (nome: string, email: string, papel: string, extra: any = {}) => {
+      const c = (await post(tokenDono, { acao: "criar", nome, email, papel, ...extra })).body;
+      await trocaSenha(c.usuario.id, c.senhaProvisoria);
+      return { u: c.usuario, token: criarTokenUsuario(c.usuario.id).token };
+    };
+    const master = await criar("Ana Master", "ana@exemplo.com", "master");
+    const q = (token: string, extra: any = {}) => chama(royaltiesApi, com(token, { method: "GET", query: { modulo: "qualidade" }, ...extra }));
+    const qpost = (token: string, body: any) => q(token, { method: "POST", body });
+
+    expect((await q(master.token)).code).toBe(403);
+    expect((await qpost(master.token, { acao: "modelo", modelo: { nome: "x", itens: [{ texto: "a" }] } })).code).toBe(403);
+    expect((await post(tokenDono, { acao: "atualizar", id: master.u.id, verQualidade: true })).body.usuario.verQualidade).toBe(true);
+    expect((await chama(login, com(master.token, { method: "GET" }))).body.usuario.verQualidade).toBe(true);
+
+    const m = (await qpost(master.token, { acao: "modelo", modelo: { nome: "Roteiro", itens: [{ texto: "Piso limpo", peso: 2, foto: "sempre" }] } })).body.modelo;
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString("base64");
+    const foto = (await qpost(master.token, { acao: "foto", dados: jpeg })).body.id;
+    expect((await qpost(master.token, { acao: "foto", dados: "AAAA" })).code).toBe(400);
+    const hoje = new Date().toISOString().slice(0, 10);
+    const sem = await qpost(master.token, { acao: "visita", visita: { modeloId: m.id, unidade: "Asa Norte", data: hoje, respostas: [{ itemId: m.itens[0].id, conforme: true }] } });
+    expect(sem.code).toBe(400); // item pede foto
+    const ok = await qpost(master.token, { acao: "visita", visita: { modeloId: m.id, unidade: "Asa Norte", data: hoje, respostas: [{ itemId: m.itens[0].id, conforme: true, fotos: [foto] }] } });
+    expect(ok.code).toBe(200);
+    expect(ok.body.visita).toMatchObject({ nota: 100, avaliador: { nome: "Ana Master" } });
+
+    const lista = (await q(master.token)).body;
+    expect(lista.modelos).toHaveLength(1);
+    expect(lista.visitas).toHaveLength(1);
+    expect(lista.unidades).toContain("Asa Norte");
+    expect((await q(master.token)).headers["Cache-Control"]).toBe("no-store");
+    expect(Buffer.isBuffer((await q(master.token, { query: { modulo: "qualidade", foto } })).body)).toBe(true);
+    expect((await q(master.token, { query: { modulo: "qualidade", foto: "../x" } })).code).toBe(400);
+    // royalties e jurídico seguem com as regras deles; o POST só vale na qualidade
+    expect((await chama(royaltiesApi, com(master.token, { method: "POST", body: {} }))).code).toBe(405);
+
+    // quem gerencia acessos não dá nem tira a permissão; tirar fecha de novo
+    await post(tokenDono, { acao: "atualizar", id: master.u.id, gerenciaAcessos: true });
+    expect((await post(master.token, { acao: "atualizar", id: master.u.id, verQualidade: false })).code).toBe(403);
+    await post(tokenDono, { acao: "atualizar", id: master.u.id, verQualidade: false });
+    expect((await q(master.token)).code).toBe(403);
+    // apagar a visita (dono) remove também a foto
+    expect((await qpost(tokenDono, { acao: "visita-apagar", id: ok.body.visita.id, mes: ok.body.visita.mes })).code).toBe(200);
+    expect((await q(tokenDono, { query: { modulo: "qualidade", foto } })).code).toBe(404);
   });
 
   it("api de royalties: sem login 401, só GET, avisa quando ainda não há dados, devolve o modelo e nunca vai para o cache", async () => {

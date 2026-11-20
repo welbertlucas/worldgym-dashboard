@@ -134,7 +134,7 @@ export function AcessosTab() {
               {mostrados.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
                   <td className="px-5 py-3"><div className="font-medium text-foreground"><button type="button" onClick={() => setDetalhe(u)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" title="Ver último acesso e histórico">{u.nome}</button>{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
-                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel !== "dono" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}</td>
+                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel !== "dono" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Usa qualidade</span>}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
                   <td className="px-3 py-3">
@@ -228,7 +228,7 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
   inicial: UsuarioApi | null;
   /** Só o dono vê a opção "Pode gerenciar acessos". */
   podeLiberar: boolean;
-  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean }) => Promise<string | null>;
+  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean }) => Promise<string | null>;
   onCancelar?: () => void;
 }) {
   const [nome, setNome] = useState(inicial?.nome ?? "");
@@ -240,6 +240,7 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
   const [relatorios, setRelatorios] = useState(inicial?.geraRelatorios === true);
   const [royalties, setRoyalties] = useState(inicial?.papel === "unidades" && inicial?.verRoyalties === true);
   const [juridico, setJuridico] = useState(inicial?.verJuridico === true);
+  const [qualidade, setQualidade] = useState(inicial?.verQualidade === true);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -248,10 +249,10 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
     e.preventDefault();
     setEnviando(true);
     setErro("");
-    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties, verJuridico: juridico } : {}) });
+    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties, verJuridico: juridico, verQualidade: qualidade } : {}) });
     setEnviando(false);
     if (r) return setErro(r);
-    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); setRelatorios(false); setJuridico(false); }
+    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); setRelatorios(false); setJuridico(false); setQualidade(false); }
   };
 
   return (
@@ -306,6 +307,12 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={juridico} onChange={(e) => setJuridico(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
           <span>Pode ver jurídico <span className="block text-xs text-muted-foreground">Mostra o menu Jurídico, com os processos judiciais e extrajudiciais da rede. Só o dono vê sem liberação, em qualquer nível.</span></span>
+        </label>
+      )}
+      {podeLiberar && (
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={qualidade} onChange={(e) => setQualidade(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+          <span>Pode usar qualidade <span className="block text-xs text-muted-foreground">Mostra o menu Qualidade: criar checklists, registrar visitas às unidades com fotos e ver a nota de cada unidade. Só o dono vê sem liberação, em qualquer nível.</span></span>
         </label>
       )}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}

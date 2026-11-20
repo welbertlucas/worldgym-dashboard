@@ -56,7 +56,7 @@ import {
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeVerJuridico, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
+import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -90,6 +90,7 @@ const AcessosTab = telaSobDemanda(() => import("@/components/tabs/AcessosTab"), 
 const RelatoriosTab = telaSobDemanda(() => import("@/components/tabs/RelatoriosTab"), "RelatoriosTab");
 const RoyaltiesTab = telaSobDemanda(() => import("@/components/tabs/RoyaltiesTab"), "RoyaltiesTab");
 const JuridicoTab = telaSobDemanda(() => import("@/components/tabs/JuridicoTab"), "JuridicoTab");
+const QualidadeTab = telaSobDemanda(() => import("@/components/tabs/QualidadeTab"), "QualidadeTab");
 const AjudaTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "AjudaTab");
 const NovidadesTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "NovidadesTab");
 
@@ -208,7 +209,7 @@ const Index = () => {
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = activeTab === "executiva";
   /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
-  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "juridico" || activeTab === "ajuda" || activeTab === "novidades";
+  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "juridico" || activeTab === "qualidade" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
@@ -560,6 +561,8 @@ const Index = () => {
         {activeTab === "royalties" && podeVerRoyalties() && <RoyaltiesTab />}
 
         {activeTab === "juridico" && podeVerJuridico() && <JuridicoTab />}
+
+        {activeTab === "qualidade" && podeVerQualidade() && <QualidadeTab />}
 
         {activeTab === "relatorios" && podeGerarRelatorios() && <RelatoriosTab dados={dashboardData} atualizadoEm={evoAtualizadoEm} metas={metasData} vigentes={vigentes} />}
 
