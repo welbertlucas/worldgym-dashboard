@@ -80,3 +80,36 @@ describe("novidades", () => {
     expect(texto).not.toMatch(/Pode gerar relatórios|em Usuários|libera|registro/i);
   });
 });
+
+describe("royalties: ajuda e novidade restritas", () => {
+  const texto = (a: { titulo: string; resumo: string; paragrafos: string[] }) => `${a.titulo} ${a.resumo} ${a.paragrafos.join(" ")}`;
+
+  it("quem não vê o menu não encontra seção, artigo nem novidade sobre royalties", () => {
+    expect(secoesPara(false, false).some((s) => s.id === "royalties")).toBe(false);
+    expect(artigosPara(false, undefined, false).some((a) => a.secao === "royalties")).toBe(false);
+    expect(novidadesPara(false, undefined, false).some((n) => n.publico === "royalties")).toBe(false);
+    // nenhum texto aberto a todos cita royalties
+    for (const a of artigosPara(false, undefined, false)) expect(texto(a)).not.toMatch(/royalties/i);
+    for (const n of novidadesPara(false, undefined, false)) expect(`${n.titulo} ${n.texto}`).not.toMatch(/royalties/i);
+  });
+
+  it("quem vê o menu (Master ou liberado, sem ser dono) lê a ajuda e a novidade, mas não a seção do dono", () => {
+    expect(secoesPara(false, true).some((s) => s.id === "royalties")).toBe(true);
+    expect(artigosPara(false, undefined, true).filter((a) => a.secao === "royalties").length).toBeGreaterThanOrEqual(3);
+    expect(novidadesPara(false, undefined, true).some((n) => n.publico === "royalties")).toBe(true);
+    // como liberar e como o dado é atualizado fica só para o dono
+    expect(artigosPara(false, undefined, true).some((a) => a.id === "dono-royalties")).toBe(false);
+    expect(secoesPara(false, true).some((s) => s.id === "dono")).toBe(false);
+  });
+
+  it("o dono vê tudo, inclusive o artigo de como liberar o menu", () => {
+    expect(artigosPara(true).some((a) => a.id === "dono-royalties")).toBe(true);
+    expect(artigosPara(true).filter((a) => a.secao === "royalties").length).toBeGreaterThanOrEqual(3);
+    expect(novidadesPara(true).some((n) => n.publico === "royalties")).toBe(true);
+  });
+
+  it("os artigos de royalties abrem a tela de Royalties", () => {
+    for (const a of ARTIGOS.filter((x) => x.secao === "royalties")) expect(a.tela).toBe("royalties");
+    expect(NOVIDADES.find((n) => n.publico === "royalties")?.tela).toBe("royalties");
+  });
+});

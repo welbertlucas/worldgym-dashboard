@@ -3,7 +3,7 @@
 // acompanha nem sobre como o sistema funciona por dentro.
 // `imagem`: nome do print da tela (guardado no armazenamento do Atlas e entregue só a quem está logado; números fictícios).
 import { AJUDA } from "@/data/indicadorAjuda";
-import { AUTORA, type Publico } from "@/data/novidades";
+import { AUTORA, publicoVe, type Publico } from "@/data/novidades";
 
 export interface ArtigoAjuda {
   id: string;
@@ -20,7 +20,7 @@ export interface ArtigoAjuda {
   atualizadoEm: string;
 }
 
-export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "dono";
+export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "royalties" | "dono";
 
 export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; publico: Publico }[] = [
   { id: "comecando", titulo: "Primeiros passos", descricao: "O que é o Atlas, como escolher a unidade e o mês e como achar uma tela.", publico: "todos" },
@@ -28,12 +28,13 @@ export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; public
   { id: "alertas", titulo: "Alertas e plano de ação", descricao: "Como os alertas são decididos e como usar o plano com a equipe.", publico: "todos" },
   { id: "duvidas", titulo: "Dúvidas frequentes", descricao: "Senha, números diferentes do EVO, resumo por e-mail e mais.", publico: "todos" },
   { id: "indicadores", titulo: "O que significa cada indicador", descricao: "Churn, inadimplência, ticket médio e os outros números do Atlas.", publico: "todos" },
+  { id: "royalties", titulo: "Royalties", descricao: "Os recebimentos da marca, quem está devendo e como ler cada painel.", publico: "royalties" },
   { id: "dono", titulo: "Só você vê", descricao: "Usuários, rotinas automáticas e o que só você acompanha.", publico: "dono" },
 ];
 
 const DATA = "2026-11-16";
 const a = (secao: SecaoAjuda, id: string, titulo: string, resumo: string, paragrafos: string[], extra: Partial<ArtigoAjuda> = {}): ArtigoAjuda =>
-  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
+  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
 
 const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   // Primeiros passos
@@ -174,12 +175,34 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Às vezes a atualização dos dados da madrugada não termina a tempo. Nesses dias o resumo traz um aviso no começo e mostra só o acumulado do mês, sem os números de ontem, que não chegaram. No dia seguinte, com os dados em dia, ele volta ao normal.",
   ], { atualizadoEm: "2026-11-17" }),
 
+  // Royalties (só quem vê o menu)
+  a("royalties", "royalties-o-que-e", "O que é o menu Royalties", "Os recebimentos da marca, por unidade, e o que ainda falta entrar.", [
+    "Mostra o que cada unidade pagou à marca em taxa fixa e em royalties, mês a mês, e quanto cada uma ainda deve (o saldo devedor). Os números vêm da planilha de controle dos recebimentos da marca e são atualizados todo dia de manhã.",
+    "No topo ficam os filtros: período (mês inicial e final, com atalhos por ano), modalidade (taxa fixa ou royalties), só devedoras e unidade. Eles valem para todos os painéis da tela.",
+    "O aviso de mês parcial quer dizer que o extrato do mês veio incompleto. Esses meses aparecem com asterisco e hachurados nos gráficos.",
+  ], { tela: "royalties", atualizadoEm: "2026-11-20" }),
+  a("royalties", "royalties-paineis", "Como ler cada painel", "Resumo, recebido por mês, quem está devendo, concentração, matriz e royalties por unidade.", [
+    "Resumo: a frase do período, o total recebido, quanto veio de taxa fixa e de royalties, o saldo devedor total e quantas unidades estão inadimplentes. As bolinhas são as unidades com cobrança: as vermelhas devem; clique numa para abrir o detalhe.",
+    "Recebido por mês: barras de taxa fixa e de royalties no mês em que o dinheiro entrou no extrato. Quem está devendo: o saldo devedor de cada unidade, do maior para o menor, com a opção de exportar a lista em CSV.",
+    "Concentração e risco: quanto cada unidade pesa no recebido e no saldo devedor, e quanto as três maiores devedoras somam. Situação de pagamento mês a mês: uma linha por unidade, com o que a planilha de controle marca em cada mês (pago, não pago, ainda não devido).",
+    "Royalties por unidade: as linhas de cada unidade de royalties. Um círculo vazado marca mês sem pagamento ou queda abaixo de metade da média dos três meses anteriores, e o losango marca o primeiro royalty de uma unidade que abriu depois do início da série. Onde não há valor esperado informado, uma queda forte é um possível rateio e um pico é um possível dividendo: é só uma marcação, não muda totais nem saldos.",
+    "Esperado e recebido: para as unidades com valor esperado informado, o quanto devia entrar e o quanto entrou em cada mês. O saldo devedor de royalties vem só dessas unidades.",
+  ], { tela: "royalties", atualizadoEm: "2026-11-20" }),
+  a("royalties", "royalties-detalhe", "O detalhe de uma unidade", "Clique numa unidade para ver a cobrança, os meses sem recebimento e a observação.", [
+    "Em qualquer painel, clicar no nome de uma unidade abre um painel ao lado, com o saldo devedor, quanto foi recebido do que era devido, os dados da cobrança (valor mensal, início, vencimento, último pagamento), os meses sem recebimento, o mês a mês e a observação da planilha. Para fechar, use o botão Fechar, a tecla Esc ou clique fora.",
+    "Quando uma unidade não tem cobrança, o painel diz isso e mostra só o que ela já pagou. Quando é de royalties sem valor esperado informado, o saldo aparece como não calculado.",
+  ], { tela: "royalties", atualizadoEm: "2026-11-20" }),
   // Só o dono
   a("dono", "dono-usuarios", "Usuários e níveis de acesso", "Criar acessos, níveis e o resumo por e-mail.", [
     "Em Usuários você cria acessos de Dono, Master ou Unidades (uma ou mais). A senha provisória vai por e-mail e a pessoa escolhe a própria no primeiro acesso.",
     "Você pode liberar um Master para gerenciar acessos, liberar o menu Relatórios (Pode gerar relatórios) para qualquer Master ou gestor de unidades e ligar ou desligar o resumo diário de cada pessoa.",
     "Clique no nome de um usuário para ver o último acesso e as telas que ele abriu.",
   ], { tela: "acessos", atualizadoEm: "2026-11-17" }),
+  a("dono", "dono-royalties", "Royalties: quem vê e como atualiza", "O menu é seu, de todo Master e de quem você liberar.", [
+    "O menu Royalties aparece para você e para todo Master. Quem tem acesso só a unidades não vê, a não ser que você marque Pode ver royalties no acesso dele, em Usuários. Só você dá ou tira essa liberação: um Master que gerencia acessos não consegue. Em Ver como acesso de unidades, o menu some, como sumiria para a pessoa.",
+    "Os dados vêm da planilha de controle dos recebimentos da marca e são atualizados todo dia de manhã. Se a leitura da planilha falhar ou as conferências não fecharem, o menu continua com a última versão boa e avisa no topo.",
+    "A ajuda e as novidades sobre Royalties só aparecem para quem vê o menu; quem não tem acesso não encontra nenhum texto sobre ele.",
+  ], { tela: "acessos", atualizadoEm: "2026-11-20" }),
   a("dono", "dono-relatorios", "Relatórios: quem gera e o que fica registrado", "Permissão, registro e rodapé dos arquivos gerados.", [
     "O uso do menu Relatórios (período, unidades, indicadores e o que vem em cada slide) está no artigo Relatórios, em As telas do Atlas, o mesmo que os outros usuários leem. Aqui ficam só os controles que são seus.",
     "Você sempre vê o menu. Para outra pessoa ver, marque Pode gerar relatórios ao criar ou editar o acesso dela em Usuários. Só você dá ou tira essa permissão; quem gerencia acessos não consegue.",
@@ -215,8 +238,8 @@ const INDICADORES: ArtigoAjuda[] = Object.entries(AJUDA)
 
 export const ARTIGOS: ArtigoAjuda[] = [...ARTIGOS_ESCRITOS, ...INDICADORES];
 
-export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS) => lista.filter((x) => x.publico === "todos" || dono);
-export const secoesPara = (dono: boolean) => SECOES.filter((s) => s.publico === "todos" || dono);
+export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties));
+export const secoesPara = (dono: boolean, royalties: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties));
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 

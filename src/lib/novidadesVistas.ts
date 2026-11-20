@@ -1,6 +1,6 @@
 // Novidades já vistas neste navegador (ids). O número no menu ("Novidades") lê daqui e some ao abrir a tela.
 import { useSyncExternalStore } from "react";
-import { ehDono } from "@/lib/auth";
+import { ehDono, podeVerRoyalties } from "@/lib/auth";
 import { naoVistas, novidadesPara } from "@/data/novidades";
 
 const CHAVE = "atlas-novidades-vistas";
@@ -26,5 +26,5 @@ const assinar = (f: () => void) => { ouvintes.add(f); return () => { ouvintes.de
 export function useNovidadesNaoVistas(): number {
   const bruto = useSyncExternalStore(assinar, ler, () => "[]");
   void bruto;
-  return naoVistas(novidadesPara(ehDono()), lerVistas());
+  return naoVistas(novidadesPara(ehDono(), undefined, podeVerRoyalties()), lerVistas());
 }

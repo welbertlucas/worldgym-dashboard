@@ -4,7 +4,8 @@
 // Formato: título "Tela: o que mudou"; o texto começa pelo problema da academia e depois diz o que mudou.
 // `artigo` liga ao artigo da Central de ajuda ("Saiba mais"); `tela` abre o lugar ("Ver na tela").
 
-export type Publico = "todos" | "dono";
+/** "royalties": só quem vê o menu Royalties (dono, Master e quem o dono liberou); "dono": só o dono. */
+export type Publico = "todos" | "dono" | "royalties";
 export type TipoNovidade = "novo" | "melhoria";
 
 export interface Novidade {
@@ -25,6 +26,11 @@ export interface Novidade {
 export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
+  {
+    id: "2026-11-20-royalties", data: "2026-11-20", tipo: "novo", publico: "royalties", autora: AUTORA, tela: "royalties", artigo: "royalties-o-que-e",
+    titulo: "Royalties: os recebimentos da marca dentro do Atlas",
+    texto: "Acompanhar o que cada unidade paga à marca (taxa fixa e royalties) e quem está devendo exigia abrir outro painel, com outra senha. Agora o menu Royalties mostra o resumo do período, o recebido por mês, quem está devendo (com exportação em CSV), a concentração do saldo devedor, a situação de pagamento mês a mês, os royalties de cada unidade com as marcações de mês sem pagamento e queda forte, e o que era esperado contra o que entrou. Clicar numa unidade abre o detalhe da cobrança. Os números são os mesmos do painel anterior.",
+  },
   {
     id: "2026-11-20-total-de-vendas", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial", artigo: "diferente-do-evo",
     titulo: "Comercial: Total de vendas como no EVO",
@@ -200,8 +206,10 @@ export const NOVIDADES: Novidade[] = [
 ];
 
 /** Novidades que a pessoa pode ver, da mais nova para a mais antiga. */
-export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES): Novidade[] =>
-  lista.filter((n) => n.publico === "todos" || dono).sort((a, b) => b.data.localeCompare(a.data));
+/** Quem vê cada novidade: todos veem as "todos"; o dono vê tudo; as de royalties só vão a quem pode ver o menu Royalties (`royalties`, por padrão igual ao dono). */
+export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono) => publico === "todos" || (publico === "royalties" ? royalties : dono);
+export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono): Novidade[] =>
+  lista.filter((n) => publicoVe(n.publico, dono, royalties)).sort((a, b) => b.data.localeCompare(a.data));
 
 /** Quantas ainda não foram vistas. */
 export const naoVistas = (lista: Novidade[], vistas: Iterable<string>): number => {

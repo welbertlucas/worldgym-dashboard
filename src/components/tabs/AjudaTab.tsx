@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronRight, CircleHelp, ImageIcon, KeyRound, LayoutDashboard, MapPin, Rocket, Search, ShieldAlert, type LucideIcon } from "lucide-react";
+import { BookOpen, ChevronRight, CircleHelp, ImageIcon, KeyRound, Landmark, LayoutDashboard, MapPin, Rocket, Search, ShieldAlert, type LucideIcon } from "lucide-react";
 import { lerVistas, marcarVistas } from "@/lib/novidadesVistas";
 import { buscarNovidades, novidadesPara, type Novidade } from "@/data/novidades";
 import { cn } from "@/lib/utils";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ondeFica } from "@/components/nav";
-import { API_BASE, authFetch, ehDono, podeGerarRelatorios } from "@/lib/auth";
+import { API_BASE, authFetch, ehDono, podeGerarRelatorios, podeVerRoyalties } from "@/lib/auth";
 import { artigosPara, buscarAjuda, secoesPara, SECOES, type ArtigoAjuda, type SecaoAjuda } from "@/data/ajuda";
 
 /** O botão que abre a tela só aparece se a pessoa tem a tela (o menu Relatórios é liberado por pessoa). */
@@ -52,7 +52,7 @@ function Avatar({ autora, tamanho }: { autora: string; tamanho: "p" | "g" }) {
 
 const dataLonga = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
 const foco = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const ICONE_DA_SECAO: Record<SecaoAjuda, LucideIcon> = { comecando: Rocket, telas: LayoutDashboard, alertas: ShieldAlert, duvidas: CircleHelp, indicadores: BookOpen, dono: KeyRound };
+const ICONE_DA_SECAO: Record<SecaoAjuda, LucideIcon> = { comecando: Rocket, telas: LayoutDashboard, alertas: ShieldAlert, duvidas: CircleHelp, indicadores: BookOpen, royalties: Landmark, dono: KeyRound };
 const secao = (id: SecaoAjuda) => SECOES.find((s) => s.id === id)!;
 
 /** Caminho no topo: Central de ajuda › Seção (cada parte volta para lá). */
@@ -103,6 +103,7 @@ function Artigo({ artigo, relacionados, onAba, onAbrirTela }: { artigo: ArtigoAj
             <span className="block font-medium text-foreground">Escrito por {artigo.autora}</span>
             Atualizado em {dataLonga(artigo.atualizadoEm)}
             {artigo.publico === "dono" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só você vê</span>}
+            {artigo.publico === "royalties" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só quem vê Royalties</span>}
           </p>
         </div>
       </header>
@@ -152,8 +153,9 @@ function CampoDeBusca({ consulta, onConsulta }: { consulta: string; onConsulta: 
  *  O campo de busca fica sempre na mesma posição da árvore, para não perder o foco quando o conteúdo abaixo dele troca. */
 export function AjudaTab({ aba, onAba, onAbrirTela }: { aba: string | null; onAba: (id: string | null) => void; onAbrirTela: (destino: string) => void }) {
   const dono = ehDono();
-  const artigos = artigosPara(dono);
-  const secoes = secoesPara(dono);
+  const royalties = podeVerRoyalties();
+  const artigos = artigosPara(dono, undefined, royalties);
+  const secoes = secoesPara(dono, royalties);
   const [consulta, setConsulta] = useState("");
   const daSecao = (id: SecaoAjuda) => artigos.filter((x) => x.secao === id);
   /** Abrir um artigo ou seção limpa a busca. */
@@ -207,6 +209,7 @@ export function AjudaTab({ aba, onAba, onAbrirTela }: { aba: string | null; onAb
                   <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
                     {s.titulo}
                     {s.publico === "dono" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só você vê</span>}
+                    {s.publico === "royalties" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem vê Royalties</span>}
                   </span>
                   <span className="block text-sm text-muted-foreground">{s.descricao}</span>
                   <Autoras lista={lista} />
@@ -242,6 +245,7 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
         <span>· {dataLonga(n.data)}</span>
         <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", n.tipo === "novo" ? "bg-primary/10 text-primary-ink" : "bg-secondary text-foreground/70")}>{ROTULO_DO_TIPO[n.tipo]}</span>
         {n.publico === "dono" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só você vê</span>}
+        {n.publico === "royalties" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem vê Royalties</span>}
         {nova && <span className="ml-auto inline-flex items-center gap-1 font-medium text-primary-ink"><span className="h-2 w-2 rounded-full bg-primary" aria-hidden />Não lida</span>}
       </div>
       <h4 className="mt-2 text-base font-semibold text-foreground">{n.titulo}</h4>
@@ -258,7 +262,7 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
 
 /** Novidades: da mais nova para a mais antiga, agrupadas por mês, 10 de cada vez ("Ver mais"); com busca, todos os resultados. As não vistas ficam marcadas enquanto a tela está aberta, e o número do menu some. */
 export function NovidadesTab({ onAbrirTela }: { onAbrirTela: (destino: string) => void }) {
-  const [lista] = useState(() => novidadesPara(ehDono()));
+  const [lista] = useState(() => novidadesPara(ehDono(), undefined, podeVerRoyalties()));
   const [novas] = useState(() => { const v = new Set(lerVistas()); return new Set(lista.filter((n) => !v.has(n.id)).map((n) => n.id)); });
   const [consulta, setConsulta] = useState("");
   // 10 de cada vez; as não lidas aparecem sempre, mesmo que passem de 10.
