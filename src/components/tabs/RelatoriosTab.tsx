@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Presentation } from "lucide-react";
+import { Archive, Presentation } from "lucide-react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Notice } from "@/components/Notice";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,13 @@ import { carregarFeitos, type Feito } from "@/data/planoFeitos";
 import { planoDaUnidade } from "@/data/relatorioPlano";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { diasFechados } from "@/data/vendasDia";
-import { ID_BIG, ID_COMPL, ID_FREQ, INDICADORES_PADRAO, LEGENDA_COMPLEMENTARES, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
-import { ID_CONVERSAO, ID_MES_ATE_AQUI, ID_PLANO, INDICADORES_SEMANA_PADRAO, SEMANAIS, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
+import { INDICADORES_PADRAO, LEGENDA_COMPLEMENTARES, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
+import { ID_PLANO, INDICADORES_SEMANA_PADRAO, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
+import { GRUPOS_DO_RELATORIO, previaDoItem, rotuloDaOpcao } from "@/data/relatorioOpcoes";
+import { lerEscolhas, salvarEscolhas } from "@/lib/relatorioEscolhas";
 import { getUsuario, podeGerarRelatorios, unidadesProprias } from "@/lib/auth";
 import { registrarExportacao } from "@/lib/atividade";
+import { cn } from "@/lib/utils";
 
 const ESTADO: Record<string, string> = { fechada: "", andamento: " (em andamento)", futura: " (ainda não começou)" };
 
@@ -23,7 +26,9 @@ const ESTADO: Record<string, string> = { fechada: "", andamento: " (em andamento
 export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes = null }: { dados: MonthData[]; atualizadoEm?: string | null; metas?: Meta[]; /** Plano de ação do mês em andamento (alertas vigentes). */ vigentes?: ResultadoVigente | null }) {
   const meses = useMemo(() => mesesParaRelatorio(dados.map((d) => d.month)), [dados]);
   const mesesSemana = useMemo(() => dados.filter(temSemanas).map((d) => d.month).sort().reverse(), [dados]);
-  const [tipo, setTipo] = useState<"mes" | "semana">(() => (mesesSemana.length ? "semana" : "mes")); // a semana é o uso principal (reunião semanal)
+  const email = getUsuario()?.email ?? "";
+  const lembrado = useMemo(() => lerEscolhas(email), [email]);
+  const [tipo, setTipo] = useState<"mes" | "semana">(() => (lembrado.tipo === "mes" || (lembrado.tipo === "semana" && mesesSemana.length) ? lembrado.tipo : mesesSemana.length ? "semana" : "mes")); // a semana é o uso principal (reunião semanal)
   const [mes, setMes] = useState(meses[0] ?? "");
   const [mesSem, setMesSem] = useState(mesesSemana[0] ?? "");
   const fechadosDe = (m: string) => diasFechados(m, isPartialMonth(m), atualizadoEm);
@@ -33,10 +38,13 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
   // Quem vê só algumas unidades recebe, nos dados, as outras com o nome escondido ("Unidade 07"): o relatório fica só com as unidades da própria pessoa.
   const proprias = unidadesProprias();
   const nomes = useMemo(() => (dados.find((d) => d.month === (tipo === "mes" ? mes : mesSem))?.units.map((u) => u.name) ?? []).filter((n) => !proprias || proprias.includes(n)), [dados, tipo, mes, mesSem, proprias]);
-  const [escopo, setEscopo] = useState<"todas" | "algumas">("todas");
-  const [marcadas, setMarcadas] = useState<string[]>([]);
-  const [indMes, setIndMes] = useState<string[]>(INDICADORES_PADRAO);
-  const [indSem, setIndSem] = useState<string[]>(INDICADORES_SEMANA_PADRAO);
+  const [escopo, setEscopo] = useState<"todas" | "algumas">(lembrado.escopo ?? "todas");
+  const [marcadas, setMarcadas] = useState<string[]>(lembrado.marcadas ?? []);
+  const [indMes, setIndMes] = useState<string[]>(lembrado.indMes ?? INDICADORES_PADRAO);
+  const [indSem, setIndSem] = useState<string[]>(lembrado.indSem ?? INDICADORES_SEMANA_PADRAO);
+  const [obs, setObs] = useState("");
+  // Lembra a última escolha (o texto das observações é de cada relatório e não fica guardado)
+  useEffect(() => { salvarEscolhas(email, { tipo, escopo, marcadas, indMes, indSem }); }, [email, tipo, escopo, marcadas, indMes, indSem]);
   const [gerando, setGerando] = useState(false);
   // Feitos do plano do mês em andamento (para o slide do plano de ação)
   const [feitos, setFeitos] = useState<Record<string, Feito>>({});
@@ -48,22 +56,30 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
 
   const indicadores = tipo === "mes" ? indMes : indSem;
   const setIndicadores = tipo === "mes" ? setIndMes : setIndSem;
-  const unidades = escopo === "algumas" ? marcadas : proprias ? nomes : null;
-  const umaUnidade = escopo === "algumas" ? marcadas.length === 1 : nomes.length === 1;
+  const marcadasValidas = marcadas.filter((n) => nomes.includes(n));
+  const unidades = escopo === "algumas" ? marcadasValidas : proprias ? nomes : null;
+  const umaUnidade = escopo === "algumas" ? marcadasValidas.length === 1 : nomes.length === 1;
   const prefixo = umaUnidade ? "" : "Ranking: ";
-  const unidadeUnica = escopo === "algumas" ? (marcadas.length === 1 ? marcadas[0] : null) : nomes.length === 1 ? nomes[0] : null;
+  const unidadeUnica = escopo === "algumas" ? (marcadasValidas.length === 1 ? marcadasValidas[0] : null) : nomes.length === 1 ? nomes[0] : null;
   // O plano é do mês em andamento: na semana só vale se a semana é desse mês; no relatório de mês fechado entra o plano atual (o slide diz de qual mês é)
   const mesDoRelatorioPlano = tipo === "semana" ? mesSem : mesDoPlano ?? "";
   const plano = vigentes && unidadeUnica && mesDoPlano ? planoDaUnidade(vigentes, unidadeUnica, mesDoRelatorioPlano, feitos, atualizadoEm) : null;
   const motivoSemPlano = !unidadeUnica ? "escolha uma unidade só" : !mesDoPlano ? "o plano do mês em andamento ainda não foi lido" : tipo === "semana" && mesSem !== mesDoPlano ? "só no mês em andamento" : "";
-  const modelo: ModeloRelatorio | null = tipo === "mes"
-    ? montarRelatorio(dados, mes, indicadores, unidades, metas, plano)
-    : montarRelatorioSemanal(dados, mesSem, semana, indicadores, unidades, fechadosDe(mesSem), metas, plano);
+  const montar = (selecao: string[] | null, pl: typeof plano): ModeloRelatorio | null => {
+    const m = tipo === "mes"
+      ? montarRelatorio(dados, mes, indicadores, selecao, metas, pl)
+      : montarRelatorioSemanal(dados, mesSem, semana, indicadores, selecao, fechadosDe(mesSem), metas, pl);
+    return m ? { ...m, observacoes: obs.trim() || null } : null;
+  };
+  const modelo = montar(unidades, plano);
+  // Quem pode gerar um arquivo para cada unidade: relatório com mais de uma unidade
+  const listaPorUnidade = escopo === "algumas" ? marcadasValidas : nomes;
+  const podePorUnidade = !umaUnidade && listaPorUnidade.length > 1;
   const mesDoRelatorio = tipo === "mes" ? mes : mesSem;
   const alternar = (id: string) => setIndicadores((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
   const alternarUnidade = (u: string) => setMarcadas((l) => (l.includes(u) ? l.filter((x) => x !== u) : [...l, u]));
   const semNada = !indicadores.length;
-  const semUnidade = escopo === "algumas" && !marcadas.length;
+  const semUnidade = escopo === "algumas" && !marcadasValidas.length;
 
   const gerar = async () => {
     if (!modelo) return;
@@ -73,6 +89,24 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
       await gerarApresentacao(modelo, { email: getUsuario()?.email ?? "" });
       registrarExportacao("relatorios", { unidade: unidades?.length === 1 ? unidades[0] : null, mes: mesDoRelatorio });
       toast({ title: "Apresentação gerada", description: "O arquivo foi baixado. Abra no PowerPoint ou no Keynote para editar." });
+    } catch {
+      toast({ title: "Não consegui gerar agora", description: "Tente de novo em instantes.", variant: "destructive" });
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const gerarPorUnidade = async () => {
+    setGerando(true);
+    try {
+      const modelos = listaPorUnidade
+        .map((nome) => montar([nome], vigentes && mesDoPlano ? planoDaUnidade(vigentes, nome, mesDoRelatorioPlano, feitos, atualizadoEm) : null))
+        .filter((m): m is ModeloRelatorio => !!m);
+      if (!modelos.length) { toast({ title: "Nada para gerar", description: "Nenhuma unidade tem dados neste período.", variant: "destructive" }); return; }
+      const { gerarZipPorUnidade } = await import("@/lib/relatorioPptx");
+      await gerarZipPorUnidade(modelos, { email }, `Atlas-Relatorios-${mesDoRelatorio}-por-unidade`);
+      registrarExportacao("relatorios", { unidade: null, mes: mesDoRelatorio });
+      toast({ title: `${modelos.length} apresentações geradas`, description: "O arquivo .zip foi baixado, com um .pptx para cada unidade." });
     } catch {
       toast({ title: "Não consegui gerar agora", description: "Tente de novo em instantes.", variant: "destructive" });
     } finally {
@@ -143,58 +177,75 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
 
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-foreground">Indicadores</h3>
+              <h3 className="text-sm font-semibold text-foreground">O que vai na apresentação</h3>
               <div className="flex gap-3 text-xs">
-                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id), ID_COMPL, ID_FREQ, ID_PLANO] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO, ID_COMPL, ID_FREQ, ID_PLANO])}>Marcar todos</button>
+                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(GRUPOS_DO_RELATORIO.flatMap((g) => g.itens).filter((i) => (tipo === "mes" ? i.mes : i.semana)).map((i) => i.id))}>Marcar todos</button>
                 <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores([])}>Limpar</button>
               </div>
             </div>
-            <div className="mt-3 grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input type="checkbox" checked={indicadores.includes(ID_BIG)} onChange={() => alternar(ID_BIG)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                {tipo === "mes" ? "Overview (faturamento, adimplentes, novos contratos, contratos vendidos, ticket, inadimplência, vendas online e conversão)" : "Overview (faturamento, recebimento, novos contratos, contratos vendidos, vendas online, oportunidades, cancelamentos e conversão)"}
-              </label>
-              {tipo === "semana" && (
-                <label className="flex items-center gap-2 text-sm text-foreground">
-                  <input type="checkbox" checked={indicadores.includes(ID_MES_ATE_AQUI)} onChange={() => alternar(ID_MES_ATE_AQUI)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                  O mês até aqui (em letras menores, no slide Overview, com a meta e o mesmo ponto do mês anterior)
-                </label>
-              )}
-              {(tipo === "mes" ? RANKINGS : [...SEMANAIS, { id: ID_CONVERSAO, rotulo: "Conversão (com a base: convertidas de cadastradas)" }]).map((r) => (
-                <label key={r.id} className="flex items-center gap-2 text-sm text-foreground">
-                  <input type="checkbox" checked={indicadores.includes(r.id)} onChange={() => alternar(r.id)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />{prefixo}{r.rotulo}
-                </label>
+            <p className="mt-1 text-xs text-muted-foreground">Cada item marcado vira um slide, e embaixo dele aparecem os números que vão nele. O que só existe no {tipo === "mes" ? "relatório da semana" : "mês fechado"} fica apagado.</p>
+            <div className="mt-4 space-y-5">
+              {GRUPOS_DO_RELATORIO.map((g) => (
+                <div key={g.titulo}>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.titulo}</h4>
+                  <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                    {g.itens.map((it) => {
+                      const existe = tipo === "mes" ? it.mes : it.semana;
+                      const marcado = existe && indicadores.includes(it.id);
+                      const previa = marcado && modelo ? previaDoItem(modelo, it.id) : null;
+                      const ranking = it.id !== ID_PLANO && !["big", "mes", "metas", "conv", "compl", "freq", "satisf"].includes(it.id);
+                      const rotulo = `${ranking ? prefixo : ""}${rotuloDaOpcao(it.id, tipo)}`;
+                      return (
+                        <label key={it.id} className={cn("flex items-start gap-2 text-sm", existe ? "text-foreground" : "cursor-not-allowed text-muted-foreground/50")}>
+                          <input type="checkbox" disabled={!existe} checked={marcado} onChange={() => alternar(it.id)} className="mt-0.5 h-4 w-4 shrink-0 rounded border-input accent-[hsl(var(--primary))] disabled:opacity-40" />
+                          <span>
+                            {rotulo}
+                            {!existe && <span className="block text-xs">só {tipo === "mes" ? "no relatório da semana" : "no mês fechado"}</span>}
+                            {existe && it.id === ID_PLANO && motivoSemPlano && <span className="block text-xs text-muted-foreground">{motivoSemPlano}</span>}
+                            {existe && it.id === "compl" && <span className="block text-xs text-muted-foreground">{LEGENDA_COMPLEMENTARES}</span>}
+                            {marcado && modelo && (previa
+                              ? <span className="block text-xs font-medium text-primary">{previa}</span>
+                              : <span className="block text-xs text-muted-foreground">Sem dado neste período: o slide não será gerado.</span>)}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
-              <label className="flex items-start gap-2 text-sm text-foreground">
-                <input type="checkbox" checked={indicadores.includes(ID_COMPL)} onChange={() => alternar(ID_COMPL)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                <span>Receitas complementares (um slide só)<span className="block text-xs text-muted-foreground">{LEGENDA_COMPLEMENTARES}</span></span>
-              </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input type="checkbox" checked={indicadores.includes(ID_FREQ)} onChange={() => alternar(ID_FREQ)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                Frequência dos alunos (mapa de calor do período e último check-in){tipo === "semana" ? " · o mapa é do mês até aqui" : ""}
-              </label>
-              <label className={`flex items-center gap-2 text-sm ${plano || !motivoSemPlano ? "text-foreground" : "text-muted-foreground"}`}>
-                <input type="checkbox" checked={indicadores.includes(ID_PLANO)} onChange={() => alternar(ID_PLANO)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                Plano de ação da unidade (itens em aberto do mês em andamento){motivoSemPlano ? ` · ${motivoSemPlano}` : ""}
-              </label>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">{tipo === "mes"
-              ? `${umaUnidade ? "Cada indicador vira um slide com o valor em destaque." : "Cada ranking vira um slide, com gráfico editável."} Notas (NPS, Google e Reclame Aqui) só entram nas unidades que têm nota no mês. Churn e Cancelamentos trazem um slide com os motivos; Inadimplência, um com os principais motivos de recusa do cartão.`
-              : "Na semana só entram indicadores que existem por semana. Ticket médio, inadimplência, churn e notas são do mês e ficam de fora. Todo percentual leva a base (ex.: 4 de 12)."}</p>
+            <p className="mt-4 text-xs text-muted-foreground">{tipo === "mes"
+              ? "Churn e Cancelamentos trazem um slide com os motivos; Inadimplência, um com os principais motivos de recusa do cartão. Notas só entram para quem tem nota no mês."
+              : "Na semana só entram indicadores que existem por semana. Todo percentual leva a base (ex.: 4 de 12)."}</p>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-foreground">Observações (opcional)</h3>
+            <p className="mt-1 text-xs text-muted-foreground">O que você escrever aqui vira um slide "Observações" antes do encerramento, uma linha por tópico. Não fica guardado para o próximo relatório.</p>
+            <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={4} maxLength={1500} placeholder={"Ex.: Meta de novos contratos em risco na Arniqueira\nReforçar a cobrança dos cartões recusados"} className="mt-3 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </section>
         </div>
 
         <aside className="h-fit space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm lg:sticky lg:top-4">
-          <h3 className="text-sm font-semibold text-foreground">Slides desta apresentação</h3>
+          <h3 className="text-sm font-semibold text-foreground">Sua apresentação</h3>
           {modelo ? (
-            <ol className="list-decimal space-y-1 pl-5 text-sm text-foreground">
-              {resumoDosSlides(modelo).map((s, i) => <li key={`${s}-${i}`}>{s}</li>)}
-            </ol>
+            <details className="text-sm text-foreground">
+              <summary className="cursor-pointer font-medium">{resumoDosSlides(modelo).length} slides</summary>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                {resumoDosSlides(modelo).map((s, i) => <li key={`${s}-${i}`}>{s}</li>)}
+              </ol>
+            </details>
           ) : <p className="text-sm text-muted-foreground">{semUnidade ? "Marque ao menos uma unidade." : "Sem dados para este mês."}</p>}
           <Button onClick={gerar} disabled={gerando || !modelo || semNada || semUnidade} className="w-full">
             <Presentation className="h-4 w-4" aria-hidden />{gerando ? "Gerando..." : "Gerar apresentação"}
           </Button>
-          {semNada && <p className="text-xs text-muted-foreground">Marque ao menos um indicador.</p>}
+          {podePorUnidade && (
+            <Button variant="outline" onClick={gerarPorUnidade} disabled={gerando || semNada || semUnidade} className="w-full">
+              <Archive className="h-4 w-4" aria-hidden />Um arquivo para cada unidade ({listaPorUnidade.length})
+            </Button>
+          )}
+          {podePorUnidade && <p className="text-xs text-muted-foreground">Baixa um .zip com uma apresentação para cada unidade, com os mesmos indicadores.</p>}
+          {semNada && <p className="text-xs text-muted-foreground">Marque ao menos um item.</p>}
           <p className="text-xs text-muted-foreground">O arquivo leva no rodapé o seu e-mail e a data. A fonte dos títulos é a Impact; a Montserrat aparece se estiver instalada.</p>
         </aside>
       </div>

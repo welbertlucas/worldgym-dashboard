@@ -2,7 +2,7 @@
 // Nada de leitura nova no EVO: só os totais mensais que o Atlas já guarda (nunca dado de aluno). O desenho dos slides fica em src/lib/relatorioPptx.ts.
 import { evoAtualizadoEm, somarMotivos, somarRecusa, type MonthData, type UnitData } from "@/data/dashboardData";
 import { paginasDoPlano, type PlanoDaUnidade } from "@/data/relatorioPlano";
-import { META_INDICATORS, type Meta, type MetaKey } from "@/data/metas";
+import { META_INDICATORS, actualFor, attainment, formatMetaValue, getMeta, highestTier, tierReached, type Meta, type MetaKey } from "@/data/metas";
 
 export type Formato = "brl" | "brl2" | "int" | "pct" | "nota";
 
@@ -34,10 +34,11 @@ export const RANKINGS: DefRanking[] = [
   { id: "canc", rotulo: "Cancelamentos (alunos), com os motivos", titulo: "Cancelamentos", campo: (u) => u.cancelados, formato: "int", menorMelhor: true },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", campo: (u) => u.vendasOnline, formato: "brl" },
   { id: "op", rotulo: "Oportunidades cadastradas", titulo: "Oportunidades", campo: (u) => u.oportunidades, formato: "int" },
-  { id: "nps", rotulo: "NPS", titulo: "NPS", campo: (u) => u.nps, formato: "int", zeroEhVazio: true },
-  { id: "google", rotulo: "Nota no Google", titulo: "Nota no Google", campo: (u) => u.notaGoogle, formato: "nota", zeroEhVazio: true },
-  { id: "ra", rotulo: "Nota no Reclame Aqui", titulo: "Nota no Reclame Aqui", campo: (u) => u.reclameAqui, formato: "nota", zeroEhVazio: true },
 ];
+
+/** Renovação (%) por unidade: entra logo depois do churn. */
+const RENOVACAO: DefRanking = { id: "ren", rotulo: "Renovação (%)", titulo: "Renovação", campo: (u) => u.renovacoes, formato: "pct", zeroEhVazio: true };
+RANKINGS.splice(RANKINGS.findIndex((d) => d.id === "canc") + 1, 0, RENOVACAO);
 
 /** Indicadores do relatório que têm meta na planilha (aba Metas). */
 const META_DO_INDICADOR: Record<string, MetaKey> = { fat: "faturamento", nc: "novosContratos", inad: "inadimplenciaPerc", churn: "churn", vo: "vendasOnline" };
@@ -54,7 +55,13 @@ export const ID_FREQ = "freq";
 /** Slide "Receitas complementares": diárias, personal, brinquedoteca, WG Plus, Pro+, camisetas e coqueteleiras num slide só. */
 export const ID_COMPL = "compl";
 
-export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id), ID_COMPL, ID_FREQ];
+/** Slide "Satisfação": NPS, nota no Google e nota no Reclame Aqui num slide só. */
+export const ID_SATISF = "satisf";
+
+/** Slide "Metas do mês": cada meta da planilha, o resultado e o nível atingido (só relatório de mês fechado). */
+export const ID_METAS = "metas";
+
+export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id), ID_SATISF, ID_METAS, ID_COMPL, ID_FREQ];
 /** O que já vem marcado ao abrir o menu: o miolo do Report Operacional. */
 export const INDICADORES_PADRAO = [ID_BIG, "fat", "cresc", "nc", "cv", "tk", ID_PLANO];
 
@@ -134,6 +141,34 @@ export interface SlideComplementares {
   legenda: string;
 }
 
+/** NPS, Google e Reclame Aqui num slide: a nota de cada um (média das unidades com nota), a variação e quem está em cima e embaixo. */
+export interface NotaSatisfacao {
+  nome: string;
+  valor: string;
+  /** Diferença em pontos contra o ano anterior, ou null sem base. */
+  variacao: number | null;
+  casas: number;
+  anterior: string | null;
+  /** "12 de 23 unidades com nota". */
+  base: string;
+  /** Maiores e menores notas (só com mais de uma unidade): nome e nota já formatada. */
+  topo: [string, string][];
+  fundo: [string, string][];
+}
+export interface SlideSatisfacao { periodo: string; notas: NotaSatisfacao[] }
+
+/** Metas do mês: o resultado de cada indicador com meta cadastrada e o nível atingido. */
+export interface LinhaMeta {
+  nome: string;
+  resultado: string;
+  /** "ouro: R$ 7.000.000" (o nível mais alto cadastrado); null quando o escopo são várias unidades. */
+  meta: string | null;
+  nivel: "ouro" | "prata" | "bronze" | "abaixo" | null;
+  /** Quanto da meta mais alta foi atingido (0 a 100+); null sem base. */
+  pct: number | null;
+}
+export interface SlideMetas { periodo: string; linhas: LinhaMeta[]; escopoTexto: string }
+
 export interface SlideRanking {
   id: string;
   /** Motivos que vão num slide logo depois deste (cancelamentos e inadimplência). */
@@ -199,6 +234,12 @@ export interface ModeloRelatorio {
   frequencia?: SlideFrequencia | null;
   /** Slide "Receitas complementares" (todas num slide só). */
   complementares?: SlideComplementares | null;
+  /** Slide "Satisfação" (NPS, Google e Reclame Aqui). */
+  satisfacao?: SlideSatisfacao | null;
+  /** Slide "Metas do mês". */
+  metas?: SlideMetas | null;
+  /** Texto livre da pessoa que gera o relatório (slide "Observações"). */
+  observacoes?: string | null;
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -214,7 +255,7 @@ export const mesesParaRelatorio = (meses: string[], hoje = new Date()) => {
   return meses.filter((m) => m < atual).sort().reverse();
 };
 
-const fmtValor = (f: Formato, n: number) =>
+export const fmtValor = (f: Formato, n: number) =>
   f === "brl" ? "R$ " + n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })
   : f === "brl2" ? "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   : f === "pct" ? n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%"
@@ -384,6 +425,70 @@ export function montarComplementares(periodo: string, atual: ValoresComplementar
   };
 }
 
+const NOTAS: { nome: string; campo: (u: UnitData) => number | undefined; formato: Formato }[] = [
+  { nome: "NPS", campo: (u) => u.nps, formato: "int" },
+  { nome: "Google", campo: (u) => u.notaGoogle, formato: "nota" },
+  { nome: "Reclame Aqui", campo: (u) => u.reclameAqui, formato: "nota" },
+];
+const mediaDe = (l: UnitData[], f: (u: UnitData) => number | undefined) => { const v = l.map(f).filter((x): x is number => typeof x === "number" && Number.isFinite(x) && x > 0); return { n: v.length, media: v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0 }; };
+
+/** NPS, Google e Reclame Aqui num slide só: só entram as notas que alguma unidade tem no mês. */
+export function montarSatisfacao(periodo: string, atual: UnitData[], ant: UnitData[] | null, antCurto: string | null): SlideSatisfacao | null {
+  const notas: NotaSatisfacao[] = [];
+  for (const d of NOTAS) {
+    const { n, media } = mediaDe(atual, d.campo);
+    if (!n) continue;
+    const casas = d.formato === "nota" ? 1 : 0;
+    const antes = ant ? mediaDe(ant, d.campo) : null;
+    const lista = atual.filter((u) => (d.campo(u) ?? 0) > 0).map((u) => [u.name, d.campo(u) as number] as [string, number]).sort((a, b) => b[1] - a[1]);
+    const fmt = (v: number) => fmtValor(d.formato, v);
+    const varios = atual.length > 1;
+    const corte = lista.length > 6 ? 3 : lista.length;
+    notas.push({
+      nome: d.nome, valor: fmt(media), casas,
+      variacao: antes && antes.n ? media - antes.media : null,
+      anterior: antes && antes.n ? `${fmt(antes.media)}${antCurto ? `  ·  ${antCurto}` : ""}` : null,
+      base: varios ? `média de ${n} ${n === 1 ? "unidade com nota" : "unidades com nota"}` : "nota da unidade",
+      topo: varios ? lista.slice(0, corte).map(([nome, v]) => [nome, fmt(v)] as [string, string]) : [],
+      fundo: varios && lista.length > 6 ? lista.slice(-3).map(([nome, v]) => [nome, fmt(v)] as [string, string]) : [],
+    });
+  }
+  return notas.length ? { periodo, notas } : null;
+}
+
+const CHAVES_DE_META: MetaKey[] = ["faturamento", "recebimento", "vendasOnline", "novosContratos", "icv", "renovacoes", "churn", "inadimplenciaPerc"];
+
+/**
+ * Metas do mês (bronze, prata e ouro da planilha): rede e uma unidade comparam o resultado com a meta mais alta e dizem o nível atingido;
+ * com várias unidades escolhidas, cada indicador diz quantas atingiram ao menos o bronze.
+ */
+export function montarMetasDoMes(metas: Meta[], m: MonthData, atual: UnitData[], rede: boolean, periodo: string): SlideMetas | null {
+  const linhas: LinhaMeta[] = [];
+  const umaSo = atual.length === 1 ? atual[0] : null;
+  for (const key of CHAVES_DE_META) {
+    const nome = META_INDICATORS[key].label;
+    if (rede || umaSo) {
+      const alvoUnit = rede ? "TOTAL" : umaSo!.name;
+      const meta = getMeta(metas, m.month, alvoUnit, key) ?? (rede ? getMeta(metas, m.month, "Rede", key) : undefined);
+      const alto = meta ? highestTier(meta) : null;
+      const valor = actualFor(m, rede ? "TOTAL" : alvoUnit, key);
+      if (!meta || !alto || valor === null || !Number.isFinite(valor)) continue;
+      linhas.push({ nome, resultado: formatMetaValue(key, valor), meta: `${alto.tier}: ${formatMetaValue(key, alto.value)}`, nivel: tierReached(key, valor, meta), pct: attainment(key, valor, alto.value) });
+    } else {
+      let com = 0, atingiram = 0;
+      for (const u of atual) {
+        const meta = getMeta(metas, m.month, u.name, key);
+        const valor = u[key];
+        if (!meta || !highestTier(meta) || !Number.isFinite(valor)) continue;
+        com++;
+        if (tierReached(key, valor, meta) !== "abaixo") atingiram++;
+      }
+      if (com) linhas.push({ nome, resultado: `${atingiram} de ${com} ${com === 1 ? "unidade" : "unidades"}`, meta: null, nivel: null, pct: (atingiram / com) * 100 });
+    }
+  }
+  return linhas.length ? { periodo, linhas, escopoTexto: rede ? "meta da rede" : umaSo ? `meta da unidade ${umaSo.name}` : "unidades que atingiram ao menos o bronze" } : null;
+}
+
 /**
  * Monta o relatório de um mês fechado. `unidades` = quais entram (null = todas as que a pessoa enxerga). `meses` = o que o painel tem
  * (já filtrado pelo servidor para o nível de acesso da pessoa).
@@ -456,11 +561,14 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
   const complementares = escolheu.has(ID_COMPL) ? montarComplementares(rotuloDoPeriodo(mes), atual, soma(atual, (u) => u.faturamento), ant, antCurto) : null;
   const frequencia = escolheu.has(ID_FREQ) ? montarFrequencia(meses, mes, atual, rotuloDoPeriodo(mes)) : null;
   const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant) : null;
+  const satisfacao = escolheu.has(ID_SATISF) ? montarSatisfacao(rotuloDoPeriodo(mes), atual, ant, antCurto) : null;
+  const rede = !unidades || unidades.length >= m.units.length;
+  const metasDoMes = escolheu.has(ID_METAS) ? montarMetasDoMes(metas, m, atual, rede, rotuloDoPeriodo(mes)) : null;
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
-  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, frequencia, complementares, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
+  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, frequencia, complementares, satisfacao, metas: metasDoMes, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
 }
 
 /** O que o menu mostra de cada slide, antes de gerar. */
 export function resumoDosSlides(modelo: ModeloRelatorio): string[] {
-  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), "Encerramento"];
+  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.satisfacao ? ["Satisfação"] : []), ...(modelo.metas ? ["Metas do mês"] : []), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), ...(modelo.observacoes?.trim() ? ["Observações"] : []), "Encerramento"];
 }

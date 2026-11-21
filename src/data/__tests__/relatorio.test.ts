@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ID_BIG, ID_COMPL, ID_FREQ, INDICADORES_PADRAO, RANKINGS, mesDoAnoAnterior, rotuloDoPeriodo, serieMensal, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, ID_FREQ, ID_METAS, ID_SATISF, INDICADORES_PADRAO, RANKINGS, mesDoAnoAnterior, rotuloDoPeriodo, serieMensal, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
 const dados = [
@@ -24,8 +24,10 @@ describe("relatório", () => {
   });
 
   it("notas zeradas ficam de fora e o escopo restringe as unidades", () => {
-    const m = montarRelatorio(dados, "2026-10", ["nps", "google"], ["Asa Sul", "Gama"])!;
-    expect(m.rankings.map((r) => [r.id, r.itens.length])).toEqual([["nps", 1], ["google", 1]]);
+    const m = montarRelatorio(dados, "2026-10", [ID_SATISF], ["Asa Sul", "Gama"])!;
+    // NPS, Google e Reclame Aqui num slide só: só as notas que alguma unidade tem (Gama sem nota fica fora da média)
+    expect(m.rankings).toEqual([]);
+    expect(m.satisfacao!.notas.map((n) => [n.nome, n.valor, n.base])).toEqual([["NPS", "80", "média de 1 unidade com nota"], ["Google", "4,6", "média de 1 unidade com nota"]]);
     expect(m.nUnidades).toBe(2);
     expect(m.escopo).toBe("2 unidades");
   });
@@ -45,8 +47,8 @@ describe("relatório", () => {
   });
 
   it("uma unidade só vira cartão de destaque, com variação e ano anterior", () => {
-    const m = montarRelatorio(dados, "2026-10", ["fat", "inad", "cresc", "nps"], ["Asa Sul"])!;
-    const [fat, cresc, inad, nps] = m.rankings;
+    const m = montarRelatorio(dados, "2026-10", ["fat", "inad", "cresc", ID_SATISF], ["Asa Sul"])!;
+    const [fat, cresc, inad] = m.rankings;
     expect(fat.itens).toEqual([]);
     expect(fat.cartao!.valor).toBe("R$ 120.000");
     expect(fat.cartao!.variacao).toBeCloseTo(20, 5);
@@ -54,7 +56,7 @@ describe("relatório", () => {
     expect(inad.cartao!.emPontos).toBe(true);
     expect(inad.cartao!.menorMelhor).toBe(true);
     expect(cresc.cartao!.valor).toBe("+20,0%");
-    expect(nps.cartao!.anterior).toBeNull(); // sem nota no ano anterior
+    expect(m.satisfacao!.notas[0]).toMatchObject({ nome: "NPS", valor: "80", anterior: null, variacao: null, base: "nota da unidade" }); // sem nota no ano anterior
     expect(montarRelatorio(dados, "2026-10", ["inad"], ["Nova"])!.rankings[0].cartao!.variacao).toBeNull(); // sem mês igual no ano anterior
     expect(montarRelatorio(dados, "2026-10", ["fat", "cresc"], ["Nova"])!.rankings.map((r) => r.id)).toEqual(["fat"]); // sem base: sem crescimento
   });
@@ -190,5 +192,41 @@ describe("relatório do mês: receitas complementares num slide só", () => {
   });
   it("o relatório do mês traz contratos vendidos já na seleção padrão", () => {
     expect(INDICADORES_PADRAO).toContain("cv");
+  });
+
+  it("satisfação: variação em pontos contra o ano anterior, maiores e menores notas e entrada no resumo", () => {
+    const antes = [month("2025-10", [unit("A", { nps: 60 }), unit("B", { nps: 40 })]), month("2026-10", [unit("A", { nps: 70 }), unit("B", { nps: 50 }), unit("C", { nps: 90 })])];
+    const m = montarRelatorio(antes, "2026-10", [ID_SATISF], null)!;
+    const nps = m.satisfacao!.notas[0];
+    expect(nps.valor).toBe("70");
+    expect(nps.variacao).toBeCloseTo(20, 5); // média 70 contra 50
+    expect(nps.topo.map((x) => x[0])).toEqual(["C", "A", "B"]); // poucas unidades: lista inteira, sem "menores"
+    expect(nps.fundo).toEqual([]);
+    expect(resumoDosSlides(m)).toEqual(["Capa", "Satisfação", "Encerramento"]);
+  });
+
+  it("metas do mês: rede usa a meta da rede, uma unidade a dela, várias unidades contam quantas atingiram", () => {
+    const base = [month("2026-10", [unit("Asa Sul", { faturamento: 120000 }), unit("Gama", { faturamento: 40000 })])];
+    const metas = [
+      { month: "2026-10", unit: "Asa Sul", key: "faturamento", bronze: 100000, ouro: 200000 },
+      { month: "2026-10", unit: "Gama", key: "faturamento", bronze: 60000, ouro: 80000 },
+      { month: "2026-10", unit: "TOTAL", key: "faturamento", bronze: 150000, ouro: 300000 },
+    ] as never[];
+    const um = montarRelatorio(base, "2026-10", [ID_METAS], ["Asa Sul"], metas)!.metas!;
+    expect(um.linhas[0]).toMatchObject({ nome: "Faturamento", nivel: "bronze", meta: expect.stringContaining("ouro") });
+    expect(um.linhas[0].pct).toBeCloseTo(60, 5);
+    const varias = montarRelatorio(base, "2026-10", [ID_METAS], ["Asa Sul", "Gama"], metas)!.metas!; // as duas = a rede inteira
+    expect(varias.escopoTexto).toBe("meta da rede");
+    expect(montarRelatorio(base, "2026-10", [ID_METAS], ["Asa Sul"], [])!.metas).toBeNull(); // sem meta cadastrada, sem slide
+    expect(resumoDosSlides(montarRelatorio(base, "2026-10", [ID_METAS], ["Asa Sul"], metas)!)).toContain("Metas do mês");
+  });
+
+  it("renovação entra como ranking e as observações viram um slide no resumo", () => {
+    const base = [month("2026-10", [unit("Asa Sul", { renovacoes: 60 }), unit("Gama", { renovacoes: 50 })])];
+    const m = montarRelatorio(base, "2026-10", ["ren"], null)!;
+    expect(m.rankings[0].itens).toEqual([["Asa Sul", 60], ["Gama", 50]]);
+    expect(RANKINGS.some((r) => ["nps", "google", "ra"].includes(r.id))).toBe(false); // as três notas agora são o slide de Satisfação
+    expect(resumoDosSlides({ ...m, observacoes: "  Reforçar cobrança  " })).toContain("Observações");
+    expect(resumoDosSlides({ ...m, observacoes: "   " })).not.toContain("Observações");
   });
 });

@@ -35,7 +35,10 @@ export function nomeDoArquivo(m: ModeloRelatorio): string {
   return `Atlas-Relatorio-${m.mes}-${escopo || "Rede"}`;
 }
 
-export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): Promise<void> {
+/** Monta a apresentação. `saida` "baixar" salva o arquivo; "blob" devolve o conteúdo (para juntar vários num .zip). */
+export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): Promise<void>;
+export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, saida: "blob"): Promise<Blob>;
+export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, saida: "baixar" | "blob" = "baixar"): Promise<Blob | void> {
   const [{ default: PptxGenJS }, capa, fecho, logo, fundo] = await Promise.all([import("pptxgenjs"), comoDados(capaFoto), comoDados(fechoFoto), comoDados(logoImg), comoDados(fundoImg)]);
   const quando = op.em ?? new Date();
   const pptx = new PptxGenJS();
@@ -259,6 +262,61 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     rodape(s);
   }
 
+  // Satisfação: NPS, Google e Reclame Aqui num slide só (uma coluna para cada nota)
+  if (m.satisfacao) {
+    const sf = m.satisfacao;
+    const s = slideDeDados();
+    s.addText("SATISFAÇÃO", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(`NPS, nota no Google e nota no Reclame Aqui · apenas em ${sf.periodo}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    const colunas = sf.notas.length, larg = 12.1 / colunas;
+    sf.notas.forEach((nt, i) => {
+      const x = 0.6 + i * larg, w = larg - 0.3;
+      s.addText(nt.valor, { x, y: 1.3, w, h: 1.3, fontFace: TIT, fontSize: 72, color: VINHO, valign: "middle" });
+      s.addText(nt.nome.toUpperCase(), { x, y: 2.6, w, h: 0.5, fontFace: TIT, fontSize: 24, color: PRETO });
+      s.addText(nt.base, { x, y: 3.1, w, h: 0.3, fontFace: TXT, fontSize: 11, color: CINZA });
+      let y = 3.45;
+      if (nt.variacao !== null) {
+        const t = `${nt.variacao >= 0 ? "+" : ""}${nt.variacao.toLocaleString("pt-BR", { minimumFractionDigits: nt.casas, maximumFractionDigits: Math.max(nt.casas, 1) })} pts`;
+        s.addText(t, { x, y, w, h: 0.45, fontFace: TXT, fontSize: 20, bold: true, color: nt.variacao >= 0 ? VERDE : VERM });
+        y += 0.45;
+      }
+      if (nt.anterior) { s.addText(nt.anterior, { x, y, w, h: 0.3, fontFace: TXT, fontSize: 12, color: CINZA }); y += 0.45; }
+      const lista = (titulo: string, itens: [string, string][]) => {
+        if (!itens.length) return;
+        s.addText(titulo, { x, y, w, h: 0.3, fontFace: TXT, fontSize: 11, bold: true, color: VINHO });
+        y += 0.3;
+        for (const [nome, v] of itens) { s.addText(`${nome}`, { x, y, w: w - 0.9, h: 0.28, fontFace: TXT, fontSize: 11, color: TEXTO }); s.addText(v, { x: x + w - 0.9, y, w: 0.9, h: 0.28, fontFace: TXT, fontSize: 11, bold: true, color: TEXTO, align: "right" }); y += 0.28; }
+        y += 0.12;
+      };
+      lista(nt.fundo.length ? "Maiores notas" : "Notas por unidade", nt.topo);
+      lista("Menores notas", nt.fundo);
+    });
+    rodape(s);
+  }
+
+  // Metas do mês: cada meta da planilha, o resultado e o nível atingido
+  if (m.metas) {
+    const mt = m.metas;
+    const s = slideDeDados();
+    s.addText("METAS DO MÊS", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(`${mt.escopoTexto} · ${mt.periodo}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    const passo = Math.min(0.78, 5.7 / mt.linhas.length), topo = 1.35;
+    const COR_NIVEL: Record<string, string> = { ouro: "C99A00", prata: "8E8E8E", bronze: "A8662B", abaixo: VERM };
+    mt.linhas.forEach((l, i) => {
+      const y = topo + i * passo;
+      s.addText(l.nome, { x: 0.7, y, w: 3.0, h: passo - 0.08, fontFace: TIT, fontSize: 18, color: VINHO, valign: "middle" });
+      s.addText(l.resultado, { x: 3.7, y, w: 2.8, h: passo - 0.08, fontFace: TXT, fontSize: 18, bold: true, color: PRETO, valign: "middle" });
+      const x0 = 6.6, larg = 3.6, pct = Math.max(0, Math.min(1, (l.pct ?? 0) / 100));
+      s.addShape(pptx.ShapeType.roundRect, { x: x0, y: y + passo / 2 - 0.13, w: larg, h: 0.2, fill: { color: "D9D3CF" }, line: { color: "D9D3CF", width: 0 }, rectRadius: 0.1 });
+      if (pct * larg > 0.05) s.addShape(pptx.ShapeType.roundRect, { x: x0, y: y + passo / 2 - 0.13, w: pct * larg, h: 0.2, fill: { color: VINHO }, line: { color: VINHO, width: 0 }, rectRadius: 0.1 });
+      if (l.pct !== null) s.addText(`${Math.round(l.pct).toLocaleString("pt-BR")}%`, { x: x0 + larg + 0.1, y, w: 0.9, h: passo - 0.08, fontFace: TXT, fontSize: 14, bold: true, color: TEXTO, valign: "middle" });
+      const nivel = l.nivel ? (l.nivel === "abaixo" ? "abaixo do bronze" : `nível ${l.nivel}`) : "";
+      const detalhe = [l.meta ? `meta ${l.meta}` : "", nivel].filter(Boolean).join(" · ");
+      if (detalhe) s.addText(detalhe, { x: x0, y: y + passo / 2 + 0.05, w: larg + 1.6, h: 0.28, fontFace: TXT, fontSize: 10, color: l.nivel ? COR_NIVEL[l.nivel] : CINZA });
+    });
+    rodape(s);
+  }
+
   // Plano de ação da unidade (relatório semanal de uma unidade): o que está em aberto no plano do mês, para a reunião
   if (m.plano) {
     const p = m.plano;
@@ -296,6 +354,19 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     });
   }
 
+  // Observações: o texto que a pessoa escreveu no menu, uma linha por tópico
+  if (m.observacoes?.trim()) {
+    const linhas = m.observacoes.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const POR_SLIDE = 9;
+    for (let i = 0; i < linhas.length; i += POR_SLIDE) {
+      const s = slideDeDados();
+      s.addText("OBSERVAÇÕES", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+      s.addText(m.periodo + (linhas.length > POR_SLIDE ? ` · ${i / POR_SLIDE + 1} de ${Math.ceil(linhas.length / POR_SLIDE)}` : ""), { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+      s.addText(linhas.slice(i, i + POR_SLIDE).map((t) => ({ text: t, options: { bullet: true, breakLine: true } })), { x: 0.9, y: 1.4, w: 11.5, h: 5.5, fontFace: TXT, fontSize: 20, color: TEXTO, valign: "top", paraSpaceAfter: 10 });
+      rodape(s);
+    }
+  }
+
   // Encerramento
   {
     n++;
@@ -303,5 +374,19 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     s.addImage({ data: fecho, x: 0, y: 0, w: 13.333, h: 7.5 });
   }
 
+  if (saida === "blob") return (await pptx.write({ outputType: "blob" })) as Blob;
   await pptx.writeFile({ fileName: `${nomeDoArquivo(m)}.pptx` });
+}
+
+/** Um arquivo .pptx para cada relatório, todos juntos num .zip (um clique só). */
+export async function gerarZipPorUnidade(modelos: ModeloRelatorio[], op: OpcoesGeracao, nomeZip: string): Promise<void> {
+  const { default: JSZip } = await import("jszip");
+  const zip = new JSZip();
+  for (const m of modelos) zip.file(`${nomeDoArquivo(m)}.pptx`, await gerarApresentacao(m, op, "blob"));
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${nomeZip}.zip`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
