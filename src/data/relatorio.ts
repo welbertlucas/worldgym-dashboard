@@ -68,6 +68,9 @@ export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id), ID_SA
 /** O que já vem marcado ao abrir o menu: o miolo do Report Operacional. */
 export const INDICADORES_PADRAO = [ID_BIG, "fat", "cresc", "nc", "cv", "tk", ID_PLANO];
 
+/** "dos quais 8 são especiais": o total de contratos vendidos inclui os contratos especiais. */
+export const notaContratosEspeciais = (n: number) => (n > 0 ? `dos quais ${n.toLocaleString("pt-BR")} ${n === 1 ? "é especial" : "são especiais"}` : undefined);
+
 export interface BigNumero {
   nome: string;
   valor: string;
@@ -77,6 +80,8 @@ export interface BigNumero {
   /** Em indicador em que cair é bom (inadimplência). */
   menorMelhor?: boolean;
   anterior: string | null;
+  /** Linha pequena embaixo do nome (ex.: contratos especiais dentro do total de contratos vendidos). */
+  nota?: string;
 }
 
 /** Slide de uma unidade só: valor em destaque, variação e o valor do ano anterior (no lugar da barra única). */
@@ -338,7 +343,7 @@ function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNum
     comp((u) => u.faturamento, fmtBrl, "Faturamento"),
     comp((u) => u.adimplentes, fmtInt, "Adimplentes"),
     comp((u) => u.novosContratos, fmtInt, "Novos contratos"),
-    comp((u) => u.vendasContratos ?? 0, fmtInt, "Contratos vendidos"),
+    { ...comp((u) => u.vendasContratos ?? 0, fmtInt, "Contratos vendidos"), nota: notaContratosEspeciais(soma(atual, (u) => u.vendasContratosEspeciais ?? 0)) },
     { nome: "Ticket médio", valor: fmtBrl2(ticket(atual)), variacao: tem && ticket(ant!) > 0 ? variacao(ticket(atual), ticket(ant!)) : null, anterior: tem && ticket(ant!) > 0 ? fmtBrl2(ticket(ant!)) : null },
     { nome: "Inadimplentes", valor: fmtPct(taxaInad(atual)), variacao: tem ? taxaInad(atual) - taxaInad(ant!) : null, emPontos: true, menorMelhor: true, anterior: tem ? fmtPct(taxaInad(ant!)) : null },
     comp((u) => u.vendasOnline, fmtBrl, "Vendas online"),

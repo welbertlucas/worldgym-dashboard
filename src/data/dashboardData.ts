@@ -42,6 +42,8 @@ export interface SemanaDoMes {
   novosContratos?: number; vendasOnline?: number; diarias?: number; camisetas?: number; coqueteleiras?: number; personal?: number;
   /** Contratos vendidos como no Gerencial do EVO, e as receitas complementares que faltavam por semana (meses lidos antes não têm). */
   vendasContratos?: number; kids?: number; plus?: number; proMais?: number;
+  /** Quantos dos contratos vendidos são especiais (VIP e cortesias, valor R$ 0). */
+  vendasContratosEspeciais?: number;
   oportunidades?: number; conversoes?: number; conversoesAntigas?: number; cancelados?: number;
 }
 
@@ -53,6 +55,8 @@ export interface UnitData {
   novosContratos: number;
   /** Contratos vendidos como no Gerencial do EVO: matrículas, rematrículas e renovações lançadas na recepção ou online (sem a recorrência automática, diária e personal). */
   vendasContratos?: number;
+  /** Quantos dos contratos vendidos são especiais (VIP e cortesias, valor R$ 0). */
+  vendasContratosEspeciais?: number;
   /** Valor das vendas de contrato do mês por origem, como o "Total de vendas" do Gerencial do EVO: recepção, recorrência automática e online. */
   vendasManuais?: number;
   vendasRecorrentes?: number;
@@ -494,7 +498,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "pagantes" | "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "vendasContratos" | "vendasManuais" | "vendasRecorrentes" | "vendasOnlineContratos" | "contratosPlanos" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "conversoesAntigas" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "semanas" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao" | "gatewaysDet" | "cartaoAReceber" | "vendedores" | "vendedoresTotal">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "vendasContratosEspeciais" | "pagantes" | "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "vendasContratos" | "vendasManuais" | "vendasRecorrentes" | "vendasOnlineContratos" | "contratosPlanos" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "conversoesAntigas" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "semanas" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao" | "gatewaysDet" | "cartaoAReceber" | "vendedores" | "vendedoresTotal">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -962,6 +966,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.vendasEvo = true;
         unit.novosContratos = e.novosContratos;
         if (e.vendasContratos !== undefined) unit.vendasContratos = e.vendasContratos;
+        if (e.vendasContratosEspeciais !== undefined) unit.vendasContratosEspeciais = e.vendasContratosEspeciais;
         if (e.vendasManuais !== undefined) { unit.vendasManuais = e.vendasManuais; unit.vendasRecorrentes = e.vendasRecorrentes; unit.vendasOnlineContratos = e.vendasOnlineContratos; }
         unit.vendasOnline = e.vendasOnline ?? 0;
         unit.diarias = e.diarias ?? 0;

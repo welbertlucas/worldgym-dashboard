@@ -3,7 +3,7 @@
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
 import type { Meta, MetaKey } from "@/data/metas";
 import type { PlanoDaUnidade } from "@/data/relatorioPlano";
-import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, NOTA_RECEBIMENTO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, NOTA_RECEBIMENTO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, notaContratosEspeciais, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -215,7 +215,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
     };
     // Contratos vendidos só entra se a semana tem o número (meses lidos antes dele não têm; somar como zero enganaria)
     const temCv = atual.some((d) => typeof d.s.vendasContratos === "number");
-    big = ["fat", "rec", "nc", ...(temCv ? ["cv"] : []), "vo", "op", "canc"].map((id) => { const d = SEMANAIS.find((x) => x.id === id)!; return kpi(d.titulo === "Oportunidades" ? "Oportunidades" : d.titulo, d); });
+    big = ["fat", "rec", "nc", ...(temCv ? ["cv"] : []), "vo", "op", "canc"].map((id) => { const d = SEMANAIS.find((x) => x.id === id)!; const k = kpi(d.titulo === "Oportunidades" ? "Oportunidades" : d.titulo, d); return id === "cv" ? { ...k, nota: notaContratosEspeciais(somaCampo(atual, (s) => s.vendasContratosEspeciais)) } : k; });
     oportunidades = somaCampo(atual, (s) => s.oportunidades);
     convertidas = Math.min(somaCampo(atual, (s) => s.conversoes), oportunidades);
     conversao = oportunidades > 0 ? (convertidas / oportunidades) * 100 : null;

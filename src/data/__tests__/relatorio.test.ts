@@ -229,4 +229,12 @@ describe("relatório do mês: receitas complementares num slide só", () => {
     expect(resumoDosSlides({ ...m, observacoes: "  Reforçar cobrança  " })).toContain("Observações");
     expect(resumoDosSlides({ ...m, observacoes: "   " })).not.toContain("Observações");
   });
+
+  it("o Overview diz quantos dos contratos vendidos são especiais", () => {
+    const base = [month("2026-10", [unit("Asa Sul", { vendasContratos: 50, vendasContratosEspeciais: 3 } as never), unit("Gama", { vendasContratos: 10, vendasContratosEspeciais: 0 } as never)])];
+    const cv = montarRelatorio(base, "2026-10", [ID_BIG], null)!.big!.find((k) => k.nome === "Contratos vendidos")!;
+    expect(cv.valor).toBe("60");
+    expect(cv.nota).toBe("dos quais 3 são especiais");
+    expect(montarRelatorio([month("2026-10", [unit("Gama", { vendasContratos: 10 } as never)])], "2026-10", [ID_BIG], null)!.big!.find((k) => k.nome === "Contratos vendidos")!.nota).toBeUndefined();
+  });
 });

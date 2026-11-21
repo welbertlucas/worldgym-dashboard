@@ -83,6 +83,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
       s.addText(k.valor, { x, y, w: larg, h: 1.0, fontFace: TIT, fontSize: tam, color: PRETO, valign: "middle" });
       s.addText(k.nome, { x, y: y + 0.95, w: larg, h: 0.5, fontFace: TIT, fontSize: Math.round(24 * (colunas === 4 ? 0.62 : 1)), color: VINHO });
       let yy = y + 1.45;
+      if (k.nota) { s.addText(k.nota, { x, y: yy - 0.02, w: larg, h: 0.26, fontFace: TXT, fontSize: Math.round(10.5 * (colunas === 4 ? 0.85 : 1)), italic: true, color: CINZA }); yy += 0.25; }
       if (k.variacao !== null) {
         const bom = k.menorMelhor ? k.variacao <= 0 : k.variacao >= 0;
         const txt = k.emPontos ? `${k.variacao >= 0 ? "+" : ""}${k.variacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} p.p.` : sinal(k.variacao);

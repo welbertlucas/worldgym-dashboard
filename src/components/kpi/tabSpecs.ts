@@ -31,7 +31,11 @@ export const faturamentoSpec: KpiSpec = {
 
 export const comercialSpecs: KpiSpec[] = [
   faturamentoSpec,
-  { title: "Contratos Vendidos", kind: "flow", noDataIfZero: true, semTextoDoMesAnterior: true, projecao: true, pick: (v) => sumUnits(v, (u) => u.vendasContratos ?? 0), fmt: int },
+  {
+    title: "Contratos Vendidos", kind: "flow", noDataIfZero: true, semTextoDoMesAnterior: true, projecao: true, pick: (v) => sumUnits(v, (u) => u.vendasContratos ?? 0), fmt: int,
+    // Do total, quantos são contratos especiais (VIP e cortesias de valor R$ 0): explica a diferença para o EVO em algumas unidades
+    extra: (v) => { const n = sumUnits(v, (u) => u.vendasContratosEspeciais ?? 0); return n > 0 ? [{ text: `${int(n)} ${n === 1 ? "é contrato especial" : "são contratos especiais"}`, tone: "neutral" }] : []; },
+  },
   { title: "Saldo de Clientes", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
   {
     title: "Conversão de Cadastros", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pct,
