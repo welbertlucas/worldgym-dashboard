@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buscarNoMenu, itensDeBusca, itensDoMenu, MENUS_SO_DONO, NAV_RODAPE, type NavItem } from "@/components/nav";
-import { ehDono, podeGerarRelatorios, podeGerirAcessos, podeVerJuridico, podePreencherChecklist, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
+import { ehDono, podeVerEstudos, podeVerObras, podeGerarRelatorios, podeGerirAcessos, podeVerJuridico, podePreencherChecklist, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
 import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import wgLogo from "@/assets/wg-logo.png";
 
@@ -20,7 +20,7 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   const [consulta, setConsulta] = useState("");
   const [sel, setSel] = useState(0);
   const campo = useRef<HTMLInputElement>(null);
-  const resultados = buscarNoMenu(itensDeBusca([...itensDoMenu(podeGerirAcessos(), true, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), ehDono()), ...NAV_RODAPE], ehDono()), consulta);
+  const resultados = buscarNoMenu(itensDeBusca([...itensDoMenu(podeGerirAcessos(), true, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), emBreveLiberado()), ...NAV_RODAPE], ehDono()), consulta);
   const abrir = (destino: string) => { setConsulta(""); campo.current?.blur(); onChange(destino); };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, resultados.length - 1)); }
@@ -64,6 +64,9 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   );
 }
 
+/** Estudos de ponto e Unidades em obra (ainda "Em breve"): o dono vê os dois; os outros, o que ele liberou. */
+const emBreveLiberado = () => (ehDono() ? true : { estudos: podeVerEstudos(), obras: podeVerObras() });
+
 function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: NavItem; active: string; onChange: (id: string) => void; collapsed: boolean; numero?: number }) {
   const Icon = item.icon;
   const isActive = active === item.id;
@@ -101,7 +104,7 @@ function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: N
 
 /** Telas de trabalho em cima; Novidades e Central de ajuda no rodapé do menu. */
 function NavList({ active, onChange, collapsed = false }: NavProps & { collapsed?: boolean }) {
-  const itens = itensDoMenu(podeGerirAcessos(), false, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), ehDono());
+  const itens = itensDoMenu(podeGerirAcessos(), false, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), emBreveLiberado());
   const novas = useNovidadesNaoVistas();
   return (
     <>

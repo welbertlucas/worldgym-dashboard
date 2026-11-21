@@ -281,6 +281,28 @@ describe("acessos, níveis e registro", () => {
     expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "unidades", unidades: ["Gama"], verJuridico: true })).code).toBe(403);
   });
 
+  it("estudos de ponto e unidades em obra: o dono vê; os outros só se ele liberar cada menu; ninguém além do dono libera", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
+    const c = (await post(tokenDono, { acao: "criar", nome: "Ana Master", email: "ana@exemplo.com", papel: "master" })).body;
+    await trocaSenha(c.usuario.id, c.senhaProvisoria);
+    const token = criarTokenUsuario(c.usuario.id).token;
+    const ve = async (t: string) => (await chama(login, com(t, { method: "GET" }))).body.usuario;
+
+    expect(await ve(tokenDono)).toMatchObject({ verEstudos: true, verObras: true });
+    expect(await ve(token)).toMatchObject({ verEstudos: false, verObras: false });
+    expect((await post(tokenDono, { acao: "atualizar", id: c.usuario.id, verObras: true })).body.usuario).toMatchObject({ verEstudos: false, verObras: true });
+    expect(await ve(token)).toMatchObject({ verEstudos: false, verObras: true });
+    // quem gerencia acessos não libera
+    await post(tokenDono, { acao: "atualizar", id: c.usuario.id, gerenciaAcessos: true });
+    expect((await post(token, { acao: "atualizar", id: c.usuario.id, verEstudos: true })).code).toBe(403);
+    expect((await post(token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master", verEstudos: true })).code).toBe(403);
+    // criar já com a liberação
+    const novo = (await post(tokenDono, { acao: "criar", nome: "Caio", email: "caio@exemplo.com", papel: "master", verEstudos: true, verObras: true })).body.usuario;
+    expect(novo).toMatchObject({ verEstudos: true, verObras: true });
+  });
+
   it("qualidade: dono e todo Master veem (consulta); só o dono e quem ele liberou editam; o peso dos itens é só do dono; ninguém além do dono libera", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;

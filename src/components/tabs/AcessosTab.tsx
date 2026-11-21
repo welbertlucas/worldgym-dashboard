@@ -37,6 +37,8 @@ export function AcessosTab() {
   const [erro, setErro] = useState("");
   const [senhaNova, setSenhaNova] = useState<{ nome: string; senha: string; email?: EmailDeAcesso } | null>(null);
   const [editando, setEditando] = useState<UsuarioApi | null>(null);
+  /** Acesso usado como modelo: o formulário abre com o mesmo nível, unidades e menus, e só nome e e-mail ficam em branco. */
+  const [modelo, setModelo] = useState<UsuarioApi | null>(null);
   const [consulta, setConsulta] = useState("");
   const [quantos, setQuantos] = useState(ACESSOS_POR_VEZ);
   const [ordem, setOrdem] = useState<"nome" | "recentes" | "antigos">("nome");
@@ -134,7 +136,7 @@ export function AcessosTab() {
               {mostrados.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
                   <td className="px-5 py-3"><div className="font-medium text-foreground"><button type="button" onClick={() => setDetalhe(u)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" title="Ver último acesso e histórico">{u.nome}</button>{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
-                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel === "unidades" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Edita qualidade</span>}{u.papel === "unidades" && u.preencheChecklist && <span className="block text-xs text-muted-foreground">Preenche checklist</span>}</td>
+                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel === "unidades" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Edita qualidade</span>}{u.papel === "unidades" && u.preencheChecklist && <span className="block text-xs text-muted-foreground">Preenche checklist</span>}{u.verEstudos && <span className="block text-xs text-muted-foreground">Vê estudos de ponto</span>}{u.verObras && <span className="block text-xs text-muted-foreground">Vê unidades em obra</span>}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
                   <td className="px-3 py-3">
@@ -157,7 +159,8 @@ export function AcessosTab() {
                   <td className="px-5 py-3 text-right">
                     {bloqueio(u) ? <span className="text-xs text-muted-foreground">{bloqueio(u)}</span> : (
                       <span className="flex flex-wrap justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setEditando(u)}>Editar</Button>
+                        <Button variant="outline" size="sm" onClick={() => { setModelo(null); setEditando(u); }}>Editar</Button>
+                        {souDono && u.papel !== "dono" && <Button variant="outline" size="sm" onClick={() => { setEditando(null); setModelo(u); document.getElementById("ac-form")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><Copy className="w-3.5 h-3.5" aria-hidden /> Replicar</Button>}
                         <Button variant="outline" size="sm" onClick={async () => {
                           if (!window.confirm(`Gerar uma nova senha para ${u.nome}? A senha atual deixa de valer e a nova vai para ${u.email}.`)) return;
                           const r = await redefinirSenha(u.id);
@@ -187,13 +190,15 @@ export function AcessosTab() {
       </section>
 
       <section aria-labelledby="ac-form" className="card-surface p-5">
-        <h3 id="ac-form" className="text-base font-semibold text-foreground">{editando ? `Editar ${editando.nome}` : "Novo acesso"}</h3>
+        <h3 id="ac-form" className="text-base font-semibold text-foreground">{editando ? `Editar ${editando.nome}` : modelo ? `Novo acesso, igual ao de ${modelo.nome}` : "Novo acesso"}</h3>
+        {modelo && !editando && <p className="mt-1 text-sm text-muted-foreground">Nível, unidades e menus vieram de {modelo.nome}. Altere o que quiser antes de criar e preencha o nome e o e-mail da pessoa nova.</p>}
         <FormularioAcesso
-          key={editando?.id ?? "novo"}
+          key={editando?.id ?? (modelo ? `copia-${modelo.id}` : "novo")}
           unidades={dados.unidades}
           inicial={editando}
+          semente={editando ? null : modelo}
           podeLiberar={souDono}
-          onCancelar={editando ? () => setEditando(null) : undefined}
+          onCancelar={editando ? () => setEditando(null) : modelo ? () => setModelo(null) : undefined}
           onSalvar={async (v) => {
             if (editando) {
               const r = await atualizarAcesso(editando.id, v);
@@ -204,6 +209,7 @@ export function AcessosTab() {
               const r = await criarAcesso(v);
               if (!r.ok) return r.erro;
               mostrarSenha(r.dados.usuario.nome, r.dados.senhaProvisoria, r.dados.email);
+              setModelo(null);
             }
             void carregar();
             return null;
@@ -223,25 +229,30 @@ export function AcessosTab() {
   );
 }
 
-function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar }: {
+function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSalvar, onCancelar }: {
   unidades: string[];
   inicial: UsuarioApi | null;
+  /** Acesso replicado: preenche tudo, menos nome e e-mail, e o formulário continua sendo de criação. */
+  semente?: UsuarioApi | null;
   /** Só o dono vê a opção "Pode gerenciar acessos". */
   podeLiberar: boolean;
-  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean; preencheChecklist?: boolean }) => Promise<string | null>;
+  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean; preencheChecklist?: boolean; verEstudos?: boolean; verObras?: boolean }) => Promise<string | null>;
   onCancelar?: () => void;
 }) {
+  const base = inicial ?? semente;
   const [nome, setNome] = useState(inicial?.nome ?? "");
   const [email, setEmail] = useState(inicial?.email ?? "");
-  const [papel, setPapel] = useState<Papel>(inicial?.papel ?? "master");
-  const [marcadas, setMarcadas] = useState<string[]>(inicial?.unidades ?? []);
-  const [resumo, setResumo] = useState(inicial?.resumo !== false);
-  const [gerencia, setGerencia] = useState(inicial?.gerenciaAcessos === true);
-  const [relatorios, setRelatorios] = useState(inicial?.geraRelatorios === true);
-  const [royalties, setRoyalties] = useState(inicial?.papel === "unidades" && inicial?.verRoyalties === true);
-  const [juridico, setJuridico] = useState(inicial?.verJuridico === true);
-  const [qualidade, setQualidade] = useState(inicial?.verQualidade === true);
-  const [preenche, setPreenche] = useState(inicial?.papel === "unidades" && inicial?.preencheChecklist === true);
+  const [papel, setPapel] = useState<Papel>(base?.papel ?? "master");
+  const [marcadas, setMarcadas] = useState<string[]>(base?.unidades ?? []);
+  const [resumo, setResumo] = useState(base?.resumo !== false);
+  const [gerencia, setGerencia] = useState(base?.gerenciaAcessos === true);
+  const [relatorios, setRelatorios] = useState(base?.geraRelatorios === true);
+  const [royalties, setRoyalties] = useState(base?.papel === "unidades" && base?.verRoyalties === true);
+  const [juridico, setJuridico] = useState(base?.verJuridico === true);
+  const [qualidade, setQualidade] = useState(base?.verQualidade === true);
+  const [preenche, setPreenche] = useState(base?.papel === "unidades" && base?.preencheChecklist === true);
+  const [estudos, setEstudos] = useState(base?.verEstudos === true);
+  const [obras, setObras] = useState(base?.verObras === true);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -250,10 +261,10 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
     e.preventDefault();
     setEnviando(true);
     setErro("");
-    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties, verJuridico: juridico, verQualidade: qualidade, preencheChecklist: papel === "unidades" && preenche } : {}) });
+    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties, verJuridico: juridico, verQualidade: qualidade, preencheChecklist: papel === "unidades" && preenche, verEstudos: estudos, verObras: obras } : {}) });
     setEnviando(false);
     if (r) return setErro(r);
-    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); setRelatorios(false); setJuridico(false); setQualidade(false); setPreenche(false); }
+    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); setRelatorios(false); setJuridico(false); setQualidade(false); setPreenche(false); setEstudos(false); setObras(false); }
   };
 
   return (
@@ -320,6 +331,18 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={preenche} onChange={(e) => setPreenche(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
           <span>Pode preencher o checklist da unidade <span className="block text-xs text-muted-foreground">Mostra o menu Qualidade só com o checklist de abertura da própria unidade, para preencher pelo celular com fotos. A pessoa não vê as visitas, as notas nem as outras unidades.</span></span>
+        </label>
+      )}
+      {podeLiberar && (
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={estudos} onChange={(e) => setEstudos(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+          <span>Pode ver estudos de ponto <span className="block text-xs text-muted-foreground">Mostra o menu Estudos de ponto, que ainda está "Em breve". Só o dono vê sem esta liberação.</span></span>
+        </label>
+      )}
+      {podeLiberar && (
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={obras} onChange={(e) => setObras(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+          <span>Pode ver unidades em obra <span className="block text-xs text-muted-foreground">Mostra o menu Unidades em obra, que ainda está "Em breve". Só o dono vê sem esta liberação.</span></span>
         </label>
       )}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}

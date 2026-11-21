@@ -45,9 +45,10 @@ export const ABAS_SO_DONO = new Set(["financeiro/despesas"]);
 export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, ROYALTIES, JURIDICO, QUALIDADE, RELATORIOS, ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA, ...NAV_RODAPE, USUARIOS];
 
 /** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. `comOcultos` serve à busca, que ainda acha as telas fora da barra lateral. */
-export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorios = false, royalties = false, juridico = false, qualidade = false, dono = false): NavItem[] => {
+export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorios = false, royalties = false, juridico = false, qualidade = false, emBreve: boolean | { estudos?: boolean; obras?: boolean } = false): NavItem[] => {
+  const e = emBreve === true ? { estudos: true, obras: true } : emBreve || {};
   const base = comOcultos ? NAV_ITEMS : NAV_ITEMS.filter((i) => !i.oculto);
-  return [...base, ...(royalties ? [ROYALTIES] : []), ...(juridico ? [JURIDICO] : []), ...(qualidade ? [QUALIDADE] : []), ...(relatorios ? [RELATORIOS] : []), ...(dono ? [ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA] : []), ...(gerirAcessos ? [USUARIOS] : [])];
+  return [...base, ...(royalties ? [ROYALTIES] : []), ...(juridico ? [JURIDICO] : []), ...(qualidade ? [QUALIDADE] : []), ...(relatorios ? [RELATORIOS] : []), ...(e.estudos ? [ESTUDOS_DE_PONTO] : []), ...(e.obras ? [UNIDADES_EM_OBRA] : []), ...(gerirAcessos ? [USUARIOS] : [])];
 };
 
 /** "comercial/vendas" → "Comercial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */

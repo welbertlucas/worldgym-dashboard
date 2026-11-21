@@ -15,6 +15,15 @@ describe("menus reservados ao dono (Em breve)", () => {
     expect(ondeFica("unidades-em-obra")).toBe("Menu › Unidades em obra");
   });
 
+  it("o dono pode liberar cada menu separadamente para outra pessoa", () => {
+    const ids = (e: { estudos?: boolean; obras?: boolean }) => itensDoMenu(false, false, false, false, false, false, e).map((i) => i.id);
+    expect(ids({ estudos: true })).toContain("estudos-de-ponto");
+    expect(ids({ estudos: true })).not.toContain("unidades-em-obra");
+    expect(ids({ obras: true })).toContain("unidades-em-obra");
+    expect(ids({ obras: true })).not.toContain("estudos-de-ponto");
+    expect(ids({})).not.toContain("estudos-de-ponto");
+  });
+
   it("a busca só acha esses menus e a aba Despesas para o dono", () => {
     const itens = itensDoMenu(false, true, true, true, true, true, true);
     const doDono = (q: string) => buscarNoMenu(itensDeBusca(itens, true), q).map((i) => i.destino);
