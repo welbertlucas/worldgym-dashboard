@@ -6,6 +6,7 @@ import { RenovacoesChart } from "@/components/RenovacoesChart";
 import { MotivosCancelamento } from "@/components/clientes/MotivosCancelamento";
 import { CancelPerfilCard } from "@/components/clientes/CancelPerfilCard";
 import { NaoRenovados } from "@/components/clientes/NaoRenovados";
+import { NpsPontosDeContato } from "@/components/retencao/NpsPontosDeContato";
 import { Secao } from "@/components/unidades/Secao";
 import { Abas, abaAtiva } from "@/components/Abas";
 import { SUBMENUS } from "@/components/nav";
@@ -50,6 +51,7 @@ export function RetencaoTab({ ctx, month, unit, aba: pedida = null, onAba = () =
 
       {aba === "satisfacao" && <Secao id="rt-satisfacao" titulo="Satisfação" descricao="O que os alunos dizem: NPS (WeHelp), nota do Google e, na rede, nota do Reclame Aqui.">
         <KpiGrid ctx={ctx} specs={so(["NPS", "Nota do Google", "Nota Reclame Aqui"], !unit)} columns="xl:grid-cols-3" />
+        <NpsPontosDeContato units={ctx.cur.units} unit={unit} monthLabel={monthLabel} />
       </Secao>}
     </div>
   );

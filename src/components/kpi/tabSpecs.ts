@@ -84,7 +84,15 @@ export const retencaoSpecs = (withReclameAqui: boolean): KpiSpec[] => [
   { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pct },
   { title: "Inadimplência", kind: "rate", rateKey: "inadimplenciaPerc", pick: (v) => v.total.inadimplenciaPerc, fmt: pct },
   { title: "Nota do Google", kind: "level", noDataIfZero: true, pick: (v) => v.total.notaGoogle, fmt: score },
-  { title: "NPS", kind: "level", noDataIfZero: true, pick: (v) => v.total.nps, fmt: score },
+  {
+    title: "NPS", kind: "level", noDataIfZero: true, pick: (v) => v.total.nps, fmt: score,
+    // Promotores, neutros e detratores que formam o NPS (WeHelp): o NPS sozinho esconde quantos reclamaram
+    extra: (v) => {
+      const r = v.total.npsRespostas, p = v.total.npsPromotores, d = v.total.npsDetratores;
+      if (!r || p === undefined || d === undefined) return [];
+      return [{ text: `${int(p)} promotores · ${int(r - p - d)} neutros · ${int(d)} detratores (${int(r)} respostas)`, tone: "neutral" }];
+    },
+  },
   ...(withReclameAqui ? [{ title: "Nota Reclame Aqui", kind: "level", noDataIfZero: true, pick: (v) => v.total.reclameAqui, fmt: score } as KpiSpec] : []),
 ];
 

@@ -50,6 +50,24 @@ export function agregarNps(report) {
   return por;
 }
 
+/**
+ * NPS por ponto de contato (Recepção, Limpeza, Manutenção...), somando as duas pesquisas filhas de cada unidade:
+ * { [unidade]: { [ponto de contato]: [respostas, promotores, detratores] } }. O NPS do ponto é (promotores − detratores) ÷ respostas.
+ */
+export function agregarNpsPontos(report) {
+  const por = {};
+  for (const linha of report) {
+    const nome = UNIDADES_WEHELP[semSufixo(linha.key?.[0])];
+    const ponto = String(linha.tp_name ?? "").trim();
+    if (!nome || !ponto) continue;
+    const n = linha.nps ?? {};
+    const a = ((por[nome] ??= {})[ponto] ??= [0, 0, 0]);
+    a[0] += n.total_responses ?? 0; a[1] += n.total_promoters ?? 0; a[2] += n.total_detractors ?? 0;
+  }
+  for (const pontos of Object.values(por)) for (const [p, a] of Object.entries(pontos)) if (!a[0]) delete pontos[p];
+  return por;
+}
+
 async function pegar(url, headers, tries = 4) {
   let last = "";
   for (let i = 0; i < tries; i++) {
@@ -84,4 +102,12 @@ export async function npsDoMes(sessao, ym, hoje) {
   const q = `company_unit_ids=${sessao.filhas.join(",")}&period[start]=${ym}-01&period[end]=${fim}&group_by=COMPANY_UNIT`;
   const j = await pegar(`${BASE}/reports/nps-data/CUSTOMER?${q}`, sessao.headers);
   return agregarNps(j.result.report);
+}
+
+/** NPS por ponto de contato do mês, por unidade (mesmo período do NPS geral). */
+export async function npsPontosDoMes(sessao, ym, hoje) {
+  const fim = diaDeCorte(ym, hoje);
+  const q = `company_unit_ids=${sessao.filhas.join(",")}&period[start]=${ym}-01&period[end]=${fim}&group_by=COMPANY_UNIT`;
+  const j = await pegar(`${BASE}/reports/nps-touchpoints/CUSTOMER?${q}`, sessao.headers);
+  return agregarNpsPontos(j.result.report);
 }
