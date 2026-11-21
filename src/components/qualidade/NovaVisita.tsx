@@ -319,7 +319,7 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
           {pedeSelfie(modelo) && (
             <div className="space-y-2 rounded-lg border border-border bg-white p-3">
               <p className="flex items-center gap-2 text-sm font-medium text-foreground"><UserRound className="h-4 w-4" aria-hidden />Selfie na unidade</p>
-              <p className="text-xs text-muted-foreground">Tire uma selfie aí na academia. Ela fica guardada por poucos meses, só para confirmar que o checklist foi feito na unidade, e só o dono e quem edita a qualidade a veem.</p>
+              <p className="text-xs text-muted-foreground">Tire uma selfie aí na academia. Ela fica guardada por poucos meses, só para confirmar que o checklist foi feito na unidade.</p>
               <div className="flex flex-wrap items-center gap-3">
                 {selfie && <img src={selfie.previa} alt="Sua selfie" className="h-20 w-20 rounded-lg object-cover" />}
                 <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-input bg-white px-3 text-sm font-medium hover:bg-secondary focus-within:ring-2 focus-within:ring-ring">

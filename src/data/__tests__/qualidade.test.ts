@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { definirArmazem, gravarBytes, lerBytes } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
 import * as q from "../../../server/qualidade.js";
-import { DIAS_SEM_VISITA, MODELO_ABERTURA, MODELO_SUGERIDO, PRAZO_DIAS, certificadosPorUnidade, equipamentosParados, itensDaUnidade, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, rotinaDasUnidades, tomDaNota, type Visita } from "@/data/qualidade";
+import { DIAS_SEM_VISITA, MODELO_ABERTURA, avaliadoresDasVisitas, evolucaoDaNota, gruposDasVisitas, notaFiltrada, MODELO_SUGERIDO, PRAZO_DIAS, certificadosPorUnidade, equipamentosParados, itensDaUnidade, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, rotinaDasUnidades, tomDaNota, type Visita } from "@/data/qualidade";
 
 const memoria = () => {
   const m = new Map<string, unknown>();
@@ -451,5 +451,31 @@ describe("cálculos da tela de qualidade", () => {
     expect(itensDaUnidade(m.itens, "Asa Norte").map((i) => i.texto)).toEqual(["Piso"]);
     const v = q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: m.itens.map((i: any) => ({ itemId: i.id, conforme: true })) }, m, {}, AGORA);
     expect(v.respostas.map((r: any) => r.texto)).toEqual(["Piso"]); // a piscina não é perguntada fora do Gama
+  });
+});
+
+describe("filtros por grupo e evolução da nota", () => {
+  const respostas = [
+    { itemId: "a", grupo: "Limpeza", texto: "x", peso: 3, conforme: true },
+    { itemId: "b", grupo: "Limpeza", texto: "y", peso: 1, conforme: false },
+    { itemId: "c", grupo: "Equipe", texto: "z", peso: 2, conforme: false },
+    { itemId: "d", grupo: "Equipe", texto: "w", peso: 2, conforme: null },
+  ];
+  it("nota por grupo usa os pesos e ignora o que não foi respondido", () => {
+    expect(q.notasPorGrupo(respostas)).toEqual({ Limpeza: 75, Equipe: 0 });
+  });
+  it("a visita sem peso (outros níveis) ainda leva a nota do grupo, sem expor o peso", () => {
+    const v = q.semPesosNaVisita({ id: "1", respostas });
+    expect(v.notasPorGrupo).toEqual({ Limpeza: 75, Equipe: 0 });
+    expect(v.respostas.every((r: any) => !("peso" in r))).toBe(true);
+  });
+  const vis = (mes: string, nota: number | null, nome: string, g: Record<string, number | null> = {}) => ({ mes, nota, avaliador: { nome, email: "" }, notasPorGrupo: g }) as unknown as Visita;
+  it("evolução mensal faz a média por mês, em ordem, e usa o grupo quando escolhido", () => {
+    const vs = [vis("2026-10", 80, "Ana", { Limpeza: 60 }), vis("2026-09", 70, "Bia", { Limpeza: 90 }), vis("2026-10", 90, "Ana", { Limpeza: null }), vis("2026-11", null, "Ana")];
+    expect(evolucaoDaNota(vs)).toEqual([{ mes: "2026-09", nota: 70, visitas: 1 }, { mes: "2026-10", nota: 85, visitas: 2 }]);
+    expect(evolucaoDaNota(vs, "Limpeza")).toEqual([{ mes: "2026-09", nota: 90, visitas: 1 }, { mes: "2026-10", nota: 60, visitas: 1 }]);
+    expect(notaFiltrada(vs[0], "Equipe")).toBeNull();
+    expect(avaliadoresDasVisitas(vs)).toEqual(["Ana", "Bia"]);
+    expect(gruposDasVisitas(vs)).toEqual(["Limpeza"]);
   });
 });

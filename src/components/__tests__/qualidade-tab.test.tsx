@@ -165,7 +165,8 @@ describe("Qualidade: check-in, check-out, selfie e data", () => {
   it("checklist que pede selfie: o check-in mostra o aviso e só libera depois da selfie; o que não pede, não mostra", () => {
     const dados = (selfie?: boolean): DadosQualidade => ({ modo: "unidade", unidades: ["Asa Norte"], modelos: [{ ...ABRE, ...(selfie === undefined ? {} : { selfie }) }], visitas: [], envios: [] });
     const com = limpo(renderToString(<NovaVisita dados={dados(true)} hoje="2026-11-20" modo="unidade" onSalvou={() => {}} />));
-    for (const t of ["Selfie na unidade", "Tirar a selfie", "só o dono e quem edita a qualidade a veem"]) expect(com).toContain(t);
+    for (const t of ["Selfie na unidade", "Tirar a selfie"]) expect(com).toContain(t);
+    expect(com).not.toContain("quem edita a qualidade a veem");
     const tagDoBotao = (h: string) => /<button([^>]*)>(?:(?!<\/button>).)*Iniciar o checklist/.exec(h)?.[1] ?? "";
     expect(tagDoBotao(com)).toMatch(/\sdisabled=""/); // sem a selfie o botão fica desligado
     const sem = limpo(renderToString(<NovaVisita dados={dados()} hoje="2026-11-20" modo="unidade" onSalvou={() => {}} />));

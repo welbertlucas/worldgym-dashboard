@@ -7,7 +7,7 @@
 // Dado sensível: sem cache no navegador e permissão conferida a cada pedido.
 import { lerRoyalties } from "../server/royalties.js";
 import { lerJuridico } from "../server/juridico.js";
-import { ErroQualidade, semPesosNaVisita, semPesosNoModelo, apagarLocal, criarCheckin, lerLocais, salvarLocal, apagarEnvio, apagarModelo, apagarVisita, criarPedido, decidirPedido, enviosRecentes, lerPedidos, lerPlanos, marcarPlanoFeito, validarPlano, lerSelfie, fotoDeEnvioDe, lerFoto, lerModelos, modelosDaUnidade, salvarEnvio, salvarFoto, salvarModelo, salvarVisita, visitasRecentes } from "../server/qualidade.js";
+import { ErroQualidade, comNotasPorGrupo, semPesosNaVisita, semPesosNoModelo, apagarLocal, criarCheckin, lerLocais, salvarLocal, apagarEnvio, apagarModelo, apagarVisita, criarPedido, decidirPedido, enviosRecentes, lerPedidos, lerPlanos, marcarPlanoFeito, validarPlano, lerSelfie, fotoDeEnvioDe, lerFoto, lerModelos, modelosDaUnidade, salvarEnvio, salvarFoto, salvarModelo, salvarVisita, visitasRecentes } from "../server/qualidade.js";
 import { UNIDADES_DA_REDE } from "../server/acesso.js";
 import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
@@ -26,7 +26,7 @@ async function qualidade(req, res, sessao) {
   const proprias = sessao.papel === "unidades" ? sessao.unidades.filter((u) => UNIDADES_DA_REDE.includes(u)) : UNIDADES_DA_REDE;
   // O peso de cada item é só do dono: para os outros níveis ele nem sai do servidor.
   const modelosPara = (ms) => (ehDono ? ms : ms.map(semPesosNoModelo));
-  const registrosPara = (vs) => (ehDono ? vs : vs.map(semPesosNaVisita));
+  const registrosPara = (vs) => (ehDono ? vs.map(comNotasPorGrupo) : vs.map(semPesosNaVisita));
   if (req.method === "GET") {
     if (req.query?.selfie) {
       // A selfie é dado pessoal: só o dono e quem edita a qualidade a veem (Master que só consulta, não).

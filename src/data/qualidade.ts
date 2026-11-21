@@ -25,10 +25,21 @@ export interface Visita {
   /** Check-in e check-out (horário do servidor, localização e IP, e a selfie no check-in), com a duração. */
   checkin?: MarcaDeLocal; checkout?: MarcaDeLocal; duracaoMin?: number; assinatura?: { nome: string; cargo: string; foto: string };
   id: string; modeloId: string; modeloNome: string; unidade: string; data: string; mes: string;
-  avaliador: { nome: string; email: string }; chegada?: string; saida?: string; respostas: RespostaVisita[]; observacao: string; nota: number | null; criadoEm: string;
+  /** Nota de cada grupo de itens (calculada no servidor, que conhece os pesos). */ notasPorGrupo?: Record<string, number | null>; avaliador: { nome: string; email: string }; chegada?: string; saida?: string; respostas: RespostaVisita[]; observacao: string; nota: number | null; criadoEm: string;
 }
 /** `modo` "completo": dono e liberados (checklists, visitas, notas e o que as unidades enviam); "unidade": só preencher o checklist da própria unidade. */
 /** Pedido de item novo: a unidade descreve o que falta no checklist dela e o dono aprova (o item entra no checklist) ou recusa (com uma resposta). */
+/** Nota da visita, ou só a do grupo de itens escolhido (null quando a visita não tem o grupo ou nenhum item dele foi respondido). */
+export const notaFiltrada = (v: Visita, grupo: string): number | null => (grupo ? v.notasPorGrupo?.[grupo] ?? null : v.nota);
+export const avaliadoresDasVisitas = (visitas: Visita[]): string[] => [...new Set(visitas.map((v) => v.avaliador.nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+export const gruposDasVisitas = (visitas: Visita[]): string[] => [...new Set(visitas.flatMap((v) => Object.keys(v.notasPorGrupo ?? {})))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+export interface PontoEvolucao { mes: string; nota: number; visitas: number }
+/** Média mensal da nota das visitas (ou do grupo escolhido), em ordem de mês; meses sem nota ficam de fora. */
+export function evolucaoDaNota(visitas: Visita[], grupo = ""): PontoEvolucao[] {
+  const por = new Map<string, number[]>();
+  for (const v of visitas) { const n = notaFiltrada(v, grupo); if (n !== null) por.set(v.mes, [...(por.get(v.mes) ?? []), n]); }
+  return [...por.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([mes, ns]) => ({ mes, nota: Math.round((ns.reduce((t, n) => t + n, 0) / ns.length) * 10) / 10, visitas: ns.length }));
+}
 export interface PedidoItem {
   id: string; unidade: string; modeloId: string; modeloNome: string; texto: string; motivo: string;
   solicitante: { nome: string; email: string }; status: "pendente" | "aprovado" | "recusado"; criadoEm: string;

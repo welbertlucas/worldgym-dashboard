@@ -140,7 +140,13 @@ export async function lerModelos() {
 }
 /** Tira o peso de cada item (o peso é só do dono: nem Master nem quem edita a qualidade o vê). */
 export const semPesosNoModelo = (m) => ({ ...m, itens: (m.itens ?? []).map(({ peso, ...i }) => i) });
-export const semPesosNaVisita = (v) => ({ ...v, respostas: (v.respostas ?? []).map(({ peso, ...r }) => r) });
+/** Nota de cada grupo de itens da visita (mesma conta da nota geral, com os pesos), para filtrar e acompanhar por grupo sem expor o peso. */
+export function notasPorGrupo(respostas) {
+  const grupos = [...new Set((respostas ?? []).map((r) => r.grupo).filter(Boolean))];
+  return Object.fromEntries(grupos.map((g) => [g, notaDaVisita((respostas ?? []).filter((r) => r.grupo === g))]));
+}
+export const comNotasPorGrupo = (v) => ({ ...v, notasPorGrupo: notasPorGrupo(v.respostas) });
+export const semPesosNaVisita = (v) => { const { respostas, ...resto } = comNotasPorGrupo(v); return { ...resto, respostas: (respostas ?? []).map(({ peso, ...r }) => r) }; };
 
 /**
  * `preservarPesos`: quem edita sem ser o dono não vê os pesos, então o que ele manda não os traz; os itens que já existem mantêm o peso guardado e os novos

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Check, ChevronDown, Trash2, X } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { type DadosQualidade, type MarcaDeLocal, type Visita, dataBR, pctTexto, tomDaNota } from "@/data/qualidade";
+import { AXIS_TICK, GRID, REF_LINE, TOOLTIP_STYLE } from "@/components/chartTheme";
+import { type DadosQualidade, type MarcaDeLocal, type Visita, NOTA_ATENCAO, NOTA_BOA, avaliadoresDasVisitas, dataBR, evolucaoDaNota, gruposDasVisitas, notaFiltrada, pctTexto, tomDaNota } from "@/data/qualidade";
 import { apagarVisita } from "@/lib/qualidade";
 import { ehDono, podeEditarQualidade } from "@/lib/auth";
 import { FotoGuardada } from "@/components/qualidade/Fotos";
@@ -82,13 +84,45 @@ export function Detalhe({ v, onApagar }: { v: Visita; onApagar?: () => void }) {
   );
 }
 
+const mesCurto = (ym: string) => { const [a, m] = ym.split("-").map(Number); return new Date(a, m - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(". de ", "/").replace(" de ", "/"); };
+
+/** Média mensal da nota das visitas que passam nos filtros (ou do grupo escolhido). Precisa de pelo menos dois meses para mostrar a evolução. */
+function EvolucaoDaNota({ visitas, grupo }: { visitas: Visita[]; grupo: string }) {
+  const pontos = useMemo(() => evolucaoDaNota(visitas, grupo).map((p) => ({ ...p, rotulo: mesCurto(p.mes) })), [visitas, grupo]);
+  if (pontos.length < 2) return <p className="mb-4 rounded-xl bg-secondary/50 px-4 py-3 text-xs text-muted-foreground">A evolução da nota aparece quando há visitas em pelo menos dois meses com esses filtros.</p>;
+  return (
+    <div className="mb-4" role="img" aria-label={`Evolução da nota${grupo ? ` do grupo ${grupo}` : ""}: ${pontos.map((p) => `${p.rotulo} ${pctTexto(p.nota)}`).join(", ")}`}>
+      <p className="mb-1 text-xs text-muted-foreground">Nota média por mês{grupo ? ` · ${grupo}` : ""}</p>
+      <div className="h-44">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={pontos} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
+            <CartesianGrid stroke={GRID} vertical={false} />
+            <XAxis dataKey="rotulo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+            <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={AXIS_TICK} tickLine={false} axisLine={false} tickFormatter={(n: number) => `${n}%`} />
+            <ReferenceLine y={NOTA_BOA} stroke="hsl(152 55% 38%)" {...REF_LINE} />
+            <ReferenceLine y={NOTA_ATENCAO} stroke="hsl(32 92% 45%)" {...REF_LINE} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, _n, item) => [`${pctTexto(v)} (${(item.payload as { visitas: number }).visitas} ${(item.payload as { visitas: number }).visitas === 1 ? "visita" : "visitas"})`, "Nota"]} />
+            <Line type="monotone" dataKey="nota" stroke="hsl(4 90% 50%)" strokeWidth={2.5} dot={{ r: 3 }} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 /** Histórico das visitas dos últimos 12 meses, com filtro por unidade e checklist; cada linha abre as respostas, os comentários e as fotos. */
 export function Visitas({ dados, unidadeInicial, podeApagar = true, onMudou }: { dados: DadosQualidade; unidadeInicial: string; /** Só quem edita a qualidade apaga; Master sem liberação só consulta. */ podeApagar?: boolean; onMudou: () => void }) {
   const [unidade, setUnidade] = useState(unidadeInicial);
   const [modelo, setModelo] = useState("");
+  const [avaliador, setAvaliador] = useState("");
+  const [grupo, setGrupo] = useState("");
   const [aberta, setAberta] = useState<string | null>(null);
   const [quantas, setQuantas] = useState(POR_VEZ);
-  const lista = dados.visitas.filter((v) => (!unidade || v.unidade === unidade) && (!modelo || v.modeloId === modelo));
+  const avaliadores = useMemo(() => avaliadoresDasVisitas(dados.visitas), [dados.visitas]);
+  const grupos = useMemo(() => gruposDasVisitas(dados.visitas), [dados.visitas]);
+  // Com um grupo escolhido, só entram as visitas que têm nota nele, e a nota mostrada é a do grupo.
+  const lista = dados.visitas.filter((v) => (!unidade || v.unidade === unidade) && (!modelo || v.modeloId === modelo) && (!avaliador || v.avaliador.nome === avaliador) && (!grupo || notaFiltrada(v, grupo) !== null));
+  const mudar = (f: (x: string) => void) => (e: { target: { value: string } }) => { f(e.target.value); setQuantas(POR_VEZ); };
   const apagar = async (v: Visita) => {
     if (!window.confirm(`Apagar a visita de ${v.unidade} em ${dataBR(v.data)}? As fotos também serão apagadas e isso não dá para desfazer.`)) return;
     const r = await apagarVisita(v.id, v.mes);
@@ -102,13 +136,21 @@ export function Visitas({ dados, unidadeInicial, podeApagar = true, onMudou }: {
       subtitle={`${lista.length} nos últimos 12 meses`}
       legend={
         <div className="flex flex-wrap items-center gap-2">
-          <Select aria-label="Unidade" className="h-9 w-48" value={unidade} onChange={(e) => { setUnidade(e.target.value); setQuantas(POR_VEZ); }}>
+          <Select aria-label="Unidade" className="h-9 w-48" value={unidade} onChange={mudar(setUnidade)}>
             <option value="">Todas as unidades</option>
             {dados.unidades.map((u) => <option key={u} value={u}>{u}</option>)}
           </Select>
-          <Select aria-label="Checklist" className="h-9 w-48" value={modelo} onChange={(e) => { setModelo(e.target.value); setQuantas(POR_VEZ); }}>
+          <Select aria-label="Checklist" className="h-9 w-48" value={modelo} onChange={mudar(setModelo)}>
             <option value="">Todos os checklists</option>
             {dados.modelos.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+          </Select>
+          <Select aria-label="Avaliador" className="h-9 w-48" value={avaliador} onChange={mudar(setAvaliador)}>
+            <option value="">Todos os avaliadores</option>
+            {avaliadores.map((a) => <option key={a} value={a}>{a}</option>)}
+          </Select>
+          <Select aria-label="Grupo de itens" className="h-9 w-48" value={grupo} onChange={mudar(setGrupo)}>
+            <option value="">Todos os grupos</option>
+            {grupos.map((g) => <option key={g} value={g}>{g}</option>)}
           </Select>
         </div>
       }
@@ -116,19 +158,22 @@ export function Visitas({ dados, unidadeInicial, podeApagar = true, onMudou }: {
       {lista.length === 0 ? (
         <ChartEmpty>Nenhuma visita registrada com esse filtro.</ChartEmpty>
       ) : (
+        <>
+        <EvolucaoDaNota visitas={lista} grupo={grupo} />
         <ul className="overflow-hidden rounded-xl border border-border">
           {lista.slice(0, quantas).map((v) => (
             <li key={v.id} className="border-b border-border last:border-b-0">
               <button type="button" aria-expanded={aberta === v.id} onClick={() => setAberta(aberta === v.id ? null : v.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="w-20 shrink-0 text-sm tabular-nums text-muted-foreground">{dataBR(v.data)}</span>
                 <span className="min-w-0 flex-1 text-sm"><span className="font-medium text-foreground">{v.unidade}</span><span className="block truncate text-xs text-muted-foreground">{v.modeloNome}</span></span>
-                <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", CHIP[tomDaNota(v.nota)])}>{pctTexto(v.nota)}</span>
+                <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", CHIP[tomDaNota(notaFiltrada(v, grupo))])}>{pctTexto(notaFiltrada(v, grupo))}</span>
                 <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", aberta === v.id && "rotate-180")} aria-hidden />
               </button>
               {aberta === v.id && <Detalhe v={v} onApagar={podeApagar ? () => void apagar(v) : undefined} />}
             </li>
           ))}
         </ul>
+        </>
       )}
       {lista.length > quantas && <button type="button" onClick={() => setQuantas((q) => q + POR_VEZ)} className="mt-3 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">Ver mais ({lista.length - quantas})</button>}
     </ChartCard>
