@@ -294,14 +294,16 @@ describe("acessos, níveis e registro", () => {
     const q = (token: string, extra: any = {}) => chama(royaltiesApi, com(token, { method: "GET", query: { modulo: "qualidade" }, ...extra }));
     const qpost = (token: string, body: any) => q(token, { method: "POST", body });
 
-    // Master sem liberação: vê (consulta) a qualidade, mas não edita nada nem faz check-in
+    // Master sem liberação: vê a qualidade e aplica o checklist (check-in, foto e visita), mas não edita checklists nem apaga
     expect((await q(master.token)).code).toBe(200);
     expect((await q(master.token)).body.modo).toBe("completo");
     expect((await chama(login, com(master.token, { method: "GET" }))).body.usuario).toMatchObject({ verQualidade: true, editaQualidade: false });
     for (const corpo of [
-      { acao: "modelo", modelo: { nome: "x", itens: [{ texto: "a" }] } }, { acao: "checkin", checkin: { unidade: "Gama", modeloId: "x" } }, { acao: "foto", dados: "AAAA" },
-      { acao: "visita", visita: {} }, { acao: "visita-apagar", id: "x", mes: "2026-11" }, { acao: "modelo-apagar", id: "x" },
+      { acao: "modelo", modelo: { nome: "x", itens: [{ texto: "a" }] } }, { acao: "visita-apagar", id: "x", mes: "2026-11" }, { acao: "modelo-apagar", id: "x" },
+      { acao: "local", unidade: "Gama", local: { lat: -15.8, lng: -48 } }, { acao: "pedido-decidir", id: "x", decisao: {} },
     ]) expect((await qpost(master.token, corpo)).code).toBe(403);
+    // aplicar o checklist é permitido: não é recusado por permissão (aqui falha só pela validação dos dados, que é outra coisa)
+    for (const corpo of [{ acao: "checkin", checkin: { unidade: "Gama", modeloId: "x" } }, { acao: "foto", dados: "AAAA" }, { acao: "visita", visita: {} }]) expect((await qpost(master.token, corpo)).code).not.toBe(403);
     // o dono cria o checklist com pesos; o Master, que só consulta, não os recebe
     const dm = (await qpost(tokenDono, { acao: "modelo", modelo: { nome: "Base", itens: [{ texto: "Item pesado", peso: 4 }] } })).body.modelo;
     expect(dm.itens[0].peso).toBe(4);

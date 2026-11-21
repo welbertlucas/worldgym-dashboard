@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 
-// Master sem liberação: vê a Qualidade só para consulta e não é o dono (nem os pesos, nem os pedidos).
-vi.mock("@/lib/auth", async (original) => ({ ...(await original<typeof import("@/lib/auth")>()), ehDono: () => false, podeEditarQualidade: () => false }));
+// Master sem liberação: vê a Qualidade, aplica os checklists (Nova visita) mas não edita, e não é o dono (nem os pesos, nem os pedidos).
+vi.mock("@/lib/auth", async (original) => ({ ...(await original<typeof import("@/lib/auth")>()), ehDono: () => false, podeEditarQualidade: () => false, podeVerQualidade: () => true }));
 
 import { QualidadeConteudo } from "@/components/tabs/QualidadeTab";
 import { Modelos } from "@/components/qualidade/Modelos";
@@ -16,10 +16,10 @@ const PEDIDO: PedidoItem = { id: "p1", unidade: "Asa Norte", modeloId: "m1", mod
 const DADOS: DadosQualidade = { modo: "completo", unidades: ["Asa Norte", "Gama"], modelos: [MODELO], visitas: [VISITA], envios: [], pedidos: [PEDIDO] };
 
 describe("Qualidade para quem só consulta (Master sem liberação)", () => {
-  it("vê a visão geral, as visitas, a rotina e os checklists, mas não tem Nova visita nem Pedidos", () => {
+  it("vê a visão geral, as visitas, a rotina e os checklists, e tem Nova visita, mas não tem Pedidos", () => {
     const html = limpo(renderToString(<QualidadeConteudo hoje="2026-11-20" estado={{ fase: "pronto", dados: DADOS }} />));
-    for (const t of ["Visão geral", "Visitas", "Rotina das unidades", "Checklists", "Nota média da rede"]) expect(html).toContain(t);
-    for (const t of ["Nova visita", "Pedidos", "pedido de item novo"]) expect(html).not.toContain(t);
+    for (const t of ["Visão geral", "Visitas", "Rotina das unidades", "Checklists", "Nova visita", "Nota média da rede"]) expect(html).toContain(t);
+    for (const t of ["Pedidos", "pedido de item novo"]) expect(html).not.toContain(t);
   });
 
   it("os checklists aparecem só para ler: sem criar, editar nem apagar, e sem o roteiro sugerido", () => {

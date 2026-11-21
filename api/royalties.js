@@ -49,12 +49,12 @@ async function qualidade(req, res, sessao) {
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
   const { acao, ...c } = doCorpo(req);
   if (acao === "foto") {
-    if (!edita && !sessao.preencheChecklist) return res.status(403).json({ error: "sem permissão" });
+    if (!completo && !sessao.preencheChecklist) return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json({ id: await salvarFoto(c.dados) });
   }
   if (acao === "checkin") {
-    // Franqueadora (quem edita a qualidade): check-in de visita. Quem só preenche pela unidade: check-in do checklist da própria unidade.
-    const tipo = edita ? "visita" : sessao.preencheChecklist ? "unidade" : null;
+    // Franqueadora (quem usa o menu completo, inclusive o Master): check-in de visita. Quem só preenche pela unidade: check-in do checklist da própria unidade.
+    const tipo = completo ? "visita" : sessao.preencheChecklist ? "unidade" : null;
     if (!tipo) return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json({ checkin: await criarCheckin(c.checkin, { autor: { nome: sessao.nome, email: sessao.email }, tipo, ip: enderecoDe(req), unidadesPermitidas: proprias }) });
   }
@@ -70,12 +70,14 @@ async function qualidade(req, res, sessao) {
     if (!sessao.preencheChecklist) return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json({ pedido: await criarPedido(c.pedido, { nome: sessao.nome, email: sessao.email }, proprias) });
   }
-  // Daqui para a frente, só quem edita a qualidade (o dono e os liberados). Master sem liberação só consulta.
-  if (!edita) return res.status(403).json({ error: "sem permissão" });
-  if (acao === "plano-validar") {
+  // Aplicar o checklist da franqueadora (registrar a visita e confirmar os planos de quem visitou) é de todo o menu completo, Master inclusive.
+  if (completo && acao === "visita") return res.status(200).json({ visita: registrosPara([await salvarVisita(c.visita, { nome: sessao.nome, email: sessao.email }, new Date(), { ip: enderecoDe(req) })])[0] });
+  if (completo && acao === "plano-validar") {
     // Quem criou o plano confirma (ou devolve); o dono também pode. A regra fina está em validarPlano.
     return res.status(200).json({ plano: await validarPlano(String(c.id ?? ""), c.decisao, { nome: sessao.nome, email: sessao.email, ehDono }) });
   }
+  // Daqui para a frente, só quem edita a qualidade (o dono e os liberados): checklists, local, apagar. Master sem liberação aplica, mas não edita.
+  if (!edita) return res.status(403).json({ error: "sem permissão" });
   if (acao === "pedido-decidir") {
     if (!ehDono) return res.status(403).json({ error: "Só o dono responde os pedidos." });
     return res.status(200).json({ pedido: await decidirPedido(String(c.id ?? ""), c.decisao, { nome: sessao.nome }) });
@@ -90,7 +92,6 @@ async function qualidade(req, res, sessao) {
     return res.status(200).json({ local: await salvarLocal(String(c.unidade ?? ""), c.local) });
   }
   if (acao === "modelo-apagar") { await apagarModelo(String(c.id ?? "")); return res.status(200).json({ ok: true }); }
-  if (acao === "visita") return res.status(200).json({ visita: registrosPara([await salvarVisita(c.visita, { nome: sessao.nome, email: sessao.email }, new Date(), { ip: enderecoDe(req) })])[0] });
   if (acao === "visita-apagar") { await apagarVisita(String(c.id ?? ""), String(c.mes ?? "")); return res.status(200).json({ ok: true }); }
   if (acao === "envio-apagar") { await apagarEnvio(String(c.id ?? ""), String(c.mes ?? "")); return res.status(200).json({ ok: true }); }
   return res.status(400).json({ error: "ação inválida" });

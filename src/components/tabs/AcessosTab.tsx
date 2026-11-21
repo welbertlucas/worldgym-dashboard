@@ -313,7 +313,7 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
       {podeLiberar && (
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={qualidade} onChange={(e) => setQualidade(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-          <span>Pode editar a qualidade <span className="block text-xs text-muted-foreground">Deixa a pessoa criar checklists e registrar visitas às unidades (com check-in, fotos e assinatura). Dono e Master já veem o menu Qualidade, só para consulta; quem tem acesso a unidades também passa a ver tudo com esta liberação.</span></span>
+          <span>Pode editar a qualidade <span className="block text-xs text-muted-foreground">Deixa a pessoa criar checklists e registrar visitas às unidades (com check-in, fotos e assinatura). Dono e Master já veem o menu Qualidade e aplicam os checklists (Nova visita); só quem tem esta liberação edita. Quem tem acesso a unidades também passa a ver tudo com esta liberação.</span></span>
         </label>
       )}
       {podeLiberar && papel === "unidades" && (

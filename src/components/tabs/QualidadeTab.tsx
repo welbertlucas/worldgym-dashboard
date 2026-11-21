@@ -14,7 +14,7 @@ import { Pedidos } from "@/components/qualidade/Pedidos";
 import { LocaisDasUnidades } from "@/components/qualidade/LocaisDasUnidades";
 import { PlanosDaFranqueadora } from "@/components/qualidade/PlanosDeAcao";
 import { pedidosPendentes, podeValidarPlano } from "@/data/qualidade";
-import { ehDono, getUsuario, podeEditarQualidade } from "@/lib/auth";
+import { ehDono, getUsuario, podeEditarQualidade, podeVerQualidade } from "@/lib/auth";
 import { ChecklistDaUnidade } from "@/components/qualidade/ChecklistDaUnidade";
 
 export type EstadoQualidade = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; dados: DadosQualidade };
@@ -46,17 +46,18 @@ export function QualidadeConteudo({ estado, hoje = hojeBR(), recarregar = () => 
   if (d.modo === "unidade") return <ChecklistDaUnidade dados={d} hoje={hoje} onMudou={recarregar} />;
   // A aba de pedidos de item novo é só do dono (é ele quem aprova); mostra quantos esperam resposta.
   const pendentes = pedidosPendentes(d.pedidos).length;
-  // Quem só consulta (Master sem liberação) não vê "Nova visita"; quem edita registra visitas com check-in e assinatura.
+  // Aplicar o checklist (Nova visita, com check-in e selfie) é de todo o menu completo, Master inclusive; editar checklists, apagar e marcar local é de quem edita.
   const edita = podeEditarQualidade();
+  const aplica = edita || podeVerQualidade();
   const aConfirmar = (d.planos ?? []).filter((p) => podeValidarPlano(p, getUsuario()?.email ?? "", ehDono())).length;
-  const base = (edita ? ABAS : ABAS.filter((a) => a.id !== "visita")).map((a) => (a.id === "planos" && aConfirmar > 0 ? { ...a, rotulo: `Planos de ação (${aConfirmar})` } : a));
+  const base = (aplica ? ABAS : ABAS.filter((a) => a.id !== "visita")).map((a) => (a.id === "planos" && aConfirmar > 0 ? { ...a, rotulo: `Planos de ação (${aConfirmar})` } : a));
   const abas: Aba[] = ehDono() ? [...base, { id: "pedidos", rotulo: pendentes > 0 ? `Pedidos (${pendentes})` : "Pedidos" }] : base;
   const ativa = abaAtiva(abas, aba);
   return (
     <div>
       <Abas tela="qualidade" titulo="Qualidade" abas={abas} ativa={ativa} onChange={setAba} />
       {ativa === "geral" && <VisaoGeral dados={d} hoje={hoje} onUnidade={(u) => { setUnidade(u); setAba("visitas"); }} onPedidos={ehDono() ? () => setAba("pedidos") : undefined} onPlanos={() => setAba("planos")} />}
-      {ativa === "visita" && edita && <NovaVisita dados={d} hoje={hoje} onSalvou={(u) => { setUnidade(u); setAba("visitas"); recarregar(); }} />}
+      {ativa === "visita" && aplica && <NovaVisita dados={d} hoje={hoje} onSalvou={(u) => { setUnidade(u); setAba("visitas"); recarregar(); }} />}
       {ativa === "visitas" && <Visitas key={unidade} dados={d} unidadeInicial={unidade} podeApagar={edita} onMudou={recarregar} />}
       {ativa === "planos" && <PlanosDaFranqueadora dados={d} hoje={hoje} onMudou={recarregar} />}
       {ativa === "rotina" && <Rotina dados={d} hoje={hoje} podeApagar={edita} onMudou={recarregar} />}
