@@ -4,7 +4,7 @@ import { datasDaSemana, limitesDaSemana, mesclarSemanas, semanaDaData, semanaDoD
 // @ts-expect-error módulo JS do servidor
 import { resumirVendas } from "../../../server/vendas.js";
 // @ts-expect-error módulo JS do servidor
-import { semanasDeProspects } from "../../../server/prospects.js";
+import { semanasDeProspects, convertidosDoCartao, ehPlanoVip, visitantesDoCartao } from "../../../server/prospects.js";
 
 describe("semanas fixas do mês", () => {
   it("1-7, 8-14, 15-21, 22-28 e a 5ª do 29 ao fim (só em mês com mais de 28 dias)", () => {
@@ -89,5 +89,26 @@ describe("semanas fixas do mês", () => {
       .toEqual([{ faturamento: 1, oportunidades: 5 }, { faturamento: 2, oportunidades: 6 }, { oportunidades: 7 }]);
     expect(mesclarSemanas(undefined, [{ a: 1 }])).toEqual([{ a: 1 }]);
     expect(mesclarSemanas([{ a: 1, b: 2 }], [{ a: 9 }])).toEqual([{ a: 9, b: 2 }]);
+  });
+
+  it("visitantes x convertidos como no cartão do EVO: presenciais não convertidos + todos os convertidos; só contrato vendido sem VIP conta como conversão", () => {
+    expect(["WORLD GYM GAMA SEMESTRAL VIP", "X - WG V.I.P", "MENSAL VIP"].every(ehPlanoVip)).toBe(true);
+    expect(["WG LOCAL 139,90", "WG EXPERIMENTAL R$ 97,00", "VIPER"].some(ehPlanoVip)).toBe(false);
+    const l = (conv: string, contrato: string, cad = "02/11/2026") => ({ IdFilial: "5", DtCadastro: cad, DtConversao: conv, PrimeiroContrato: contrato });
+    const rows = [
+      l("03/11/2026", "WG LOCAL 139,90"),   // converteu com contrato: visita e conversão (semana 1)
+      l("09/11/2026", ""),                   // converteu sem contrato: só visita (semana 2)
+      l("10/11/2026", "SEMESTRAL VIP"),     // VIP: só visita (semana 2)
+      l("16/11/2026", "WG 30", "20/10/2026"), // cadastrado antes do mês: conta (semana 3)
+      l("", ""),                             // ainda não converteu (não vem como visita aqui; o presencial vem da rota /prospects)
+    ];
+    expect(convertidosDoCartao(rows, "2026-11-01", "2026-11-20")["Asa Norte"]).toEqual({ todos: 4, convertidos: 2 });
+    const naoConv = { "Asa Norte": [1, 0, 0, 0, 0, 0, 0, 0, 2, ...Array(21).fill(0)] }; // 1 presencial no dia 1 (semana 1) e 2 no dia 9 (semana 2)
+    const c = visitantesDoCartao(rows, naoConv, "2026-11", "2026-11-20")["Asa Norte"];
+    expect(c.visitantes).toBe(3 + 4); // 3 presenciais não convertidos + 4 convertidos
+    expect(c.convertidos).toBe(2);
+    expect(c.semanas.slice(0, 3)).toEqual([{ visitantes: 2, convertidos: 1 }, { visitantes: 4, convertidos: 0 }, { visitantes: 1, convertidos: 1 }]);
+    expect(c.semanas[3]).toEqual({}); // semana que ainda não começou
+    expect(c.semanas.reduce((n: number, w: { visitantes?: number }) => n + (w.visitantes ?? 0), 0)).toBe(c.visitantes); // as semanas fecham com o mês
   });
 });

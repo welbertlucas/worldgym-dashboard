@@ -45,6 +45,8 @@ export interface SemanaDoMes {
   /** Quantos dos contratos vendidos são especiais (VIP e cortesias, valor R$ 0). */
   vendasContratosEspeciais?: number;
   oportunidades?: number; conversoes?: number; conversoesAntigas?: number; cancelados?: number;
+  /** Visitantes (presenciais) e convertidos da semana, como no cartão do Dashboard do EVO. */
+  visitantes?: number; convertidos?: number;
 }
 
 export interface UnitData {
@@ -75,6 +77,9 @@ export interface UnitData {
   lifetime: number;
   oportunidades: number;
   conversoes: number;
+  /** Visitantes x convertidos como no cartão do Dashboard do EVO (visitas presenciais; conversões com contrato vendido, sem VIP). Os meses lidos antes não têm. */
+  visitantes?: number;
+  convertidos?: number;
   /** Convertidas no mês que se cadastraram antes dele (fora da taxa de conversão; explica a diferença para o painel do EVO). */
   conversoesAntigas?: number;
   diarias: number;
@@ -498,7 +503,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "vendasContratosEspeciais" | "pagantes" | "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "vendasContratos" | "vendasManuais" | "vendasRecorrentes" | "vendasOnlineContratos" | "contratosPlanos" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "conversoesAntigas" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "semanas" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao" | "gatewaysDet" | "cartaoAReceber" | "vendedores" | "vendedoresTotal">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "vendasContratosEspeciais" | "pagantes" | "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "vendasContratos" | "vendasManuais" | "vendasRecorrentes" | "vendasOnlineContratos" | "contratosPlanos" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "visitantes" | "convertidos" | "conversoesAntigas" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "semanas" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao" | "gatewaysDet" | "cartaoAReceber" | "vendedores" | "vendedoresTotal">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -954,6 +959,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.icvEvo = true;
         unit.icv = taxaConversao(e.oportunidades, e.conversoes);
       }
+      if (e.visitantes !== undefined && e.convertidos !== undefined) { unit.visitantes = e.visitantes; unit.convertidos = e.convertidos; }
       // NPS vem do WeHelp quando o mês tem respostas: (promotores − detratores) ÷ respostas.
       if (e.npsRespostas !== undefined && e.npsRespostas > 0) {
         unit.npsPromotores = e.npsPromotores ?? 0;
@@ -1068,6 +1074,9 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
             const c = us.reduce((n, u) => n + u.conversoes, 0);
             return { oportunidades: o, conversoes: c, icv: taxaConversao(o, c), icvEvo: true };
           })()
+        : {}),
+      ...(md.units.some((u) => u.visitantes !== undefined)
+        ? { visitantes: md.units.reduce((n, u) => n + (u.visitantes ?? 0), 0), convertidos: md.units.reduce((n, u) => n + (u.convertidos ?? 0), 0) }
         : {}),
       ...(md.units.some((u) => u.npsEvo)
         ? (() => {

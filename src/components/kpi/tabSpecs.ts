@@ -13,9 +13,17 @@ const score = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 
 /** Receitas complementares não têm direção favorável definida: cor neutra. */
 const complementar = (title: string, pick: KpiSpec["pick"]): KpiSpec => ({ title, kind: "flow", direction: null, noDataIfZero: true, projecao: true, pick, fmt: brl });
 
-/** Abaixo do velocímetro de conversão (Comercial e Overview): quantas oportunidades foram cadastradas no mês (EVO). */
-export const oportunidadesCadastradas = (v: MonthView): MetricDetail[] =>
-  v.total.oportunidades > 0 ? [{ text: `${int(v.total.oportunidades)} oportunidades cadastradas`, tone: "neutral" }] : [];
+/**
+ * Conversão como no cartão "Visitantes x conversões" do Dashboard do EVO: convertidos (com contrato vendido, sem VIP) ÷ visitantes (presenciais).
+ * Os meses lidos antes dessa regra seguem com a conversão por cadastros (oportunidades).
+ */
+export const taxaDoCartao = (v: MonthView): number => (v.total.visitantes ? Math.round(((v.total.convertidos ?? 0) / v.total.visitantes) * 1000) / 10 : v.total.icv);
+
+/** Abaixo do velocímetro de conversão (Comercial e Overview): quantos visitantes e quantos convertidos, como no EVO. */
+export const oportunidadesCadastradas = (v: MonthView): MetricDetail[] => {
+  if (v.total.visitantes) return [{ text: `${int(v.total.visitantes)} visitantes · ${int(v.total.convertidos ?? 0)} convertidos`, tone: "neutral" }];
+  return v.total.oportunidades > 0 ? [{ text: `${int(v.total.oportunidades)} oportunidades cadastradas`, tone: "neutral" }] : [];
+};
 
 /** Número do cartão de faturamento: exato até 1 milhão (como no EVO) e "R$ 5,57 mi" daí para cima, para caber no medidor. */
 export const brlCurto = (v: number) => (Math.abs(v) >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mi` : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }));
@@ -38,7 +46,7 @@ export const comercialSpecs: KpiSpec[] = [
   },
   { title: "Saldo de Clientes", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
   {
-    title: "Conversão de Cadastros", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pct,
+    title: "Conversão de Cadastros", kind: "rate", rateKey: "icv", pick: taxaDoCartao, fmt: pct,
     extra: oportunidadesCadastradas,
   },
   {

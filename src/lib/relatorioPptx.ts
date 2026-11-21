@@ -115,7 +115,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
         { x: 10.0, y: 2.85 + dy, w: 3.1, h: 2.6 - dy * 0.3, holeSize: 62, chartColors: [VINHO, "D9D3CF"], showLegend: false, showLabel: false, showValue: false, showPercent: false });
       s.addText(`${cv}%`, { x: 10.0, y: 3.8 + dy * 0.85, w: 3.1, h: 0.7, fontFace: TIT, fontSize: 40, color: VINHO, align: "center" });
       s.addText("Índice de conversão de vendas", { x: 9.9, y: 5.5 + dy * 0.8, w: 3.3, h: 0.4, fontFace: TXT, fontSize: 14, italic: true, color: PRETO, align: "center" });
-      if (m.oportunidades !== null) s.addText(`${m.oportunidades.toLocaleString("pt-BR")} oportunidades cadastradas${m.convertidas !== null ? `\n${m.convertidas.toLocaleString("pt-BR")} convertidas` : ""}`, { x: 9.9, y: 5.9 + dy * 0.8, w: 3.3, h: 0.7, fontFace: TXT, fontSize: 16, bold: true, color: VINHO, align: "center", valign: "top" });
+      if (m.oportunidades !== null) s.addText(`${m.oportunidades.toLocaleString("pt-BR")} visitantes${m.convertidas !== null ? `\n${m.convertidas.toLocaleString("pt-BR")} convertidos` : ""}`, { x: 9.9, y: 5.9 + dy * 0.8, w: 3.3, h: 0.7, fontFace: TXT, fontSize: 16, bold: true, color: VINHO, align: "center", valign: "top" });
     }
     if (m.notaRecebimento && m.big.some((k) => k.nome === "Recebimento")) s.addText(m.notaRecebimento, { x: 0.7, y: 6.62, w: 12.0, h: 0.4, fontFace: TXT, fontSize: 9.5, italic: true, color: CINZA, valign: "top" });
     rodape(s);

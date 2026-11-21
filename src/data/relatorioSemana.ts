@@ -56,7 +56,7 @@ export const SEMANAIS: DefSemana[] = [
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", formato: "int", campo: (s) => s.novosContratos },
   { id: "cv", rotulo: "Contratos vendidos (total)", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.vendasContratos },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", formato: "brl", campo: (s) => s.vendasOnline },
-  { id: "op", rotulo: "Oportunidades cadastradas", titulo: "Oportunidades", formato: "int", campo: (s) => s.oportunidades },
+  { id: "op", rotulo: "Visitantes (presenciais, como no cartão do EVO)", titulo: "Visitantes", formato: "int", campo: (s) => s.visitantes ?? s.oportunidades },
   { id: "canc", rotulo: "Cancelamentos", titulo: "Cancelamentos", formato: "int", campo: (s) => s.cancelados, menorMelhor: true },
 ];
 export const ID_CONVERSAO = "conv";
@@ -78,7 +78,7 @@ const fmt = (f: Formato, n: number) =>
 const fmtPct = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
 const variacao = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
 const num = (v: number | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
-const baseDe = (conv: number, op: number) => `${conv.toLocaleString("pt-BR")} de ${op.toLocaleString("pt-BR")} oportunidades${op < BASE_PEQUENA ? " (base pequena)" : ""}`;
+const baseDe = (conv: number, op: number) => `${conv.toLocaleString("pt-BR")} de ${op.toLocaleString("pt-BR")} visitantes${op < BASE_PEQUENA ? " (base pequena)" : ""}`;
 
 /**
  * Últimas semanas (até 6, em ordem, terminando na escolhida) de uma unidade num indicador, atravessando meses. A coluna da mesma semana
@@ -175,12 +175,12 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   for (const id of TODOS_SEMANA) {
     if (!escolheu.has(id)) continue;
     if (id === ID_CONVERSAO) {
-      const linhas = atual.map((d) => ({ nome: d.u.name, op: num(d.s.oportunidades), cv: num(d.s.conversoes) })).filter((x) => x.op > 0);
+      const linhas = atual.map((d) => ({ nome: d.u.name, op: num(d.s.visitantes ?? d.s.oportunidades), cv: num(d.s.convertidos ?? d.s.conversoes) })).filter((x) => x.op > 0);
       if (!linhas.length) continue;
       if (umaSo) {
         const x = linhas[0], pct = (x.cv / x.op) * 100;
         const a = antPorNome.get(x.nome);
-        const pAnt = temAnt && a && num(a.oportunidades) > 0 ? (num(a.conversoes) / num(a.oportunidades)) * 100 : null;
+        const pAnt = temAnt && a && num(a.visitantes ?? a.oportunidades) > 0 ? (num(a.convertidos ?? a.conversoes) / num(a.visitantes ?? a.oportunidades)) * 100 : null;
         rankings.push({ id, titulo: "Conversão", subtitulo: sub, formato: "pct", itens: [], cartao: {
           valor: fmtPct(pct), variacao: pAnt !== null ? pct - pAnt : null, emPontos: true,
           anterior: baseDe(x.cv, x.op) + (pAnt !== null && rotuloAnt ? `  ·  antes: ${fmtPct(pAnt)} (${rotuloAnt})` : ""),
@@ -188,7 +188,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
       } else {
         const bases: Record<string, string> = {};
         const itens: [string, number][] = linhas.map((x) => { bases[x.nome] = `${x.cv} de ${x.op}${x.op < BASE_PEQUENA ? ", base pequena" : ""}`; return [x.nome, Math.round((x.cv / x.op) * 1000) / 10]; });
-        rankings.push({ id, titulo: "Conversão", subtitulo: `${sub} · convertidas de cadastradas na semana`, formato: "pct", itens: itens.sort((a, b) => b[1] - a[1]), bases });
+        rankings.push({ id, titulo: "Conversão", subtitulo: `${sub} · convertidos entre os visitantes da semana`, formato: "pct", itens: itens.sort((a, b) => b[1] - a[1]), bases });
       }
       continue;
     }
@@ -216,8 +216,8 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
     // Contratos vendidos só entra se a semana tem o número (meses lidos antes dele não têm; somar como zero enganaria)
     const temCv = atual.some((d) => typeof d.s.vendasContratos === "number");
     big = ["fat", "rec", "nc", ...(temCv ? ["cv"] : []), "vo", "op", "canc"].map((id) => { const d = SEMANAIS.find((x) => x.id === id)!; const k = kpi(d.titulo === "Oportunidades" ? "Oportunidades" : d.titulo, d); return id === "cv" ? { ...k, nota: notaContratosEspeciais(somaCampo(atual, (s) => s.vendasContratosEspeciais)) } : k; });
-    oportunidades = somaCampo(atual, (s) => s.oportunidades);
-    convertidas = Math.min(somaCampo(atual, (s) => s.conversoes), oportunidades);
+    oportunidades = somaCampo(atual, (s) => s.visitantes ?? s.oportunidades);
+    convertidas = Math.min(somaCampo(atual, (s) => s.convertidos ?? s.conversoes), oportunidades);
     conversao = oportunidades > 0 ? (convertidas / oportunidades) * 100 : null;
     if (oportunidades <= 0) { oportunidades = null; convertidas = null; }
   }

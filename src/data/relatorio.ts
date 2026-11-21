@@ -33,7 +33,7 @@ export const RANKINGS: DefRanking[] = [
   { id: "churn", rotulo: "Churn (%), com os motivos dos cancelamentos", titulo: "Churn", campo: (u) => u.churn, formato: "pct", menorMelhor: true },
   { id: "canc", rotulo: "Cancelamentos (alunos), com os motivos", titulo: "Cancelamentos", campo: (u) => u.cancelados, formato: "int", menorMelhor: true },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", campo: (u) => u.vendasOnline, formato: "brl" },
-  { id: "op", rotulo: "Oportunidades cadastradas", titulo: "Oportunidades", campo: (u) => u.oportunidades, formato: "int" },
+  { id: "op", rotulo: "Visitantes (presenciais, como no cartão do EVO)", titulo: "Visitantes", campo: (u) => u.visitantes ?? u.oportunidades, formato: "int" },
 ];
 
 /** Renovação (%) por unidade: entra logo depois do churn. */
@@ -226,7 +226,7 @@ export interface ModeloRelatorio {
   nUnidades: number;
   big: BigNumero[] | null;
   conversao: number | null;
-  /** Oportunidades cadastradas e as que viraram venda, para a rosca de conversão. */
+  /** Visitantes (presenciais) e os convertidos em aluno com contrato, para a rosca de conversão (como no cartão do EVO). */
   oportunidades: number | null;
   convertidas: number | null;
   rankings: SlideRanking[];
@@ -348,7 +348,7 @@ function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNum
     { nome: "Inadimplentes", valor: fmtPct(taxaInad(atual)), variacao: tem ? taxaInad(atual) - taxaInad(ant!) : null, emPontos: true, menorMelhor: true, anterior: tem ? fmtPct(taxaInad(ant!)) : null },
     comp((u) => u.vendasOnline, fmtBrl, "Vendas online"),
   ];
-  const op = soma(atual, (u) => u.oportunidades), cv = soma(atual, (u) => u.conversoes);
+  const op = soma(atual, (u) => u.visitantes ?? u.oportunidades), cv = soma(atual, (u) => u.convertidos ?? u.conversoes);
   return { big, conversao: op > 0 ? Math.min(100, (cv / op) * 100) : null, oportunidades: op > 0 ? op : null, convertidas: op > 0 ? Math.min(cv, op) : null };
 }
 

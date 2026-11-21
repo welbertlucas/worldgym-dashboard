@@ -1,4 +1,4 @@
-// Grava por unidade, nos meses já calculados: `oportunidades` (cadastrados) `conversoes` (convertidos no mês), `origens`, `consultores` (quem converteu) e `tempoConversao`.
+// Grava por unidade, nos meses já calculados: `oportunidades` (cadastrados) `conversoes` (convertidos no mês), `visitantes` e `convertidos` (como no cartão do Dashboard do EVO), `origens`, `consultores` (quem converteu) e `tempoConversao`.
 // No mês em andamento grava também `ritmoConversao`: a conversão até ontem contra o mesmo dia dos 3 meses anteriores (alerta do mês).
 // Uso: node --env-file=.env.local scripts/evo-prospects.mjs 2026-10 2026-11
 import { hojeBR } from "../server/evo.js";
@@ -33,7 +33,7 @@ for (const ym of process.argv.slice(2)) {
     for (const u of blob.units) {
       const a = por[u.name];
       if (!a || !Object.values(UNIT_NAMES).includes(u.name)) continue;
-      u.oportunidades = a.oportunidades; u.conversoes = a.conversoes; u.conversoesAntigas = a.conversoesAntigas; u.origens = a.origens; u.consultores = a.consultores; u.tempoConversao = a.tempoConversao; u.semanas = mesclarSemanas(u.semanas, a.semanas); n++;
+      u.oportunidades = a.oportunidades; u.conversoes = a.conversoes; u.conversoesAntigas = a.conversoesAntigas; u.origens = a.origens; u.consultores = a.consultores; u.tempoConversao = a.tempoConversao; u.semanas = mesclarSemanas(u.semanas, a.semanas); if (a.visitantes !== undefined) { u.visitantes = a.visitantes; u.convertidos = a.convertidos; } n++;
       if (ritmo?.[u.name]) u.ritmoConversao = ritmo[u.name];
     }
     blob.prospectsEm = new Date().toISOString();

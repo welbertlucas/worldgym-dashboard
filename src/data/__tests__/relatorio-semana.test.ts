@@ -79,7 +79,7 @@ describe("relatório semanal", () => {
     expect(fat.cartao).toMatchObject({ valor: "R$ 1.100", anterior: "R$ 1.000  ·  1-7 out/26" });
     expect(fat.cartao!.variacao).toBeCloseTo(10, 5);
     expect(conv.cartao!.valor).toBe("40,0%");
-    expect(conv.cartao!.anterior).toContain("10 de 25 oportunidades");
+    expect(conv.cartao!.anterior).toContain("10 de 25 visitantes");
     expect(conv.cartao!.anterior).toContain("antes: 25,0%");
     expect(conv.cartao!.variacao).toBeCloseTo(15, 5); // pontos percentuais
     expect(conv.cartao!.emPontos).toBe(true);
@@ -93,7 +93,7 @@ describe("relatório semanal", () => {
     expect(montarRelatorioSemanal([month("2026-11", [unit("A")])], "2026-11", 1, [ID_BIG], null, 30)).toBeNull();
   });
 
-  it("rosca de conversão traz oportunidades e convertidas da semana", () => {
+  it("rosca de conversão traz visitantes e convertidos da semana", () => {
     const m = montarRelatorioSemanal(meses, "2026-11", 1, [ID_BIG], null, 30)!;
     expect(m.oportunidades).toBe(30);
     expect(m.convertidas).toBe(11);
@@ -161,8 +161,8 @@ describe("relatório semanal: contratos vendidos, mês até aqui no Overview e r
     const m2 = montarRelatorioSemanal([antes, cv], "2026-11", 2, [ID_BIG, ID_MES_ATE_AQUI], null, 20, [])!;
     expect(m2.mesAteAqui!.itens.find((i) => i.nome === "Contratos vendidos")!.valor).toBe("75"); // 30 + 10 + 20 + 15
     // oportunidades e cancelamentos também têm o acumulado do mês: o número da semana (grande) não é o do mês
-    expect(m2.big!.find((b) => b.nome === "Oportunidades")!.valor).toBe("12"); // semana 2: 8 + 4
-    expect(m2.mesAteAqui!.itens.find((i) => i.nome === "Oportunidades")!.valor).toBe("27"); // semanas 1 e 2: 10 + 8 + 5 + 4
+    expect(m2.big!.find((b) => b.nome === "Visitantes")!.valor).toBe("12"); // semana 2: 8 + 4
+    expect(m2.mesAteAqui!.itens.find((i) => i.nome === "Visitantes")!.valor).toBe("27"); // semanas 1 e 2: 10 + 8 + 5 + 4
     expect(m2.mesAteAqui!.itens.find((i) => i.nome === "Cancelamentos")!.valor).toBe("8");
     expect(resumoDosSlides(m)).toEqual(["Capa", "Overview", "Encerramento"]); // o mês até aqui não é mais um slide à parte
     // marcar só "o mês até aqui" também gera os Overview (é neles que ele aparece)
@@ -192,6 +192,15 @@ describe("relatório semanal: contratos vendidos, mês até aqui no Overview e r
     expect(m.big!.find((k) => k.nome === "Faturamento")!.valor).toBe("R$ 1.800"); // as vendas, não os títulos (R$ 1.000)
     const antigo = month("2026-11", [com("Asa Norte", [{ faturamento: 1000, recebimento: 1500, novosContratos: 1 }])]);
     expect(montarRelatorioSemanal([antigo], "2026-11", 1, [ID_BIG], null, 30)!.big!.find((k) => k.nome === "Faturamento")!.valor).toBe("R$ 1.000"); // mês lido antes do campo
+  });
+
+  it("visitantes e convertidos do cartão do EVO substituem oportunidades e conversões quando o mês os tem", () => {
+    const novo = month("2026-11", [com("Asa Norte", [{ faturamento: 1000, oportunidades: 20, conversoes: 5, visitantes: 30, convertidos: 12, novosContratos: 1 }])]);
+    const m = montarRelatorioSemanal([novo], "2026-11", 1, [ID_BIG], null, 30)!;
+    expect(m.oportunidades).toBe(30); // visitantes, e não as 20 oportunidades cadastradas
+    expect(m.convertidas).toBe(12);
+    expect(m.conversao).toBeCloseTo(40, 5);
+    expect(m.big!.find((b) => b.nome === "Visitantes")!.valor).toBe("30");
   });
 });
 
