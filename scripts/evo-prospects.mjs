@@ -3,7 +3,7 @@
 // Uso: node --env-file=.env.local scripts/evo-prospects.mjs 2026-10 2026-11
 import { hojeBR } from "../server/evo.js";
 import { diaAnterior } from "../server/ativos.js";
-import { linhasDoMes, prospectsDoMes, ritmoConversao } from "../server/prospects.js";
+import { linhasDoMes, naoConvertidosPorTipo, prospectsDoMes, ritmoConversaoCartao } from "../server/prospects.js";
 import { mesesAnteriores } from "../server/mesmoDia.js";
 import { UNIT_NAMES } from "../server/units.js";
 import { loadMonth, saveMonth } from "../server/store.js";
@@ -22,9 +22,10 @@ for (const ym of process.argv.slice(2)) {
     if (ym === hoje.slice(0, 7) && ontem.slice(0, 7) === ym) {
       try {
         const fim = (m) => { const [a, b] = m.split("-").map(Number); return new Date(Date.UTC(a, b, 0)).toISOString().slice(0, 10); };
+        // Conversão como no cartão do EVO (visitantes x convertidos) até ontem, contra o mesmo dia dos 3 meses anteriores
         const anteriores = [];
-        for (const m of mesesAnteriores(ym, 3)) anteriores.push([m, await linhasDoMes(m, fim(m))]);
-        ritmo = ritmoConversao(ym, await linhasDoMes(ym, ontem), anteriores, Number(ontem.slice(8)));
+        for (const m of mesesAnteriores(ym, 3)) anteriores.push([m, { rows: await linhasDoMes(m, fim(m)), tipos: await naoConvertidosPorTipo(m, fim(m)) }]);
+        ritmo = ritmoConversaoCartao(ym, { rows: await linhasDoMes(ym, ontem), tipos: await naoConvertidosPorTipo(ym, ontem) }, anteriores, Number(ontem.slice(8)));
       } catch (e) {
         console.log(`${ym}: ritmo da conversão com erro — ${e.message}`);
       }

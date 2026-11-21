@@ -89,22 +89,28 @@ export function convertidosDoCartao(rows, de, ate) {
 }
 
 /**
- * Cadastros presenciais que ainda não viraram aluno, por dia do cadastro: { [unidade]: [n do dia 1, n do dia 2, ...] }.
+ * Cadastros que ainda não viraram aluno, por dia do cadastro e por tipo: { [unidade]: { pers: [n do dia 1, ...], outros: [...] } }.
  * A rota /prospects do EVO só lista quem ainda é prospect e traz o tipo do cadastro (signupType "Personal" = presencial).
  */
-export async function presenciaisNaoConvertidos(ym, ate) {
+export async function naoConvertidosPorTipo(ym, ate) {
   const [y, m] = ym.split("-").map(Number);
   const dias = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const por = {};
   for (const [id, nome] of Object.entries(UNIT_NAMES)) {
     const lista = await fetchAll(`/prospects?idBranch=${id}&registerDateStart=${ym}-01&registerDateEnd=${ate}`, 100);
-    const d = (por[nome] = Array(dias).fill(0));
+    const u = (por[nome] = { pers: Array(dias).fill(0), outros: Array(dias).fill(0) });
     for (const p of lista) {
       const dia = String(p.registerDate ?? "").slice(0, 10);
-      if (p.signupType === "Personal" && dia >= `${ym}-01` && dia <= ate) d[Number(dia.slice(8, 10)) - 1] += 1;
+      if (dia >= `${ym}-01` && dia <= ate) (p.signupType === "Personal" ? u.pers : u.outros)[Number(dia.slice(8, 10)) - 1] += 1;
     }
   }
   return por;
+}
+
+/** Só os presenciais: { [unidade]: [n do dia 1, n do dia 2, ...] }. */
+export async function presenciaisNaoConvertidos(ym, ate) {
+  const por = await naoConvertidosPorTipo(ym, ate);
+  return Object.fromEntries(Object.entries(por).map(([nome, u]) => [nome, u.pers]));
 }
 
 /**
@@ -176,6 +182,56 @@ export async function prospectsDoMes(ym, hoje) {
   } catch (e) { console.warn(`${ym}: visitantes do cartão do EVO indisponíveis (${e.message})`); }
   return por;
 }
+
+/**
+ * Visitantes e convertidos do cartão do EVO até o dia `dia` do mês `ym`, por unidade.
+ * `tipos` = naoConvertidosPorTipo do mês. Em mês FECHADO (`reconstruir`), quem se cadastrou até o dia e só converteu depois já não aparece como
+ * não convertido: entra como visitante na proporção de presenciais entre os não convertidos da unidade no mês (aproximação), para a conta
+ * ficar comparável com a do mês em andamento, que vem em tempo real.
+ */
+export function cartaoAteODia(rows, tipos, ym, dia, reconstruir) {
+  const de = `${ym}-01`, ate = diaNoMes(ym, dia);
+  const conv = convertidosDoCartao(rows, de, ate);
+  const tardias = {};
+  if (reconstruir) {
+    for (const r of rows) {
+      const nome = UNIT_NAMES[Number(r.IdFilial)];
+      const cad = iso(r.DtCadastro), c = iso(r.DtConversao);
+      if (nome && cad >= de && cad <= ate && c > ate) tardias[nome] = (tardias[nome] ?? 0) + 1;
+    }
+  }
+  const soma = (a, n) => a.slice(0, n).reduce((x, y) => x + y, 0);
+  const out = {};
+  for (const nome of new Set([...Object.keys(tipos), ...Object.keys(conv)])) {
+    const t = tipos[nome] ?? { pers: [], outros: [] };
+    const p = soma(t.pers, t.pers.length), o = soma(t.outros, t.outros.length);
+    const f = p + o > 0 ? p / (p + o) : 0;
+    const c = conv[nome] ?? { todos: 0, convertidos: 0 };
+    out[nome] = { visitantes: soma(t.pers, dia) + c.todos + Math.round(f * (tardias[nome] ?? 0)), convertidos: c.convertidos };
+  }
+  return out;
+}
+
+/**
+ * Conversão do cartão do EVO até o dia `dia` do mês em andamento, contra o mesmo dia dos meses anteriores:
+ * { [unidade]: { dia, oportunidades (= visitantes), conversoes (= convertidos), taxa, base: { meses, taxa } } }.
+ * `atual` = { rows, tipos }; `anteriores` = [[ym, { rows, tipos }]] dos meses fechados. Na base só entram os meses com ao menos `minimo` visitantes até o dia.
+ */
+export function ritmoConversaoCartao(ym, atual, anteriores, dia, minimo = 20) {
+  const agora = cartaoAteODia(atual.rows, atual.tipos, ym, dia, false);
+  const antes = anteriores.map(([m, d]) => cartaoAteODia(d.rows, d.tipos, m, Math.min(dia, diaDoFim(m)), true));
+  const taxa = (x) => Math.round((x.convertidos / x.visitantes) * 1000) / 10;
+  const out = {};
+  for (const [nome, u] of Object.entries(agora)) {
+    const base = antes.map((p) => p[nome]).filter((x) => x && x.visitantes >= minimo).map(taxa);
+    out[nome] = {
+      dia, oportunidades: u.visitantes, conversoes: u.convertidos, taxa: u.visitantes ? taxa(u) : 0,
+      base: { meses: base.length, taxa: base.length ? Math.round((base.reduce((a, b) => a + b, 0) / base.length) * 10) / 10 : 0 },
+    };
+  }
+  return out;
+}
+const diaDoFim = (ym) => { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y, m, 0)).getUTCDate(); };
 
 /** Dia `dia` do mês `ym`, limitado ao último dia do mês (dia 31 em fevereiro vira 28/29). */
 const diaNoMes = (ym, dia) => {

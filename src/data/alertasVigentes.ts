@@ -38,7 +38,9 @@ export const LIMIARES_VIGENTES = {
   // Conversão das oportunidades (cadastradas no mês e convertidas no mês) contra o mesmo dia dos 3 meses anteriores (u.ritmoConversao).
   // Calibrado em 16/11/2026 com mai–out/2026 nos dias 7 a 25 (629 casos): cai 13 p.p. ou mais em 10% das vezes e 20 ou mais em 5%.
   /** Só com 40 ou mais oportunidades no mês até o dia (com menos, um aluno muda a taxa em vários pontos). */
-  conversao: { minOportunidades: 40, atencaoPP: 13, criticoPP: 20 },
+  // TEMPORÁRIO (etapa 2, 21/11/2026): o alerta passou para a conversão do cartão do EVO (visitantes x convertidos) e os limiares antigos (13 e 20 p.p.)
+  // eram da conversão por cadastros. Ficam desligados (100 p.p.) até calibrar com o histórico.
+  conversao: { minOportunidades: 40, atencaoPP: 100, criticoPP: 100 },
   /** Alunos ativos que não vêm há 16 a 60 dias (último acesso): ainda dá para trazer de volta. Informativo até haver histórico. */
   sumidos: { minimo: 10 },
 } as const;
@@ -77,7 +79,7 @@ export const TITULO_VIGENTE: Record<KindVigente, string> = {
   fatRitmo: "Faturamento no ritmo do mês",
   contratosRitmo: "Novos contratos no ritmo do mês",
   cancelRitmo: "Cancelamentos acima do normal",
-  conversao: "Conversão de oportunidades abaixo do normal",
+  conversao: "Conversão de visitantes abaixo do normal",
 };
 
 const brl = (v: number) => formatMetaValue("faturamento", v);
@@ -274,14 +276,14 @@ export function computeAlertasVigentes(
         action: "Ver os motivos dos cancelamentos do mês (Retenção → Cancelamentos) e oferecer alternativa antes do cancelamento: troca de plano, suspensão ou horário.",
       });
     }
-    // 10. Conversão das oportunidades do mês contra o mesmo dia dos 3 meses anteriores.
+    // 10. Conversão de visitantes (como no cartão do EVO) do mês contra o mesmo dia dos 3 meses anteriores.
     const rc = u.ritmoConversao, V = L.conversao;
     if (rc && rc.base.meses > 0 && rc.oportunidades >= V.minOportunidades) {
       const queda = rc.base.taxa - rc.taxa;
       if (queda >= V.atencaoPP) push({
         unit: nome, kind: "conversao", severity: queda >= V.criticoPP ? "critical" : "attention", weight, tela: "comercial/oportunidades",
-        fact: `${int(rc.conversoes)} de ${int(rc.oportunidades)} oportunidades cadastradas no mês viraram aluno até agora (${pct(rc.taxa)}). No dia ${rc.dia} dos ${rc.base.meses} meses anteriores a unidade convertia ${pct(rc.base.taxa)}.`,
-        action: "Retomar as oportunidades do mês que ainda não fecharam: ligar ou mandar mensagem, oferecer aula experimental e conferir se o cadastro está sendo convertido no EVO na hora da venda.",
+        fact: `${int(rc.conversoes)} de ${int(rc.oportunidades)} visitantes do mês viraram aluno com contrato até agora (${pct(rc.taxa)}). No dia ${rc.dia} dos ${rc.base.meses} meses anteriores a unidade convertia ${pct(rc.base.taxa)}.`,
+        action: "Retomar os visitantes do mês que ainda não fecharam: ligar ou mandar mensagem, oferecer aula experimental e conferir se o cadastro está sendo convertido no EVO na hora da venda.",
       });
     }
   }

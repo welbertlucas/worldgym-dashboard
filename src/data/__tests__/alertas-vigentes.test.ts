@@ -91,7 +91,9 @@ describe("alertas do mês vigente", () => {
     expect(de("A", "sumidos")?.fact).toContain("150 alunos ativos não vêm à academia há 16 a 60 dias");
   });
 
-  it("conversão das oportunidades contra o mesmo dia: só com 40 ou mais oportunidades", () => {
+  // Etapa 2 (21/11/2026): o alerta passou para a conversão do cartão do EVO e os limiares ficam desligados (100 p.p.) até a calibração.
+  // Este teste volta (com os novos limiares) quando o alerta for ligado de novo.
+  it.skip("conversão dos visitantes contra o mesmo dia: só com 40 ou mais visitantes", () => {
     const rc = (oportunidades: number, conversoes: number, taxa: number) => ({ dia: 15, oportunidades, conversoes, taxa, base: { meses: 3, taxa: 75 } });
     const nov = mes("2026-11", [
       u("A", { ritmoConversao: rc(80, 40, 50) }), // −25 p.p.
@@ -102,11 +104,17 @@ describe("alertas do mês vigente", () => {
     const r = computeAlertasVigentes([...fechados, nov], [], { atualizadoEm: lido, now, incluirRede: false });
     const de = (unit: string) => r.alertas.find((a) => a.unit === unit && a.kind === "conversao");
     expect(de("A")).toMatchObject({ severity: "critical", tipo: "ritmo", tela: "comercial/oportunidades" });
-    expect(de("A")?.fact).toContain("40 de 80 oportunidades");
+    expect(de("A")?.fact).toContain("40 de 80 visitantes");
     expect(de("A")?.fact).toContain("convertia 75,0%");
     expect(de("B")?.severity).toBe("attention");
     expect(de("C")).toBeUndefined();
     expect(de("D")).toBeUndefined();
+  });
+
+  it("conversão de visitantes: enquanto os limiares não forem calibrados, o alerta fica desligado", () => {
+    const nov = mes("2026-11", [u("A", { ritmoConversao: { dia: 15, oportunidades: 80, conversoes: 20, taxa: 25, base: { meses: 3, taxa: 75 } } })]); // queda de 50 p.p.
+    const r = computeAlertasVigentes([...fechados, nov], [], { atualizadoEm: lido, now, incluirRede: false });
+    expect(r.alertas.find((a) => a.kind === "conversao")).toBeUndefined();
   });
 
   it("sem o mês corrente nos dados: nada", () => {

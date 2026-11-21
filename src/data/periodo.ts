@@ -52,11 +52,12 @@ export function agregarPeriodo(meses: MonthView[]): MonthView {
     cancelados: soma(meses, (x) => x.cancelados),
     oportunidades: soma(meses, (x) => x.oportunidades),
     conversoes: soma(meses, (x) => x.conversoes),
+    ...(meses.some((m) => m.total.visitantes !== undefined) ? { visitantes: soma(meses, (x) => x.visitantes ?? 0), convertidos: soma(meses, (x) => x.convertidos ?? 0) } : {}),
     ...(meses.some((m) => m.total.previsaoFaturamento !== undefined) ? { previsaoFaturamento: previsao } : {}),
     churn: mediaPonderada(meses, (x) => x.churn, (x) => x.ativosIni),
     inadimplenciaPerc: mediaPonderada(meses, (x) => x.inadimplenciaPerc, (x) => x.pagantes),
     renovacoes: mediaPonderada(meses, (x) => x.renovacoes, (x) => x.aVencer),
-    icv: mediaPonderada(meses, (x) => x.icv, (x) => x.oportunidades),
+    icv: mediaPonderada(meses, (x) => x.icv, (x) => x.visitantes ?? x.oportunidades),
   };
   return { month: ultimo.month, total, units: ultimo.units };
 }

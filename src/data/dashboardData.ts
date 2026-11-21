@@ -959,7 +959,8 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.icvEvo = true;
         unit.icv = taxaConversao(e.oportunidades, e.conversoes);
       }
-      if (e.visitantes !== undefined && e.convertidos !== undefined) { unit.visitantes = e.visitantes; unit.convertidos = e.convertidos; }
+      // Conversão como no cartão "Visitantes x conversões" do EVO: passa a ser a conversão do Atlas (metas, alertas, rankings e relatórios).
+      if (e.visitantes !== undefined && e.convertidos !== undefined) { unit.visitantes = e.visitantes; unit.convertidos = e.convertidos; unit.icv = taxaConversao(e.visitantes, e.convertidos); }
       // NPS vem do WeHelp quando o mês tem respostas: (promotores − detratores) ÷ respostas.
       if (e.npsRespostas !== undefined && e.npsRespostas > 0) {
         unit.npsPromotores = e.npsPromotores ?? 0;
@@ -1076,7 +1077,11 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
           })()
         : {}),
       ...(md.units.some((u) => u.visitantes !== undefined)
-        ? { visitantes: md.units.reduce((n, u) => n + (u.visitantes ?? 0), 0), convertidos: md.units.reduce((n, u) => n + (u.convertidos ?? 0), 0) }
+        ? (() => {
+            const us = md.units.filter((u) => u.visitantes !== undefined);
+            const v = us.reduce((n, u) => n + (u.visitantes ?? 0), 0), c = us.reduce((n, u) => n + (u.convertidos ?? 0), 0);
+            return { visitantes: v, convertidos: c, icv: taxaConversao(v, c) };
+          })()
         : {}),
       ...(md.units.some((u) => u.npsEvo)
         ? (() => {
