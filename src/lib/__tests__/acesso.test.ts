@@ -301,6 +301,7 @@ describe("acessos, níveis e registro", () => {
     for (const corpo of [
       { acao: "modelo", modelo: { nome: "x", itens: [{ texto: "a" }] } }, { acao: "visita-apagar", id: "x", mes: "2026-11" }, { acao: "modelo-apagar", id: "x" },
       { acao: "local", unidade: "Gama", local: { lat: -15.8, lng: -48 } }, { acao: "pedido-decidir", id: "x", decisao: {} },
+      { acao: "agenda", agenda: { unidade: "Gama", data: "2099-01-01", modeloId: "x" } }, { acao: "agenda-apagar", id: "x" },
     ]) expect((await qpost(master.token, corpo)).code).toBe(403);
     // aplicar o checklist é permitido: não é recusado por permissão (aqui falha só pela validação dos dados, que é outra coisa)
     for (const corpo of [{ acao: "checkin", checkin: { unidade: "Gama", modeloId: "x" } }, { acao: "foto", dados: "AAAA" }, { acao: "visita", visita: {} }]) expect((await qpost(master.token, corpo)).code).not.toBe(403);
@@ -309,6 +310,15 @@ describe("acessos, níveis e registro", () => {
     expect(dm.itens[0].peso).toBe(4);
     expect((await q(tokenDono)).body.modelos[0].itens[0].peso).toBe(4);
     expect("peso" in (await q(master.token)).body.modelos[0].itens[0]).toBe(false);
+    // agenda de visitas: o dono marca; o Master vê (para saber o que aplicar), mas não marca nem tira
+    const amanha = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+    const ag = await qpost(tokenDono, { acao: "agenda", agenda: { unidade: "Gama", data: amanha, modeloId: dm.id, responsavel: "Ana" } });
+    expect(ag.code).toBe(200);
+    expect((await q(master.token)).body.agenda).toMatchObject([{ unidade: "Gama", data: amanha, responsavel: "Ana" }]);
+    expect((await qpost(master.token, { acao: "agenda-apagar", id: ag.body.agenda.id })).code).toBe(403);
+    expect((await q(tokenDono)).body.agenda).toHaveLength(1);
+    await qpost(tokenDono, { acao: "agenda-apagar", id: ag.body.agenda.id });
+    expect((await q(tokenDono)).body.agenda).toEqual([]);
     // liberar o Master para editar
     expect((await post(tokenDono, { acao: "atualizar", id: master.u.id, verQualidade: true })).body.usuario.verQualidade).toBe(true);
     expect((await chama(login, com(master.token, { method: "GET" }))).body.usuario).toMatchObject({ verQualidade: true, editaQualidade: true });

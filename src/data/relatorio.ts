@@ -34,10 +34,6 @@ export const RANKINGS: DefRanking[] = [
   { id: "canc", rotulo: "Cancelamentos (alunos), com os motivos", titulo: "Cancelamentos", campo: (u) => u.cancelados, formato: "int", menorMelhor: true },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", campo: (u) => u.vendasOnline, formato: "brl" },
   { id: "op", rotulo: "Oportunidades cadastradas", titulo: "Oportunidades", campo: (u) => u.oportunidades, formato: "int" },
-  { id: "di", rotulo: "Diárias", titulo: "Diárias", campo: (u) => u.diarias, formato: "int" },
-  { id: "pers", rotulo: "Personal", titulo: "Personal", campo: (u) => u.personal, formato: "int" },
-  { id: "cam", rotulo: "Camisetas", titulo: "Camisetas", campo: (u) => u.camisetas, formato: "int" },
-  { id: "coq", rotulo: "Coqueteleiras", titulo: "Coqueteleiras", campo: (u) => u.coqueteleiras, formato: "int" },
   { id: "nps", rotulo: "NPS", titulo: "NPS", campo: (u) => u.nps, formato: "int", zeroEhVazio: true },
   { id: "google", rotulo: "Nota no Google", titulo: "Nota no Google", campo: (u) => u.notaGoogle, formato: "nota", zeroEhVazio: true },
   { id: "ra", rotulo: "Nota no Reclame Aqui", titulo: "Nota no Reclame Aqui", campo: (u) => u.reclameAqui, formato: "nota", zeroEhVazio: true },
@@ -55,9 +51,12 @@ export const ID_BIG = "big";
 /** Slide "Frequência dos alunos": mapa de calor das entradas do período e o último check-in dos alunos ativos. */
 export const ID_FREQ = "freq";
 
-export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id), ID_FREQ];
+/** Slide "Receitas complementares": diárias, personal, brinquedoteca, WG Plus, Pro+, camisetas e coqueteleiras num slide só. */
+export const ID_COMPL = "compl";
+
+export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id), ID_COMPL, ID_FREQ];
 /** O que já vem marcado ao abrir o menu: o miolo do Report Operacional. */
-export const INDICADORES_PADRAO = [ID_BIG, "fat", "cresc", "nc", "tk", ID_PLANO];
+export const INDICADORES_PADRAO = [ID_BIG, "fat", "cresc", "nc", "cv", "tk", ID_PLANO];
 
 export interface BigNumero {
   nome: string;
@@ -119,6 +118,20 @@ export interface SlideFrequencia {
   frequentadores: number;
   /** Alunos ativos por faixa do último acesso: só existe a foto de hoje (a leitura mais recente do EVO). */
   ultimoCheckin: { rotulos: string[]; valores: number[]; total: number; posicao: string } | null;
+}
+
+/** Todas as receitas complementares num slide só, com uma legenda do que são. */
+export interface SlideComplementares {
+  periodo: string;
+  total: number;
+  /** Quanto as complementares pesam no faturamento (%), ou null sem faturamento. */
+  participacao: number | null;
+  /** Variação do total contra o período de comparação (%), e o valor de lá. */
+  variacao: number | null;
+  anterior: string | null;
+  /** Cada receita e o valor, da maior para a menor (só as que tiveram valor). */
+  itens: [string, number][];
+  legenda: string;
 }
 
 export interface SlideRanking {
@@ -184,6 +197,8 @@ export interface ModeloRelatorio {
   plano?: PlanoDaUnidade | null;
   /** Slide "Frequência dos alunos" (mapa de calor do período e último check-in). */
   frequencia?: SlideFrequencia | null;
+  /** Slide "Receitas complementares" (todas num slide só). */
+  complementares?: SlideComplementares | null;
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -340,6 +355,35 @@ export function montarFrequencia(meses: MonthData[], mes: string, atual: UnitDat
   };
 }
 
+/** As sete receitas complementares do Atlas (a mesma soma do cartão "Receita Complementar"). */
+export const RECEITAS_COMPLEMENTARES: { chave: "diarias" | "personal" | "kids" | "plus" | "proMais" | "camisetas" | "coqueteleiras"; nome: string }[] = [
+  { chave: "diarias", nome: "Diárias" }, { chave: "personal", nome: "Taxa de personal" }, { chave: "kids", nome: "Brinquedoteca" }, { chave: "plus", nome: "WG Plus" },
+  { chave: "proMais", nome: "Pro+" }, { chave: "camisetas", nome: "Camisetas" }, { chave: "coqueteleiras", nome: "Coqueteleiras" },
+];
+export const LEGENDA_COMPLEMENTARES = "Receita complementar é tudo o que a unidade vende além dos planos de academia: diárias, taxa de personal, brinquedoteca, WG Plus, Pro+, camisetas e coqueteleiras. Vem das vendas do EVO.";
+
+type ValoresComplementares = Partial<Record<(typeof RECEITAS_COMPLEMENTARES)[number]["chave"], number | undefined>>;
+const somaComplementares = (l: ValoresComplementares[]) => RECEITAS_COMPLEMENTARES.map(({ chave }) => l.reduce((t, v) => t + (Number.isFinite(v[chave]) ? (v[chave] as number) : 0), 0));
+
+/**
+ * Monta o slide das receitas complementares do período: cada uma e o total, o peso no faturamento e a variação contra o período de comparação.
+ * `atual` e `antes` são os valores (já filtrados nas unidades do relatório) de cada unidade; sem nenhuma receita no período, não há slide.
+ */
+export function montarComplementares(periodo: string, atual: ValoresComplementares[], faturamento: number | null, antes: ValoresComplementares[] | null, rotuloAntes: string | null): SlideComplementares | null {
+  const valores = somaComplementares(atual);
+  const total = valores.reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return null;
+  const totalAntes = antes ? somaComplementares(antes).reduce((a, b) => a + b, 0) : 0;
+  return {
+    periodo, total,
+    participacao: faturamento && faturamento > 0 ? (total / faturamento) * 100 : null,
+    variacao: totalAntes > 0 ? ((total - totalAntes) / totalAntes) * 100 : null,
+    anterior: totalAntes > 0 ? `R$ ${Math.round(totalAntes).toLocaleString("pt-BR")}${rotuloAntes ? `  ·  ${rotuloAntes}` : ""}` : null,
+    itens: RECEITAS_COMPLEMENTARES.map(({ nome }, i) => [nome, Math.round(valores[i] * 100) / 100] as [string, number]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
+    legenda: LEGENDA_COMPLEMENTARES,
+  };
+}
+
 /**
  * Monta o relatório de um mês fechado. `unidades` = quais entram (null = todas as que a pessoa enxerga). `meses` = o que o painel tem
  * (já filtrado pelo servidor para o nível de acesso da pessoa).
@@ -409,13 +453,14 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
     r.motivos = motivosDoRanking(r.id, atual, mesCurto(mes));
     if (r.motivos && (r.id === "churn" || r.id === "canc")) jaTemCancelamento = true;
   }
+  const complementares = escolheu.has(ID_COMPL) ? montarComplementares(rotuloDoPeriodo(mes), atual, soma(atual, (u) => u.faturamento), ant, antCurto) : null;
   const frequencia = escolheu.has(ID_FREQ) ? montarFrequencia(meses, mes, atual, rotuloDoPeriodo(mes)) : null;
   const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant) : null;
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
-  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, frequencia, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
+  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, frequencia, complementares, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
 }
 
 /** O que o menu mostra de cada slide, antes de gerar. */
 export function resumoDosSlides(modelo: ModeloRelatorio): string[] {
-  return ["Capa", ...(modelo.big ? ["Números gerais"] : []), ...(modelo.mesAteAqui ? ["O mês até aqui"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), "Encerramento"];
+  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), "Encerramento"];
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
 import { limitesDaSemana as limitesServidor, semanasNoMes as semanasServidor } from "../../../server/semanas.js";
 import { BASE_PEQUENA, ID_CONVERSAO, ID_MES_ATE_AQUI, metaDoEscopo, serieSemanal, estadoDaSemana, limitesDaSemana, mesAnterior, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
-import { ID_BIG } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, resumoDosSlides } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
 const com = (name: string, semanas: Record<string, number>[]) => unit(name, { semanas } as never);
@@ -142,5 +142,47 @@ describe("relatório semanal", () => {
     expect(metaDoEscopo([{ ...base, unit: "TOTAL", ouro: 9000 }] as never[], "2026-11", "faturamento", ["A", "B"], true)).toEqual({ nivel: "ouro", alvo: 9000 });
     expect(metaDoEscopo([{ ...base, unit: "A", ouro: 1, prata: 1 }, { ...base, unit: "B", prata: 2 }] as never[], "2026-11", "faturamento", ["A", "B"], false)).toEqual({ nivel: "prata", alvo: 3 });
     expect(metaDoEscopo([{ ...base, unit: "A", ouro: 1 }] as never[], "2026-11", "faturamento", ["A", "B"], false)).toBeUndefined();
+  });
+});
+
+describe("relatório semanal: contratos vendidos, mês até aqui no Overview e receitas complementares", () => {
+  const cv = month("2026-11", [
+    com("Asa Norte", [{ faturamento: 1100, vendasContratos: 30, oportunidades: 10, cancelados: 3, novosContratos: 12, diarias: 100, personal: 50, kids: 20, plus: 10, proMais: 5, camisetas: 8, coqueteleiras: 7 }, { faturamento: 900, vendasContratos: 20, oportunidades: 8, cancelados: 2, diarias: 60, camisetas: 4 }]),
+    com("Gama", [{ faturamento: 450, vendasContratos: 10, oportunidades: 5, cancelados: 1, novosContratos: 4, diarias: 40, personal: 30 }, { faturamento: 650, vendasContratos: 15, oportunidades: 4, cancelados: 2, diarias: 10 }]),
+  ]);
+  const antes = month("2026-10", [com("Asa Norte", [{ faturamento: 1000, vendasContratos: 25, diarias: 100, personal: 50 }]), com("Gama", [{ faturamento: 500, vendasContratos: 9, diarias: 50 }])]);
+
+  it("contratos vendidos entra no Overview da semana e no mês até aqui, em letras menores no mesmo slide", () => {
+    const m = montarRelatorioSemanal([antes, cv], "2026-11", 1, [ID_BIG, ID_MES_ATE_AQUI], null, 20, [])!;
+    expect(m.big!.map((b) => b.nome)).toContain("Contratos vendidos");
+    expect(m.big!.find((b) => b.nome === "Contratos vendidos")!.valor).toBe("40");
+    // o mês até aqui soma as semanas 1 a N: aqui só a semana 1 (30 + 10)
+    expect(m.mesAteAqui!.itens.find((i) => i.nome === "Contratos vendidos")!.valor).toBe("40");
+    const m2 = montarRelatorioSemanal([antes, cv], "2026-11", 2, [ID_BIG, ID_MES_ATE_AQUI], null, 20, [])!;
+    expect(m2.mesAteAqui!.itens.find((i) => i.nome === "Contratos vendidos")!.valor).toBe("75"); // 30 + 10 + 20 + 15
+    // oportunidades e cancelamentos também têm o acumulado do mês: o número da semana (grande) não é o do mês
+    expect(m2.big!.find((b) => b.nome === "Oportunidades")!.valor).toBe("12"); // semana 2: 8 + 4
+    expect(m2.mesAteAqui!.itens.find((i) => i.nome === "Oportunidades")!.valor).toBe("27"); // semanas 1 e 2: 10 + 8 + 5 + 4
+    expect(m2.mesAteAqui!.itens.find((i) => i.nome === "Cancelamentos")!.valor).toBe("8");
+    expect(resumoDosSlides(m)).toEqual(["Capa", "Overview", "Encerramento"]); // o mês até aqui não é mais um slide à parte
+    // marcar só "o mês até aqui" também gera os Overview (é neles que ele aparece)
+    expect(montarRelatorioSemanal([antes, cv], "2026-11", 1, [ID_MES_ATE_AQUI], null, 20, [])!.big).not.toBeNull();
+  });
+
+  it("semana de um mês sem o número de contratos vendidos fica sem ele (não soma como zero)", () => {
+    const m = montarRelatorioSemanal(meses, "2026-11", 1, [ID_BIG], null, 20, [])!;
+    expect(m.big!.map((b) => b.nome)).not.toContain("Contratos vendidos");
+  });
+
+  it("receitas complementares: todas num slide só, com a legenda; sem os indicadores soltos", () => {
+    const m = montarRelatorioSemanal([antes, cv], "2026-11", 1, [ID_COMPL], null, 20, [])!;
+    const c = m.complementares!;
+    expect(c.total).toBe(100 + 50 + 20 + 10 + 5 + 8 + 7 + 40 + 30); // 270
+    expect(c.itens[0]).toEqual(["Diárias", 140]);
+    expect(c.itens).toEqual([["Diárias", 140], ["Taxa de personal", 80], ["Brinquedoteca", 20], ["WG Plus", 10], ["Camisetas", 8], ["Coqueteleiras", 7], ["Pro+", 5]]); // da maior para a menor
+    expect(c.participacao).toBeCloseTo((270 / 1550) * 100, 1);
+    expect(c.legenda).toContain("além dos planos");
+    expect(resumoDosSlides(m)).toContain("Receitas complementares");
+    expect(m.rankings).toEqual([]); // diárias, personal, camisetas e coqueteleiras não são mais slides soltos
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ID_BIG, ID_FREQ, RANKINGS, mesDoAnoAnterior, rotuloDoPeriodo, serieMensal, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, ID_FREQ, INDICADORES_PADRAO, RANKINGS, mesDoAnoAnterior, rotuloDoPeriodo, serieMensal, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
 const dados = [
@@ -35,7 +35,7 @@ describe("relatório", () => {
     const fat = m.big![0];
     expect(fat.variacao).toBeCloseTo(6.67, 1);
     expect(fat.anterior).toContain("150");
-    expect(resumoDosSlides(m)).toEqual(["Capa", "Números gerais", "Faturamento", "Encerramento"]);
+    expect(resumoDosSlides(m)).toEqual(["Capa", "Overview", "Faturamento", "Encerramento"]);
   });
 
   it("sem o mês no painel ou sem unidade no escopo devolve nada; sem ano anterior não há crescimento", () => {
@@ -163,5 +163,32 @@ describe("relatório: contratos vendidos, motivos e frequência", () => {
     expect(montarRelatorio(mk(), "2026-10", ["fat"], null)!.frequencia).toBeNull(); // só vem quando foi pedido
     expect(montarRelatorio(mk(), "2026-10", [ID_FREQ], ["Gama"])!.frequencia!.entradas).toBe(500); // respeita as unidades escolhidas
     expect(montarRelatorio([month("2026-10", [unit("A")])], "2026-10", [ID_FREQ], null)!.frequencia).toBeNull(); // sem catraca nem último acesso
+  });
+});
+
+describe("relatório do mês: receitas complementares num slide só", () => {
+  const dadosC = [
+    month("2025-10", [unit("Asa Sul", { faturamento: 1000, diarias: 100, personal: 50 })]),
+    month("2026-10", [
+      unit("Asa Sul", { faturamento: 1000, diarias: 120, personal: 60, kids: 20, plus: 10, proMais: 5, camisetas: 8, coqueteleiras: 7 }),
+      unit("Gama", { faturamento: 500, diarias: 40 }),
+    ]),
+  ];
+  it("soma as sete receitas, mostra o peso no faturamento e a variação contra o ano anterior; os itens soltos saíram dos rankings", () => {
+    const m = montarRelatorio(dadosC, "2026-10", [ID_COMPL], ["Asa Sul"])!;
+    const c = m.complementares!;
+    expect(c.total).toBe(230);
+    expect(c.itens).toEqual([["Diárias", 120], ["Taxa de personal", 60], ["Brinquedoteca", 20], ["WG Plus", 10], ["Camisetas", 8], ["Coqueteleiras", 7], ["Pro+", 5]]);
+    expect(c.participacao).toBeCloseTo(23, 1);
+    expect(c.variacao).toBeCloseTo(53.3, 1); // contra 150 em out/2025
+    expect(c.legenda).toContain("além dos planos");
+    expect(resumoDosSlides(m)).toContain("Receitas complementares");
+    expect(RANKINGS.map((r) => r.id)).not.toEqual(expect.arrayContaining(["di"]));
+    for (const id of ["di", "pers", "cam", "coq"]) expect(RANKINGS.some((r) => r.id === id)).toBe(false);
+    expect(montarRelatorio(dadosC, "2026-10", ["fat"], null)!.complementares).toBeNull(); // só quando pedido
+    expect(montarRelatorio([month("2026-10", [unit("A", { faturamento: 10 })])], "2026-10", [ID_COMPL], null)!.complementares).toBeNull(); // sem nenhuma receita, sem slide
+  });
+  it("o relatório do mês traz contratos vendidos já na seleção padrão", () => {
+    expect(INDICADORES_PADRAO).toContain("cv");
   });
 });

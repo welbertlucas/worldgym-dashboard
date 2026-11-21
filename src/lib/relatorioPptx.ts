@@ -64,56 +64,55 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
   // Números gerais
   if (m.big) {
     const s = slideDeDados();
+    // Título e período no mesmo lugar e tamanho dos outros slides (semana: "apenas em 15-21 nov/26"; mês: "apenas em OUT/2026")
+    s.addText("OVERVIEW", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(`apenas em ${m.tipo === "semana" ? m.periodo : m.mesCurto}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
     // Até 6 números: 3 colunas; mais que isso (com os contratos vendidos são 7): 4 colunas mais estreitas, com letras um pouco menores.
     const colunas = m.big.length > 6 ? 4 : 3, larg = colunas === 4 ? 2.3 : 3.1, passo = colunas === 4 ? 2.35 : 3.15, fator = colunas === 4 ? 0.72 : 1;
+    // Relatório semanal: embaixo de cada número vai, em letras menores, o acumulado do mês até aqui (com a meta e o mesmo ponto do mês anterior)
+    const ate = m.mesAteAqui;
+    const linhasBase = ate ? 2.9 : 2.8, topo = 1.3;
     m.big.forEach((k, i) => {
       const col = i % colunas, lin = Math.floor(i / colunas);
-      const x = 0.5 + col * passo, y = 1.35 + lin * 2.8;
+      const x = 0.5 + col * passo, y = topo + lin * linhasBase;
       // valores longos (R$ 7.021.350) encolhem para caber na coluna
       const tam = Math.round((k.valor.length > 11 ? 36 : k.valor.length > 9 ? 42 : 48) * fator);
       s.addText(k.valor, { x, y, w: larg, h: 1.0, fontFace: TIT, fontSize: tam, color: PRETO, valign: "middle" });
       s.addText(k.nome, { x, y: y + 0.95, w: larg, h: 0.5, fontFace: TIT, fontSize: Math.round(24 * (colunas === 4 ? 0.62 : 1)), color: VINHO });
+      let yy = y + 1.45;
       if (k.variacao !== null) {
         const bom = k.menorMelhor ? k.variacao <= 0 : k.variacao >= 0;
         const txt = k.emPontos ? `${k.variacao >= 0 ? "+" : ""}${k.variacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} p.p.` : sinal(k.variacao);
-        s.addText(txt, { x, y: y + 1.45, w: larg, h: 0.45, fontFace: TXT, fontSize: Math.round(20 * fator), bold: true, color: bom ? VERDE : VERM });
+        s.addText(txt, { x, y: yy, w: larg, h: ate ? 0.38 : 0.45, fontFace: TXT, fontSize: Math.round((ate ? 17 : 20) * fator), bold: true, color: bom ? VERDE : VERM });
+        yy += ate ? 0.38 : 0.45;
       }
-      if (k.anterior && m.mesAnteriorCurto) s.addText(`${k.anterior}  ·  ${m.mesAnteriorCurto}`, { x, y: y + 1.9, w: larg, h: 0.4, fontFace: TXT, fontSize: Math.round(15 * (colunas === 4 ? 0.8 : 1)), color: CINZA });
+      if (k.anterior && m.mesAnteriorCurto) {
+        s.addText(`${k.anterior}  ·  ${m.mesAnteriorCurto}`, { x, y: yy, w: larg, h: ate ? 0.3 : 0.4, fontFace: TXT, fontSize: Math.round((ate ? 12 : 15) * (colunas === 4 ? 0.8 : 1)), color: CINZA });
+        yy += ate ? 0.3 : 0.4;
+      }
+      const it = ate?.itens.find((x2) => x2.nome === k.nome);
+      if (ate && it) {
+        const f = colunas === 4 ? 0.85 : 1;
+        s.addText(`Mês até aqui: ${it.valor}`, { x, y: yy, w: larg, h: 0.28, fontFace: TXT, fontSize: Math.round(12 * f), bold: true, color: TEXTO });
+        yy += 0.27;
+        if (it.variacao !== null) { s.addText(`${sinal(it.variacao, 1)} no mesmo ponto do mês anterior`, { x, y: yy, w: larg, h: 0.26, fontFace: TXT, fontSize: Math.round(10.5 * f), color: it.variacao >= 0 ? VERDE : VERM }); yy += 0.25; }
+        if (it.meta) s.addText(`${it.meta.texto} · ${Math.round(ate.ritmo)}% do mês já passou`, { x, y: yy, w: larg, h: 0.4, fontFace: TXT, fontSize: Math.round(10.5 * f), color: CINZA, valign: "top" });
+      }
     });
     s.addText(`${m.nUnidades} ${m.nUnidades === 1 ? "unidade" : "unidades"}`, { x: 10.0, y: 1.35, w: 3.2, h: 0.9, fontFace: TIT, fontSize: 48, color: VINHO });
     s.addText(m.escopo === "Rede" ? "na rede World Gym" : m.escopo, { x: 10.0, y: 2.2, w: 3.2, h: 0.5, fontFace: TXT, fontSize: 16, color: PRETO });
+    // Deixa claro o que é cada número: os grandes são da semana; as letras menores, do mês até aqui
+    const dy = m.tipo === "semana" ? 0.3 : 0; // abre espaço para as duas linhas e empurra a rosca de conversão
+    if (m.tipo === "semana") s.addText(`Números da semana ${m.periodo}`, { x: 10.0, y: 2.62, w: 3.2, h: 0.26, fontFace: TXT, fontSize: 10.5, bold: true, color: TEXTO });
+    if (ate) s.addText(`Letras menores: o mês até aqui (${ate.periodo})`, { x: 10.0, y: 2.86, w: 3.2, h: 0.26, fontFace: TXT, fontSize: 9.5, italic: true, color: CINZA });
     if (m.conversao !== null) {
       const cv = Math.round(m.conversao);
       s.addChart(pptx.ChartType.doughnut, [{ name: "Conversão", labels: ["Convertidas", "Demais"], values: [cv, 100 - cv] }],
-        { x: 10.0, y: 2.85, w: 3.1, h: 2.6, holeSize: 62, chartColors: [VINHO, "D9D3CF"], showLegend: false, showLabel: false, showValue: false, showPercent: false });
-      s.addText(`${cv}%`, { x: 10.0, y: 3.8, w: 3.1, h: 0.7, fontFace: TIT, fontSize: 40, color: VINHO, align: "center" });
-      s.addText("Índice de conversão de vendas", { x: 9.9, y: 5.5, w: 3.3, h: 0.4, fontFace: TXT, fontSize: 14, italic: true, color: PRETO, align: "center" });
-      if (m.oportunidades !== null) s.addText(`${m.oportunidades.toLocaleString("pt-BR")} oportunidades cadastradas${m.convertidas !== null ? `\n${m.convertidas.toLocaleString("pt-BR")} convertidas` : ""}`, { x: 9.9, y: 5.9, w: 3.3, h: 0.7, fontFace: TXT, fontSize: 16, bold: true, color: VINHO, align: "center", valign: "top" });
+        { x: 10.0, y: 2.85 + dy, w: 3.1, h: 2.6 - dy * 0.3, holeSize: 62, chartColors: [VINHO, "D9D3CF"], showLegend: false, showLabel: false, showValue: false, showPercent: false });
+      s.addText(`${cv}%`, { x: 10.0, y: 3.8 + dy * 0.85, w: 3.1, h: 0.7, fontFace: TIT, fontSize: 40, color: VINHO, align: "center" });
+      s.addText("Índice de conversão de vendas", { x: 9.9, y: 5.5 + dy * 0.8, w: 3.3, h: 0.4, fontFace: TXT, fontSize: 14, italic: true, color: PRETO, align: "center" });
+      if (m.oportunidades !== null) s.addText(`${m.oportunidades.toLocaleString("pt-BR")} oportunidades cadastradas${m.convertidas !== null ? `\n${m.convertidas.toLocaleString("pt-BR")} convertidas` : ""}`, { x: 9.9, y: 5.9 + dy * 0.8, w: 3.3, h: 0.7, fontFace: TXT, fontSize: 16, bold: true, color: VINHO, align: "center", valign: "top" });
     }
-    rodape(s);
-  }
-
-  // O mês até aqui (relatório semanal): acumulado do mês contra a meta e contra o mesmo ponto do mês anterior
-  if (m.mesAteAqui) {
-    const a = m.mesAteAqui;
-    const s = slideDeDados();
-    s.addText("O MÊS ATÉ AQUI", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
-    s.addText(`acumulado de ${a.periodo}${m.parcialAte ? ` (dados até ${m.parcialAte})` : ""} · ${Math.round(a.ritmo)}% do mês já passou`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
-    a.itens.forEach((it, i) => {
-      const x = 0.7 + (i % 2) * 6.2, y = 1.4 + Math.floor(i / 2) * 2.8, larg = 5.6;
-      s.addText(it.nome, { x, y, w: larg, h: 0.45, fontFace: TIT, fontSize: 22, color: VINHO });
-      s.addText(it.valor, { x, y: y + 0.4, w: larg, h: 0.85, fontFace: TIT, fontSize: it.valor.length > 11 ? 36 : 44, color: PRETO, valign: "middle" });
-      if (it.variacao !== null) s.addText(sinal(it.variacao), { x, y: y + 1.2, w: 1.6, h: 0.4, fontFace: TXT, fontSize: 16, bold: true, color: it.variacao >= 0 ? VERDE : VERM });
-      if (it.anterior) s.addText(it.anterior, { x: x + (it.variacao !== null ? 1.6 : 0), y: y + 1.2, w: larg - (it.variacao !== null ? 1.6 : 0), h: 0.4, fontFace: TXT, fontSize: 12, color: CINZA, valign: "middle" });
-      if (it.meta) {
-        s.addShape(pptx.ShapeType.roundRect, { x, y: y + 1.75, w: larg, h: 0.18, fill: { color: "D9D3CF" }, line: { color: "D9D3CF", width: 0 }, rectRadius: 0.08 });
-        const w = Math.max(0, Math.min(1, it.meta.pct / 100)) * larg;
-        if (w > 0.05) s.addShape(pptx.ShapeType.roundRect, { x, y: y + 1.75, w, h: 0.18, fill: { color: VINHO }, line: { color: VINHO, width: 0 }, rectRadius: 0.08 });
-        // traço do ritmo esperado (onde o acumulado estaria se o mês fosse linear)
-        s.addShape(pptx.ShapeType.rect, { x: x + (it.meta.ritmo / 100) * larg - 0.015, y: y + 1.68, w: 0.03, h: 0.32, fill: { color: PRETO }, line: { color: PRETO, width: 0 } });
-        s.addText(`${it.meta.texto}  ·  traço: ritmo esperado`, { x, y: y + 2.0, w: larg, h: 0.35, fontFace: TXT, fontSize: 12, color: CINZA });
-      } else s.addText("Meta do mês não cadastrada", { x, y: y + 1.75, w: larg, h: 0.35, fontFace: TXT, fontSize: 12, italic: true, color: CINZA });
-    });
     rodape(s);
   }
 
@@ -194,6 +193,29 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
       valAxisHidden: true, valGridLine: { color: "DDD6D1", size: 0.5 }, catGridLine: { style: "none" }, barGapWidthPct: r.itens.length <= 3 ? 220 : r.itens.length <= 6 ? 120 : 35, showLegend: false,
     });
     if (r.nota) s.addText(r.nota, { x: 10.2, y: 5.0, w: 2.9, h: 1.8, fontFace: TXT, fontSize: 10, color: PRETO, valign: "top" });
+    rodape(s);
+  }
+
+  // Receitas complementares: todas num slide só, com uma legenda do que são
+  if (m.complementares) {
+    const c = m.complementares;
+    const s = slideDeDados();
+    s.addText("RECEITAS COMPLEMENTARES", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(`apenas em ${c.periodo}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    const ord = [...c.itens].sort((a, b) => a[1] - b[1]); // a barra horizontal desenha de baixo para cima
+    s.addChart(pptx.ChartType.bar, [{ name: "Receitas complementares", labels: ord.map((x) => x[0]), values: ord.map((x) => x[1]) }], {
+      x: 0.5, y: 1.15, w: 8.7, h: 5.1, barDir: "bar", chartColors: [VINHO], showValue: true, dataLabelFormatCode: FORMATO_EXCEL.brl,
+      dataLabelColor: "FFFFFF", dataLabelFontSize: 11, dataLabelFontFace: TXT, dataLabelPosition: "inEnd", catAxisLabelFontSize: 12, catAxisLabelFontFace: TXT,
+      valAxisHidden: true, valGridLine: { color: "DDD6D1", size: 0.5 }, catGridLine: { style: "none" }, barGapWidthPct: ord.length <= 3 ? 120 : 50, showLegend: false,
+    });
+    const total = "R$ " + Math.round(c.total).toLocaleString("pt-BR");
+    s.addText(total, { x: 9.4, y: 1.5, w: 3.8, h: 1.0, fontFace: TIT, fontSize: total.length > 11 ? 36 : 44, color: VINHO, valign: "middle" });
+    s.addText("em receitas complementares", { x: 9.4, y: 2.45, w: 3.8, h: 0.4, fontFace: TXT, fontSize: 14, color: PRETO });
+    let y = 3.0;
+    if (c.participacao !== null) { s.addText(`${c.participacao.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% do faturamento`, { x: 9.4, y, w: 3.8, h: 0.4, fontFace: TXT, fontSize: 16, bold: true, color: TEXTO }); y += 0.5; }
+    if (c.variacao !== null) { s.addText(sinal(c.variacao), { x: 9.4, y, w: 3.8, h: 0.5, fontFace: TXT, fontSize: 24, bold: true, color: c.variacao >= 0 ? VERDE : VERM }); y += 0.55; }
+    if (c.anterior) s.addText(c.anterior, { x: 9.4, y, w: 3.8, h: 0.4, fontFace: TXT, fontSize: 13, color: CINZA });
+    s.addText(c.legenda, { x: 0.7, y: 6.35, w: 12.0, h: 0.6, fontFace: TXT, fontSize: 11, italic: true, color: CINZA, valign: "top" });
     rodape(s);
   }
 

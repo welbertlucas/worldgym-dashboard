@@ -56,7 +56,7 @@ export interface PlanoAcao {
 export const planoAtrasado = (p: PlanoAcao, hoje: string) => p.status === "aberto" && p.prazo < hoje;
 /** Quem confirma a correção: quem criou o plano ou o dono. */
 export const podeValidarPlano = (p: PlanoAcao, email: string, dono: boolean) => p.status === "validacao" && (dono || p.criadoPor.email === email);
-export interface DadosQualidade { modo?: "completo" | "unidade"; unidades: string[]; modelos: ModeloChecklist[]; visitas: Visita[]; /** Envios dos checklists que a própria unidade preenche (não entram na nota). */ envios?: Visita[]; /** Pedidos de item novo (o dono vê todos; a unidade, os dela). */ pedidos?: PedidoItem[]; /** Planos de ação (a franqueadora vê todos; a unidade, os dela). */ planos?: PlanoAcao[]; /** Onde cada unidade fica (marcado pelo dono), para conferir o local dos check-ins. */ locais?: Record<string, LocalUnidade> }
+export interface DadosQualidade { modo?: "completo" | "unidade"; /** Visitas agendadas (só o menu completo). */ agenda?: AgendaVisita[]; unidades: string[]; modelos: ModeloChecklist[]; visitas: Visita[]; /** Envios dos checklists que a própria unidade preenche (não entram na nota). */ envios?: Visita[]; /** Pedidos de item novo (o dono vê todos; a unidade, os dela). */ pedidos?: PedidoItem[]; /** Planos de ação (a franqueadora vê todos; a unidade, os dela). */ planos?: PlanoAcao[]; /** Onde cada unidade fica (marcado pelo dono), para conferir o local dos check-ins. */ locais?: Record<string, LocalUnidade> }
 
 /** Faixas da nota (% de itens conformes) usadas nas cores. Combinadas como ponto de partida: mudar só com o dono. */
 export const NOTA_BOA = 90;
@@ -235,4 +235,40 @@ export function rotinaDasUnidades(envios: Visita[], modelos: ModeloChecklist[], 
   }
   const peso = { atrasado: 0, nunca: 1, "em-dia": 2 } as const;
   return out.sort((a, b) => peso[a.situacao] - peso[b.situacao] || (b.dias ?? 0) - (a.dias ?? 0) || b.naoConformes - a.naoConformes || a.unidade.localeCompare(b.unidade, "pt-BR"));
+}
+
+
+// ---------- agenda de visitas ----------
+/** Uma visita da franqueadora marcada para uma unidade, numa data, com um checklist. */
+export interface AgendaVisita { id: string; unidade: string; data: string; modeloId: string; modeloNome: string; responsavel: string; observacao: string; criadoPor: { nome: string; email: string }; atualizadoEm: string }
+export type SituacaoAgenda = "feita" | "atrasada" | "hoje" | "proxima";
+export const SITUACAO_AGENDA_ROTULO: Record<SituacaoAgenda, string> = { feita: "Feita", atrasada: "Atrasada", hoje: "É hoje", proxima: "Agendada" };
+
+/**
+ * Situação de uma visita agendada. "Feita" quando a unidade teve uma visita com esse checklist na data marcada ou depois dela (e antes da próxima
+ * agendada da mesma unidade e checklist); sem isso, "atrasada" se a data já passou, "é hoje" ou "agendada".
+ */
+export function situacaoDaAgenda(a: AgendaVisita, agenda: AgendaVisita[], visitas: Pick<Visita, "unidade" | "modeloId" | "data">[], hoje: string): SituacaoAgenda {
+  const proxima = agenda.filter((x) => x.id !== a.id && x.unidade === a.unidade && x.modeloId === a.modeloId && x.data > a.data).map((x) => x.data).sort()[0];
+  const feita = visitas.some((v) => v.unidade === a.unidade && v.modeloId === a.modeloId && v.data >= a.data && (!proxima || v.data < proxima));
+  return feita ? "feita" : a.data < hoje ? "atrasada" : a.data === hoje ? "hoje" : "proxima";
+}
+
+export interface LinhaAgenda extends AgendaVisita { situacao: SituacaoAgenda }
+/** A agenda com a situação de cada visita: atrasadas, de hoje e próximas por data (as mais antigas primeiro), e as feitas por último (as mais recentes primeiro). */
+export function agendaComSituacao(agenda: AgendaVisita[] | undefined, visitas: Pick<Visita, "unidade" | "modeloId" | "data">[], hoje: string): LinhaAgenda[] {
+  const lista = agenda ?? [];
+  const linhas = lista.map((a) => ({ ...a, situacao: situacaoDaAgenda(a, lista, visitas, hoje) }));
+  const abertas = linhas.filter((l) => l.situacao !== "feita").sort((a, b) => a.data.localeCompare(b.data) || a.unidade.localeCompare(b.unidade));
+  const feitas = linhas.filter((l) => l.situacao === "feita").sort((a, b) => b.data.localeCompare(a.data) || a.unidade.localeCompare(b.unidade));
+  return [...abertas, ...feitas];
+}
+
+/** Unidades que precisam de visita: sem visita há mais de `DIAS_SEM_VISITA` dias (ou nunca) e sem nenhuma visita agendada daqui para a frente. */
+export function unidadesParaAgendar(visitas: Visita[], unidades: string[], agenda: AgendaVisita[] | undefined, hoje: string): { unidade: string; dias: number | null }[] {
+  const marcadas = new Set((agenda ?? []).filter((a) => a.data >= hoje).map((a) => a.unidade));
+  return resumoPorUnidade(visitas, unidades, hoje)
+    .filter((l) => (l.diasSemVisita === null || l.diasSemVisita > DIAS_SEM_VISITA) && !marcadas.has(l.unidade))
+    .map((l) => ({ unidade: l.unidade, dias: l.diasSemVisita }))
+    .sort((a, b) => (b.dias ?? Infinity) - (a.dias ?? Infinity) || a.unidade.localeCompare(b.unidade));
 }

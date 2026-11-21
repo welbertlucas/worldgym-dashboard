@@ -33,7 +33,8 @@ import { AvisoVerComo, VerComo } from "@/components/VerComo";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
 import { PlanoAcaoTab } from "@/components/tabs/PlanoAcaoTab";
 import { UnitNavProvider } from "@/components/UnitLink";
-import { enderecoAtual, SUBMENUS, TODOS_OS_MENUS } from "@/components/nav";
+import { ABAS_SO_DONO, enderecoAtual, SUBMENUS, TODOS_OS_MENUS } from "@/components/nav";
+import { EmBreve } from "@/components/EmBreve";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
@@ -59,7 +60,7 @@ import {
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
+import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -212,7 +213,7 @@ const Index = () => {
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = activeTab === "executiva";
   /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
-  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "juridico" || activeTab === "qualidade" || activeTab === "ajuda" || activeTab === "novidades";
+  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "juridico" || activeTab === "qualidade" || activeTab === "estudos-de-ponto" || activeTab === "unidades-em-obra" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
@@ -287,7 +288,7 @@ const Index = () => {
 
       <div className="flex-1 min-w-0">
         <div role="note" className="flex items-center justify-center gap-2 border-b border-border px-3 py-1.5 text-center text-xs text-muted-foreground sm:text-sm">
-          <span className="rounded-full border border-border px-2 py-px text-[10px] font-bold uppercase tracking-wider text-foreground">Beta</span>
+          <span className="rounded-full bg-primary px-2 py-px text-[10px] font-bold uppercase tracking-wider text-primary-foreground">Beta</span>
           <span>Você está usando uma versão beta do Atlas: ela continua evoluindo e pode ter ajustes e pequenas falhas.</span>
         </div>
         <header className="border-b border-border sticky top-0 z-40 bg-white/85 backdrop-blur-md">
@@ -461,12 +462,15 @@ const Index = () => {
         })()}
 
         {activeTab === "financeiro" && (() => {
-          const aba = abaAtiva(ABAS_FINANCEIRO, subAba);
+          // A aba Despesas (ainda "Em breve") é só do dono
+          const abasFinanceiro = ehDono() ? ABAS_FINANCEIRO : ABAS_FINANCEIRO.filter((a) => !ABAS_SO_DONO.has(`financeiro/${a.id}`));
+          const aba = abaAtiva(abasFinanceiro, subAba);
           const mes = formatMonthLong(fullMonthData.month), quem = selectedUnit ?? "Rede";
           return (
           <section>
             <SectionTitle>Financeiro</SectionTitle>
-            <Abas tela="financeiro" titulo="Financeiro" abas={ABAS_FINANCEIRO} ativa={aba} onChange={(s) => changeTab(`financeiro/${s}`)} />
+            <Abas tela="financeiro" titulo="Financeiro" abas={abasFinanceiro} ativa={aba} onChange={(s) => changeTab(`financeiro/${s}`)} />
+            {aba === "despesas" && <EmBreve titulo="Despesas" descricao="Contas a pagar, contas pagas e gráficos de despesas, vindos da integração com o sistema financeiro." />}
             {aba === "resumo" && (<>
               {/* Adimplentes e inadimplência ficam junto com os cards do financeiro, todos do mesmo tamanho */}
               <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[...financeiroSpecs, ...retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")]} columns="lg:grid-cols-3 xl:grid-cols-5" /></div>
@@ -556,6 +560,10 @@ const Index = () => {
         {activeTab === "juridico" && podeVerJuridico() && <JuridicoTab />}
 
         {activeTab === "qualidade" && (podeVerQualidade() || podePreencherChecklist()) && <QualidadeTab />}
+
+        {activeTab === "estudos-de-ponto" && ehDono() && <EmBreve titulo="Estudos de ponto" descricao="Geolocalização e geomarketing para estudar onde abrir novas unidades." />}
+
+        {activeTab === "unidades-em-obra" && ehDono() && <EmBreve titulo="Unidades em obra" descricao="Acompanhamento das unidades que estão em construção." />}
 
         {activeTab === "relatorios" && podeGerarRelatorios() && <RelatoriosTab dados={dashboardData} atualizadoEm={evoAtualizadoEm} metas={metasData} vigentes={vigentes} />}
 

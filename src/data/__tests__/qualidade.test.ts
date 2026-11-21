@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { definirArmazem, gravarBytes, lerBytes } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
 import * as q from "../../../server/qualidade.js";
-import { DIAS_SEM_VISITA, MODELO_ABERTURA, avaliadoresDasVisitas, evolucaoDaNota, gruposDasVisitas, notaFiltrada, MODELO_SUGERIDO, PRAZO_DIAS, certificadosPorUnidade, equipamentosParados, itensDaUnidade, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, rotinaDasUnidades, tomDaNota, type Visita } from "@/data/qualidade";
+import { DIAS_SEM_VISITA, MODELO_ABERTURA, agendaComSituacao, situacaoDaAgenda, unidadesParaAgendar, avaliadoresDasVisitas, evolucaoDaNota, gruposDasVisitas, notaFiltrada, MODELO_SUGERIDO, PRAZO_DIAS, certificadosPorUnidade, equipamentosParados, itensDaUnidade, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, rotinaDasUnidades, tomDaNota, type Visita } from "@/data/qualidade";
 
 const memoria = () => {
   const m = new Map<string, unknown>();
@@ -477,5 +477,71 @@ describe("filtros por grupo e evolução da nota", () => {
     expect(notaFiltrada(vs[0], "Equipe")).toBeNull();
     expect(avaliadoresDasVisitas(vs)).toEqual(["Ana", "Bia"]);
     expect(gruposDasVisitas(vs)).toEqual(["Limpeza"]);
+  });
+});
+
+describe("agenda de visitas", () => {
+  beforeEach(() => definirArmazem(memoria()));
+  const autor = { nome: "Ana", email: "ana@x.com" };
+  const novoModelo = async () => q.salvarModelo({ nome: "Roteiro de visita", frequencia: "visita", itens: [{ texto: "Piso limpo" }] });
+
+  it("grava a visita agendada, em ordem de data, e valida unidade, data e checklist", async () => {
+    const m = await novoModelo();
+    const b = await q.salvarAgenda({ unidade: "Gama", data: "2026-12-10", modeloId: m.id, responsavel: "  João  Silva ", observacao: "levar o termo" }, autor, AGORA);
+    expect(b).toMatchObject({ unidade: "Gama", data: "2026-12-10", modeloNome: "Roteiro de visita", responsavel: "João Silva", criadoPor: autor });
+    await q.salvarAgenda({ unidade: "Asa Norte", data: "2026-11-25", modeloId: m.id }, autor, AGORA);
+    expect((await q.lerAgenda()).map((a: { unidade: string }) => a.unidade)).toEqual(["Asa Norte", "Gama"]);
+    const erro = async (bruto: Record<string, unknown>) => q.salvarAgenda({ unidade: "Gama", data: "2026-12-10", modeloId: m.id, ...bruto }, autor, AGORA).then(() => null, (e: Error) => e.message);
+    expect(await erro({ unidade: "Marte" })).toMatch(/unidade/);
+    expect(await erro({ data: "10/12/2026" })).toMatch(/data/);
+    expect(await erro({ data: "2026-11-19" })).toMatch(/anterior a hoje/);
+    expect(await erro({ data: "2028-01-01" })).toMatch(/um ano/);
+    expect(await erro({ modeloId: "nao-existe" })).toMatch(/checklist/);
+    const diario = await q.salvarModelo({ nome: "Diário", frequencia: "diaria", itens: [{ texto: "x" }] });
+    expect(await erro({ modeloId: diario.id })).toMatch(/checklist/); // só checklist de visita da franqueadora
+  });
+
+  it("editar troca pela mesma id (a visita atrasada pode seguir com a data antiga), e apagar tira da lista", async () => {
+    const m = await novoModelo();
+    const a = await q.salvarAgenda({ unidade: "Gama", data: "2026-11-25", modeloId: m.id }, autor, AGORA);
+    await q.salvarAgenda({ ...a, responsavel: "Bia" }, { nome: "Outro", email: "o@x.com" }, AGORA);
+    const lista = await q.lerAgenda();
+    expect(lista).toHaveLength(1);
+    expect(lista[0]).toMatchObject({ responsavel: "Bia", criadoPor: autor }); // quem criou continua sendo o autor
+    // mais tarde, com a data já no passado, ainda dá para mudar o responsável
+    const depois = new Date("2026-11-30T15:00:00Z");
+    await q.salvarAgenda({ ...a, responsavel: "Caio" }, autor, depois);
+    expect((await q.lerAgenda())[0].responsavel).toBe("Caio");
+    await q.apagarAgenda(a.id);
+    expect(await q.lerAgenda()).toEqual([]);
+  });
+
+  it("visitas agendadas muito antigas saem da lista ao gravar", async () => {
+    const m = await novoModelo();
+    await q.salvarAgenda({ unidade: "Gama", data: "2026-11-25", modeloId: m.id }, autor, AGORA);
+    await q.salvarAgenda({ unidade: "Asa Norte", data: "2027-04-01", modeloId: m.id }, autor, new Date("2027-03-30T12:00:00Z")); // Gama já tem mais de 120 dias
+    expect((await q.lerAgenda()).map((a: { unidade: string }) => a.unidade)).toEqual(["Asa Norte"]);
+  });
+
+  const ag = (id: string, unidade: string, data: string, modeloId = "m1") => ({ id, unidade, data, modeloId, modeloNome: "R", responsavel: "", observacao: "", criadoPor: { nome: "", email: "" }, atualizadoEm: "" });
+  it("situação: feita quando a unidade teve a visita na data ou depois (antes da próxima agendada); senão atrasada, hoje ou agendada", () => {
+    const agenda = [ag("a", "Gama", "2026-11-10"), ag("b", "Gama", "2026-11-18"), ag("c", "Gama", "2026-11-20"), ag("d", "Gama", "2026-11-30"), ag("e", "Asa Norte", "2026-11-05")];
+    const visitas = [{ unidade: "Gama", modeloId: "m1", data: "2026-11-12" }, { unidade: "Asa Norte", modeloId: "outro", data: "2026-11-06" }];
+    const sit = (id: string) => situacaoDaAgenda(agenda.find((x) => x.id === id)!, agenda, visitas, "2026-11-20");
+    expect(sit("a")).toBe("feita"); // visita de 12/11 está entre 10/11 e a próxima (18/11)
+    expect(sit("b")).toBe("atrasada"); // a visita de 12/11 é anterior a 18/11
+    expect(sit("c")).toBe("hoje");
+    expect(sit("d")).toBe("proxima");
+    expect(sit("e")).toBe("atrasada"); // visita com outro checklist não vale
+    const l = agendaComSituacao(agenda, visitas, "2026-11-20");
+    expect(l.map((x) => x.id)).toEqual(["e", "b", "c", "d", "a"]); // abertas por data, feitas por último
+  });
+
+  it("sugere as unidades sem visita há mais de 60 dias e sem nada agendado daqui para a frente", () => {
+    const visitas = [{ unidade: "A", data: "2026-11-10", mes: "2026-11", modeloId: "m1", respostas: [], nota: 90 }, { unidade: "B", data: "2026-08-01", mes: "2026-08", modeloId: "m1", respostas: [], nota: 80 }] as never[];
+    const sug = unidadesParaAgendar(visitas, ["A", "B", "C", "D"], [ag("x", "D", "2026-12-01")], "2026-11-20");
+    expect(sug.map((s) => s.unidade)).toEqual(["C", "B"]); // C nunca visitada vem primeiro; A é recente; D já tem agenda
+    expect(sug[0].dias).toBeNull();
+    expect(DIAS_SEM_VISITA).toBe(60);
   });
 });

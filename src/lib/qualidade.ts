@@ -1,5 +1,5 @@
 import { API_BASE, authFetch } from "@/lib/auth";
-import type { DadosQualidade, LocalUnidade, ModeloChecklist, PedidoItem, PlanoAcao, Visita } from "@/data/qualidade";
+import type { AgendaVisita, DadosQualidade, LocalUnidade, ModeloChecklist, PedidoItem, PlanoAcao, Visita } from "@/data/qualidade";
 
 type Retorno<T> = { ok: true; dados: T } | { ok: false; erro: string; status: number };
 
@@ -23,6 +23,8 @@ export const salvarEnvio = (envio: unknown) => post<{ envio: Visita }>({ acao: "
 export const apagarEnvio = (id: string, mes: string) => post<{ ok: true }>({ acao: "envio-apagar", id, mes });
 export const pedirItem = (pedido: { modeloId: string; unidade: string; texto: string; motivo: string }) => post<{ pedido: PedidoItem }>({ acao: "pedido", pedido });
 export const decidirPedido = (id: string, decisao: { decisao: "aprovar" | "recusar"; resposta?: string; escopo?: "unidade" | "todas"; item?: { texto: string; grupo: string; peso: number; foto: string } }) => post<{ pedido: PedidoItem }>({ acao: "pedido-decidir", id, decisao });
+export const salvarAgendamento = (agenda: { id?: string; unidade: string; data: string; modeloId: string; responsavel?: string; observacao?: string }) => post<{ agenda: AgendaVisita }>({ acao: "agenda", agenda });
+export const apagarAgendamento = (id: string) => post<{ ok: true }>({ acao: "agenda-apagar", id });
 export const apagarVisita = (id: string, mes: string) => post<{ ok: true }>({ acao: "visita-apagar", id, mes });
 export const enviarFoto = (dados: string) => post<{ id: string }>({ acao: "foto", dados });
 

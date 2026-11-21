@@ -12,7 +12,7 @@ import { carregarFeitos, type Feito } from "@/data/planoFeitos";
 import { planoDaUnidade } from "@/data/relatorioPlano";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { diasFechados } from "@/data/vendasDia";
-import { ID_BIG, ID_FREQ, INDICADORES_PADRAO, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, ID_FREQ, INDICADORES_PADRAO, LEGENDA_COMPLEMENTARES, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
 import { ID_CONVERSAO, ID_MES_ATE_AQUI, ID_PLANO, INDICADORES_SEMANA_PADRAO, SEMANAIS, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
 import { getUsuario, podeGerarRelatorios, unidadesProprias } from "@/lib/auth";
 import { registrarExportacao } from "@/lib/atividade";
@@ -145,26 +145,30 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-foreground">Indicadores</h3>
               <div className="flex gap-3 text-xs">
-                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id), ID_FREQ, ID_PLANO] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO, ID_FREQ, ID_PLANO])}>Marcar todos</button>
+                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id), ID_COMPL, ID_FREQ, ID_PLANO] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO, ID_COMPL, ID_FREQ, ID_PLANO])}>Marcar todos</button>
                 <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores([])}>Limpar</button>
               </div>
             </div>
             <div className="mt-3 grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
               <label className="flex items-center gap-2 text-sm text-foreground">
                 <input type="checkbox" checked={indicadores.includes(ID_BIG)} onChange={() => alternar(ID_BIG)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                {tipo === "mes" ? "Números gerais (faturamento, adimplentes, novos contratos, contratos vendidos, ticket, inadimplência, vendas online e conversão)" : "Números gerais (faturamento, recebimento, contratos, vendas online, oportunidades, cancelamentos e conversão)"}
+                {tipo === "mes" ? "Overview (faturamento, adimplentes, novos contratos, contratos vendidos, ticket, inadimplência, vendas online e conversão)" : "Overview (faturamento, recebimento, novos contratos, contratos vendidos, vendas online, oportunidades, cancelamentos e conversão)"}
               </label>
               {tipo === "semana" && (
                 <label className="flex items-center gap-2 text-sm text-foreground">
                   <input type="checkbox" checked={indicadores.includes(ID_MES_ATE_AQUI)} onChange={() => alternar(ID_MES_ATE_AQUI)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                  O mês até aqui (acumulado contra a meta e contra o mesmo ponto do mês anterior)
+                  O mês até aqui (em letras menores, no slide Overview, com a meta e o mesmo ponto do mês anterior)
                 </label>
               )}
-              {(tipo === "mes" ? RANKINGS : [...SEMANAIS.slice(0, 6), { id: ID_CONVERSAO, rotulo: "Conversão (com a base: convertidas de cadastradas)" }, ...SEMANAIS.slice(6)]).map((r) => (
+              {(tipo === "mes" ? RANKINGS : [...SEMANAIS, { id: ID_CONVERSAO, rotulo: "Conversão (com a base: convertidas de cadastradas)" }]).map((r) => (
                 <label key={r.id} className="flex items-center gap-2 text-sm text-foreground">
                   <input type="checkbox" checked={indicadores.includes(r.id)} onChange={() => alternar(r.id)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />{prefixo}{r.rotulo}
                 </label>
               ))}
+              <label className="flex items-start gap-2 text-sm text-foreground">
+                <input type="checkbox" checked={indicadores.includes(ID_COMPL)} onChange={() => alternar(ID_COMPL)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+                <span>Receitas complementares (um slide só)<span className="block text-xs text-muted-foreground">{LEGENDA_COMPLEMENTARES}</span></span>
+              </label>
               <label className="flex items-center gap-2 text-sm text-foreground">
                 <input type="checkbox" checked={indicadores.includes(ID_FREQ)} onChange={() => alternar(ID_FREQ)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
                 Frequência dos alunos (mapa de calor do período e último check-in){tipo === "semana" ? " · o mapa é do mês até aqui" : ""}

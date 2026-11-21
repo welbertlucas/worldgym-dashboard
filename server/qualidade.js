@@ -561,3 +561,56 @@ export async function validarPlano(id, bruto, decisor, agora = new Date()) {
   await gravarJson(ARQUIVO_PLANOS, lista);
   return lista[i];
 }
+
+// ---------- agenda de visitas ----------
+export const ARQUIVO_AGENDA = "qualidade/agenda.json";
+export const MAX_AGENDA = 300;
+/** Visitas agendadas mais antigas que isto saem da lista ao gravar (o histórico fica nas visitas feitas). */
+export const DIAS_DA_AGENDA = 120;
+
+export async function lerAgenda() {
+  const a = await lerJson(ARQUIVO_AGENDA);
+  return Array.isArray(a) ? a : [];
+}
+
+/** Valida uma visita agendada: unidade da rede, data, checklist de visita (da franqueadora) e, se quiser, quem vai e uma observação. */
+export function normalizarAgenda(bruto, modelos, autor, agora = new Date(), { permitirPassado = false } = {}) {
+  const unidade = String(bruto?.unidade ?? "");
+  if (!UNIDADES_DA_REDE.includes(unidade)) throw new ErroQualidade("Escolha a unidade.");
+  const data = String(bruto?.data ?? "");
+  if (!ehData(data)) throw new ErroQualidade("Escolha a data da visita.");
+  const hoje = hojeBrasilia(agora);
+  if (data < hoje && !permitirPassado) throw new ErroQualidade("A data da visita não pode ser anterior a hoje.");
+  const limite = new Date(Date.parse(`${hoje}T00:00:00Z`) + 366 * 86400000).toISOString().slice(0, 10);
+  if (data > limite) throw new ErroQualidade("A visita só pode ser agendada para até um ano à frente.");
+  const modelo = modelos.find((m) => m.id === bruto?.modeloId && m.ativo !== false && m.frequencia === "visita");
+  if (!modelo) throw new ErroQualidade("Escolha o checklist da visita.");
+  const id = typeof bruto?.id === "string" && /^[a-z0-9-]{4,40}$/.test(bruto.id) ? bruto.id : randomUUID().slice(0, 8);
+  return {
+    id, unidade, data, modeloId: modelo.id, modeloNome: modelo.nome,
+    responsavel: texto(bruto?.responsavel, 80),
+    observacao: texto(bruto?.observacao, 300),
+    criadoPor: { nome: texto(autor?.nome, 80), email: texto(autor?.email, 120) },
+    atualizadoEm: agora.toISOString(),
+  };
+}
+
+/** Grava (cria ou troca pelo id) uma visita agendada, tirando da lista as muito antigas. */
+export async function salvarAgenda(bruto, autor, agora = new Date()) {
+  const modelos = await lerModelos();
+  const corte = new Date(agora.getTime() - DIAS_DA_AGENDA * 86400000).toISOString().slice(0, 10);
+  const lista = (await lerAgenda()).filter((a) => a.data >= corte);
+  // Visita que já estava na agenda pode seguir com a data antiga (atrasada) ao editar o resto; visita nova não nasce no passado.
+  const nova = normalizarAgenda(bruto, modelos, autor, agora, { permitirPassado: lista.some((a) => a.id === bruto?.id) });
+  const i = lista.findIndex((a) => a.id === nova.id);
+  if (i < 0 && lista.length >= MAX_AGENDA) throw new ErroQualidade(`A agenda guarda no máximo ${MAX_AGENDA} visitas.`);
+  if (i >= 0) lista[i] = { ...nova, criadoPor: lista[i].criadoPor }; else lista.push(nova);
+  lista.sort((a, b) => a.data.localeCompare(b.data) || a.unidade.localeCompare(b.unidade));
+  await gravarJson(ARQUIVO_AGENDA, lista);
+  return i >= 0 ? lista[lista.findIndex((a) => a.id === nova.id)] : nova;
+}
+
+export async function apagarAgenda(id) {
+  const lista = await lerAgenda();
+  await gravarJson(ARQUIVO_AGENDA, lista.filter((a) => a.id !== id));
+}

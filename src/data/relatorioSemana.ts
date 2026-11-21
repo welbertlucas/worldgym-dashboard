@@ -3,7 +3,7 @@
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
 import type { Meta, MetaKey } from "@/data/metas";
 import type { PlanoDaUnidade } from "@/data/relatorioPlano";
-import { ID_BIG, ID_FREQ, ID_PLANO, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -54,13 +54,10 @@ export const SEMANAIS: DefSemana[] = [
   { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", formato: "brl", campo: (s) => s.faturamento },
   { id: "rec", rotulo: "Recebimento", titulo: "Recebimento", formato: "brl", campo: (s) => s.recebimento },
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", formato: "int", campo: (s) => s.novosContratos },
+  { id: "cv", rotulo: "Contratos vendidos (total)", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.vendasContratos },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", formato: "brl", campo: (s) => s.vendasOnline },
   { id: "op", rotulo: "Oportunidades cadastradas", titulo: "Oportunidades", formato: "int", campo: (s) => s.oportunidades },
   { id: "canc", rotulo: "Cancelamentos", titulo: "Cancelamentos", formato: "int", campo: (s) => s.cancelados, menorMelhor: true },
-  { id: "di", rotulo: "Diárias", titulo: "Diárias", formato: "brl", campo: (s) => s.diarias },
-  { id: "pers", rotulo: "Personal", titulo: "Personal", formato: "brl", campo: (s) => s.personal },
-  { id: "cam", rotulo: "Camisetas", titulo: "Camisetas", formato: "brl", campo: (s) => s.camisetas },
-  { id: "coq", rotulo: "Coqueteleiras", titulo: "Coqueteleiras", formato: "brl", campo: (s) => s.coqueteleiras },
 ];
 export const ID_CONVERSAO = "conv";
 /** Slide "O mês até aqui". */
@@ -68,11 +65,11 @@ export const ID_MES_ATE_AQUI = "mes";
 /** Slide "Plano de ação da unidade" (relatório de uma unidade só): o mesmo id do relatório de mês. */
 export { ID_PLANO };
 /** Indicadores acumulados do mês que têm meta na planilha. */
-const ACUMULADOS: { id: string; chave: MetaKey }[] = [
-  { id: "fat", chave: "faturamento" }, { id: "rec", chave: "recebimento" }, { id: "nc", chave: "novosContratos" }, { id: "vo", chave: "vendasOnline" },
+const ACUMULADOS: { id: string; chave: MetaKey | null }[] = [
+  { id: "fat", chave: "faturamento" }, { id: "rec", chave: "recebimento" }, { id: "nc", chave: "novosContratos" }, { id: "cv", chave: null }, { id: "vo", chave: "vendasOnline" }, { id: "op", chave: null }, { id: "canc", chave: null },
 ];
-export const INDICADORES_SEMANA_PADRAO = [ID_BIG, ID_MES_ATE_AQUI, "fat", "nc", "op", ID_CONVERSAO, "canc", ID_PLANO];
-export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "vo", "op", ID_CONVERSAO, "canc", "di", "pers", "cam", "coq", ID_FREQ, ID_PLANO];
+export const INDICADORES_SEMANA_PADRAO = [ID_BIG, ID_MES_ATE_AQUI, "fat", "nc", "cv", "op", ID_CONVERSAO, "canc", ID_PLANO];
+export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "cv", "vo", "op", ID_CONVERSAO, "canc", ID_COMPL, ID_FREQ, ID_PLANO];
 /** Abaixo disso a conversão da semana vale pouco (um aluno muda vários pontos): o slide avisa. */
 export const BASE_PEQUENA = 10;
 
@@ -211,12 +208,14 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   }
 
   let big: BigNumero[] | null = null, oportunidades: number | null = null, convertidas: number | null = null, conversao: number | null = null;
-  if (escolheu.has(ID_BIG)) {
+  if (escolheu.has(ID_BIG) || escolheu.has(ID_MES_ATE_AQUI)) {
     const kpi = (nome: string, def: DefSemana): BigNumero => {
       const v = somaCampo(atual, def.campo), b = temAnt ? somaCampo(ant, def.campo) : 0;
       return { nome, valor: fmt(def.formato, v), variacao: temAnt ? variacao(v, b) : null, menorMelhor: def.menorMelhor, anterior: temAnt && b > 0 ? fmt(def.formato, b) : null };
     };
-    big = ["fat", "rec", "nc", "vo", "op", "canc"].map((id) => { const d = SEMANAIS.find((x) => x.id === id)!; return kpi(d.titulo === "Oportunidades" ? "Oportunidades" : d.titulo, d); });
+    // Contratos vendidos só entra se a semana tem o número (meses lidos antes dele não têm; somar como zero enganaria)
+    const temCv = atual.some((d) => typeof d.s.vendasContratos === "number");
+    big = ["fat", "rec", "nc", ...(temCv ? ["cv"] : []), "vo", "op", "canc"].map((id) => { const d = SEMANAIS.find((x) => x.id === id)!; return kpi(d.titulo === "Oportunidades" ? "Oportunidades" : d.titulo, d); });
     oportunidades = somaCampo(atual, (s) => s.oportunidades);
     convertidas = Math.min(somaCampo(atual, (s) => s.conversoes), oportunidades);
     conversao = oportunidades > 0 ? (convertidas / oportunidades) * 100 : null;
@@ -237,7 +236,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
       const v = acumulado(m, semana, nomes, def.campo);
       if (v === null) continue;
       const b = temAnt ? acumulado(mAnt, semana, nomes, def.campo) : null;
-      const alvo = metaDoEscopo(metas, mes, chave, nomes, rede);
+      const alvo = chave ? metaDoEscopo(metas, mes, chave, nomes, rede) : undefined;
       const pct = alvo ? (v / alvo.alvo) * 100 : null;
       itens.push({
         nome: def.titulo, valor: fmt(def.formato, v), variacao: b !== null ? variacao(v, b) : null,
@@ -252,11 +251,12 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   const ateAqui = `mês até ${estado === "andamento" ? `${dd(fechados)}/${mes.slice(5, 7)}` : rotuloAcumulado(mes, lim.ate).split(" ").pop()}`;
   for (const r of rankings) r.motivos = motivosDoRanking(r.id, atual.map((d) => d.u), ateAqui);
   const frequencia = escolheu.has(ID_FREQ) ? montarFrequencia(meses, mes, atual.map((d) => d.u), ateAqui) : null;
+  const complementares = escolheu.has(ID_COMPL) ? montarComplementares(periodo, atual.map((d) => d.s), somaCampo(atual, (s) => s.faturamento), temAnt ? ant.map((d) => d.s) : null, rotuloAnt) : null;
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].u.name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
   const parcialAte = estado === "andamento" ? `${dd(fechados)}/${mes.slice(5, 7)}` : null;
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,
-    tipo: "semana", parcialAte, mesAteAqui, frequencia,
+    tipo: "semana", parcialAte, mesAteAqui, frequencia, complementares,
     // O plano é de uma unidade só e do mês em andamento: quem monta já confere isso, aqui só entra se foi pedido e o relatório é de uma unidade
     plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.u.name ? plano : null,
   };

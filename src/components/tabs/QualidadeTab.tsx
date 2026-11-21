@@ -8,12 +8,13 @@ import { lerQualidade } from "@/lib/qualidade";
 import { VisaoGeral } from "@/components/qualidade/VisaoGeral";
 import { NovaVisita } from "@/components/qualidade/NovaVisita";
 import { Visitas } from "@/components/qualidade/Visitas";
+import { Agenda } from "@/components/qualidade/Agenda";
 import { Modelos } from "@/components/qualidade/Modelos";
 import { Rotina } from "@/components/qualidade/Rotina";
 import { Pedidos } from "@/components/qualidade/Pedidos";
 import { LocaisDasUnidades } from "@/components/qualidade/LocaisDasUnidades";
 import { PlanosDaFranqueadora } from "@/components/qualidade/PlanosDeAcao";
-import { pedidosPendentes, podeValidarPlano } from "@/data/qualidade";
+import { agendaComSituacao, pedidosPendentes, podeValidarPlano } from "@/data/qualidade";
 import { ehDono, getUsuario, podeEditarQualidade, podeVerQualidade } from "@/lib/auth";
 import { ChecklistDaUnidade } from "@/components/qualidade/ChecklistDaUnidade";
 
@@ -22,6 +23,7 @@ export type EstadoQualidade = { fase: "carregando" } | { fase: "erro"; motivo: "
 const ABAS: Aba[] = [
   { id: "geral", rotulo: "Visão geral" },
   { id: "visita", rotulo: "Nova visita" },
+  { id: "agenda", rotulo: "Agenda" },
   { id: "visitas", rotulo: "Visitas" },
   { id: "planos", rotulo: "Planos de ação" },
   { id: "rotina", rotulo: "Rotina das unidades" },
@@ -50,7 +52,9 @@ export function QualidadeConteudo({ estado, hoje = hojeBR(), recarregar = () => 
   const edita = podeEditarQualidade();
   const aplica = edita || podeVerQualidade();
   const aConfirmar = (d.planos ?? []).filter((p) => podeValidarPlano(p, getUsuario()?.email ?? "", ehDono())).length;
-  const base = (aplica ? ABAS : ABAS.filter((a) => a.id !== "visita")).map((a) => (a.id === "planos" && aConfirmar > 0 ? { ...a, rotulo: `Planos de ação (${aConfirmar})` } : a));
+  // Agenda: mostra quantas visitas são para hoje ou estão atrasadas
+  const naAgenda = agendaComSituacao(d.agenda, d.visitas, hoje).filter((l) => l.situacao === "atrasada" || l.situacao === "hoje").length;
+  const base = (aplica ? ABAS : ABAS.filter((a) => a.id !== "visita")).map((a) => (a.id === "planos" && aConfirmar > 0 ? { ...a, rotulo: `Planos de ação (${aConfirmar})` } : a.id === "agenda" && naAgenda > 0 ? { ...a, rotulo: `Agenda (${naAgenda})` } : a));
   const abas: Aba[] = ehDono() ? [...base, { id: "pedidos", rotulo: pendentes > 0 ? `Pedidos (${pendentes})` : "Pedidos" }] : base;
   const ativa = abaAtiva(abas, aba);
   return (
@@ -58,6 +62,7 @@ export function QualidadeConteudo({ estado, hoje = hojeBR(), recarregar = () => 
       <Abas tela="qualidade" titulo="Qualidade" abas={abas} ativa={ativa} onChange={setAba} />
       {ativa === "geral" && <VisaoGeral dados={d} hoje={hoje} onUnidade={(u) => { setUnidade(u); setAba("visitas"); }} onPedidos={ehDono() ? () => setAba("pedidos") : undefined} onPlanos={() => setAba("planos")} />}
       {ativa === "visita" && aplica && <NovaVisita dados={d} hoje={hoje} onSalvou={(u) => { setUnidade(u); setAba("visitas"); recarregar(); }} />}
+      {ativa === "agenda" && <Agenda dados={d} hoje={hoje} podeEditar={edita} onMudou={recarregar} />}
       {ativa === "visitas" && <Visitas key={unidade} dados={d} unidadeInicial={unidade} podeApagar={edita} onMudou={recarregar} />}
       {ativa === "planos" && <PlanosDaFranqueadora dados={d} hoje={hoje} onMudou={recarregar} />}
       {ativa === "rotina" && <Rotina dados={d} hoje={hoje} podeApagar={edita} onMudou={recarregar} />}

@@ -38,6 +38,8 @@ export interface FluxoUnidades { pessoas: number; entradas: number; unidades: [s
 export interface SemanaDoMes {
   faturamento?: number; recebimento?: number;
   novosContratos?: number; vendasOnline?: number; diarias?: number; camisetas?: number; coqueteleiras?: number; personal?: number;
+  /** Contratos vendidos como no Gerencial do EVO, e as receitas complementares que faltavam por semana (meses lidos antes não têm). */
+  vendasContratos?: number; kids?: number; plus?: number; proMais?: number;
   oportunidades?: number; conversoes?: number; conversoesAntigas?: number; cancelados?: number;
 }
 

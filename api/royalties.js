@@ -7,7 +7,7 @@
 // Dado sensível: sem cache no navegador e permissão conferida a cada pedido.
 import { lerRoyalties } from "../server/royalties.js";
 import { lerJuridico } from "../server/juridico.js";
-import { ErroQualidade, comNotasPorGrupo, semPesosNaVisita, semPesosNoModelo, apagarLocal, criarCheckin, lerLocais, salvarLocal, apagarEnvio, apagarModelo, apagarVisita, criarPedido, decidirPedido, enviosRecentes, lerPedidos, lerPlanos, marcarPlanoFeito, validarPlano, lerSelfie, fotoDeEnvioDe, lerFoto, lerModelos, modelosDaUnidade, salvarEnvio, salvarFoto, salvarModelo, salvarVisita, visitasRecentes } from "../server/qualidade.js";
+import { ErroQualidade, apagarAgenda, lerAgenda, salvarAgenda, comNotasPorGrupo, semPesosNaVisita, semPesosNoModelo, apagarLocal, criarCheckin, lerLocais, salvarLocal, apagarEnvio, apagarModelo, apagarVisita, criarPedido, decidirPedido, enviosRecentes, lerPedidos, lerPlanos, marcarPlanoFeito, validarPlano, lerSelfie, fotoDeEnvioDe, lerFoto, lerModelos, modelosDaUnidade, salvarEnvio, salvarFoto, salvarModelo, salvarVisita, visitasRecentes } from "../server/qualidade.js";
 import { UNIDADES_DA_REDE } from "../server/acesso.js";
 import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
@@ -43,7 +43,7 @@ async function qualidade(req, res, sessao) {
       return res.status(200).send(bytes);
     }
     // Pedidos de item novo: o dono vê todos; a unidade, só os dela. O local das unidades é do dono.
-    if (completo) return res.status(200).json({ modo: "completo", unidades: UNIDADES_DA_REDE, modelos: modelosPara(await lerModelos()), visitas: registrosPara(await visitasRecentes()), envios: registrosPara(await enviosRecentes(45)), pedidos: ehDono ? await lerPedidos() : [], locais: ehDono ? await lerLocais() : {}, planos: await lerPlanos() });
+    if (completo) return res.status(200).json({ modo: "completo", agenda: await lerAgenda(), unidades: UNIDADES_DA_REDE, modelos: modelosPara(await lerModelos()), visitas: registrosPara(await visitasRecentes()), envios: registrosPara(await enviosRecentes(45)), pedidos: ehDono ? await lerPedidos() : [], locais: ehDono ? await lerLocais() : {}, planos: await lerPlanos() });
     return res.status(200).json({ modo: "unidade", unidades: proprias, modelos: modelosPara(modelosDaUnidade(await lerModelos())), visitas: [], envios: registrosPara(await enviosRecentes(30, new Date(), proprias)), pedidos: (await lerPedidos()).filter((p) => proprias.includes(p.unidade)), planos: (await lerPlanos()).filter((p) => proprias.includes(p.unidade)) });
   }
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
@@ -91,6 +91,8 @@ async function qualidade(req, res, sessao) {
     if (c.apagar) { await apagarLocal(String(c.unidade ?? "")); return res.status(200).json({ ok: true }); }
     return res.status(200).json({ local: await salvarLocal(String(c.unidade ?? ""), c.local) });
   }
+  if (acao === "agenda") return res.status(200).json({ agenda: await salvarAgenda(c.agenda, { nome: sessao.nome, email: sessao.email }) });
+  if (acao === "agenda-apagar") { await apagarAgenda(String(c.id ?? "")); return res.status(200).json({ ok: true }); }
   if (acao === "modelo-apagar") { await apagarModelo(String(c.id ?? "")); return res.status(200).json({ ok: true }); }
   if (acao === "visita-apagar") { await apagarVisita(String(c.id ?? ""), String(c.mes ?? "")); return res.status(200).json({ ok: true }); }
   if (acao === "envio-apagar") { await apagarEnvio(String(c.id ?? ""), String(c.mes ?? "")); return res.status(200).json({ ok: true }); }
