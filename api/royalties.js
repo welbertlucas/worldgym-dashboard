@@ -3,11 +3,11 @@
 //   GET /api/juridico  -> { disponivel: false } ou { disponivel: true, ...modelo }. Só o dono e quem ele liberou (modelo sem nome de parte contrária).
 //   GET /api/qualidade -> { modo, unidades, modelos, visitas, envios }; GET ?foto=<id> -> a foto (JPEG).
 //     modo "completo" (dono e liberados): tudo; modo "unidade" (quem foi liberado a preencher): só os checklists da unidade e os próprios envios.
-//   POST /api/qualidade { acao: "modelo" | "modelo-apagar" | "foto" | "visita" | "visita-apagar" | "envio" | "envio-apagar" | "pedido" | "pedido-decidir", ... }.
+//   POST /api/qualidade { acao: "modelo" | "modelo-apagar" | "foto" | "visita" | "visita-apagar" | "envio" | "envio-apagar" | "pedido" | "pedido-decidir" | "plano-feito" | "plano-validar", ... }.
 // Dado sensível: sem cache no navegador e permissão conferida a cada pedido.
 import { lerRoyalties } from "../server/royalties.js";
 import { lerJuridico } from "../server/juridico.js";
-import { ErroQualidade, semPesosNaVisita, semPesosNoModelo, apagarLocal, criarCheckin, lerLocais, salvarLocal, apagarEnvio, apagarModelo, apagarVisita, criarPedido, decidirPedido, enviosRecentes, lerPedidos, lerSelfie, fotoDeEnvioDe, lerFoto, lerModelos, modelosDaUnidade, salvarEnvio, salvarFoto, salvarModelo, salvarVisita, visitasRecentes } from "../server/qualidade.js";
+import { ErroQualidade, semPesosNaVisita, semPesosNoModelo, apagarLocal, criarCheckin, lerLocais, salvarLocal, apagarEnvio, apagarModelo, apagarVisita, criarPedido, decidirPedido, enviosRecentes, lerPedidos, lerPlanos, marcarPlanoFeito, validarPlano, lerSelfie, fotoDeEnvioDe, lerFoto, lerModelos, modelosDaUnidade, salvarEnvio, salvarFoto, salvarModelo, salvarVisita, visitasRecentes } from "../server/qualidade.js";
 import { UNIDADES_DA_REDE } from "../server/acesso.js";
 import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
@@ -43,8 +43,8 @@ async function qualidade(req, res, sessao) {
       return res.status(200).send(bytes);
     }
     // Pedidos de item novo: o dono vê todos; a unidade, só os dela. O local das unidades é do dono.
-    if (completo) return res.status(200).json({ modo: "completo", unidades: UNIDADES_DA_REDE, modelos: modelosPara(await lerModelos()), visitas: registrosPara(await visitasRecentes()), envios: registrosPara(await enviosRecentes(45)), pedidos: ehDono ? await lerPedidos() : [], locais: ehDono ? await lerLocais() : {} });
-    return res.status(200).json({ modo: "unidade", unidades: proprias, modelos: modelosPara(modelosDaUnidade(await lerModelos())), visitas: [], envios: registrosPara(await enviosRecentes(30, new Date(), proprias)), pedidos: (await lerPedidos()).filter((p) => proprias.includes(p.unidade)) });
+    if (completo) return res.status(200).json({ modo: "completo", unidades: UNIDADES_DA_REDE, modelos: modelosPara(await lerModelos()), visitas: registrosPara(await visitasRecentes()), envios: registrosPara(await enviosRecentes(45)), pedidos: ehDono ? await lerPedidos() : [], locais: ehDono ? await lerLocais() : {}, planos: await lerPlanos() });
+    return res.status(200).json({ modo: "unidade", unidades: proprias, modelos: modelosPara(modelosDaUnidade(await lerModelos())), visitas: [], envios: registrosPara(await enviosRecentes(30, new Date(), proprias)), pedidos: (await lerPedidos()).filter((p) => proprias.includes(p.unidade)), planos: (await lerPlanos()).filter((p) => proprias.includes(p.unidade)) });
   }
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
   const { acao, ...c } = doCorpo(req);
@@ -62,12 +62,20 @@ async function qualidade(req, res, sessao) {
     if (!sessao.preencheChecklist) return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json({ envio: registrosPara([await salvarEnvio(c.envio, { nome: sessao.nome, email: sessao.email }, proprias, new Date(), { ip: enderecoDe(req) })])[0] });
   }
+  if (acao === "plano-feito") {
+    if (!sessao.preencheChecklist) return res.status(403).json({ error: "sem permissão" });
+    return res.status(200).json({ plano: await marcarPlanoFeito(String(c.id ?? ""), c.plano, { nome: sessao.nome, email: sessao.email }, proprias) });
+  }
   if (acao === "pedido") {
     if (!sessao.preencheChecklist) return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json({ pedido: await criarPedido(c.pedido, { nome: sessao.nome, email: sessao.email }, proprias) });
   }
   // Daqui para a frente, só quem edita a qualidade (o dono e os liberados). Master sem liberação só consulta.
   if (!edita) return res.status(403).json({ error: "sem permissão" });
+  if (acao === "plano-validar") {
+    // Quem criou o plano confirma (ou devolve); o dono também pode. A regra fina está em validarPlano.
+    return res.status(200).json({ plano: await validarPlano(String(c.id ?? ""), c.decisao, { nome: sessao.nome, email: sessao.email, ehDono }) });
+  }
   if (acao === "pedido-decidir") {
     if (!ehDono) return res.status(403).json({ error: "Só o dono responde os pedidos." });
     return res.status(200).json({ pedido: await decidirPedido(String(c.id ?? ""), c.decisao, { nome: sessao.nome }) });

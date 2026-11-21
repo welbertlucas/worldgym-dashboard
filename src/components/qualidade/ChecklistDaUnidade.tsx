@@ -6,6 +6,7 @@ import { FREQUENCIA_ROTULO, PRAZO_DIAS, type DadosQualidade, dataBR, rotinaDasUn
 import { Detalhe } from "@/components/qualidade/Visitas";
 import { NovaVisita } from "@/components/qualidade/NovaVisita";
 import { PedidosDaUnidade } from "@/components/qualidade/PedidosDaUnidade";
+import { PlanosDaUnidade } from "@/components/qualidade/PlanosDeAcao";
 
 /** O que a unidade vê no menu Qualidade: os checklists dela, se estão em dia, o formulário e os próprios envios dos últimos 30 dias (nada de nota, visitas ou outras unidades). */
 export function ChecklistDaUnidade({ dados, hoje, onMudou }: { dados: DadosQualidade; hoje: string; onMudou: () => void }) {
@@ -40,6 +41,7 @@ export function ChecklistDaUnidade({ dados, hoje, onMudou }: { dados: DadosQuali
           )}
         </ChartCard>
       )}
+      {!preenchendo && <PlanosDaUnidade dados={dados} hoje={hoje} onMudou={onMudou} />}
       {!preenchendo && <PedidosDaUnidade dados={dados} onMudou={onMudou} />}
       {!preenchendo && (
         <ChartCard title="Seus envios" subtitle="Os últimos 30 dias. Clique para ver as respostas e as fotos.">

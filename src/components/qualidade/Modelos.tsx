@@ -4,15 +4,15 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { FOTO_ROTULO, FREQUENCIA_ROTULO, MODELO_ABERTURA, MODELO_SUGERIDO, TIPO_ROTULO, pedeSelfie, type Frequencia, type ItemModelo, type ModeloChecklist, type PedeFoto, type TipoItem } from "@/data/qualidade";
+import { FOTO_ROTULO, FREQUENCIA_ROTULO, MODELO_ABERTURA, MODELO_SUGERIDO, TIPO_ROTULO, exigePlano, pedeSelfie, type Frequencia, type ItemModelo, type ModeloChecklist, type PedeFoto, type TipoItem } from "@/data/qualidade";
 import { apagarModelo, salvarModelo } from "@/lib/qualidade";
 import { ehDono } from "@/lib/auth";
 
-type Rascunho = { id?: string; nome: string; descricao: string; frequencia: Frequencia; ativo: boolean; selfie?: boolean; itens: (Partial<ItemModelo> & { texto: string; grupo: string; peso: number; foto: PedeFoto; tipo?: TipoItem; foraDe?: string[]; soEm?: string[] })[] };
+type Rascunho = { id?: string; nome: string; descricao: string; frequencia: Frequencia; ativo: boolean; selfie?: boolean; plano?: boolean; itens: (Partial<ItemModelo> & { texto: string; grupo: string; peso: number; foto: PedeFoto; tipo?: TipoItem; foraDe?: string[]; soEm?: string[] })[] };
 const novo = (): Rascunho => ({ nome: "", descricao: "", frequencia: "visita", ativo: true, itens: [{ texto: "", grupo: "", peso: 1, foto: "nenhuma" }] });
 const sugerido = (): Rascunho => ({ ...MODELO_SUGERIDO, ativo: true, itens: MODELO_SUGERIDO.itens.map((i) => ({ ...i })) });
 const abertura = (): Rascunho => ({ ...MODELO_ABERTURA, ativo: true, itens: MODELO_ABERTURA.itens.map((i) => ({ ...i })) });
-const deModelo = (m: ModeloChecklist): Rascunho => ({ id: m.id, nome: m.nome, descricao: m.descricao, frequencia: m.frequencia, ativo: m.ativo, ...(typeof m.selfie === "boolean" ? { selfie: m.selfie } : {}), itens: m.itens.map((i) => ({ ...i })) });
+const deModelo = (m: ModeloChecklist): Rascunho => ({ id: m.id, nome: m.nome, descricao: m.descricao, frequencia: m.frequencia, ativo: m.ativo, ...(typeof m.selfie === "boolean" ? { selfie: m.selfie } : {}), ...(typeof m.plano === "boolean" ? { plano: m.plano } : {}), itens: m.itens.map((i) => ({ ...i })) });
 
 function Editor({ inicial, unidades, onSalvou, onCancelar }: { inicial: Rascunho; unidades: string[]; onSalvou: () => void; onCancelar: () => void }) {
   const [m, setM] = useState(inicial);
@@ -50,6 +50,7 @@ function Editor({ inicial, unidades, onSalvou, onCancelar }: { inicial: Rascunho
         <input value={m.descricao} maxLength={200} onChange={(e) => setM({ ...m, descricao: e.target.value })} className="mt-1 h-9 w-full rounded-xl border border-input bg-white px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
       </label>
       <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={m.ativo} onChange={(e) => setM({ ...m, ativo: e.target.checked })} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />Em uso (aparece para escolher na visita)</label>
+      <label className="flex items-start gap-2 text-sm text-foreground"><input type="checkbox" checked={exigePlano({ plano: m.plano, frequencia: m.frequencia })} onChange={(e) => setM({ ...m, plano: e.target.checked })} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" /><span>Pede plano de ação no item não conforme <span className="block text-xs text-muted-foreground">Na visita, cada item não conforme precisa do plano: o que será feito e até quando. A unidade marca como feito e quem registrou a visita confirma. Por padrão a visita da franqueadora pede; o checklist da unidade não.</span></span></label>
       <label className="flex items-start gap-2 text-sm text-foreground"><input type="checkbox" checked={pedeSelfie({ selfie: m.selfie, frequencia: m.frequencia })} onChange={(e) => setM({ ...m, selfie: e.target.checked })} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" /><span>Pede uma selfie no check-in <span className="block text-xs text-muted-foreground">A pessoa tira uma selfie na unidade ao começar. Fica guardada por poucos meses, só para o dono e quem edita a qualidade verem. Por padrão a visita da franqueadora pede e o checklist da unidade não.</span></span></label>
 
       <div className="space-y-2">

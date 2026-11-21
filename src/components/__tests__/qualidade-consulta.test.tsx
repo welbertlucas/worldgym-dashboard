@@ -6,7 +6,8 @@ vi.mock("@/lib/auth", async (original) => ({ ...(await original<typeof import("@
 
 import { QualidadeConteudo } from "@/components/tabs/QualidadeTab";
 import { Modelos } from "@/components/qualidade/Modelos";
-import type { DadosQualidade, PedidoItem, Visita } from "@/data/qualidade";
+import { PlanosDaFranqueadora } from "@/components/qualidade/PlanosDeAcao";
+import type { DadosQualidade, PedidoItem, PlanoAcao, Visita } from "@/data/qualidade";
 
 const limpo = (h: string) => h.replace(/<!-- -->/g, "").replace(/ /g, " ");
 const MODELO = { id: "m1", nome: "Roteiro de visitação", descricao: "", frequencia: "visita" as const, ativo: true, atualizadoEm: "", itens: [{ id: "i1", grupo: "Banheiros", texto: "Banheiro limpo", peso: 2, foto: "nenhuma" as const }] };
@@ -26,5 +27,12 @@ describe("Qualidade para quem só consulta (Master sem liberação)", () => {
     expect(html).toContain("Roteiro de visitação");
     for (const t of ["Novo checklist", "Editar", "Usar o roteiro sugerido", "Usar o checklist de abertura sugerido", "Apagar"]) expect(html).not.toContain(t);
     expect(limpo(renderToString(<Modelos modelos={[]} unidades={[]} somenteLeitura onMudou={() => {}} />))).toContain("Nenhum checklist criado ainda");
+  });
+
+  it("quem não criou o plano nem é o dono vê o plano aguardando confirmação, mas sem os botões de confirmar", () => {
+    const plano: PlanoAcao = { id: "p", unidade: "Asa Norte", visitaId: "v", visitaMes: "2026-11", itemId: "i", itemTexto: "Recepção", modeloNome: "Roteiro", oQue: "Arrumar o balcão", prazo: "2026-12-01", responsavel: "", como: "", criadoPor: { nome: "Vera Visitante", email: "vera@x.com" }, criadoEm: "2026-11-10T12:00:00Z", status: "validacao", historico: [] };
+    const html = limpo(renderToString(<PlanosDaFranqueadora dados={{ ...DADOS, planos: [plano] }} hoje="2026-11-20" onMudou={() => {}} />)).replace(/<[^>]+>/g, "");
+    expect(html).toContain("Para eu confirmar (0)");
+    expect(html).not.toContain("Confirmar a correção");
   });
 });

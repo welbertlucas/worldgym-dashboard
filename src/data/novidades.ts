@@ -27,6 +27,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-20-planos-de-acao", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-como-usar",
+    titulo: "Qualidade: plano de ação para cada item não conforme",
+    texto: "Na visita da franqueadora, todo item não conforme agora pede um plano de ação: o que será feito e até quando. A unidade vê os planos dela, corrige e marca como feito (com foto, se quiser), e quem criou o plano na visita confirma a correção ou devolve com o que falta. A aba Planos de ação mostra o que espera a sua confirmação e o que está atrasado, e a visão geral avisa. O gerente da unidade não confirma o próprio plano.",
+  },
+  {
     id: "2026-11-20-pedido-item", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-como-usar",
     titulo: "Qualidade: a unidade pode pedir um item novo no checklist",
     texto: "Faltou algo no checklist da unidade? Quem preenche descreve o que precisa ser conferido, e o pedido chega ao dono na aba Pedidos. Ele aprova, escolhendo se o item vale só para aquela unidade ou para todas, ou recusa com uma resposta que a unidade vê. O item aprovado já entra no checklist dela.",

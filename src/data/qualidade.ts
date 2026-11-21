@@ -11,8 +11,10 @@ export interface ItemModelo { id: string; grupo: string; texto: string; peso: nu
 /** Itens do checklist que valem para a unidade (os marcados como "não vale" para ela ficam de fora). */
 export const itensDaUnidade = (itens: ItemModelo[], unidade: string): ItemModelo[] => itens.filter((i) => !(i.foraDe ?? []).includes(unidade) && (!(i.soEm ?? []).length || i.soEm!.includes(unidade)));
 export interface EquipamentoParado { codigo: string; descricao: string; fotos: string[] }
-export interface ModeloChecklist { id: string; nome: string; descricao: string; frequencia: Frequencia; itens: ItemModelo[]; ativo: boolean; /** Pede selfie no check-in; sem o campo, só a visita da franqueadora pede. */ selfie?: boolean; atualizadoEm: string }
+export interface ModeloChecklist { id: string; nome: string; descricao: string; frequencia: Frequencia; itens: ItemModelo[]; ativo: boolean; /** Pede selfie no check-in; sem o campo, só a visita da franqueadora pede. */ selfie?: boolean; plano?: boolean; atualizadoEm: string }
 /** O checklist pede uma selfie no check-in? Por padrão a visita da franqueadora pede e o checklist da unidade não. */
+/** Pede plano de ação no item não conforme; sem o campo, só a visita da franqueadora pede. */
+export const exigePlano = (m: Pick<ModeloChecklist, "plano" | "frequencia">) => (typeof m.plano === "boolean" ? m.plano : m.frequencia === "visita");
 export const pedeSelfie = (m: Pick<ModeloChecklist, "selfie" | "frequencia">) => (typeof m.selfie === "boolean" ? m.selfie : m.frequencia === "visita");
 export interface RespostaVisita { itemId: string; grupo: string; texto: string; peso?: number; tipo?: TipoItem; conforme: boolean | null; comentario: string; fotos: string[]; equipamentos?: EquipamentoParado[]; /** AAAA-MM-DD, nos itens de vencimento. */ vencimento?: string }
 /** Check-in ou check-out: horário do servidor, localização do aparelho (se a pessoa permitiu), IP e a distância até o local marcado da unidade. */
@@ -33,7 +35,17 @@ export interface PedidoItem {
   decisao?: { por: string; em: string; resposta: string; escopo?: "unidade" | "todas"; itemId?: string };
 }
 export const pedidosPendentes = (ps: PedidoItem[] | undefined) => (ps ?? []).filter((p) => p.status === "pendente");
-export interface DadosQualidade { modo?: "completo" | "unidade"; unidades: string[]; modelos: ModeloChecklist[]; visitas: Visita[]; /** Envios dos checklists que a própria unidade preenche (não entram na nota). */ envios?: Visita[]; /** Pedidos de item novo (o dono vê todos; a unidade, os dela). */ pedidos?: PedidoItem[]; /** Onde cada unidade fica (marcado pelo dono), para conferir o local dos check-ins. */ locais?: Record<string, LocalUnidade> }
+/** Plano de ação criado na visita para um item não conforme: a unidade corrige e marca como feito; quem criou o plano confirma (ou devolve). */
+export interface PlanoAcao {
+  id: string; unidade: string; visitaId: string; visitaMes: string; itemId: string; itemTexto: string; modeloNome: string;
+  oQue: string; prazo: string; responsavel: string; como: string; criadoPor: { nome: string; email: string }; criadoEm: string;
+  status: "aberto" | "validacao" | "concluido"; concluidoEm?: string;
+  historico: { em: string; por: { nome: string; email: string }; acao: "criado" | "feito" | "devolvido" | "confirmado"; texto: string; fotos: string[] }[];
+}
+export const planoAtrasado = (p: PlanoAcao, hoje: string) => p.status === "aberto" && p.prazo < hoje;
+/** Quem confirma a correção: quem criou o plano ou o dono. */
+export const podeValidarPlano = (p: PlanoAcao, email: string, dono: boolean) => p.status === "validacao" && (dono || p.criadoPor.email === email);
+export interface DadosQualidade { modo?: "completo" | "unidade"; unidades: string[]; modelos: ModeloChecklist[]; visitas: Visita[]; /** Envios dos checklists que a própria unidade preenche (não entram na nota). */ envios?: Visita[]; /** Pedidos de item novo (o dono vê todos; a unidade, os dela). */ pedidos?: PedidoItem[]; /** Planos de ação (a franqueadora vê todos; a unidade, os dela). */ planos?: PlanoAcao[]; /** Onde cada unidade fica (marcado pelo dono), para conferir o local dos check-ins. */ locais?: Record<string, LocalUnidade> }
 
 /** Faixas da nota (% de itens conformes) usadas nas cores. Combinadas como ponto de partida: mudar só com o dono. */
 export const NOTA_BOA = 90;

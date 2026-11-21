@@ -67,7 +67,7 @@ describe("checklists (modelos)", () => {
 
 describe("visitas", () => {
   beforeEach(() => definirArmazem(memoria()));
-  const modelo = () => q.normalizarModelo({ nome: "Roteiro", itens: [{ texto: "Piso", peso: 1, foto: "nao_conforme" }, { texto: "Banheiro", peso: 2, foto: "sempre" }, { texto: "Sala", peso: 1 }] }, AGORA);
+  const modelo = () => q.normalizarModelo({ nome: "Roteiro", plano: false, itens: [{ texto: "Piso", peso: 1, foto: "nao_conforme" }, { texto: "Banheiro", peso: 2, foto: "sempre" }, { texto: "Sala", peso: 1 }] }, AGORA);
   const unidade = "Asa Norte";
 
   it("nota ponderada: pontos conseguidos entre os que se aplicam, 'não se aplica' fora", async () => {
@@ -304,6 +304,62 @@ describe("visitas", () => {
     await q.salvarEnvio({ modeloId: m2.id, unidade: "Asa Norte", checkinId: (await ck(m2)).id, respostas: [{ itemId: m2.itens[0].id, conforme: true, fotos: [foto] }] }, autor, ["Asa Norte"], AGORA);
     expect(await q.fotoDeEnvioDe(foto, ["Asa Norte"], AGORA)).toBe(true);
     expect(await q.fotoDeEnvioDe(foto, ["Gama"], AGORA)).toBe(false);
+  });
+
+  it("plano de ação: a visita pede um por item não conforme; a unidade marca como feito; quem criou confirma ou devolve (o dono também); o gerente não valida o próprio", async () => {
+    const m = await q.salvarModelo({ nome: "Roteiro", itens: [{ texto: "Banheiro feminino" }, { texto: "Recepção" }] }); // visita: o plano é exigido por padrão
+    expect(q.exigePlano(m)).toBe(true);
+    expect(q.exigePlano({ frequencia: "diaria" })).toBe(false);
+    expect(q.exigePlano({ frequencia: "diaria", plano: true })).toBe(true);
+    const hoje = "2026-11-20";
+    const respostas = [{ itemId: m.itens[0].id, conforme: false }, { itemId: m.itens[1].id, conforme: true }];
+    const corpo = async (planos: any[], extra: any = {}) => ({ modeloId: m.id, unidade, checkinId: (await checkin(m, "visita")).id, respostas, planos, ...extra });
+    const plano = { itemId: m.itens[0].id, oQue: "Repor o sabonete e consertar a descarga", prazo: "2026-11-25", responsavel: "Gerente da unidade" };
+    // regras: todo item não conforme precisa do plano; o plano precisa de texto e de um prazo válido; só item não conforme tem plano
+    await expect(q.salvarVisita(await corpo([]), autorV, AGORA)).rejects.toThrow(/Crie o plano de ação do item não conforme: "Banheiro feminino"/);
+    await expect(q.salvarVisita(await corpo([{ ...plano, oQue: "x" }]), autorV, AGORA)).rejects.toThrow(/o que será feito/);
+    await expect(q.salvarVisita(await corpo([{ ...plano, prazo: "2026-11-19" }]), autorV, AGORA)).rejects.toThrow(/prazo/);
+    await expect(q.salvarVisita(await corpo([{ ...plano, prazo: "2028-01-01" }]), autorV, AGORA)).rejects.toThrow(/prazo/);
+    await expect(q.salvarVisita(await corpo([plano, { itemId: m.itens[1].id, oQue: "Sem motivo", prazo: "2026-11-25" }]), autorV, AGORA)).rejects.toThrow(/Só item marcado como não conforme/);
+    const v = await q.salvarVisita(await corpo([plano]), autorV, AGORA);
+    expect(v.respostas[0].conforme).toBe(false);
+    const [p] = await q.lerPlanos();
+    expect(p).toMatchObject({ unidade, visitaId: v.id, itemTexto: "Banheiro feminino", oQue: plano.oQue, prazo: "2026-11-25", responsavel: "Gerente da unidade", status: "aberto", criadoPor: { email: "a@x.com" } });
+    expect(p.historico.map((h: any) => h.acao)).toEqual(["criado"]);
+
+    // a unidade marca como feito (só a própria unidade; precisa dizer o quê); vai para a validação de quem criou
+    const gerente = { nome: "Gerente", email: "g@x.com" };
+    await expect(q.marcarPlanoFeito(p.id, { texto: "ok" }, gerente, ["Asa Norte"], AGORA)).rejects.toThrow(/o que foi feito/);
+    await expect(q.marcarPlanoFeito(p.id, { texto: "Repus e consertei" }, gerente, ["Gama"], AGORA)).rejects.toThrow(/outra unidade/);
+    const foto = await q.salvarFoto(JPEG);
+    const feito = await q.marcarPlanoFeito(p.id, { texto: "Repus o sabonete e consertei a descarga", fotos: [foto, "lixo"] }, gerente, ["Asa Norte"], AGORA);
+    expect(feito).toMatchObject({ status: "validacao" });
+    expect(feito.historico[1]).toMatchObject({ acao: "feito", fotos: [foto], por: { nome: "Gerente" } });
+    await expect(q.marcarPlanoFeito(p.id, { texto: "de novo" }, gerente, ["Asa Norte"], AGORA)).rejects.toThrow(/não está esperando a correção/);
+    expect(await q.fotoDeEnvioDe(foto, ["Asa Norte"], AGORA)).toBe(true); // a unidade vê a própria foto do plano
+    expect(await q.fotoDeEnvioDe(foto, ["Gama"], AGORA)).toBe(false);
+
+    // validação: quem criou (ou o dono); o gerente e outra pessoa, não
+    await expect(q.validarPlano(p.id, { decisao: "confirmar" }, { ...gerente, ehDono: false }, AGORA)).rejects.toThrow(/quem criou o plano/);
+    await expect(q.validarPlano(p.id, { decisao: "confirmar" }, { nome: "Outra", email: "outra@x.com", ehDono: false }, AGORA)).rejects.toThrow(/quem criou o plano/);
+    await expect(q.validarPlano(p.id, { decisao: "devolver" }, autorV, AGORA)).rejects.toThrow(/o que ainda falta/);
+    await expect(q.validarPlano(p.id, { decisao: "talvez" }, autorV, AGORA)).rejects.toThrow(/confirmar ou devolver/);
+    const devolvido = await q.validarPlano(p.id, { decisao: "devolver", texto: "A descarga ainda vaza" }, autorV, AGORA);
+    expect(devolvido).toMatchObject({ status: "aberto" });
+    expect(devolvido.historico.map((h: any) => h.acao)).toEqual(["criado", "feito", "devolvido"]);
+    await q.marcarPlanoFeito(p.id, { texto: "Troquei o reparo da descarga" }, gerente, ["Asa Norte"], AGORA);
+    const ok = await q.validarPlano(p.id, { decisao: "confirmar", texto: "Conferi, está certo" }, { nome: "Dono", email: "dono@x.com", ehDono: true }, AGORA); // o dono também confirma
+    expect(ok).toMatchObject({ status: "concluido", concluidoEm: AGORA.toISOString() });
+    await expect(q.validarPlano(p.id, { decisao: "confirmar" }, autorV, AGORA)).rejects.toThrow(/não está esperando validação/);
+    await expect(q.marcarPlanoFeito("nao-existe", { texto: "abc" }, gerente, ["Asa Norte"], AGORA)).rejects.toThrow(/não encontrado/);
+  });
+
+  it("plano de ação: checklist com plano desligado não pede e volta a exigir o comentário do que corrigir", async () => {
+    const m = await q.salvarModelo({ nome: "Sem plano", plano: false, itens: [{ texto: "Piso" }] });
+    const corpo = async (extra: any) => ({ modeloId: m.id, unidade, checkinId: (await checkin(m, "visita")).id, respostas: [{ itemId: m.itens[0].id, conforme: false, ...extra }] });
+    await expect(q.salvarVisita(await corpo({}), autorV, AGORA)).rejects.toThrow(/o que precisa ser corrigido/);
+    await q.salvarVisita(await corpo({ comentario: "piso sujo" }), autorV, AGORA);
+    expect(await q.lerPlanos()).toEqual([]);
   });
 
   it("foto: só JPEG, tamanho limitado e id válido", async () => {

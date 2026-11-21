@@ -144,6 +144,8 @@ describe("Qualidade (menu e telas)", () => {
 });
 
 import { Item, InstrucaoDoItem } from "@/components/qualidade/NovaVisita";
+import { PlanosDaFranqueadora, PlanosDaUnidade } from "@/components/qualidade/PlanosDeAcao";
+import type { PlanoAcao } from "@/data/qualidade";
 import { Detalhe } from "@/components/qualidade/Visitas";
 import { LocaisDasUnidades } from "@/components/qualidade/LocaisDasUnidades";
 
@@ -209,5 +211,42 @@ describe("Qualidade: check-in, check-out, selfie e data", () => {
     expect(com).toContain('aria-label="Como avaliar: Recepção organizada"');
     expect(limpo(renderToString(<Item item={base} r={r} dataVisita="2026-11-20" mostraPeso={false} onChange={() => {}} />))).not.toContain("Como avaliar");
     expect(limpo(renderToString(<InstrucaoDoItem texto="x" titulo="y" />))).toContain("Como avaliar"); // o texto só abre ao clicar
+  });
+
+  const PLANO: PlanoAcao = {
+    id: "pl1", unidade: "Asa Norte", visitaId: "v1", visitaMes: "2026-11", itemId: "i1", itemTexto: "Banheiro feminino limpo", modeloNome: "Roteiro de visitação", oQue: "Repor sabonete e consertar a descarga", prazo: "2026-11-15",
+    responsavel: "Gerente da unidade", como: "", criadoPor: { nome: "Vera Visitante", email: "vera@x.com" }, criadoEm: "2026-11-10T12:00:00Z", status: "aberto",
+    historico: [{ em: "2026-11-10T12:00:00Z", por: { nome: "Vera Visitante", email: "vera@x.com" }, acao: "criado", texto: "Repor sabonete e consertar a descarga", fotos: [] }],
+  };
+  const FEITO: PlanoAcao = { ...PLANO, id: "pl2", itemTexto: "Recepção organizada", status: "validacao", prazo: "2026-12-01", historico: [...PLANO.historico, { em: "2026-11-18T12:00:00Z", por: { nome: "Gerente Asa", email: "g@x.com" }, acao: "feito", texto: "Organizei o balcão", fotos: [] }] };
+  const CONCLUIDO: PlanoAcao = { ...PLANO, id: "pl3", itemTexto: "Copa", status: "concluido", concluidoEm: "2026-11-19T12:00:00Z" };
+
+  it("o item não conforme de uma visita que exige plano mostra o plano de ação (o quê, até quando, quem); sem a exigência ou conforme, não mostra", () => {
+    const item = { id: "i", grupo: "Banheiros", texto: "Banheiro limpo", peso: 1, foto: "nenhuma" as const };
+    const base = { na: false, comentario: "", fotos: [], equipamentos: [], vencimento: "" };
+    const com = limpo(renderToString(<Item item={item} r={{ ...base, conforme: false }} dataVisita="2026-11-20" pedePlano onChange={() => {}} />));
+    for (const t of ["Plano de ação (quem registra a visita confirma a correção depois)", "O que será feito?", "Até quando", "Quem faz (opcional)"]) expect(com).toContain(t);
+    expect(com).toContain("Comentário (opcional)"); // com plano, o comentário deixa de ser obrigatório
+    expect(limpo(renderToString(<Item item={item} r={{ ...base, conforme: false }} dataVisita="2026-11-20" onChange={() => {}} />))).not.toContain("Plano de ação");
+    expect(limpo(renderToString(<Item item={item} r={{ ...base, conforme: true }} dataVisita="2026-11-20" pedePlano onChange={() => {}} />))).not.toContain("Plano de ação");
+  });
+
+  it("franqueadora: a aba de planos lista os abertos (atrasado em vermelho), os aguardando confirmação (com Confirmar e Devolver para quem pode) e a visão geral avisa", () => {
+    const dados: DadosQualidade = { ...DADOS, modelos: [MODELO], planos: [PLANO, FEITO, CONCLUIDO] };
+    const html = limpo(renderToString(<PlanosDaFranqueadora dados={dados} hoje="2026-11-20" onMudou={() => {}} />)).replace(/<[^>]+>/g, "");
+    for (const t of ["Planos de ação", "Para eu confirmar (1)", "Aguardando confirmação (1)", "Abertos (1)", "Concluídos (1)", "Todos (3)", "Recepção organizada", "Confirmar a correção", "Devolver", "Organizei o balcão"]) expect(html).toContain(t);
+    expect(html).not.toContain("Banheiro feminino limpo"); // o aberto não está no filtro "Para eu confirmar"
+    const todas = limpo(renderToString(<QualidadeConteudo hoje="2026-11-20" estado={{ fase: "pronto", dados }} />));
+    expect(todas).toContain("Planos de ação (1)"); // o número na aba: o que espera a minha confirmação
+    expect(todas).toContain("1 plano de ação espera");
+    expect(todas).toContain("1 plano atrasado");
+  });
+
+  it("unidade: vê os planos dela, marca como feito os abertos e lê o que foi devolvido", () => {
+    const devolvido: PlanoAcao = { ...PLANO, historico: [...PLANO.historico, { em: "2026-11-12T12:00:00Z", por: { nome: "Vera Visitante", email: "vera@x.com" }, acao: "devolvido", texto: "A descarga ainda vaza", fotos: [] }] };
+    const dados: DadosQualidade = { modo: "unidade", unidades: ["Asa Norte"], modelos: [], visitas: [], envios: [], planos: [devolvido, FEITO] };
+    const html = limpo(renderToString(<PlanosDaUnidade dados={dados} hoje="2026-11-20" onMudou={() => {}} />)).replace(/<[^>]+>/g, "");
+    for (const t of ["Planos de ação da unidade", "Marcar como feito", "Devolvido: A descarga ainda vaza", "atrasado há 5 dias", "Aguardando confirmação de quem visitou"]) expect(html).toContain(t);
+    expect(limpo(renderToString(<PlanosDaUnidade dados={{ ...dados, planos: [] }} onMudou={() => {}} hoje="2026-11-20" />))).toBe("");
   });
 });

@@ -35,6 +35,8 @@ export const pedeSelfie = (modelo) => (typeof modelo?.selfie === "boolean" ? mod
 /** Texto com quebras de linha (instruções): tira espaços sobrando, mantém no máximo uma linha em branco e corta no limite. */
 const textoLongo = (v, max) => String(v ?? "").replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, max);
 export const MAX_INSTRUCAO = 600;
+/** O item não conforme pede um plano de ação (o quê, até quando, quem)? Por padrão a visita da franqueadora pede e o checklist da unidade não; o dono muda no editor. */
+export const exigePlano = (modelo) => (typeof modelo?.plano === "boolean" ? modelo.plano : modelo?.frequencia === "visita");
 const texto = (v, max) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 const ehData = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 const dataDeVencimento = (s) => { const t = String(s ?? ""); return ehData(t) && t >= "2000-01-01" && t <= "2100-12-31" ? t : ""; };
@@ -65,7 +67,7 @@ export function normalizarModelo(bruto, agora = new Date()) {
     return { id, grupo: texto(i?.grupo, 60), texto: t, peso, foto, tipo, ...(instrucao ? { instrucao } : {}), ...(foraDe.length ? { foraDe } : {}), ...(soEm.length ? { soEm } : {}) };
   });
   const id = typeof bruto?.id === "string" && /^[a-z0-9-]{4,40}$/.test(bruto.id) ? bruto.id : randomUUID().slice(0, 8);
-  return { id, nome, descricao: texto(bruto?.descricao, 200), frequencia, itens, ativo: bruto?.ativo !== false, ...(typeof bruto?.selfie === "boolean" ? { selfie: bruto.selfie } : {}), atualizadoEm: agora.toISOString() };
+  return { id, nome, descricao: texto(bruto?.descricao, 200), frequencia, itens, ativo: bruto?.ativo !== false, ...(typeof bruto?.selfie === "boolean" ? { selfie: bruto.selfie } : {}), ...(typeof bruto?.plano === "boolean" ? { plano: bruto.plano } : {}), atualizadoEm: agora.toISOString() };
 }
 
 /** Nota da visita: % dos pontos conseguidos entre os itens que se aplicam, cada item com o seu peso (os "não se aplica" ficam fora). null se nenhum se aplica. */
@@ -107,7 +109,7 @@ export function montarVisita(bruto, modelo, avaliador, agora = new Date()) {
       if (item.foto !== "nenhuma" && equipamentos.some((e) => e.fotos.length === 0)) throw new ErroQualidade(`Cada equipamento parado pede uma foto (${equipamentos.find((e) => e.fotos.length === 0).codigo}).`);
     } else {
       // "Plano de ação obrigatório" do roteiro antigo: item não conforme precisa dizer o que corrigir (o documento vencido se explica pela data).
-      if (conforme === false && !comentario && tipo !== "vencimento") throw new ErroQualidade(`Diga o que precisa ser corrigido em "${item.texto}".`);
+      if (conforme === false && !comentario && tipo !== "vencimento" && !exigePlano(modelo)) throw new ErroQualidade(`Diga o que precisa ser corrigido em "${item.texto}".`);
       if ((item.foto === "sempre" && conforme !== null && fotos.length === 0) || (item.foto === "nao_conforme" && conforme === false && fotos.length === 0)) throw new ErroQualidade(`O item "${item.texto}" pede uma foto.`);
     }
     return { itemId: item.id, grupo: item.grupo, texto: item.texto, peso: item.peso ?? 1, tipo, conforme, comentario, fotos, ...(tipo === "equipamentos" ? { equipamentos } : {}), ...(tipo === "vencimento" ? { vencimento } : {}) };
@@ -186,9 +188,11 @@ export async function salvarVisita(bruto, avaliador, agora = new Date(), context
   const unidade = texto(bruto?.unidade, 80);
   const ck = await buscarCheckin(bruto?.checkinId, { unidade, modeloId: modelo.id, email: avaliador?.email, tipo: "visita" }, agora);
   const visita = montarVisita({ ...bruto, data: dataBrasilia(ck.em), chegada: "", saida: "" }, modelo, avaliador, agora);
+  const planos = montarPlanos(bruto?.planos, visita, modelo, avaliador, agora);
   await anexarCheckInOut(visita, ck, bruto, contexto.ip, agora);
   const lista = await lerVisitas(visita.mes);
   await gravarJson(`${PASTA_VISITAS}/${visita.mes}.json`, [...lista, visita]);
+  if (planos.length) await gravarJson(ARQUIVO_PLANOS, [...(await lerPlanos()), ...planos].slice(-MAX_PLANOS_GUARDADOS));
   await marcarCheckinUsado(ck.id);
   return visita;
 }
@@ -270,7 +274,9 @@ export async function apagarEnvio(id, mes) {
 /** A foto está num envio recente de uma das unidades? (a unidade só vê as fotos dos próprios envios) */
 export async function fotoDeEnvioDe(id, unidades, agora = new Date()) {
   const envios = await enviosRecentes(90, agora, unidades);
-  return envios.some((e) => e.respostas.some((r) => (r.fotos ?? []).includes(id) || (r.equipamentos ?? []).some((q) => (q.fotos ?? []).includes(id))));
+  if (envios.some((e) => e.respostas.some((r) => (r.fotos ?? []).includes(id) || (r.equipamentos ?? []).some((q) => (q.fotos ?? []).includes(id))))) return true;
+  // fotos de um plano de ação da unidade (o que ela mandou como prova de que corrigiu)
+  return (await lerPlanos()).some((p) => unidades.includes(p.unidade) && (p.historico ?? []).some((h) => (h.fotos ?? []).includes(id)));
 }
 
 // ---------- pedidos de item novo (a unidade pede, o dono libera) ----------
@@ -466,4 +472,86 @@ export async function lerSelfie(codigo) {
   const bytes = await lerBytes(`${PASTA_SELFIES}/${m[1]}/${m[2]}.jpg`);
   if (!bytes) throw new ErroQualidade("Selfie não encontrada (guardamos por poucos meses).", 404);
   return bytes;
+}
+
+// ---------- planos de ação (o que corrigir depois de uma visita) ----------
+export const ARQUIVO_PLANOS = "qualidade/planos.json";
+const MAX_PLANOS_GUARDADOS = 2000;
+
+export async function lerPlanos() {
+  const p = await lerJson(ARQUIVO_PLANOS);
+  return Array.isArray(p) ? p : [];
+}
+
+/**
+ * Planos de ação da visita da franqueadora: um por item "não conforme" (o quê, até quando, quem). Se o checklist exige plano, todo item não conforme precisa
+ * de um e não pode haver plano de item que não foi marcado como não conforme. Quem cria o plano é quem confirma a correção depois.
+ */
+export function montarPlanos(brutos, visita, modelo, autor, agora = new Date()) {
+  const lista = Array.isArray(brutos) ? brutos : [];
+  const naoConformes = visita.respostas.filter((r) => r.conforme === false);
+  const porItem = new Map(lista.map((p) => [p?.itemId, p]));
+  if (exigePlano(modelo)) {
+    const falta = naoConformes.find((r) => !porItem.has(r.itemId));
+    if (falta) throw new ErroQualidade(`Crie o plano de ação do item não conforme: "${falta.texto}".`);
+  }
+  const hoje = dataBrasilia(agora.toISOString());
+  const limite = new Date(Date.parse(`${hoje}T00:00:00Z`) + 366 * 86400000).toISOString().slice(0, 10);
+  const out = [];
+  for (const r of naoConformes) {
+    const p = porItem.get(r.itemId);
+    if (!p) continue;
+    const oQue = texto(p.oQue, 300);
+    if (oQue.length < 3) throw new ErroQualidade(`Diga o que será feito no item "${r.texto}".`);
+    const prazo = texto(p.prazo, 10);
+    if (!ehData(prazo) || prazo < hoje || prazo > limite) throw new ErroQualidade(`Escolha um prazo de hoje até 1 ano para o item "${r.texto}".`);
+    out.push({
+      id: randomUUID(), unidade: visita.unidade, visitaId: visita.id, visitaMes: visita.mes, itemId: r.itemId, itemTexto: r.texto, modeloNome: visita.modeloNome,
+      oQue, prazo, responsavel: texto(p.responsavel, 80), como: texto(p.como, 300), criadoPor: { nome: visita.avaliador.nome, email: visita.avaliador.email }, criadoEm: agora.toISOString(),
+      status: "aberto", historico: [{ em: agora.toISOString(), por: { nome: visita.avaliador.nome, email: visita.avaliador.email }, acao: "criado", texto: oQue, fotos: [] }],
+    });
+  }
+  for (const id of porItem.keys()) if (!naoConformes.some((r) => r.itemId === id)) throw new ErroQualidade("Só item marcado como não conforme tem plano de ação.");
+  return out;
+}
+
+/** A unidade diz o que fez para corrigir (e manda foto, se quiser): o plano vai para a validação de quem o criou. */
+export async function marcarPlanoFeito(id, bruto, autor, unidadesPermitidas, agora = new Date()) {
+  const lista = await lerPlanos();
+  const i = lista.findIndex((p) => p.id === id);
+  if (i < 0) throw new ErroQualidade("Plano não encontrado.", 404);
+  const p = lista[i];
+  if (!unidadesPermitidas.includes(p.unidade)) throw new ErroQualidade("Esse plano é de outra unidade.", 403);
+  if (p.status !== "aberto") throw new ErroQualidade("Esse plano não está esperando a correção da unidade.", 409);
+  const t = texto(bruto?.texto, 300);
+  if (t.length < 3) throw new ErroQualidade("Diga o que foi feito.");
+  const fotos = (Array.isArray(bruto?.fotos) ? bruto.fotos : []).filter((f) => typeof f === "string" && /^[0-9a-f-]{36}$/.test(f)).slice(0, 3);
+  lista[i] = { ...p, status: "validacao", historico: [...p.historico, { em: agora.toISOString(), por: { nome: texto(autor?.nome, 80), email: texto(autor?.email, 120) }, acao: "feito", texto: t, fotos }] };
+  await gravarJson(ARQUIVO_PLANOS, lista);
+  return lista[i];
+}
+
+/**
+ * Quem criou o plano (ou o dono, se essa pessoa não estiver disponível) confirma a correção, e o plano conclui, ou devolve com um motivo, e ele volta para a
+ * unidade. O gerente da unidade nunca valida o próprio plano.
+ */
+export async function validarPlano(id, bruto, decisor, agora = new Date()) {
+  const lista = await lerPlanos();
+  const i = lista.findIndex((p) => p.id === id);
+  if (i < 0) throw new ErroQualidade("Plano não encontrado.", 404);
+  const p = lista[i];
+  if (p.status !== "validacao") throw new ErroQualidade("Esse plano não está esperando validação.", 409);
+  if (!decisor?.ehDono && p.criadoPor.email !== texto(decisor?.email, 120)) throw new ErroQualidade("Quem confirma é quem criou o plano (ou o dono).", 403);
+  const t = texto(bruto?.texto, 300);
+  const por = { nome: texto(decisor?.nome, 80), email: texto(decisor?.email, 120) };
+  if (bruto?.decisao === "devolver") {
+    if (t.length < 3) throw new ErroQualidade("Diga o que ainda falta para devolver o plano à unidade.");
+    lista[i] = { ...p, status: "aberto", historico: [...p.historico, { em: agora.toISOString(), por, acao: "devolvido", texto: t, fotos: [] }] };
+  } else if (bruto?.decisao === "confirmar") {
+    lista[i] = { ...p, status: "concluido", concluidoEm: agora.toISOString(), historico: [...p.historico, { em: agora.toISOString(), por, acao: "confirmado", texto: t, fotos: [] }] };
+  } else {
+    throw new ErroQualidade("Escolha confirmar ou devolver.");
+  }
+  await gravarJson(ARQUIVO_PLANOS, lista);
+  return lista[i];
 }

@@ -2,14 +2,15 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 import { type MetricDetail } from "@/components/MetricCard";
 import { cn } from "@/lib/utils";
-import { pedidosPendentes, DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, DIAS_AVISO_VENCIMENTO, type DadosQualidade, certificadosPorUnidade, dataBR, equipamentosParados, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
+import { ehDono, getUsuario } from "@/lib/auth";
+import { pedidosPendentes, planoAtrasado, podeValidarPlano, DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, DIAS_AVISO_VENCIMENTO, type DadosQualidade, certificadosPorUnidade, dataBR, equipamentosParados, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
 import { FotoGuardada } from "@/components/qualidade/Fotos";
 
 const COR_TOM = { good: "bg-emerald-600", warn: "bg-amber-500", bad: "bg-destructive", neutral: "bg-foreground/30" } as const;
 const neutro = (text: string): MetricDetail => ({ text, tone: "neutral" });
 
 /** Visão da rede: cartões do Atlas, ranking de unidades pela nota média dos últimos 90 dias e os itens que mais falham. */
-export function VisaoGeral({ dados, hoje, onUnidade, onPedidos }: { dados: DadosQualidade; hoje: string; onUnidade: (u: string) => void; onPedidos?: () => void }) {
+export function VisaoGeral({ dados, hoje, onUnidade, onPedidos, onPlanos }: { dados: DadosQualidade; hoje: string; onUnidade: (u: string) => void; onPedidos?: () => void; onPlanos?: () => void }) {
   const r = resumoDaRede(dados.visitas, dados.unidades, hoje);
   const linhas = resumoPorUnidade(dados.visitas, dados.unidades, hoje);
   const falhos = itensQueMaisFalham(dados.visitas, hoje);
@@ -18,8 +19,16 @@ export function VisaoGeral({ dados, hoje, onUnidade, onPedidos }: { dados: Dados
   const temCertificado = certificados.some((c) => c.vencimento);
   const totalUn = dados.unidades.length;
   const pendentes = pedidosPendentes(dados.pedidos).length;
+  const aConfirmar = (dados.planos ?? []).filter((p) => podeValidarPlano(p, getUsuario()?.email ?? "", ehDono())).length;
+  const planosAtrasados = (dados.planos ?? []).filter((p) => planoAtrasado(p, hoje)).length;
   return (
     <div className="space-y-4">
+      {onPlanos && (aConfirmar > 0 || planosAtrasados > 0) && (
+        <button type="button" onClick={onPlanos} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-left text-sm text-foreground hover:bg-warning/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span>{aConfirmar > 0 && <><b>{aConfirmar} {aConfirmar === 1 ? "plano de ação espera" : "planos de ação esperam"}</b> a sua confirmação. </>}{planosAtrasados > 0 && <><b>{planosAtrasados} {planosAtrasados === 1 ? "plano atrasado" : "planos atrasados"}</b> nas unidades.</>}</span>
+          <span className="shrink-0 font-semibold underline underline-offset-4">Ver planos</span>
+        </button>
+      )}
       {onPedidos && pendentes > 0 && (
         <button type="button" onClick={onPedidos} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-left text-sm text-foreground hover:bg-warning/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <span><b>{pendentes} {pendentes === 1 ? "pedido de item novo espera" : "pedidos de item novo esperam"}</b> a sua resposta.</span>

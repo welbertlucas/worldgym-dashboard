@@ -1,5 +1,5 @@
 import { API_BASE, authFetch } from "@/lib/auth";
-import type { DadosQualidade, LocalUnidade, ModeloChecklist, PedidoItem, Visita } from "@/data/qualidade";
+import type { DadosQualidade, LocalUnidade, ModeloChecklist, PedidoItem, PlanoAcao, Visita } from "@/data/qualidade";
 
 type Retorno<T> = { ok: true; dados: T } | { ok: false; erro: string; status: number };
 
@@ -83,3 +83,6 @@ export async function baixarSelfie(codigo: string): Promise<string | null> {
     return null;
   }
 }
+
+export const marcarPlanoFeito = (id: string, plano: { texto: string; fotos: string[] }) => post<{ plano: PlanoAcao }>({ acao: "plano-feito", id, plano });
+export const validarPlano = (id: string, decisao: { decisao: "confirmar" | "devolver"; texto?: string }) => post<{ plano: PlanoAcao }>({ acao: "plano-validar", id, decisao });

@@ -12,8 +12,9 @@ import { Modelos } from "@/components/qualidade/Modelos";
 import { Rotina } from "@/components/qualidade/Rotina";
 import { Pedidos } from "@/components/qualidade/Pedidos";
 import { LocaisDasUnidades } from "@/components/qualidade/LocaisDasUnidades";
-import { pedidosPendentes } from "@/data/qualidade";
-import { ehDono, podeEditarQualidade } from "@/lib/auth";
+import { PlanosDaFranqueadora } from "@/components/qualidade/PlanosDeAcao";
+import { pedidosPendentes, podeValidarPlano } from "@/data/qualidade";
+import { ehDono, getUsuario, podeEditarQualidade } from "@/lib/auth";
 import { ChecklistDaUnidade } from "@/components/qualidade/ChecklistDaUnidade";
 
 export type EstadoQualidade = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; dados: DadosQualidade };
@@ -22,6 +23,7 @@ const ABAS: Aba[] = [
   { id: "geral", rotulo: "Visão geral" },
   { id: "visita", rotulo: "Nova visita" },
   { id: "visitas", rotulo: "Visitas" },
+  { id: "planos", rotulo: "Planos de ação" },
   { id: "rotina", rotulo: "Rotina das unidades" },
   { id: "checklists", rotulo: "Checklists" },
 ];
@@ -46,15 +48,17 @@ export function QualidadeConteudo({ estado, hoje = hojeBR(), recarregar = () => 
   const pendentes = pedidosPendentes(d.pedidos).length;
   // Quem só consulta (Master sem liberação) não vê "Nova visita"; quem edita registra visitas com check-in e assinatura.
   const edita = podeEditarQualidade();
-  const base = edita ? ABAS : ABAS.filter((a) => a.id !== "visita");
+  const aConfirmar = (d.planos ?? []).filter((p) => podeValidarPlano(p, getUsuario()?.email ?? "", ehDono())).length;
+  const base = (edita ? ABAS : ABAS.filter((a) => a.id !== "visita")).map((a) => (a.id === "planos" && aConfirmar > 0 ? { ...a, rotulo: `Planos de ação (${aConfirmar})` } : a));
   const abas: Aba[] = ehDono() ? [...base, { id: "pedidos", rotulo: pendentes > 0 ? `Pedidos (${pendentes})` : "Pedidos" }] : base;
   const ativa = abaAtiva(abas, aba);
   return (
     <div>
       <Abas tela="qualidade" titulo="Qualidade" abas={abas} ativa={ativa} onChange={setAba} />
-      {ativa === "geral" && <VisaoGeral dados={d} hoje={hoje} onUnidade={(u) => { setUnidade(u); setAba("visitas"); }} onPedidos={ehDono() ? () => setAba("pedidos") : undefined} />}
+      {ativa === "geral" && <VisaoGeral dados={d} hoje={hoje} onUnidade={(u) => { setUnidade(u); setAba("visitas"); }} onPedidos={ehDono() ? () => setAba("pedidos") : undefined} onPlanos={() => setAba("planos")} />}
       {ativa === "visita" && edita && <NovaVisita dados={d} hoje={hoje} onSalvou={(u) => { setUnidade(u); setAba("visitas"); recarregar(); }} />}
       {ativa === "visitas" && <Visitas key={unidade} dados={d} unidadeInicial={unidade} podeApagar={edita} onMudou={recarregar} />}
+      {ativa === "planos" && <PlanosDaFranqueadora dados={d} hoje={hoje} onMudou={recarregar} />}
       {ativa === "rotina" && <Rotina dados={d} hoje={hoje} podeApagar={edita} onMudou={recarregar} />}
       {ativa === "pedidos" && ehDono() && <Pedidos dados={d} onMudou={recarregar} />}
       {ativa === "checklists" && (

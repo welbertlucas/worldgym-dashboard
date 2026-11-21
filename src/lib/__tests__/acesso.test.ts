@@ -497,6 +497,65 @@ describe("acessos, níveis e registro", () => {
     expect((await chama(login, { headers: { authorization: `Bearer ${tokenAna}`, ...como }, method: "GET" })).body.usuario).toMatchObject({ papel: "master" });
   });
 
+  it("plano de ação: criado na visita, a unidade marca como feito, quem visitou confirma (ou o dono); outra unidade, o gerente e quem não criou não validam", async () => {
+    const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
+    const tokenDono = criarTokenUsuario(dono.id).token;
+    const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
+    const criar = async (nome: string, email: string, papel: string, extra: any = {}) => {
+      const c = (await post(tokenDono, { acao: "criar", nome, email, papel, ...extra })).body;
+      await trocaSenha(c.usuario.id, c.senhaProvisoria);
+      return { u: c.usuario, token: criarTokenUsuario(c.usuario.id).token };
+    };
+    const visitante = await criar("Vera Visitante", "vera@exemplo.com", "master", { verQualidade: true }); // edita a qualidade
+    const outra = await criar("Olga Outra", "olga@exemplo.com", "master", { verQualidade: true });
+    const gama = await criar("Gerente Gama", "gama@exemplo.com", "unidades", { unidades: ["Gama"], preencheChecklist: true });
+    const itapoa = await criar("Gerente Itapoã", "itapoa@exemplo.com", "unidades", { unidades: ["Itapoã"], preencheChecklist: true });
+    const consulta = await criar("Cida Consulta", "cida@exemplo.com", "master"); // só consulta
+    const q = (token: string, extra: any = {}) => chama(royaltiesApi, com(token, { method: "GET", query: { modulo: "qualidade" }, ...extra }));
+    const qpost = (token: string, body: any) => q(token, { method: "POST", body });
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString("base64");
+
+    const m = (await qpost(visitante.token, { acao: "modelo", modelo: { nome: "Roteiro", frequencia: "visita", itens: [{ texto: "Banheiro" }] } })).body.modelo;
+    const ck = (await qpost(visitante.token, { acao: "checkin", checkin: { unidade: "Gama", modeloId: m.id, selfie: jpeg } })).body.checkin;
+    const corpo = (planos: any[]) => ({ modeloId: m.id, unidade: "Gama", checkinId: ck.id, respostas: [{ itemId: m.itens[0].id, conforme: false }], planos });
+    // sem o plano de um item não conforme, a visita não fecha
+    expect((await qpost(visitante.token, { acao: "visita", visita: corpo([]) })).code).toBe(400);
+    const amanha = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+    const ok = await qpost(visitante.token, { acao: "visita", visita: corpo([{ itemId: m.itens[0].id, oQue: "Consertar a descarga", prazo: amanha, responsavel: "Gerente" }]) });
+    expect(ok.code).toBe(200);
+
+    // quem vê: todos os de consulta veem tudo; cada unidade só os planos dela
+    const plano = (await q(visitante.token)).body.planos[0];
+    expect(plano).toMatchObject({ unidade: "Gama", status: "aberto", criadoPor: { email: "vera@exemplo.com" } });
+    expect((await q(consulta.token)).body.planos).toHaveLength(1);
+    expect((await q(gama.token)).body.planos.map((p: any) => p.oQue)).toEqual(["Consertar a descarga"]);
+    expect((await q(itapoa.token)).body.planos).toEqual([]);
+
+    // a unidade marca como feito (e manda foto); outra unidade e quem só consulta não
+    expect((await qpost(itapoa.token, { acao: "plano-feito", id: plano.id, plano: { texto: "Consertei" } })).code).toBe(403);
+    expect((await qpost(consulta.token, { acao: "plano-feito", id: plano.id, plano: { texto: "Consertei" } })).code).toBe(403);
+    const foto = (await qpost(gama.token, { acao: "foto", dados: jpeg })).body.id;
+    const feito = await qpost(gama.token, { acao: "plano-feito", id: plano.id, plano: { texto: "Troquei o reparo da descarga", fotos: [foto] } });
+    expect(feito.code).toBe(200);
+    expect(feito.body.plano.status).toBe("validacao");
+    expect(Buffer.isBuffer((await q(gama.token, { query: { modulo: "qualidade", foto } })).body)).toBe(true); // a unidade vê a própria foto
+    expect((await q(itapoa.token, { query: { modulo: "qualidade", foto } })).code).toBe(404);
+
+    // validação: o gerente e quem só consulta não; outra pessoa que edita também não (só quem criou ou o dono)
+    for (const t of [gama.token, consulta.token]) expect((await qpost(t, { acao: "plano-validar", id: plano.id, decisao: { decisao: "confirmar" } })).code).toBe(403);
+    const naoCriou = await qpost(outra.token, { acao: "plano-validar", id: plano.id, decisao: { decisao: "confirmar" } });
+    expect(naoCriou.code).toBe(403);
+    expect(naoCriou.body.error).toMatch(/quem criou o plano/);
+    // quem visitou devolve com motivo e a unidade volta a ver como aberto
+    expect((await qpost(visitante.token, { acao: "plano-validar", id: plano.id, decisao: { decisao: "devolver", texto: "Ainda vaza" } })).body.plano.status).toBe("aberto");
+    expect((await q(gama.token)).body.planos[0]).toMatchObject({ status: "aberto" });
+    await qpost(gama.token, { acao: "plano-feito", id: plano.id, plano: { texto: "Troquei de novo" } });
+    // o dono também pode confirmar
+    const conf = await qpost(tokenDono, { acao: "plano-validar", id: plano.id, decisao: { decisao: "confirmar", texto: "Conferi" } });
+    expect(conf.body.plano).toMatchObject({ status: "concluido" });
+    expect(conf.body.plano.historico.map((h: any) => h.acao)).toEqual(["criado", "feito", "devolvido", "feito", "confirmado"]);
+  });
+
   it("api de royalties: sem login 401, só GET, avisa quando ainda não há dados, devolve o modelo e nunca vai para o cache", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;

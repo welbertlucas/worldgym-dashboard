@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { type DadosQualidade, type ItemModelo, type ModeloChecklist, itensDaUnidade, pctTexto, pedeSelfie } from "@/data/qualidade";
+import { type DadosQualidade, type ItemModelo, type ModeloChecklist, exigePlano, itensDaUnidade, pctTexto, pedeSelfie } from "@/data/qualidade";
 import { enviarFoto, fazerCheckin, lerLocalizacao, reduzirFoto, reduzirSelfie, salvarEnvio, salvarVisita, type RespostaCheckin } from "@/lib/qualidade";
 import { ehDono } from "@/lib/auth";
 
 type FotoLocal = { previa: string; dados: string };
 interface EquipamentoLocal { codigo: string; descricao: string; fotos: FotoLocal[] }
 /** `na`: a pessoa marcou "não se aplica" de propósito (item sem resposta não fica com esse botão aceso). */
-interface Resposta { conforme: boolean | null; na?: boolean; comentario: string; fotos: FotoLocal[]; equipamentos: EquipamentoLocal[]; vencimento: string }
+interface PlanoLocal { oQue: string; prazo: string; responsavel: string }
+interface Resposta { conforme: boolean | null; na?: boolean; comentario: string; fotos: FotoLocal[]; equipamentos: EquipamentoLocal[]; vencimento: string; plano?: PlanoLocal }
 const vazia = (): Resposta => ({ conforme: null, na: false, comentario: "", fotos: [], equipamentos: [], vencimento: "" });
 /** Nos itens de vencimento a pessoa só informa a data: está em dia se ela é igual ou depois da data da visita (o servidor refaz a conta). */
 const efetiva = (item: ItemModelo, r: Resposta, dataVisita: string): Resposta => (item.tipo === "vencimento" ? { ...r, conforme: r.vencimento ? r.vencimento >= dataVisita : null } : r);
@@ -100,7 +101,7 @@ export function InstrucaoDoItem({ texto, titulo }: { texto: string; titulo: stri
 }
 
 /** Um item do checklist, com as respostas e as fotos. */
-export function Item({ item, r: bruta, dataVisita, mostraPeso = true, onChange }: { item: ItemModelo; r: Resposta; dataVisita: string; /** O peso é da franqueadora: o gestor da unidade não o vê. */ mostraPeso?: boolean; onChange: (r: Resposta) => void }) {
+export function Item({ item, r: bruta, dataVisita, mostraPeso = true, pedePlano = false, onChange }: { item: ItemModelo; r: Resposta; dataVisita: string; /** O peso é da franqueadora: o gestor da unidade não o vê. */ mostraPeso?: boolean; /** Item não conforme pede o plano de ação (o quê, até quando, quem). */ pedePlano?: boolean; onChange: (r: Resposta) => void }) {
   const r = efetiva(item, bruta, dataVisita);
   const vence = item.tipo === "vencimento";
   const entrada = useRef<HTMLInputElement>(null);
@@ -149,9 +150,23 @@ export function Item({ item, r: bruta, dataVisita, mostraPeso = true, onChange }
         </div>
       )}
       {item.tipo === "equipamentos" && r.conforme === false && <div className="mt-2"><Equipamentos item={item} lista={r.equipamentos} onChange={(equipamentos) => onChange({ ...r, equipamentos })} /></div>}
+      {pedePlano && r.conforme === false && (
+        <div className="mt-2 space-y-2 rounded-xl border border-warning/40 bg-warning/5 p-3" aria-label={`Plano de ação: ${item.texto}`}>
+          <p className="text-xs font-semibold text-foreground">Plano de ação (quem registra a visita confirma a correção depois)</p>
+          <input value={r.plano?.oQue ?? ""} maxLength={300} onChange={(e) => onChange({ ...r, plano: { prazo: "", responsavel: "", ...r.plano, oQue: e.target.value } })} placeholder="O que será feito? (ex.: repor o sabonete e consertar a descarga)" aria-label={`O que será feito: ${item.texto}`} className="h-9 w-full rounded-lg border border-input bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          <div className="flex flex-wrap gap-2">
+            <label className="text-xs text-muted-foreground">Até quando
+              <input type="date" min={dataVisita} value={r.plano?.prazo ?? ""} onChange={(e) => onChange({ ...r, plano: { oQue: "", responsavel: "", ...r.plano, prazo: e.target.value } })} aria-label={`Prazo do plano: ${item.texto}`} className="mt-1 block h-9 rounded-lg border border-input bg-white px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            </label>
+            <label className="min-w-[10rem] flex-1 text-xs text-muted-foreground">Quem faz (opcional)
+              <input value={r.plano?.responsavel ?? ""} maxLength={80} onChange={(e) => onChange({ ...r, plano: { oQue: "", prazo: "", ...r.plano, responsavel: e.target.value } })} placeholder="Nome do responsável" aria-label={`Responsável pelo plano: ${item.texto}`} className="mt-1 h-9 w-full rounded-lg border border-input bg-white px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            </label>
+          </div>
+        </div>
+      )}
       {r.conforme !== null && (
         <div className="mt-2 space-y-2">
-          <textarea value={r.comentario} maxLength={1000} rows={2} onChange={(e) => onChange({ ...r, comentario: e.target.value })} placeholder={r.conforme || item.tipo === "equipamentos" || vence ? "Comentário (opcional)" : "O que precisa ser corrigido? (obrigatório)"} aria-label={`Comentário: ${item.texto}`}
+          <textarea value={r.comentario} maxLength={1000} rows={2} onChange={(e) => onChange({ ...r, comentario: e.target.value })} placeholder={r.conforme || item.tipo === "equipamentos" || vence || pedePlano ? "Comentário (opcional)" : "O que precisa ser corrigido? (obrigatório)"} aria-label={`Comentário: ${item.texto}`}
             className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           <div className="flex flex-wrap items-center gap-2">
             {r.fotos.map((f, i) => (
@@ -234,6 +249,12 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
 
   const enviar = async () => {
     if (!modelo || !checkin) return;
+    // Plano de ação de cada item não conforme (quando o checklist pede): o quê e até quando.
+    const planos = !daUnidade && exigePlano(modelo)
+      ? itens.filter((i) => (respostas[i.id] ?? vazia()).conforme === false).map((i) => ({ itemId: i.id, ...(respostas[i.id]?.plano ?? { oQue: "", prazo: "", responsavel: "" }) }))
+      : [];
+    const incompleto = planos.find((p) => (p.oQue ?? "").trim().length < 3 || !p.prazo);
+    if (incompleto) return setErro(`Falta o plano de ação do item não conforme: "${itens.find((i) => i.id === incompleto.itemId)?.texto}" (o que será feito e até quando).`);
     setErro("");
     setEnviando(true);
     try {
@@ -263,7 +284,7 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
       }
       const res = daUnidade
         ? await salvarEnvio({ modeloId: modelo.id, unidade, checkinId: checkin.id, localizacaoSaida, respostas: itensEnviados, observacao })
-        : await salvarVisita({ modeloId: modelo.id, unidade, checkinId: checkin.id, localizacaoSaida, respostas: itensEnviados, observacao });
+        : await salvarVisita({ modeloId: modelo.id, unidade, checkinId: checkin.id, localizacaoSaida, respostas: itensEnviados, observacao, planos });
       if (!res.ok) { setErro(res.erro); setEnviando(false); return; }
       toast(daUnidade ? { title: "Checklist enviado", description: `${unidade}: ${modelo.nome}. Check-out registrado.` } : { title: "Visita registrada", description: `${unidade}: nota ${pctTexto((res.dados as { visita: { nota: number | null } }).visita.nota)}. Check-out registrado.` });
       setRespostas({}); setObservacao(""); setModeloId(""); setCheckin(null); setSelfie(null);
@@ -323,7 +344,7 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
           {grupos.map(([grupo, itens]) => (
             <section key={grupo || "geral"} className="space-y-2">
               {grupo && <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{grupo}</h4>}
-              <ul className="space-y-2">{itens.map((i) => <Item key={i.id} item={i} r={respostas[i.id] ?? vazia()} dataVisita={hoje} mostraPeso={!daUnidade && ehDono()} onChange={(r) => setRespostas((s) => ({ ...s, [i.id]: r }))} />)}</ul>
+              <ul className="space-y-2">{itens.map((i) => <Item key={i.id} item={i} r={respostas[i.id] ?? vazia()} dataVisita={hoje} mostraPeso={!daUnidade && ehDono()} pedePlano={!daUnidade && modelo ? exigePlano(modelo) : false} onChange={(r) => setRespostas((s) => ({ ...s, [i.id]: r }))} />)}</ul>
             </section>
           ))}
           <label className="block text-xs text-muted-foreground">Observação geral (opcional)
