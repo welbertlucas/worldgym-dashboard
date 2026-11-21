@@ -7,7 +7,7 @@ export type PedeFoto = "nenhuma" | "nao_conforme" | "sempre";
 export const FOTO_ROTULO: Record<PedeFoto, string> = { nenhuma: "Foto opcional", nao_conforme: "Obrigatória se não conforme", sempre: "Sempre obrigatória" };
 export type TipoItem = "conforme" | "equipamentos" | "vencimento";
 export const TIPO_ROTULO: Record<TipoItem, string> = { conforme: "Conforme ou não", equipamentos: "Lista de equipamentos parados", vencimento: "Data de vencimento (certificado)" };
-export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto; tipo?: TipoItem; /** Unidades em que o item não vale (vale para todas as outras). */ foraDe?: string[]; /** Unidades em que o item SÓ vale (o item que a unidade pediu e o dono liberou só para ela). */ soEm?: string[] }
+export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto; tipo?: TipoItem; /** "Como avaliar": orientação curta de como julgar o item (aparece num ícone de informação na visita e no checklist da unidade). */ instrucao?: string; /** Unidades em que o item não vale (vale para todas as outras). */ foraDe?: string[]; /** Unidades em que o item SÓ vale (o item que a unidade pediu e o dono liberou só para ela). */ soEm?: string[] }
 /** Itens do checklist que valem para a unidade (os marcados como "não vale" para ela ficam de fora). */
 export const itensDaUnidade = (itens: ItemModelo[], unidade: string): ItemModelo[] => itens.filter((i) => !(i.foraDe ?? []).includes(unidade) && (!(i.soEm ?? []).length || i.soEm!.includes(unidade)));
 export interface EquipamentoParado { codigo: string; descricao: string; fotos: string[] }
@@ -94,40 +94,40 @@ export function resumoDaRede(visitas: Visita[], unidades: string[], hoje: string
 /** Roteiro sugerido, baseado no questionário de visitação que a rede já usa, com os pontos fracos dele corrigidos: critério verificável em cada item,
  *  pergunta sempre no sentido "está certo?" (Sim = conforme), peso maior nos itens críticos (segurança e documentos 3; equipamentos e banheiros 2) e foto obrigatória quando não conforme só nos itens importantes (peso 2 ou 3). */
 // Foto obrigatória (quando não conforme) só nos itens importantes, os de peso 2 ou 3; nos demais ela é opcional.
-const it = (grupo: string, texto: string, peso = 1, tipo: TipoItem = "conforme"): Omit<ItemModelo, "id"> => ({ grupo, texto, peso, foto: peso > 1 ? "nao_conforme" : "nenhuma", tipo });
+const it = (grupo: string, texto: string, peso = 1, tipo: TipoItem = "conforme", instrucao = ""): Omit<ItemModelo, "id"> => ({ grupo, texto, peso, foto: peso > 1 ? "nao_conforme" : "nenhuma", tipo, ...(instrucao ? { instrucao } : {}) });
 export const MODELO_SUGERIDO: { nome: string; descricao: string; frequencia: Frequencia; itens: Omit<ItemModelo, "id">[] } = {
   nome: "Roteiro de visitação às unidades",
   descricao: "Limpeza, organização, uniforme, segurança e equipamentos. Item não conforme pede a correção; nos itens importantes, também uma foto.",
   frequencia: "visita",
   itens: [
-    it("Equipamentos", "Todos os equipamentos de ginástica estão em operação, sem aviso de manutenção? (Se não, registre cada equipamento parado com código e foto.)", 2, "equipamentos"),
-    it("Segurança e documentos", "Extintores dentro da validade, saídas de emergência desobstruídas e kit de primeiros socorros (e desfibrilador, se a unidade tiver) disponíveis?", 3),
-    it("Segurança e documentos", "Há profissional de educação física (CREF) presente no salão durante o horário de funcionamento?", 3),
-    it("Segurança e documentos", "Certificado de Regularidade PJ do CREF da unidade: informe a data de vencimento. Ele deve estar exposto à vista dos alunos.", 3, "vencimento"),
-    it("Segurança e documentos", "Alvará de funcionamento, licença dos bombeiros e dedetização estão em dia, com os comprovantes à mão?", 3),
-    it("Equipe", "A equipe está uniformizada: camisa e calçado fechado do padrão, uniforme limpo e em bom estado?"),
-    it("Equipe", "O registro de limpeza do dia está preenchido e atualizado, com horário e responsável?"),
-    it("Recepção e convivência", "Entrada: piso limpo, vidros sem marcas, sem lixo?"),
-    it("Recepção e convivência", "Recepção: balcão limpo e organizado, sem objetos pessoais à vista, piso limpo?"),
-    it("Recepção e convivência", "Área de estar: sofás e mesas limpos e organizados, sem lixo?"),
-    it("Padrão da marca", "Fachada e placas no padrão da marca e em bom estado, banners e preços atualizados, mural sem papel antigo?"),
-    it("Conforto do aluno", "Climatização funcionando na temperatura adequada e sem lâmpadas queimadas nas áreas de treino?"),
-    it("Conforto do aluno", "Bebedouros funcionando e som em volume adequado?"),
-    it("Conforto do aluno", "Álcool em gel ou higienizante e papel disponíveis nas áreas de treino, para o aluno limpar os equipamentos?"),
-    it("Áreas de treino", "Ergometria (cardio): esteiras e bikes limpas, sem suor ou poeira, displays e assentos limpos?"),
-    it("Áreas de treino", "Sala de musculação: equipamentos limpos, pesos nos suportes, espelhos limpos, piso livre de objetos?"),
-    it("Áreas de treino", "Peso livre: halteres e anilhas organizados por peso, bancos limpos, nada solto no chão?"),
-    it("Áreas de treino", "Atletics: área organizada, materiais guardados, piso limpo?"),
-    it("Áreas de treino", "Sala de aulas coletivas: piso e espelhos limpos, materiais organizados, som e climatização funcionando?"),
-    it("Áreas de treino", "Área de lutas: tatame e sacos limpos, materiais organizados?"),
-    it("Banheiros e vestiários", "Banheiro feminino: piso seco, sem odor, vasos e pias limpos, com papel, sabonete e lixeira esvaziada?", 2),
-    it("Banheiros e vestiários", "Banheiro masculino: piso seco, sem odor, vasos, pias e mictórios limpos, com papel, sabonete e lixeira esvaziada?", 2),
-    it("Banheiros e vestiários", "Banheiro PNE: limpo, sem odor, barras de apoio e alarme funcionando, livre de objetos guardados?", 2),
-    it("Banheiros e vestiários", "Vestiários: chuveiros funcionando, armários em ordem, secadores funcionando?", 2),
-    it("Áreas de apoio", "Sala de avaliações (se tiver): limpa, organizada e com os equipamentos de avaliação guardados?"),
-    it("Áreas de apoio", "Sala do administrativo: organizada, sem documentos expostos, piso limpo?"),
-    it("Áreas de apoio", "Copa: limpa, sem alimentos expostos ou louça suja, lixeira esvaziada?"),
-    it("Áreas de apoio", "DML e depósito: produtos de limpeza identificados e organizados, fora do alcance de alunos, sem vazamento, passagem livre e sem entulho?"),
+    it("Equipamentos", "Todos os equipamentos de ginástica estão em operação, sem aviso de manutenção? (Se não, registre cada equipamento parado com código e foto.)", 2, "equipamentos", "Percorra o salão. Conta como parado: equipamento desligado, quebrado, interditado ou com aviso de manutenção. Se houver, marque Não e registre o código de cada um (etiqueta no equipamento) com foto."),
+    it("Segurança e documentos", "Extintores dentro da validade, saídas de emergência desobstruídas e kit de primeiros socorros (e desfibrilador, se a unidade tiver) disponíveis?", 3, "conforme", "Confira a validade no selo de cada extintor, se as saídas de emergência estão livres (sem caixas ou equipamentos) e se o kit de primeiros socorros está acessível e completo. Desfibrilador só se a unidade tiver."),
+    it("Segurança e documentos", "Há profissional de educação física (CREF) presente no salão durante o horário de funcionamento?", 3, "conforme", "Pergunte quem é o profissional de educação física de plantão e confira se ele está no salão, não só na escala. Sem profissional no salão durante o horário de funcionamento: Não."),
+    it("Segurança e documentos", "Certificado de Regularidade PJ do CREF da unidade: informe a data de vencimento. Ele deve estar exposto à vista dos alunos.", 3, "vencimento", "Procure o certificado exposto à vista dos alunos (recepção ou salão) e informe a data de vencimento impressa nele. Se não estiver exposto, peça o documento à gerência e informe a data dele."),
+    it("Segurança e documentos", "Alvará de funcionamento, licença dos bombeiros e dedetização estão em dia, com os comprovantes à mão?", 3, "conforme", "Peça os três comprovantes: alvará de funcionamento, licença dos bombeiros e certificado de dedetização. Todos precisam estar dentro da validade e à mão."),
+    it("Equipe", "A equipe está uniformizada: camisa e calçado fechado do padrão, uniforme limpo e em bom estado?", 1, "conforme", "Observe quem está de plantão: camisa e calçado fechado do padrão, uniforme limpo e sem rasgos, sem adereços fora do padrão."),
+    it("Equipe", "O registro de limpeza do dia está preenchido e atualizado, com horário e responsável?", 1, "conforme", "Peça a planilha ou o registro de limpeza do dia: deve ter horário e responsável preenchidos para as áreas já limpas no turno."),
+    it("Recepção e convivência", "Entrada: piso limpo, vidros sem marcas, sem lixo?", 1, "conforme", "Piso sem lixo ou poeira, vidros e portas sem marcas de mão, capacho em bom estado e nada empilhado na entrada."),
+    it("Recepção e convivência", "Recepção: balcão limpo e organizado, sem objetos pessoais à vista, piso limpo?", 1, "conforme", "Balcão limpo e organizado, sem objetos pessoais (bolsa, alimento) à vista, computador e papéis em ordem, piso limpo."),
+    it("Recepção e convivência", "Área de estar: sofás e mesas limpos e organizados, sem lixo?", 1, "conforme", "Sofás e mesas limpos e arrumados, sem lixo, copos ou revistas espalhados."),
+    it("Padrão da marca", "Fachada e placas no padrão da marca e em bom estado, banners e preços atualizados, mural sem papel antigo?", 1, "conforme", "Fachada e placas sem desgaste ou sujeira, banners e tabela de preços com as campanhas vigentes, mural sem avisos vencidos."),
+    it("Conforto do aluno", "Climatização funcionando na temperatura adequada e sem lâmpadas queimadas nas áreas de treino?", 1, "conforme", "Ar-condicionado ligado, salão sem calor excessivo e sem lâmpadas queimadas ou piscando nas áreas de treino."),
+    it("Conforto do aluno", "Bebedouros funcionando e som em volume adequado?", 1, "conforme", "Teste os bebedouros (jato e temperatura) e confira que o som está audível sem incomodar."),
+    it("Conforto do aluno", "Álcool em gel ou higienizante e papel disponíveis nas áreas de treino, para o aluno limpar os equipamentos?", 1, "conforme", "Dispensers com álcool em gel ou higienizante abastecidos e papel-toalha disponível perto das áreas de treino."),
+    it("Áreas de treino", "Ergometria (cardio): esteiras e bikes limpas, sem suor ou poeira, displays e assentos limpos?", 1, "conforme", "Esteiras e bikes sem suor ou poeira, displays e assentos limpos."),
+    it("Áreas de treino", "Sala de musculação: equipamentos limpos, pesos nos suportes, espelhos limpos, piso livre de objetos?", 1, "conforme", "Aparelhos e bancos limpos, pesos nos suportes, espelhos sem marcas, piso livre de objetos soltos."),
+    it("Áreas de treino", "Peso livre: halteres e anilhas organizados por peso, bancos limpos, nada solto no chão?", 1, "conforme", "Halteres e anilhas guardados por peso nos suportes, barras no lugar, bancos limpos, nada solto no chão."),
+    it("Áreas de treino", "Atletics: área organizada, materiais guardados, piso limpo?", 1, "conforme", "Área organizada, materiais guardados nos lugares, piso limpo."),
+    it("Áreas de treino", "Sala de aulas coletivas: piso e espelhos limpos, materiais organizados, som e climatização funcionando?", 1, "conforme", "Piso e espelhos limpos, tatames e materiais organizados, som e ar-condicionado funcionando."),
+    it("Áreas de treino", "Área de lutas: tatame e sacos limpos, materiais organizados?", 1, "conforme", "Tatame e sacos de pancada limpos, luvas e materiais guardados, sem mau cheiro."),
+    it("Banheiros e vestiários", "Banheiro feminino: piso seco, sem odor, vasos e pias limpos, com papel, sabonete e lixeira esvaziada?", 2, "conforme", "Piso seco, sem mau cheiro, vasos e pias limpos, papel higiênico, sabonete e papel-toalha disponíveis, lixeira esvaziada."),
+    it("Banheiros e vestiários", "Banheiro masculino: piso seco, sem odor, vasos, pias e mictórios limpos, com papel, sabonete e lixeira esvaziada?", 2, "conforme", "Igual ao feminino, incluindo mictórios limpos."),
+    it("Banheiros e vestiários", "Banheiro PNE: limpo, sem odor, barras de apoio e alarme funcionando, livre de objetos guardados?", 2, "conforme", "Limpo e sem odor, barras de apoio firmes, alarme ou campainha funcionando, sem materiais guardados dentro."),
+    it("Banheiros e vestiários", "Vestiários: chuveiros funcionando, armários em ordem, secadores funcionando?", 2, "conforme", "Chuveiros com água e drenagem funcionando, armários em ordem e sem portas quebradas, secadores funcionando."),
+    it("Áreas de apoio", "Sala de avaliações (se tiver): limpa, organizada e com os equipamentos de avaliação guardados?", 1, "conforme", "Se a unidade tiver a sala: limpa, com os equipamentos de avaliação (balança, adipômetro, fitas) guardados e organizados. Sem a sala: Não se aplica."),
+    it("Áreas de apoio", "Sala do administrativo: organizada, sem documentos expostos, piso limpo?", 1, "conforme", "Mesa organizada, documentos e dados de alunos guardados (não expostos), piso limpo."),
+    it("Áreas de apoio", "Copa: limpa, sem alimentos expostos ou louça suja, lixeira esvaziada?", 1, "conforme", "Pia e bancada limpas, sem louça suja ou alimentos expostos, geladeira organizada, lixeira esvaziada."),
+    it("Áreas de apoio", "DML e depósito: produtos de limpeza identificados e organizados, fora do alcance de alunos, sem vazamento, passagem livre e sem entulho?", 1, "conforme", "Produtos de limpeza identificados, fechados e fora do alcance de alunos, sem vazamentos, passagem livre e sem entulho acumulado."),
   ],
 };
 
@@ -181,16 +181,16 @@ export const MODELO_ABERTURA: { nome: string; descricao: string; frequencia: Fre
   descricao: "Conferência rápida antes de abrir a unidade. Item não conforme pede o que corrigir; nos itens importantes, também uma foto.",
   frequencia: "diaria",
   itens: [
-    it("Equipamentos", "Todos os equipamentos de ginástica estão em operação, sem aviso de manutenção? (Se não, registre cada equipamento parado com código e foto.)", 2, "equipamentos"),
-    it("Recepção e convivência", "Entrada e recepção limpas e organizadas, sem objetos pessoais à vista?"),
-    it("Recepção e convivência", "Área de estar limpa e organizada, sem lixo?"),
-    it("Áreas de treino", "Salão de musculação, cardio e peso livre limpos e organizados, pesos nos suportes?"),
-    it("Banheiros e vestiários", "Banheiros e vestiários abertos, limpos, sem odor, com papel, sabonete e lixeira esvaziada, chuveiros funcionando?", 2),
-    it("Conforto do aluno", "Climatização funcionando e sem lâmpadas queimadas?"),
-    it("Conforto do aluno", "Bebedouros funcionando e som em volume adequado?"),
-    it("Conforto do aluno", "Álcool em gel ou higienizante e papel disponíveis nas áreas de treino?"),
-    it("Equipe", "A equipe do turno está uniformizada, com uniforme limpo e calçado fechado?"),
-    it("Equipe", "O registro de limpeza do turno anterior está preenchido?"),
+    it("Equipamentos", "Todos os equipamentos de ginástica estão em operação, sem aviso de manutenção? (Se não, registre cada equipamento parado com código e foto.)", 2, "equipamentos", "Antes de abrir, passe pelo salão: equipamento desligado, quebrado ou com aviso de manutenção está parado. Registre o código de cada um, com foto."),
+    it("Recepção e convivência", "Entrada e recepção limpas e organizadas, sem objetos pessoais à vista?", 1, "conforme", "Piso sem lixo, balcão organizado, sem objetos pessoais à vista."),
+    it("Recepção e convivência", "Área de estar limpa e organizada, sem lixo?", 1, "conforme", "Sofás e mesas arrumados, sem lixo."),
+    it("Áreas de treino", "Salão de musculação, cardio e peso livre limpos e organizados, pesos nos suportes?", 1, "conforme", "Aparelhos e bancos limpos, pesos nos suportes, nada solto no chão."),
+    it("Banheiros e vestiários", "Banheiros e vestiários abertos, limpos, sem odor, com papel, sabonete e lixeira esvaziada, chuveiros funcionando?", 2, "conforme", "Banheiros e vestiários abertos e limpos, com papel, sabonete e lixeira em ordem, chuveiros funcionando."),
+    it("Conforto do aluno", "Climatização funcionando e sem lâmpadas queimadas?", 1, "conforme", "Ar-condicionado ligado e sem lâmpadas queimadas."),
+    it("Conforto do aluno", "Bebedouros funcionando e som em volume adequado?", 1, "conforme", "Bebedouros funcionando e som no volume adequado."),
+    it("Conforto do aluno", "Álcool em gel ou higienizante e papel disponíveis nas áreas de treino?", 1, "conforme", "Dispensers de álcool em gel abastecidos e papel disponível."),
+    it("Equipe", "A equipe do turno está uniformizada, com uniforme limpo e calçado fechado?", 1, "conforme", "Equipe do turno com uniforme completo e limpo e calçado fechado."),
+    it("Equipe", "O registro de limpeza do turno anterior está preenchido?", 1, "conforme", "Registro de limpeza do turno anterior com horário e responsável."),
   ],
 };
 

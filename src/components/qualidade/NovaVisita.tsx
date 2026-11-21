@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { Camera, Check, MapPin, Plus, UserRound, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, Check, Info, MapPin, Plus, UserRound, X } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -72,6 +72,33 @@ const notaAgora = (itens: ItemModelo[], rs: Resposta[], dataVisita: string) => {
   return total ? (v.filter((x) => x.r.conforme).reduce((t, x) => t + x.peso, 0) / total) * 100 : null;
 };
 
+/** Ícone "Como avaliar" ao lado da pergunta: abre a orientação do item (o que observar e o que conta como conforme). */
+export function InstrucaoDoItem({ texto, titulo }: { texto: string; titulo: string }) {
+  const [aberta, setAberta] = useState(false);
+  useEffect(() => {
+    if (!aberta) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setAberta(false); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [aberta]);
+  return (
+    <>
+      <button type="button" onClick={() => setAberta(true)} aria-label={`Como avaliar: ${titulo}`} title="Como avaliar" className="ml-2 inline-flex items-center gap-1 rounded-full border border-border bg-white px-2 py-0.5 align-middle text-xs font-medium text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Info className="h-3 w-3" aria-hidden />Como avaliar
+      </button>
+      {aberta && (
+        <div role="dialog" aria-modal="true" aria-label="Como avaliar" onClick={() => setAberta(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div onClick={(e) => e.stopPropagation()} className="max-h-[80vh] w-full max-w-md overflow-auto rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3"><h4 className="text-sm font-semibold text-foreground">Como avaliar</h4><button type="button" onClick={() => setAberta(false)} aria-label="Fechar" className="rounded-full p-1 text-muted-foreground hover:bg-secondary"><X className="h-4 w-4" aria-hidden /></button></div>
+            <p className="mt-1 text-xs text-muted-foreground">{titulo}</p>
+            <p className="mt-3 whitespace-pre-line text-sm text-foreground">{texto}</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Um item do checklist, com as respostas e as fotos. */
 export function Item({ item, r: bruta, dataVisita, mostraPeso = true, onChange }: { item: ItemModelo; r: Resposta; dataVisita: string; /** O peso é da franqueadora: o gestor da unidade não o vê. */ mostraPeso?: boolean; onChange: (r: Resposta) => void }) {
   const r = efetiva(item, bruta, dataVisita);
@@ -105,7 +132,7 @@ export function Item({ item, r: bruta, dataVisita, mostraPeso = true, onChange }
   };
   return (
     <li className="rounded-xl border border-border bg-white p-3">
-      <p className="text-sm font-medium text-foreground">{item.texto}{item.foto === "sempre" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">pede foto</span>}{mostraPeso && (item.peso ?? 1) > 1 && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">peso {item.peso}</span>}</p>
+      <p className="text-sm font-medium text-foreground">{item.texto}{item.instrucao && <InstrucaoDoItem texto={item.instrucao} titulo={item.texto} />}{item.foto === "sempre" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">pede foto</span>}{mostraPeso && (item.peso ?? 1) > 1 && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">peso {item.peso}</span>}</p>
       {vence ? (
         <div className="mt-2 flex flex-wrap items-end gap-3">
           <label className="text-xs text-muted-foreground">Data de vencimento

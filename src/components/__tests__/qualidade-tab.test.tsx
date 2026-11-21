@@ -143,7 +143,7 @@ describe("Qualidade (menu e telas)", () => {
   });
 });
 
-import { Item } from "@/components/qualidade/NovaVisita";
+import { Item, InstrucaoDoItem } from "@/components/qualidade/NovaVisita";
 import { Detalhe } from "@/components/qualidade/Visitas";
 import { LocaisDasUnidades } from "@/components/qualidade/LocaisDasUnidades";
 
@@ -199,5 +199,15 @@ describe("Qualidade: check-in, check-out, selfie e data", () => {
   it("dono: marca o local das unidades (quantas já estão marcadas)", () => {
     const html = limpo(renderToString(<LocaisDasUnidades unidades={["Asa Norte", "Gama"]} locais={{ Gama: { lat: -16.02, lng: -48.06, raio: 300 } }} onMudou={() => {}} />));
     for (const t of ["Local das unidades", "1 de 2 unidades com o local marcado", "Usar onde estou", "Gama"]) expect(html).toContain(t);
+  });
+
+  it("como avaliar: o item com instrução mostra o ícone ao lado da pergunta; sem instrução, não", () => {
+    const base = { id: "i", grupo: "Recepção", texto: "Recepção organizada", peso: 1, foto: "nenhuma" as const };
+    const r = { conforme: null, na: false, comentario: "", fotos: [], equipamentos: [], vencimento: "" };
+    const com = limpo(renderToString(<Item item={{ ...base, instrucao: "Balcão limpo, sem objetos pessoais." }} r={r} dataVisita="2026-11-20" mostraPeso={false} onChange={() => {}} />));
+    expect(com).toContain("Como avaliar");
+    expect(com).toContain('aria-label="Como avaliar: Recepção organizada"');
+    expect(limpo(renderToString(<Item item={base} r={r} dataVisita="2026-11-20" mostraPeso={false} onChange={() => {}} />))).not.toContain("Como avaliar");
+    expect(limpo(renderToString(<InstrucaoDoItem texto="x" titulo="y" />))).toContain("Como avaliar"); // o texto só abre ao clicar
   });
 });

@@ -32,6 +32,9 @@ export class ErroQualidade extends Error {
 
 /** O checklist pede uma selfie no check-in? Por padrão a visita da franqueadora pede e o checklist da unidade não; o dono muda no editor. */
 export const pedeSelfie = (modelo) => (typeof modelo?.selfie === "boolean" ? modelo.selfie : modelo?.frequencia === "visita");
+/** Texto com quebras de linha (instruções): tira espaços sobrando, mantém no máximo uma linha em branco e corta no limite. */
+const textoLongo = (v, max) => String(v ?? "").replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, max);
+export const MAX_INSTRUCAO = 600;
 const texto = (v, max) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 const ehData = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 const dataDeVencimento = (s) => { const t = String(s ?? ""); return ehData(t) && t >= "2000-01-01" && t <= "2100-12-31" ? t : ""; };
@@ -58,7 +61,8 @@ export function normalizarModelo(bruto, agora = new Date()) {
     const foraDe = [...new Set((Array.isArray(i?.foraDe) ? i.foraDe : []).filter((u) => UNIDADES_DA_REDE.includes(u)))];
     // Unidades em que o item SÓ vale (o item que a unidade pediu e o dono liberou só para ela); sem a marca, vale para todas.
     const soEm = [...new Set((Array.isArray(i?.soEm) ? i.soEm : []).filter((u) => UNIDADES_DA_REDE.includes(u)))];
-    return { id, grupo: texto(i?.grupo, 60), texto: t, peso, foto, tipo, ...(foraDe.length ? { foraDe } : {}), ...(soEm.length ? { soEm } : {}) };
+    const instrucao = textoLongo(i?.instrucao, MAX_INSTRUCAO);
+    return { id, grupo: texto(i?.grupo, 60), texto: t, peso, foto, tipo, ...(instrucao ? { instrucao } : {}), ...(foraDe.length ? { foraDe } : {}), ...(soEm.length ? { soEm } : {}) };
   });
   const id = typeof bruto?.id === "string" && /^[a-z0-9-]{4,40}$/.test(bruto.id) ? bruto.id : randomUUID().slice(0, 8);
   return { id, nome, descricao: texto(bruto?.descricao, 200), frequencia, itens, ativo: bruto?.ativo !== false, ...(typeof bruto?.selfie === "boolean" ? { selfie: bruto.selfie } : {}), atualizadoEm: agora.toISOString() };

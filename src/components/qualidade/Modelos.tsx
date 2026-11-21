@@ -71,6 +71,7 @@ function Editor({ inicial, unidades, onSalvou, onCancelar }: { inicial: Rascunho
               <button type="button" aria-label="Descer o item" onClick={() => mover(i, 1)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary"><ArrowDown className="h-4 w-4" aria-hidden /></button>
               <button type="button" aria-label="Remover o item" onClick={() => setM((s) => ({ ...s, itens: s.itens.filter((_, j) => j !== i) }))} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary"><Trash2 className="h-4 w-4" aria-hidden /></button>
             </span>
+            <textarea value={it.instrucao ?? ""} maxLength={600} rows={2} onChange={(e) => item(i, { instrucao: e.target.value })} placeholder="Como avaliar (opcional): o que observar e o que conta como conforme. Aparece num ícone ao lado da pergunta." aria-label={`Como avaliar o item ${i + 1}`} className="rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:col-span-full" />
             <Select aria-label={`Tipo do item ${i + 1}`} className="h-9 sm:col-span-full sm:w-72" value={it.tipo ?? "conforme"} onChange={(e) => item(i, { tipo: e.target.value as TipoItem })}>
               {(Object.keys(TIPO_ROTULO) as TipoItem[]).map((t) => <option key={t} value={t}>{TIPO_ROTULO[t]}</option>)}
             </Select>

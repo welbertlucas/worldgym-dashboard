@@ -31,6 +31,17 @@ describe("checklists (modelos)", () => {
     expect(() => q.normalizarModelo({ nome: "x", itens: [{ texto: " " }] })).toThrow(/texto/);
   });
 
+  it("como avaliar: instrução por item, com quebras de linha mantidas, espaços limpos e limite de 600 caracteres; os roteiros sugeridos já trazem a de cada item", () => {
+    const m = q.normalizarModelo({ nome: "R", itens: [{ texto: "Piso", instrucao: "  Olhe o piso.  \r\n\r\n\r\n\r\nSem   lixo. " }, { texto: "Sem", instrucao: "   " }, { texto: "Longa", instrucao: "x".repeat(900) }] }, AGORA);
+    expect(m.itens[0].instrucao).toBe("Olhe o piso.\n\nSem lixo.");
+    expect("instrucao" in m.itens[1]).toBe(false);
+    expect(m.itens[2].instrucao).toHaveLength(600);
+    for (const modelo of [MODELO_SUGERIDO, MODELO_ABERTURA]) {
+      const n = q.normalizarModelo(modelo);
+      expect(n.itens.every((i: any) => typeof i.instrucao === "string" && i.instrucao.length > 20 && i.instrucao.length <= 600)).toBe(true);
+    }
+  });
+
   it("o roteiro sugerido tem 28 itens, todos válidos, com peso 3 em segurança e documentos e 2 em equipamentos e banheiros", () => {
     const m = q.normalizarModelo(MODELO_SUGERIDO);
     expect(m.itens).toHaveLength(28);
