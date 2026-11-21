@@ -37,6 +37,8 @@ export interface FluxoUnidades { pessoas: number; entradas: number; unidades: [s
 /** Totais de uma semana do mês de uma unidade (campos ausentes = a rotina daquele dado ainda não rodou para o mês). */
 export interface SemanaDoMes {
   faturamento?: number; recebimento?: number;
+  /** "Total de vendas" da semana (valor das vendas de contrato por data da venda, como no Gerencial do EVO). Quando existe, é o faturamento do relatório semanal; sem ele (meses lidos antes) vale o `faturamento` por títulos. */
+  totalVendas?: number;
   novosContratos?: number; vendasOnline?: number; diarias?: number; camisetas?: number; coqueteleiras?: number; personal?: number;
   /** Contratos vendidos como no Gerencial do EVO, e as receitas complementares que faltavam por semana (meses lidos antes não têm). */
   vendasContratos?: number; kids?: number; plus?: number; proMais?: number;

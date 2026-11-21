@@ -26,6 +26,8 @@ export const GRUPOS_DO_RELATORIO: GrupoRelatorio[] = [
 export const TODOS_OS_IDS = new Set(GRUPOS_DO_RELATORIO.flatMap((g) => g.itens.map((i) => i.id)));
 
 /** Nome do item na lista, no mês ou na semana. */
+export const AVISO_DO_RECEBIMENTO = "Recebimento = o que entrou no período, como no EVO: inclui títulos vencidos de meses anteriores pagos agora.";
+
 export function rotuloDaOpcao(id: string, tipo: "mes" | "semana"): string {
   if (id === ID_BIG) return tipo === "mes" ? "Overview (faturamento, adimplentes, novos contratos, contratos vendidos, ticket, inadimplência, vendas online e conversão)" : "Overview (faturamento, recebimento, novos contratos, contratos vendidos, vendas online, oportunidades, cancelamentos e conversão)";
   if (id === ID_MES_ATE_AQUI) return "O mês até aqui (em letras menores, no slide Overview, com a meta e o mesmo ponto do mês anterior)";

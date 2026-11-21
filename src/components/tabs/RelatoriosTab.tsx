@@ -14,7 +14,7 @@ import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { diasFechados } from "@/data/vendasDia";
 import { INDICADORES_PADRAO, LEGENDA_COMPLEMENTARES, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
 import { ID_PLANO, INDICADORES_SEMANA_PADRAO, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
-import { GRUPOS_DO_RELATORIO, previaDoItem, rotuloDaOpcao } from "@/data/relatorioOpcoes";
+import { AVISO_DO_RECEBIMENTO, GRUPOS_DO_RELATORIO, previaDoItem, rotuloDaOpcao } from "@/data/relatorioOpcoes";
 import { lerEscolhas, salvarEscolhas } from "@/lib/relatorioEscolhas";
 import { getUsuario, podeGerarRelatorios, unidadesProprias } from "@/lib/auth";
 import { registrarExportacao } from "@/lib/atividade";
@@ -202,6 +202,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
                             {rotulo}
                             {!existe && <span className="block text-xs">só {tipo === "mes" ? "no relatório da semana" : "no mês fechado"}</span>}
                             {existe && it.id === ID_PLANO && motivoSemPlano && <span className="block text-xs text-muted-foreground">{motivoSemPlano}</span>}
+                            {existe && it.id === "rec" && <span className="block text-xs text-muted-foreground">{AVISO_DO_RECEBIMENTO}</span>}
                             {existe && it.id === "compl" && <span className="block text-xs text-muted-foreground">{LEGENDA_COMPLEMENTARES}</span>}
                             {marcado && modelo && (previa
                               ? <span className="block text-xs font-medium text-primary">{previa}</span>

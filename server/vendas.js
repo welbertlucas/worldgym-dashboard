@@ -158,7 +158,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasContratos: 0, vendasManuais: 0, vendasRecorrentes: 0, vendasOnlineContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _vendedores: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0), semanas: Array.from({ length: dias > 28 ? 5 : 4 }, () => ({ novosContratos: 0, vendasContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0 })) });
+    const u = (por[nome] ??= { novosContratos: 0, vendasContratos: 0, vendasManuais: 0, vendasRecorrentes: 0, vendasOnlineContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _vendedores: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0), semanas: Array.from({ length: dias > 28 ? 5 : 4 }, () => ({ novosContratos: 0, vendasContratos: 0, totalVendas: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0 })) });
     const dia = Number(String(s.saleDate ?? "").slice(8, 10));
     const sem = dia >= 1 && dia <= dias ? u.semanas[semanaDoDia(dia) - 1] : null; // semana do mês (relatórios semanais)
     for (const i of s.saleItens || []) {
@@ -207,6 +207,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
       // "Total de vendas" como no Gerencial do EVO: o valor das vendas de contrato do mês, separado por origem (recepção, recorrência automática, online).
       if (i.idMembership) {
         const v = i.saleValue || 0;
+        if (sem) sem.totalVendas += v; // o "Total de vendas" de cada semana (o relatório semanal usa este, e não os títulos)
         if (ehRecorrencia(s)) u.vendasRecorrentes += v;
         else if (s.saleSource === ONLINE) u.vendasOnlineContratos += v;
         else u.vendasManuais += v;
@@ -219,7 +220,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   for (const u of Object.values(por)) {
     for (const k of ["vendasManuais", "vendasRecorrentes", "vendasOnlineContratos", "vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "kids", "plus", "proMais"]) u[k] = round2(u[k]);
     for (const t of Object.values(u.tipoVenda)) t[1] = round2(t[1]);
-    for (const w of u.semanas) for (const k of ["vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal"]) w[k] = round2(w[k]);
+    for (const w of u.semanas) for (const k of ["totalVendas", "vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal"]) w[k] = round2(w[k]);
     // Guarda os 10 planos mais vendidos (o painel mostra 5; a rede soma os das unidades).
     u.contratosVendidos = [...u._planos].map(([n, [q, v]]) => [n, q, round2(v)]).sort((a, b) => b[1] - a[1] || b[2] - a[2]).slice(0, 10);
     u.familiasVendidas = [...u._familias].map(([n, [q, v]]) => [n, q, round2(v)]).sort((a, b) => b[1] - a[1] || b[2] - a[2]);

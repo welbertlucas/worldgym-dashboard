@@ -1,7 +1,7 @@
 // Desenha a apresentação (.pptx editável) do Relatório a partir do modelo montado em src/data/relatorio.ts.
 // Gráficos nativos do PowerPoint (dá para editar os números), cores e disposição do Report Operacional da rede.
 // O pptxgenjs só é baixado quando a pessoa clica em "Gerar" (import dinâmico).
-import type { Formato, ModeloRelatorio } from "@/data/relatorio";
+import { NOTA_RECEBIMENTO, type Formato, type ModeloRelatorio } from "@/data/relatorio";
 import { paginasDoPlano } from "@/data/relatorioPlano";
 import capaFoto from "@/assets/relatorio/capa.jpg";
 import fechoFoto from "@/assets/relatorio/fecho.jpg";
@@ -116,6 +116,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
       s.addText("Índice de conversão de vendas", { x: 9.9, y: 5.5 + dy * 0.8, w: 3.3, h: 0.4, fontFace: TXT, fontSize: 14, italic: true, color: PRETO, align: "center" });
       if (m.oportunidades !== null) s.addText(`${m.oportunidades.toLocaleString("pt-BR")} oportunidades cadastradas${m.convertidas !== null ? `\n${m.convertidas.toLocaleString("pt-BR")} convertidas` : ""}`, { x: 9.9, y: 5.9 + dy * 0.8, w: 3.3, h: 0.7, fontFace: TXT, fontSize: 16, bold: true, color: VINHO, align: "center", valign: "top" });
     }
+    if (m.notaRecebimento && m.big.some((k) => k.nome === "Recebimento")) s.addText(m.notaRecebimento, { x: 0.7, y: 6.62, w: 12.0, h: 0.4, fontFace: TXT, fontSize: 9.5, italic: true, color: CINZA, valign: "top" });
     rodape(s);
   }
 
@@ -143,6 +144,8 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
     const s = slideDeDados();
     s.addText(r.titulo.toUpperCase(), { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
     s.addText(r.subtitulo, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    // Recebimento de uma unidade só (cartão): o aviso fica logo abaixo do subtítulo. Em ranking, o aviso vai na coluna da direita (r.nota).
+    if (r.id === "rec" && r.cartao) s.addText(NOTA_RECEBIMENTO, { x: 1.2, y: 1.06, w: 10.9, h: 0.4, fontFace: TXT, fontSize: 9.5, italic: true, color: CINZA, align: "center", valign: "top" });
     if (r.cartao?.serie) {
       // Uma unidade só: valor e variação em cima, evolução dos últimos períodos embaixo (coluna do período em vinho; meta como linha)
       const c = r.cartao, sr = c.serie!;

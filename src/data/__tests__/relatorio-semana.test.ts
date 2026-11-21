@@ -185,4 +185,13 @@ describe("relatório semanal: contratos vendidos, mês até aqui no Overview e r
     expect(resumoDosSlides(m)).toContain("Receitas complementares");
     expect(m.rankings).toEqual([]); // diárias, personal, camisetas e coqueteleiras não são mais slides soltos
   });
+
+  it("o faturamento da semana é o Total de vendas (como no EVO) quando o mês o tem; sem ele, os títulos", () => {
+    const novo = month("2026-11", [com("Asa Norte", [{ faturamento: 1000, totalVendas: 1800, recebimento: 1500, novosContratos: 1 }])]);
+    const m = montarRelatorioSemanal([novo], "2026-11", 1, [ID_BIG], null, 30)!;
+    expect(m.big!.find((k) => k.nome === "Faturamento")!.valor).toBe("R$ 1.800"); // as vendas, não os títulos (R$ 1.000)
+    const antigo = month("2026-11", [com("Asa Norte", [{ faturamento: 1000, recebimento: 1500, novosContratos: 1 }])]);
+    expect(montarRelatorioSemanal([antigo], "2026-11", 1, [ID_BIG], null, 30)!.big!.find((k) => k.nome === "Faturamento")!.valor).toBe("R$ 1.000"); // mês lido antes do campo
+  });
 });
+

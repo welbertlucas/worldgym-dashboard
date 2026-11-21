@@ -49,6 +49,10 @@ describe("semanas fixas do mês", () => {
     expect(sem.map((w: { novosContratos: number }) => w.novosContratos)).toEqual([1, 1, 0, 0, 1]);
     expect(sem[1]).toMatchObject({ vendasOnline: 150, diarias: 50 });
     expect(por["Asa Norte"].novosContratos).toBe(3);
+    // "Total de vendas" por semana: só vendas de contrato, pelo dia da venda (a diária não entra); a soma das semanas fecha com a do mês
+    expect(sem.map((w: { totalVendas: number }) => w.totalVendas)).toEqual([100, 150, 0, 0, 90]);
+    const u = por["Asa Norte"];
+    expect(sem.reduce((n: number, w: { totalVendas: number }) => n + w.totalVendas, 0)).toBe(u.vendasManuais + u.vendasRecorrentes + u.vendasOnlineContratos);
   });
 
   it("prospects: cadastradas e convertidas dentro de cada semana; semana que ainda não começou fica fora", () => {

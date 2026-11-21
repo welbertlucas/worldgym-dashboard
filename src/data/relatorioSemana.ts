@@ -3,7 +3,7 @@
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
 import type { Meta, MetaKey } from "@/data/metas";
 import type { PlanoDaUnidade } from "@/data/relatorioPlano";
-import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, NOTA_RECEBIMENTO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -51,7 +51,7 @@ export interface DefSemana {
 }
 /** Indicadores que existem por semana (ticket, inadimplência, adimplentes, churn e notas são do mês, não da semana). */
 export const SEMANAIS: DefSemana[] = [
-  { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", formato: "brl", campo: (s) => s.faturamento },
+  { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", formato: "brl", campo: (s) => s.totalVendas ?? s.faturamento },
   { id: "rec", rotulo: "Recebimento", titulo: "Recebimento", formato: "brl", campo: (s) => s.recebimento },
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", formato: "int", campo: (s) => s.novosContratos },
   { id: "cv", rotulo: "Contratos vendidos (total)", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.vendasContratos },
@@ -204,7 +204,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
     }
     const itens: [string, number][] = atual.filter((d) => typeof def.campo(d.s) === "number").map((d) => [d.u.name, Math.round(num(def.campo(d.s)) * 100) / 100]);
     if (!itens.length) continue;
-    rankings.push({ id, titulo: def.titulo, subtitulo: sub, formato: def.formato, itens: itens.sort((a, b) => b[1] - a[1]) });
+    rankings.push({ id, titulo: def.titulo, subtitulo: sub, formato: def.formato, itens: itens.sort((a, b) => b[1] - a[1]), ...(id === "rec" ? { nota: NOTA_RECEBIMENTO } : {}) });
   }
 
   let big: BigNumero[] | null = null, oportunidades: number | null = null, convertidas: number | null = null, conversao: number | null = null;
@@ -257,6 +257,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,
     tipo: "semana", parcialAte, mesAteAqui, frequencia, complementares,
+    notaRecebimento: big?.some((k) => k.nome === "Recebimento") || rankings.some((r) => r.id === "rec") || mesAteAqui?.itens.some((k) => k.nome === "Recebimento") ? NOTA_RECEBIMENTO : null,
     // O plano é de uma unidade só e do mês em andamento: quem monta já confere isso, aqui só entra se foi pedido e o relatório é de uma unidade
     plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.u.name ? plano : null,
   };

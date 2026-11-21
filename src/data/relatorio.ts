@@ -58,6 +58,9 @@ export const ID_COMPL = "compl";
 /** Slide "Satisfação": NPS, nota no Google e nota no Reclame Aqui num slide só. */
 export const ID_SATISF = "satisf";
 
+/** Aviso que acompanha todo número de recebimento nos relatórios: o EVO soma o que entrou no período, inclusive títulos vencidos de meses anteriores pagos agora. */
+export const NOTA_RECEBIMENTO = "Recebimento = o que entrou no período, como no EVO. Inclui títulos vencidos de meses anteriores que foram pagos agora (saldo devedor recuperado), por isso pode passar do faturamento.";
+
 /** Slide "Metas do mês": cada meta da planilha, o resultado e o nível atingido (só relatório de mês fechado). */
 export const ID_METAS = "metas";
 
@@ -238,6 +241,8 @@ export interface ModeloRelatorio {
   satisfacao?: SlideSatisfacao | null;
   /** Slide "Metas do mês". */
   metas?: SlideMetas | null;
+  /** Aviso sobre o recebimento (relatório semanal): inclui títulos vencidos de meses anteriores que foram pagos agora. */
+  notaRecebimento?: string | null;
   /** Texto livre da pessoa que gera o relatório (slide "Observações"). */
   observacoes?: string | null;
 }
