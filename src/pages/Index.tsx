@@ -38,6 +38,7 @@ import { EmBreve } from "@/components/EmBreve";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
+import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 import { comercialSpecs, complementaresSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { viewFor } from "@/data/kpiView";
 import { computeAlerts, sameMonthLastYear } from "@/data/alerts";
@@ -473,7 +474,10 @@ const Index = () => {
             {aba === "despesas" && <EmBreve titulo="Despesas" descricao="Contas a pagar, contas pagas e gráficos de despesas, vindos da integração com o sistema financeiro." />}
             {aba === "resumo" && (<>
               {/* Adimplentes e inadimplência ficam junto com os cards do financeiro, todos do mesmo tamanho */}
-              <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[...financeiroSpecs, ...retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")]} columns="lg:grid-cols-3 xl:grid-cols-5" /></div>
+              <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[...financeiroSpecs, ...retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")]} columns={ehDono() ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-3 xl:grid-cols-5"}>
+                {/* Velocímetro de despesas: só o dono vê, e só ganha número quando a integração (contas a pagar) existir */}
+                {ehDono() && <KpiGaugeCard title="Despesas" value="—" fill={0} marker={null} tone="neutral" details={[{ text: "Em breve: vem da integração de contas a pagar", tone: "neutral" }]} />}
+              </KpiGrid></div>
               <div className="mb-6"><FaturamentoProjecao total={kpiCtx.cur.total} month={fullMonthData.month} partial={partialSelected} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} metas={metasData} /></div>
               <div className="grid grid-cols-1 gap-6 mb-10">
                 <RevenueChart selectedUnit={selectedUnit} />
