@@ -35,12 +35,10 @@ export const LIMIARES_VIGENTES = {
   cancelamentos: { criticoPct: 8, atencaoPP: 1.5, criticoPP: 2.2 },
   /** Só com 10 ou mais contratos vencidos no mês. */
   renovacao: { minVenceram: 10, atencaoPP: 14, criticoPP: 20 },
-  // Conversão das oportunidades (cadastradas no mês e convertidas no mês) contra o mesmo dia dos 3 meses anteriores (u.ritmoConversao).
-  // Calibrado em 16/11/2026 com mai–out/2026 nos dias 7 a 25 (629 casos): cai 13 p.p. ou mais em 10% das vezes e 20 ou mais em 5%.
-  /** Só com 40 ou mais oportunidades no mês até o dia (com menos, um aluno muda a taxa em vários pontos). */
-  // TEMPORÁRIO (etapa 2, 21/11/2026): o alerta passou para a conversão do cartão do EVO (visitantes x convertidos) e os limiares antigos (13 e 20 p.p.)
-  // eram da conversão por cadastros. Ficam desligados (100 p.p.) até calibrar com o histórico.
-  conversao: { minOportunidades: 40, atencaoPP: 100, criticoPP: 100 },
+  // Conversão de visitantes (como no cartão do EVO: convertidos com contrato, sem VIP, ÷ visitantes presenciais) contra o mesmo dia dos 3 meses anteriores (u.ritmoConversao).
+  // Calibrado em 21/11/2026 com jan/2025 a out/2026 nos dias 7 a 25 (7.233 casos, só unidades com 40+ visitantes): cai 11 p.p. ou mais em 10% das vezes e 16 ou mais em 5%.
+  /** Só com 40 ou mais visitantes no mês até o dia (com menos, um aluno muda a taxa em vários pontos). */
+  conversao: { minOportunidades: 40, atencaoPP: 11, criticoPP: 16 },
   /** Alunos ativos que não vêm há 16 a 60 dias (último acesso): ainda dá para trazer de volta. Informativo até haver histórico. */
   sumidos: { minimo: 10 },
 } as const;

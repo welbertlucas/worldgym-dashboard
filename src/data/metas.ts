@@ -127,11 +127,18 @@ export function parseMetasCSV(csv: string, defaultYear: number = defaultMetaYear
   return out;
 }
 
+/**
+ * Metas consideradas pelo Atlas: só as de faturamento (decisão do dono em 21/11/2026). As outras linhas da aba Metas (novos contratos, vendas online,
+ * churn, inadimplência, renovação, conversão...) são ignoradas em toda a ferramenta, painel, relatórios e e-mail.
+ */
+export const METAS_CONSIDERADAS: MetaKey[] = ["faturamento"];
+export const soMetasConsideradas = (metas: Meta[]): Meta[] => metas.filter((m) => METAS_CONSIDERADAS.includes(m.key));
+
 export async function syncMetasFromSheets(): Promise<{ ok: boolean; count: number }> {
   try {
     const res = await authFetch(METAS_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const parsed = parseMetasCSV(await res.text());
+    const parsed = soMetasConsideradas(parseMetasCSV(await res.text()));
     metasRede = parsed;
     // Meta da rede contra o total de só algumas unidades enganaria: quem vê só as suas fica com as metas das unidades.
     metasData = unidadesProprias() ? parsed.filter((m) => m.unit !== "TOTAL") : parsed;

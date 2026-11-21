@@ -71,7 +71,8 @@ export async function lerMetasPlanilha(chave = process.env.GOOGLE_SERVICE_ACCOUN
   const { token } = await (await auth.getClient()).getAccessToken();
   const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Metas'")}!A1:Z2000?majorDimension=ROWS`, { headers: { Authorization: `Bearer ${token}` } });
   if (!r.ok) throw new Error(`API do Sheets: HTTP ${r.status}`);
-  return parseMetas((await r.json()).values ?? []);
+  // Só as metas de faturamento valem (decisão do dono em 21/11/2026); as outras linhas da aba são ignoradas.
+  return parseMetas((await r.json()).values ?? []).filter((m) => m.chave === "faturamento");
 }
 
 const atinge = (chave, atual, alvo) => (INDICADORES_META[chave].menorMelhor ? atual <= alvo : atual >= alvo);

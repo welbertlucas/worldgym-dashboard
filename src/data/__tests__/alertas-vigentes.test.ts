@@ -91,13 +91,11 @@ describe("alertas do mês vigente", () => {
     expect(de("A", "sumidos")?.fact).toContain("150 alunos ativos não vêm à academia há 16 a 60 dias");
   });
 
-  // Etapa 2 (21/11/2026): o alerta passou para a conversão do cartão do EVO e os limiares ficam desligados (100 p.p.) até a calibração.
-  // Este teste volta (com os novos limiares) quando o alerta for ligado de novo.
-  it.skip("conversão dos visitantes contra o mesmo dia: só com 40 ou mais visitantes", () => {
+  it("conversão dos visitantes contra o mesmo dia: só com 40 ou mais visitantes", () => {
     const rc = (oportunidades: number, conversoes: number, taxa: number) => ({ dia: 15, oportunidades, conversoes, taxa, base: { meses: 3, taxa: 75 } });
     const nov = mes("2026-11", [
       u("A", { ritmoConversao: rc(80, 40, 50) }), // −25 p.p.
-      u("B", { ritmoConversao: rc(100, 60, 60) }), // −15 p.p.
+      u("B", { ritmoConversao: rc(100, 60, 60) }), // −15 p.p.: atenção (limiar 11) abaixo do crítico (16)
       u("C", { ritmoConversao: rc(100, 68, 68) }), // −7 p.p.: normal
       u("D", { ritmoConversao: rc(30, 10, 33.3) }), // poucas oportunidades
     ]);
@@ -109,12 +107,6 @@ describe("alertas do mês vigente", () => {
     expect(de("B")?.severity).toBe("attention");
     expect(de("C")).toBeUndefined();
     expect(de("D")).toBeUndefined();
-  });
-
-  it("conversão de visitantes: enquanto os limiares não forem calibrados, o alerta fica desligado", () => {
-    const nov = mes("2026-11", [u("A", { ritmoConversao: { dia: 15, oportunidades: 80, conversoes: 20, taxa: 25, base: { meses: 3, taxa: 75 } } })]); // queda de 50 p.p.
-    const r = computeAlertasVigentes([...fechados, nov], [], { atualizadoEm: lido, now, incluirRede: false });
-    expect(r.alertas.find((a) => a.kind === "conversao")).toBeUndefined();
   });
 
   it("sem o mês corrente nos dados: nada", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attainment, metaWarnings, nextTier, parseMetasCSV, tierReached, type Meta } from "@/data/metas";
+import { attainment, metaWarnings, nextTier, parseMetasCSV, soMetasConsideradas, tierReached, type Meta } from "@/data/metas";
 
 describe("metas bronze/prata/ouro", () => {
   it("lê a aba Metas com os três níveis (opcionais) e mapeia a rede", () => {
@@ -55,4 +55,11 @@ describe("metas bronze/prata/ouro", () => {
     expect(attainment("churn", 8, 4)).toBe(50);
     expect(attainment("faturamento", 1, 0)).toBeNull();
   });
+
+  it("só as metas de faturamento são consideradas; as outras linhas da aba são ignoradas", () => {
+    const csv = "Mês,Unidade,Indicador,Bronze,Prata,Ouro\nnov/2026,Asa Norte,Faturamento,100,150,200\nnov/2026,Asa Norte,Churn,5,4,3\nnov/2026,Asa Norte,Conversão,40,50,60\nnov/2026,REDE,Novos contratos,10,20,30";
+    expect(parseMetasCSV(csv, 2026).map((m) => m.key)).toEqual(["faturamento", "churn", "icv", "novosContratos"]); // a leitura da planilha traz tudo
+    expect(soMetasConsideradas(parseMetasCSV(csv, 2026)).map((m) => m.key)).toEqual(["faturamento"]); // o Atlas só usa faturamento
+  });
 });
+
