@@ -12,7 +12,7 @@ import { carregarFeitos, type Feito } from "@/data/planoFeitos";
 import { planoDaUnidade } from "@/data/relatorioPlano";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { diasFechados } from "@/data/vendasDia";
-import { ID_BIG, INDICADORES_PADRAO, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
+import { ID_BIG, ID_FREQ, INDICADORES_PADRAO, RANKINGS, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
 import { ID_CONVERSAO, ID_MES_ATE_AQUI, ID_PLANO, INDICADORES_SEMANA_PADRAO, SEMANAIS, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
 import { getUsuario, podeGerarRelatorios, unidadesProprias } from "@/lib/auth";
 import { registrarExportacao } from "@/lib/atividade";
@@ -145,14 +145,14 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-foreground">Indicadores</h3>
               <div className="flex gap-3 text-xs">
-                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id), ID_PLANO] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO, ID_PLANO])}>Marcar todos</button>
+                <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores(tipo === "mes" ? [ID_BIG, ...RANKINGS.map((r) => r.id), ID_FREQ, ID_PLANO] : [ID_BIG, ID_MES_ATE_AQUI, ...SEMANAIS.map((r) => r.id), ID_CONVERSAO, ID_FREQ, ID_PLANO])}>Marcar todos</button>
                 <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores([])}>Limpar</button>
               </div>
             </div>
             <div className="mt-3 grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
               <label className="flex items-center gap-2 text-sm text-foreground">
                 <input type="checkbox" checked={indicadores.includes(ID_BIG)} onChange={() => alternar(ID_BIG)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-                {tipo === "mes" ? "Números gerais (faturamento, adimplentes, contratos, ticket, inadimplência, vendas online e conversão)" : "Números gerais (faturamento, recebimento, contratos, vendas online, oportunidades, cancelamentos e conversão)"}
+                {tipo === "mes" ? "Números gerais (faturamento, adimplentes, novos contratos, contratos vendidos, ticket, inadimplência, vendas online e conversão)" : "Números gerais (faturamento, recebimento, contratos, vendas online, oportunidades, cancelamentos e conversão)"}
               </label>
               {tipo === "semana" && (
                 <label className="flex items-center gap-2 text-sm text-foreground">
@@ -165,13 +165,17 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
                   <input type="checkbox" checked={indicadores.includes(r.id)} onChange={() => alternar(r.id)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />{prefixo}{r.rotulo}
                 </label>
               ))}
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input type="checkbox" checked={indicadores.includes(ID_FREQ)} onChange={() => alternar(ID_FREQ)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+                Frequência dos alunos (mapa de calor do período e último check-in){tipo === "semana" ? " · o mapa é do mês até aqui" : ""}
+              </label>
               <label className={`flex items-center gap-2 text-sm ${plano || !motivoSemPlano ? "text-foreground" : "text-muted-foreground"}`}>
                 <input type="checkbox" checked={indicadores.includes(ID_PLANO)} onChange={() => alternar(ID_PLANO)} className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
                 Plano de ação da unidade (itens em aberto do mês em andamento){motivoSemPlano ? ` · ${motivoSemPlano}` : ""}
               </label>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">{tipo === "mes"
-              ? `${umaUnidade ? "Cada indicador vira um slide com o valor em destaque." : "Cada ranking vira um slide, com gráfico editável."} Notas (NPS, Google e Reclame Aqui) só entram nas unidades que têm nota no mês.`
+              ? `${umaUnidade ? "Cada indicador vira um slide com o valor em destaque." : "Cada ranking vira um slide, com gráfico editável."} Notas (NPS, Google e Reclame Aqui) só entram nas unidades que têm nota no mês. Churn e Cancelamentos trazem um slide com os motivos; Inadimplência, um com os principais motivos de recusa do cartão.`
               : "Na semana só entram indicadores que existem por semana. Ticket médio, inadimplência, churn e notas são do mês e ficam de fora. Todo percentual leva a base (ex.: 4 de 12)."}</p>
           </section>
         </div>

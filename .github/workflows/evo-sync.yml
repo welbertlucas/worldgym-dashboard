@@ -139,6 +139,14 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: node scripts/evo-formas-pagamento.mjs $MONTHS_DONE
       - if: ${{ !cancelled() }}
+        name: Cartão de crédito a receber no mês (por dia)
+        continue-on-error: true
+        env:
+          EVO_DNS: ${{ secrets.EVO_DNS }}
+          EVO_TOKEN: ${{ secrets.EVO_TOKEN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/evo-cartao-a-receber.mjs $MONTHS_DONE
+      - if: ${{ !cancelled() }}
         name: Mesmo dia dos meses anteriores (só lê o EVO quando um mês fecha)
         continue-on-error: true
         env:

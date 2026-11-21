@@ -61,17 +61,17 @@ describe("série do ano anterior", () => {
 });
 
 describe("Visão Executiva", () => {
-  it("renderiza indicadores, gráfico, ranking, prioridades e comparação sem quebrar", () => {
+  it("o Overview traz só os velocímetros: nada de gráfico, ranking, plano de ação nem comparação entre unidades", () => {
     const months = ["2025-09", "2026-07", "2026-08", "2026-09"].map((m) => month(m, [unit("A"), unit("B", { faturamento: 80000 })]));
     carregar(...months);
     const cur = months[3];
     const html = renderToString(
-      <ExecutivaTab month={cur} prev={months[2]} vigentes={{ month: null, dias: 0, comRitmo: false, alertas: [] }} evalMonth="2026-09" deltas={[]} metas={[]} onOpenPlano={() => {}} onOpenUnidades={() => {}} />,
+      <ExecutivaTab month={cur} prev={months[2]} metas={[]} />,
     ).replace(/<!-- -->/g, "");
-    for (const s of ["Overview", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede", "Faturamento da rede", "Maiores faturamentos", "Plano de ação", "Ver o plano completo"]) expect(html).toContain(s);
+    for (const s of ["Overview", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede"]) expect(html).toContain(s);
+    for (const s of ["Faturamento da rede", "Maiores faturamentos", "Plano de ação", "Ver o plano completo", "Comparação entre unidades"]) expect(html).not.toContain(s);
     expect(html).toContain("vs. set. de 2025"); // comparativo anual quando o mês do ano anterior existe
     expect(html).toContain("vs. ago. de 2026"); // mês fechado: compara com o mês anterior, citando o mês
-    expect(html).toContain("O plano aparece depois da primeira leitura do mês no EVO");
   });
 
   it("RevenueTrend aceita séries sem o ano anterior", () => {
@@ -87,11 +87,10 @@ describe("mês em andamento", () => {
     const months = [month(monthKey(prevDate), [unit("A")]), month(cur, [unit("A")])];
     carregar(...months);
     const html = renderToString(
-      <ExecutivaTab month={months[1]} prev={months[0]} vigentes={{ month: null, dias: 0, comRitmo: false, alertas: [] }} evalMonth={null} deltas={[]} metas={[]} onOpenPlano={() => {}} onOpenUnidades={() => {}} />,
+      <ExecutivaTab month={months[1]} prev={months[0]} metas={[]} />,
     ).replace(/<!-- -->/g, "");
     expect(html).toContain("em andamento");
     expect(html).toContain("Em andamento");
-    expect(html).toContain("provisório");
     expect(html).toMatch(/100% de R\$[^<]* de /); // faturamento parcial = quanto do mês anterior já foi alcançado
     expect(html).not.toContain("vs. set. de 2025"); // sem comparativo anual em mês parcial
   });

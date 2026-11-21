@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SeletorPeriodo } from "@/components/executiva/SeletorPeriodo";
-import { Select } from "@/components/ui/select";
+import { SeletorDeUnidades } from "@/components/royalties/SeletorDeUnidades";
 import { cn } from "@/lib/utils";
 import { type ContextoRoyalties, type FiltroRoyalties, filtroInicial, saldoDe, brl0 } from "@/data/royalties";
 
@@ -50,11 +50,8 @@ export function FiltrosRoyalties({ c, f, onChange }: { c: ContextoRoyalties; f: 
           <button type="button" aria-pressed={f.soDevedoras} className={botao(f.soDevedoras)} onClick={() => onChange({ ...f, soDevedoras: true, unidades: f.unidades.filter((u) => saldoDe(c, u) > 0.005) })}>Só devedoras</button>
         </div>
         <label className="text-xs text-muted-foreground">
-          Unidade
-          <Select aria-label="Unidade" className="mt-1 h-9 w-56" value={f.unidades[0] ?? ""} onChange={(e) => onChange({ ...f, unidades: e.target.value ? [e.target.value] : [] })}>
-            <option value="">Todas as unidades</option>
-            {unidades.map((u) => <option key={u} value={u}>{u}{saldoDe(c, u) > 0.005 ? ` · deve ${brl0(saldoDe(c, u))}` : ""}</option>)}
-          </Select>
+          Unidades
+          <SeletorDeUnidades opcoes={unidades} marcadas={f.unidades} onChange={(u) => onChange({ ...f, unidades: u })} extra={(u) => (saldoDe(c, u) > 0.005 ? `deve ${brl0(saldoDe(c, u))}` : "")} />
         </label>
         {mudou && <button type="button" onClick={() => onChange(filtroInicial(c))} className="pb-2 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">Limpar filtros</button>}
       </div>

@@ -26,6 +26,8 @@ import { OportunidadesPorUnidade } from "@/components/OportunidadesPorUnidade";
 import { ContratosVendidos, ProdutosVendidos, TaxasCobradas } from "@/components/ContratosVendidos";
 import { BandeirasCartao, FormasPagamento, GatewaysCartao } from "@/components/FormasPagamento";
 import { TaxaCartaoPorUnidade } from "@/components/TaxaCartaoPorUnidade";
+import { CartaoAReceber } from "@/components/CartaoAReceber";
+import { hojeBR } from "@/data/influenciadores";
 import { InadPerfilCard } from "@/components/clientes/CancelPerfilCard";
 import { AvisoVerComo, VerComo } from "@/components/VerComo";
 import { CobrancasRecusa } from "@/components/CobrancasRecusa";
@@ -284,8 +286,8 @@ const Index = () => {
       <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} />
 
       <div className="flex-1 min-w-0">
-        <div role="note" className="flex items-center justify-center gap-2 border-b border-primary/20 bg-primary/10 px-3 py-1.5 text-center text-xs text-foreground sm:text-sm">
-          <span className="rounded-full bg-primary px-2 py-px text-[10px] font-bold uppercase tracking-wider text-primary-foreground">Beta</span>
+        <div role="note" className="flex items-center justify-center gap-2 border-b border-border px-3 py-1.5 text-center text-xs text-muted-foreground sm:text-sm">
+          <span className="rounded-full border border-border px-2 py-px text-[10px] font-bold uppercase tracking-wider text-foreground">Beta</span>
           <span>Você está usando uma versão beta do Atlas: ela continua evoluindo e pode ter ajustes e pequenas falhas.</span>
         </div>
         <header className="border-b border-border sticky top-0 z-40 bg-white/85 backdrop-blur-md">
@@ -301,15 +303,6 @@ const Index = () => {
                 <Menu className="w-5 h-5" aria-hidden />
                 {novidadesNovas > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" aria-hidden />}
               </button>
-              <div className="min-w-0">
-                <h1 className="text-base sm:text-xl font-semibold tracking-tight text-foreground leading-tight sm:truncate">
-                  Dashboard de resultados
-                </h1>
-                <p className="text-muted-foreground text-xs sm:text-sm sm:truncate first-letter:uppercase">
-                  {activeTab === "benchmark" ? (selectedUnit ? `${selectedUnit} na rede` : "Rede") : (seletorProprio ? unidadeDaAba : semFiltroDeUnidade ? null : selectedUnit) ?? (soAsProprias ? (soAsProprias.length === 1 ? soAsProprias[0] : "Suas unidades") : "Rede")}{!semMes && <> • {formatDate(fullMonthData.month)}</>}
-                  {compareMonth && ` x ${formatDate(compareMonth)}`}
-                </p>
-              </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {loadedAt && (
@@ -406,12 +399,9 @@ const Index = () => {
         {activeTab === "executiva" && (
           <ExecutivaTab
             {...(soAsProprias
-              ? { month: fullMonthData, prev: compareMonth ? getDataByMonth(compareMonth) ?? prevMonthData : prevMonthData, evalMonth, deltas: unitDeltas, metas: metasData, serie: dashboardData, unidades: soAsProprias }
-              : { month: redeMonthData, prev: compareMonth ? getDataByMonthRede(compareMonth) ?? redePrevMonthData : redePrevMonthData, evalMonth: evalMonthRede, deltas: unitDeltasRede, metas: metasRede, serie: dashboardDataRede })}
+              ? { month: fullMonthData, prev: compareMonth ? getDataByMonth(compareMonth) ?? prevMonthData : prevMonthData, metas: metasData, serie: dashboardData, unidades: soAsProprias }
+              : { month: redeMonthData, prev: compareMonth ? getDataByMonthRede(compareMonth) ?? redePrevMonthData : redePrevMonthData, metas: metasRede, serie: dashboardDataRede })}
             comparaMesEscolhido={!!compareMonth}
-            vigentes={vigentes}
-            onOpenPlano={() => changeTab("plano")}
-            onOpenUnidades={() => changeTab("benchmark")}
             onOpenMetas={() => changeTab("metas")}
           />
         )}
@@ -488,6 +478,7 @@ const Index = () => {
             </>)}
             {aba === "recebimento" && (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-10">
+                {partialSelected && <div className="xl:col-span-2"><CartaoAReceber total={kpiCtx.cur.total} units={fullMonthData.units} month={fullMonthData.month} hoje={hojeBR()} unitLabel={quem} porUnidade={!selectedUnit} /></div>}
                 <FormasPagamento total={kpiCtx.cur.total} monthLabel={mes} unitLabel={quem} />
                 <BandeirasCartao total={kpiCtx.cur.total} monthLabel={mes} unitLabel={quem} />
                 <GatewaysCartao total={kpiCtx.cur.total} monthLabel={mes} unitLabel={quem} />

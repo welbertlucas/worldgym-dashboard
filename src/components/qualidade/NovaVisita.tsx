@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Check, Info, MapPin, Plus, UserRound, X } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
+import { Notice } from "@/components/Notice";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
@@ -296,6 +297,8 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
   };
 
   return (
+    <div className="space-y-4">
+      <Notice icon="alert"><b>Aplique o checklist pelo celular, não pelo computador.</b> O check-in precisa da localização e da selfie do aparelho que está na unidade.</Notice>
     <ChartCard title={daUnidade ? "Preencher o checklist" : "Nova visita"} subtitle={daUnidade ? "Faça o check-in, responda cada item, fotografe o que for preciso e envie. O envio vale para hoje." : "Escolha a unidade e o checklist, faça o check-in com a selfie, responda cada item e registre a visita."}>
       <div className="flex flex-wrap items-end gap-3">
         {!(daUnidade && dados.unidades.length === 1) && <label className="text-xs text-muted-foreground">Unidade
@@ -359,5 +362,6 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
       )}
       {(!modelo || !unidade) && <p className="mt-4 text-sm text-muted-foreground">{daUnidade && dados.unidades.length === 1 ? "Escolha o checklist para começar." : "Escolha a unidade e o checklist para começar."}</p>}
     </ChartCard>
+    </div>
   );
 }

@@ -98,7 +98,7 @@ export function VendasPorDia({ total, month, partial, unit, atualizadoEm, metas 
             </p>
           )}
           <p className="mt-2 text-sm text-muted-foreground">
-            Como chegamos nesse número: em {dias} dias saíram {int(proj.realizado)} matrículas e rematrículas. {hist.length ? `Em ${hist.map(([m]) => curto(m)).join(", ")}, até o dia ${dias} tinham saído` : "Sem meses anteriores para comparar: no ritmo linear, esses dias são"} {dec(proj.fatia * 100)}% das vendas do mês
+            Como chegamos nesse número: nos {dias} dias já fechados saíram {int(proj.realizado)} matrículas e rematrículas{realizado > proj.realizado ? ` (mais ${int(realizado - proj.realizado)} de hoje, que ainda está em andamento e não entra na conta)` : ""}. {hist.length ? `Em ${hist.map(([m]) => curto(m)).join(", ")}, até o dia ${dias} tinham saído` : "Sem meses anteriores para comparar: no ritmo linear, esses dias são"} {dec(proj.fatia * 100)}% das vendas do mês
             {` (${int(proj.realizado)} ÷ ${dec(proj.fatia * 100)}% ≈ ${int(proj.valor)})`}
             {prox && prox.value > realizado && n > dias && <>; para o {TIER_LABEL[prox.tier]} faltam {int(prox.value - realizado)}, cerca de {dec((prox.value - realizado) / (n - dias))} por dia</>}.
           </p>

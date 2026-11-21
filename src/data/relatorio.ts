@@ -1,6 +1,6 @@
 // Relatórios: monta o MODELO da apresentação (o que vai em cada slide) a partir dos meses que o painel já leu.
 // Nada de leitura nova no EVO: só os totais mensais que o Atlas já guarda (nunca dado de aluno). O desenho dos slides fica em src/lib/relatorioPptx.ts.
-import type { MonthData, UnitData } from "@/data/dashboardData";
+import { evoAtualizadoEm, somarMotivos, somarRecusa, type MonthData, type UnitData } from "@/data/dashboardData";
 import { paginasDoPlano, type PlanoDaUnidade } from "@/data/relatorioPlano";
 import { META_INDICATORS, type Meta, type MetaKey } from "@/data/metas";
 
@@ -26,10 +26,12 @@ export const RANKINGS: DefRanking[] = [
   { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", campo: (u) => u.faturamento, formato: "brl" },
   { id: "cresc", rotulo: "Crescimento do faturamento (contra o ano anterior)", titulo: "Crescimento faturamento*", campo: (u) => u.faturamento, formato: "pct", crescimento: true },
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", campo: (u) => u.novosContratos, formato: "int" },
+  { id: "cv", rotulo: "Contratos vendidos (total, como no Gerencial do EVO)", titulo: "Contratos vendidos", campo: (u) => u.vendasContratos, formato: "int" },
   { id: "tk", rotulo: "Ticket médio", titulo: "Ticket médio", campo: (u) => u.ticketMedio, formato: "brl2" },
   { id: "ad", rotulo: "Adimplentes", titulo: "Adimplentes", campo: (u) => u.adimplentes, formato: "int" },
-  { id: "inad", rotulo: "Inadimplência (%)", titulo: "Inadimplência", campo: (u) => u.inadimplenciaPerc, formato: "pct", menorMelhor: true },
-  { id: "churn", rotulo: "Churn (%)", titulo: "Churn", campo: (u) => u.churn, formato: "pct", menorMelhor: true },
+  { id: "inad", rotulo: "Inadimplência (%), com os principais motivos de recusa", titulo: "Inadimplência", campo: (u) => u.inadimplenciaPerc, formato: "pct", menorMelhor: true },
+  { id: "churn", rotulo: "Churn (%), com os motivos dos cancelamentos", titulo: "Churn", campo: (u) => u.churn, formato: "pct", menorMelhor: true },
+  { id: "canc", rotulo: "Cancelamentos (alunos), com os motivos", titulo: "Cancelamentos", campo: (u) => u.cancelados, formato: "int", menorMelhor: true },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", campo: (u) => u.vendasOnline, formato: "brl" },
   { id: "op", rotulo: "Oportunidades cadastradas", titulo: "Oportunidades", campo: (u) => u.oportunidades, formato: "int" },
   { id: "di", rotulo: "Diárias", titulo: "Diárias", campo: (u) => u.diarias, formato: "int" },
@@ -50,7 +52,10 @@ export const ID_PLANO = "plano";
 /** Id do slide dos números gerais da rede (ou das unidades escolhidas). */
 export const ID_BIG = "big";
 
-export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id)];
+/** Slide "Frequência dos alunos": mapa de calor das entradas do período e o último check-in dos alunos ativos. */
+export const ID_FREQ = "freq";
+
+export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id), ID_FREQ];
 /** O que já vem marcado ao abrir o menu: o miolo do Report Operacional. */
 export const INDICADORES_PADRAO = [ID_BIG, "fat", "cresc", "nc", "tk", ID_PLANO];
 
@@ -94,8 +99,32 @@ export interface SerieEvolucao {
 /** Número de períodos no gráfico de evolução. */
 export const PERIODOS_NA_EVOLUCAO = 6;
 
+/** Slide logo depois do ranking: os motivos (de cancelamento ou de recusa do cartão) em ordem, com quanto cada um pesa. */
+export interface SlideMotivos {
+  titulo: string;
+  subtitulo: string;
+  /** Motivo e quantidade, do maior para o menor (os 8 maiores; o resto soma em "Outros"). */
+  itens: [string, number][];
+  total: number;
+  nota?: string;
+}
+
+/** Entradas na catraca por dia da semana × hora e o último check-in dos alunos ativos. */
+export interface SlideFrequencia {
+  /** "1-31 out/26" ou "mês até 20/11". */
+  periodo: string;
+  /** 7 × 24, domingo primeiro. */
+  calor: number[];
+  entradas: number;
+  frequentadores: number;
+  /** Alunos ativos por faixa do último acesso: só existe a foto de hoje (a leitura mais recente do EVO). */
+  ultimoCheckin: { rotulos: string[]; valores: number[]; total: number; posicao: string } | null;
+}
+
 export interface SlideRanking {
   id: string;
+  /** Motivos que vão num slide logo depois deste (cancelamentos e inadimplência). */
+  motivos?: SlideMotivos;
   titulo: string;
   subtitulo: string;
   formato: Formato;
@@ -153,6 +182,8 @@ export interface ModeloRelatorio {
   mesAteAqui?: MesAteAqui | null;
   /** Slide "Plano de ação da unidade" (só no relatório semanal de uma unidade, no mês em andamento). */
   plano?: PlanoDaUnidade | null;
+  /** Slide "Frequência dos alunos" (mapa de calor do período e último check-in). */
+  frequencia?: SlideFrequencia | null;
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -246,12 +277,67 @@ function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNum
     comp((u) => u.faturamento, fmtBrl, "Faturamento"),
     comp((u) => u.adimplentes, fmtInt, "Adimplentes"),
     comp((u) => u.novosContratos, fmtInt, "Novos contratos"),
+    comp((u) => u.vendasContratos ?? 0, fmtInt, "Contratos vendidos"),
     { nome: "Ticket médio", valor: fmtBrl2(ticket(atual)), variacao: tem && ticket(ant!) > 0 ? variacao(ticket(atual), ticket(ant!)) : null, anterior: tem && ticket(ant!) > 0 ? fmtBrl2(ticket(ant!)) : null },
     { nome: "Inadimplentes", valor: fmtPct(taxaInad(atual)), variacao: tem ? taxaInad(atual) - taxaInad(ant!) : null, emPontos: true, menorMelhor: true, anterior: tem ? fmtPct(taxaInad(ant!)) : null },
     comp((u) => u.vendasOnline, fmtBrl, "Vendas online"),
   ];
   const op = soma(atual, (u) => u.oportunidades), cv = soma(atual, (u) => u.conversoes);
   return { big, conversao: op > 0 ? Math.min(100, (cv / op) * 100) : null, oportunidades: op > 0 ? op : null, convertidas: op > 0 ? Math.min(cv, op) : null };
+}
+
+
+const FAIXAS_ACESSO = ["Até 7 dias", "8 a 14 dias", "15 a 30 dias", "31 a 60 dias", "Mais de 60 dias", "Nunca entrou"];
+const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+/** Os 8 maiores motivos e o resto em "Outros". */
+function topMotivos(m: Record<string, number>, max = 8): { itens: [string, number][]; total: number } {
+  const todos = Object.entries(m).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+  const total = todos.reduce((s, [, n]) => s + n, 0);
+  const topo = todos.slice(0, max);
+  const resto = total - topo.reduce((s, [, n]) => s + n, 0);
+  return { itens: resto > 0 ? [...topo, ["Outros", resto]] : topo, total };
+}
+
+/** Motivos que acompanham o slide de cancelamento (churn e cancelamentos) e o de inadimplência (recusa do cartão), das unidades do relatório. */
+export function motivosDoRanking(id: string, atual: UnitData[], periodo: string): SlideMotivos | undefined {
+  if (id === "churn" || id === "canc") {
+    const { itens, total } = topMotivos(somarMotivos(atual));
+    return total > 0 ? { titulo: "Cancelamentos: motivos", subtitulo: `alunos que cancelaram, pelo motivo informado · ${periodo}`, itens, total } : undefined;
+  }
+  if (id === "inad") {
+    const r = somarRecusa(atual);
+    const { itens, total } = topMotivos(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v.n])));
+    const abertas = Object.values(r).reduce((s, v) => s + v.abertas, 0);
+    const valor = Object.values(r).reduce((s, v) => s + v.valorAberto, 0);
+    return total > 0 ? { titulo: "Inadimplência: motivos de recusa", subtitulo: `última recusa do cartão nas cobranças recusadas · ${periodo}`, itens, total, nota: abertas > 0 ? `${abertas.toLocaleString("pt-BR")} ainda em aberto, R$ ${Math.round(valor).toLocaleString("pt-BR")}` : undefined } : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Frequência dos alunos: o mapa de calor das entradas do mês do relatório (a catraca só guarda o mês inteiro; no relatório semanal é o mês até aqui) e o
+ * último check-in dos alunos ativos. Esse é a foto de hoje, a leitura mais recente do EVO, e não do período: o slide diz isso.
+ */
+export function montarFrequencia(meses: MonthData[], mes: string, atual: UnitData[], periodo: string, leitura: string | null = evoAtualizadoEm): SlideFrequencia | null {
+  const comCalor = atual.filter((u) => u.calor?.length === 168);
+  const calor = comCalor.length ? Array.from({ length: 168 }, (_, k) => comCalor.reduce((n, u) => n + (u.calor?.[k] ?? 0), 0)) : [];
+  let ultimoCheckin: SlideFrequencia["ultimoCheckin"] = null;
+  const nomes = new Set(atual.map((u) => u.name));
+  for (const m of [...meses].sort((a, b) => b.month.localeCompare(a.month))) {
+    const us = m.units.filter((u) => nomes.has(u.name) && u.acessos?.length);
+    if (!us.length) continue;
+    const valores = FAIXAS_ACESSO.map((_, i) => us.reduce((n, u) => n + (u.acessos?.[i] ?? 0), 0));
+    const total = valores.reduce((a, b) => a + b, 0);
+    if (total > 0) ultimoCheckin = { rotulos: FAIXAS_ACESSO, valores, total, posicao: leitura ? `posição de hoje, ${dm(new Date(Date.parse(leitura) - 3 * 3600_000).toISOString().slice(0, 10))}` : `posição de ${mesCurto(m.month)}` };
+    break;
+  }
+  if (!calor.length && !ultimoCheckin) return null;
+  return {
+    periodo, calor, ultimoCheckin,
+    entradas: comCalor.reduce((n, u) => n + (u.entradas ?? 0), 0),
+    frequentadores: comCalor.reduce((n, u) => n + (u.frequentadores ?? 0), 0),
+  };
 }
 
 /**
@@ -316,12 +402,20 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
     rankings.push({ id: def.id, titulo: def.titulo, subtitulo: def.crescimento ? `comparado com ${antCurto}` : `apenas em ${mesCurto(mes)}`, formato: def.formato, itens, nota });
   }
 
+  // Churn e Cancelamentos usam os mesmos motivos: se os dois forem pedidos, o slide de motivos vem só depois do primeiro
+  let jaTemCancelamento = false;
+  for (const r of rankings) {
+    if ((r.id === "churn" || r.id === "canc") && jaTemCancelamento) continue;
+    r.motivos = motivosDoRanking(r.id, atual, mesCurto(mes));
+    if (r.motivos && (r.id === "churn" || r.id === "canc")) jaTemCancelamento = true;
+  }
+  const frequencia = escolheu.has(ID_FREQ) ? montarFrequencia(meses, mes, atual, rotuloDoPeriodo(mes)) : null;
   const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant) : null;
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
-  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
+  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, frequencia, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
 }
 
 /** O que o menu mostra de cada slide, antes de gerar. */
 export function resumoDosSlides(modelo: ModeloRelatorio): string[] {
-  return ["Capa", ...(modelo.big ? ["Números gerais"] : []), ...(modelo.mesAteAqui ? ["O mês até aqui"] : []), ...modelo.rankings.map((r) => r.titulo.replace("*", "")), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), "Encerramento"];
+  return ["Capa", ...(modelo.big ? ["Números gerais"] : []), ...(modelo.mesAteAqui ? ["O mês até aqui"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), "Encerramento"];
 }

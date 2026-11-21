@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { NaoRenovados, linhasNaoRenovados } from "@/components/clientes/NaoRenovados";
-import { listaSemDiarias, type UnitData } from "@/data/dashboardData";
+import { listaSemDiarias, outrosEmPromocoes, type UnitData } from "@/data/dashboardData";
 import { MotivosCancelamento, contratosCancelados } from "@/components/clientes/MotivosCancelamento";
 // @ts-expect-error módulo JS do servidor
 import { resumirCancelados } from "../../../server/cancelamentos.js";
@@ -47,6 +47,18 @@ describe("contratos cancelados", () => {
     const u = resumirCancelados([r(1, "01 - WG LOCAL | R$ 129,90"), r(1, "WG 30"), r(2, "WG 30 | R$ 189,90", "Inadimplência"), r(3, "WG LOCAL MILITAR")])["Asa Norte"];
     expect(u.tipos).toEqual({ "WG Local": 1, "WG 30": 1, Promoções: 1 });
     expect(u.planos).toEqual([["01 - WG LOCAL | R$ 129,90", 1], ["WG 30 | R$ 189,90", 1], ["WG LOCAL MILITAR", 1]]);
+  });
+  it("cancelados: plano barato (primeira parcela abaixo de R$ 129,90, pelo catálogo) e plano sem tipo viram Promoções", () => {
+    const r = (idMember: number, idMembership: number, nameMembership: string) => ({ idBranch: 5, idMember, idMembership, nameMembership, reasonCancellation: "Mudança" });
+    const catalogo = new Map([[10, { primeira: 99 }], [11, { primeira: 189.9 }]]);
+    const u = resumirCancelados([r(1, 10, "WG LOCAL | R$ 139,90"), r(2, 11, "WG LOCAL | R$ 189,90"), r(3, 99, "WG 30"), r(4, 98, "PLANO ESTRANHO")], catalogo)["Asa Norte"];
+    expect(u.tipos).toEqual({ Promoções: 2, "WG Local": 1, "WG 30": 1 });
+  });
+  it("meses antigos: 'Outros planos' é somado em Promoções", () => {
+    expect(outrosEmPromocoes({ "WG Local": 5, "Outros planos": 3, Promoções: 2 })).toEqual({ "WG Local": 5, Promoções: 5 });
+    expect(outrosEmPromocoes({ "WG Local": 5, "Outros planos": 3 })).toEqual({ "WG Local": 5, Promoções: 3 });
+    const sem = { "WG Local": 1 };
+    expect(outrosEmPromocoes(sem)).toBe(sem);
   });
   it("mostra os contratos cancelados ao lado dos motivos", () => {
     const total = { motivosCancel: { Mudança: 6, "Inadimplência (cancelamento automático)": 4 }, canceladosTipos: { "WG Local": 7, "WG 30": 3 } } as unknown as UnitData;

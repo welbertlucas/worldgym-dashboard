@@ -3,7 +3,7 @@
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
 import type { Meta, MetaKey } from "@/data/metas";
 import type { PlanoDaUnidade } from "@/data/relatorioPlano";
-import { ID_BIG, ID_PLANO, PERIODOS_NA_EVOLUCAO, mesCurto, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
+import { ID_BIG, ID_FREQ, ID_PLANO, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -72,7 +72,7 @@ const ACUMULADOS: { id: string; chave: MetaKey }[] = [
   { id: "fat", chave: "faturamento" }, { id: "rec", chave: "recebimento" }, { id: "nc", chave: "novosContratos" }, { id: "vo", chave: "vendasOnline" },
 ];
 export const INDICADORES_SEMANA_PADRAO = [ID_BIG, ID_MES_ATE_AQUI, "fat", "nc", "op", ID_CONVERSAO, "canc", ID_PLANO];
-export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "vo", "op", ID_CONVERSAO, "canc", "di", "pers", "cam", "coq", ID_PLANO];
+export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "vo", "op", ID_CONVERSAO, "canc", "di", "pers", "cam", "coq", ID_FREQ, ID_PLANO];
 /** Abaixo disso a conversão da semana vale pouco (um aluno muda vários pontos): o slide avisa. */
 export const BASE_PEQUENA = 10;
 
@@ -248,11 +248,15 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
     if (itens.length) mesAteAqui = { periodo: rotuloAcumulado(mes, dias), dias, diasMes, ritmo, itens };
   }
 
+  // Motivos dos cancelamentos e frequência: a catraca e os motivos são guardados por mês, então aqui valem para o mês até aqui
+  const ateAqui = `mês até ${estado === "andamento" ? `${dd(fechados)}/${mes.slice(5, 7)}` : rotuloAcumulado(mes, lim.ate).split(" ").pop()}`;
+  for (const r of rankings) r.motivos = motivosDoRanking(r.id, atual.map((d) => d.u), ateAqui);
+  const frequencia = escolheu.has(ID_FREQ) ? montarFrequencia(meses, mes, atual.map((d) => d.u), ateAqui) : null;
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].u.name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
   const parcialAte = estado === "andamento" ? `${dd(fechados)}/${mes.slice(5, 7)}` : null;
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,
-    tipo: "semana", parcialAte, mesAteAqui,
+    tipo: "semana", parcialAte, mesAteAqui, frequencia,
     // O plano é de uma unidade só e do mês em andamento: quem monta já confere isso, aqui só entra se foi pedido e o relatório é de uma unidade
     plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.u.name ? plano : null,
   };

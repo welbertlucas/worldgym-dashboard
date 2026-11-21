@@ -217,18 +217,15 @@ describe("formas de pagamento", () => {
     expect(somarDet([{ Stone: [2, 1.5, 2] }, { Stone: [1, 0.25, 1], Rede: [4, 0, 0] }])).toEqual({ Stone: [3, 1.75, 3], Rede: [4, 0, 0] });
     expect(somarDet([{ Stone: [2, 1.5, 2] }, { Stone: [1, 0.25] }])).toEqual({ Stone: [3, 1.75] });
   });
-  it("o card de gateway mostra cobranças, ticket e taxas quando o mês tem o detalhe, e segue sem ele nos meses antigos", () => {
+  it("o card de gateway mostra cobranças e ticket, nunca as taxas, e segue sem o detalhe nos meses antigos", () => {
     const sp = (x?: string) => x?.replace(/\u00a0/g, " ");
-    expect(sp(detalheDoGateway([689, 820], 109467))).toBe("689 cobranças · ticket R$ 159 · taxas R$ 820 (0,75%)");
+    expect(sp(detalheDoGateway([689, 820], 109467))).toBe("689 cobranças · ticket R$ 159");
     expect(sp(detalheDoGateway([1, 0], 50))).toBe("1 cobrança · ticket R$ 50");
     expect(detalheDoGateway(undefined, 100)).toBeUndefined();
-    // com o quanto a taxa está completa
-    expect(sp(detalheDoGateway([1408, 2040.15, 1407], 191542.66))).toBe("1.408 cobranças · ticket R$ 136 · taxas R$ 2.040 (1,07%) · taxa registrada em 100% das cobranças");
-    expect(sp(detalheDoGateway([88, 29.4, 31], 11555.53))).toBe("88 cobranças · ticket R$ 131 · taxas R$ 29 (0,25%) · taxa registrada em 35% das cobranças (incompleta)");
-    expect(sp(detalheDoGateway([10, 0, 0], 1000))).toBe("10 cobranças · ticket R$ 100 · sem taxa registrada no EVO");
-    const com = renderToString(<GatewaysCartao total={{ gatewaysCartao: { Stone: 700, Rede: 300 }, gatewaysDet: { Stone: [7, 14] } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
+    expect(sp(detalheDoGateway([1408, 2040.15, 1407], 191542.66))).toBe("1.408 cobranças · ticket R$ 136");
+    const com = renderToString(<GatewaysCartao total={{ gatewaysCartao: { Stone: 700, Rede: 300 }, gatewaysDet: { Stone: [7, 14, 7] } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
     expect(com).toContain("7 cobranças");
-    expect(com).toContain("taxas");
+    expect(com).not.toContain("taxa");
     const sem = renderToString(<GatewaysCartao total={{ gatewaysCartao: { Stone: 700 } } as unknown as UnitData} monthLabel="Out" unitLabel="Rede" />);
     expect(sem).not.toContain("cobranças");
   });
@@ -267,8 +264,8 @@ describe("planos por família e taxas fora dos produtos", () => {
     expect(familiaPlano("07 - WG LOCAL MILITAR TAGUATINGA (119,90)")).toBe("Cortesias e promoções");
     expect(familiaPlano("WG PRO SALVADOR ANUAL | R$ 319,90")).toBe("WG Rede");
     expect(familiaPlano("WORLD GYM CEILANDIA FIT R$ 129,90 (40 sessões)")).toBe("WG Rede");
-    expect(familiaPlano("WORLD GYM GAMA ANUAL VIP")).toBe("Outros planos");
-    expect(familiaPlano("WORLD GYM SAMAMBAIA ANUAL VI (Sessões Ilimitadas)")).toBe("Outros planos");
+    expect(familiaPlano("WORLD GYM GAMA ANUAL VIP")).toBe("Cortesias e promoções"); // sem tipo reconhecido: promoção
+    expect(familiaPlano("WORLD GYM SAMAMBAIA ANUAL VI (Sessões Ilimitadas)")).toBe("Cortesias e promoções");
     expect(familiaPlano("WG PONTE ALTA ANUAL LOCAL | 119,90 A VISTA")).toBe("WG Local");
     expect(familiaPlano("WG CEILÂNDIA COMBO DUO ANUAL")).toBe("Aquática");
     expect(familiaPlano("WG PRO - ANUAL | VIP (Sessões Ilimitadas)")).toBe("WG Rede");
@@ -276,7 +273,13 @@ describe("planos por família e taxas fora dos produtos", () => {
     expect(familiaPlano("WG CEILÂNDIA AQUA (2X) DUO ANUAL")).toBe("Aquática");
     expect(familiaPlano("X - FREE PASS (3 DIAS)")).toBe("Cortesias e promoções");
     expect(familiaPlano("AULA EXPERIMENTAL")).toBe("Cortesias e promoções");
-    expect(familiaPlano("ALGO NOVO")).toBe("Outros planos");
+    expect(familiaPlano("ALGO NOVO")).toBe("Cortesias e promoções");
+    // primeira parcela abaixo de R$ 129,90: qualquer tipo vira promoção (a conta não vale para quem não tem valor no catálogo)
+    expect(familiaPlano("WG JARDIM INGÁ LOCAL | R$ 139,90", 119.9)).toBe("Cortesias e promoções");
+    expect(familiaPlano("WG 30 | R$ 189,90", 99)).toBe("Cortesias e promoções");
+    expect(familiaPlano("WG 30 | R$ 189,90", 129.9)).toBe("WG 30");
+    expect(familiaPlano("WG 30 | R$ 189,90", null)).toBe("WG 30");
+    expect(familiaPlano("02 - WG REDE SOBRADINHO", 129.89)).toBe("Cortesias e promoções");
   });
   it("WG 90 conta como WG 30, inclusive nos meses gravados quando ele ficava fora", () => {
     expect(familiaPlano("WG90 | R$357,00 (À VISTA)")).toBe("WG 30");
@@ -289,16 +292,16 @@ describe("planos por família e taxas fora dos produtos", () => {
     expect(reagruparFamilias([["WG Local", 10, 1000], ["WG Rede", 3, 500], ["WG PRO", 2, 600], ["Free pass", 4, 0], ["Promoção 1º mês", 1, 50], ["Outros planos", 1, 10]]))
       .toEqual([["WG Local", 10, 1000], ["WG Rede", 5, 1100], ["Cortesias e promoções", 5, 50], ["Outros planos", 1, 10]]);
   });
-  it("rosca por tipo: quatro tipos e o resto em Outros, fechando o total", () => {
+  it("rosca por tipo: os tipos e o resto em Promoções, do maior para o menor, fechando o total", () => {
     const f = fatiasPorTipo([["WG Local", 6, 600], ["Cortesias e promoções", 3, 30], ["WG Rede", 1, 200], ["Outros planos", 1, 50]], 12, 980);
-    expect(f.map((x) => [x.rotulo, x.n, x.v])).toEqual([["WG Local", 6, 600], ["WG Rede", 1, 200], ["Outros", 5, 180]]);
+    expect(f.map((x) => [x.rotulo, x.n, x.v])).toEqual([["WG Local", 6, 600], ["Promoções", 5, 180], ["WG Rede", 1, 200]]); // Promoções (5) vem antes de WG Rede (1)
   });
   it("cortesias e promoções contam no total, mas não aparecem na lista por tipo", () => {
     const total = { familiasVendidas: [["WG Local", 6, 600], ["Cortesias e promoções", 3, 30], ["WG Rede", 1, 200]], contratosVendidos: [], tipoVenda: { novo: [8, 700], remat: [2, 130], renov: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0] } as unknown as UnitData;
     const h = renderToString(<ContratosVendidos total={total} monthLabel="Out" partial={false} unitLabel="Rede" porFamilia />);
     expect(h).not.toContain("Cortesias e promoções<");
     expect(h).toContain(">10<");
-    expect(h).toContain("Outros");
+    expect(h).toContain("Promoções");
     expect(h).toContain("30,0%");
     expect(h).toContain("60%");
   });
@@ -506,5 +509,34 @@ describe("tela de trocar a senha", () => {
     const { emailDeAcesso } = await import("../../../server/boasVindas.js");
     const { html } = emailDeAcesso({ nome: "Maria", email: "m@x.com" }, "ABC123def456", { novo: true });
     expect(html).toContain("escolha uma senha só sua");
+  });
+});
+
+// @ts-expect-error módulo JS do servidor
+import { ehBarato, primeiraParcela, tipoContrato as tipoDoContrato, precosPorNome } from "../../../server/vendas.js";
+describe("regra do preço: plano com primeira parcela abaixo de R$ 129,90 é promoção", () => {
+  it("a primeira parcela é o valor do período promocional ou a mensalidade equivalente do contrato", () => {
+    expect(primeiraParcela({ value: 1188, duration: 12, durationType: "Months" })).toBe(99);
+    expect(primeiraParcela({ value: 1188, duration: 1, durationType: "Years" })).toBe(99);
+    expect(primeiraParcela({ value: 359, duration: 30, durationType: "Days" })).toBe(359);
+    expect(primeiraParcela({ value: 189.9, duration: 1, durationType: "Months", valuePromotionalPeriod: 99.9 })).toBe(99.9);
+    expect(primeiraParcela({ value: 0, duration: 1, durationType: "Months" })).toBeNull();
+    expect(primeiraParcela({ value: 100 })).toBeNull();
+    expect(ehBarato(129.89)).toBe(true);
+    expect(ehBarato(129.9)).toBe(false);
+    expect(ehBarato(null)).toBe(false);
+  });
+  it("cancelados e não renovados: outros e baratos viram Promoções, diárias e free pass seguem à parte, o resto pelo tipo", () => {
+    expect(tipoDoContrato("ALGO NOVO")).toBe("Promoções");
+    expect(tipoDoContrato("WG LOCAL | R$ 139,90", 99)).toBe("Promoções");
+    expect(tipoDoContrato("WG 30 | R$ 189,90", 189.9)).toBe("WG 30");
+    expect(tipoDoContrato("WG 30 | R$ 189,90", 100)).toBe("Promoções");
+    expect(tipoDoContrato("11 - WG DIÁRIA 30,00", 30)).toBe("Diárias");
+    expect(tipoDoContrato("X - FREE PASS (1 DIA)", 0)).toBe("Free pass e experimental");
+  });
+  it("o preço por nome ignora caixa e espaços repetidos", () => {
+    const m = precosPorNome(new Map([[1, { nome: " wg   local  (R$ 99,00) ", primeira: 99 }], [2, { nome: "Sem preço", primeira: null }]]));
+    expect(m.get("WG LOCAL (R$ 99,00)")).toBe(99);
+    expect(m.has("SEM PREÇO")).toBe(false);
   });
 });

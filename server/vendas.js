@@ -89,22 +89,40 @@ const FAMILIAS = [
   ["WG 30", /WG ?-? ?30/],
   ["WG Local", /LOCAL|MENSAL|FLEX|\b[1-5] ?X\b/],
 ];
+/** Plano com a primeira parcela abaixo disto conta como promoção, qualquer que seja o tipo (um WG Local ou um WG 30 barato é promoção). */
+export const LIMITE_PROMOCAO = 129.9;
+export const ehBarato = (preco) => typeof preco === "number" && preco >= 0 && preco < LIMITE_PROMOCAO;
+
 /**
- * Tipo de um contrato (vencido ou cancelado), para comparar a rede: diárias e free pass/experimental à parte,
- * promoções de 1º mês, parcerias, militares e gift card como "Promoções", o resto pelos tipos dos planos vendidos.
+ * Valor da primeira parcela de um plano do catálogo do EVO: o valor do período promocional, quando o plano tem um; senão a mensalidade
+ * equivalente (valor do contrato ÷ meses). Nulo quando o catálogo não traz valor ou duração (aí vale só o nome do plano).
  */
-export function tipoContrato(nome) {
+export function primeiraParcela(p) {
+  const promo = Number(p?.valuePromotionalPeriod);
+  if (promo > 0) return promo;
+  const valor = Number(p?.value);
+  const meses = p?.durationType === "Days" ? p.duration / 30 : p?.durationType === "Months" ? p.duration : p?.durationType === "Years" ? p.duration * 12 : NaN;
+  return valor > 0 && meses > 0 ? Math.round((valor / meses) * 100) / 100 : null;
+}
+
+/**
+ * Tipo de um contrato (vencido ou cancelado), para comparar a rede: diárias e free pass/experimental à parte; promoções de 1º mês, parcerias,
+ * militares, gift card, os planos sem tipo reconhecido ("outros") e os de primeira parcela abaixo de R$ 129,90 como "Promoções"; o resto pelos tipos dos planos vendidos.
+ */
+export function tipoContrato(nome, preco = null) {
   const t = String(nome || "").toUpperCase();
   if (/DI[AÁ]RIA/.test(t)) return "Diárias";
   if (/FREE ?PASS|EXPERIMENTAL/.test(t)) return "Free pass e experimental";
-  const f = familiaPlano(nome);
+  const f = familiaPlano(nome, preco);
   return f === CORTESIAS ? "Promoções" : f;
 }
 
-export function familiaPlano(nome) {
+/** Família do plano. Sem tipo reconhecido ("outros") e plano barato (primeira parcela abaixo do limite) caem em Cortesias e promoções. */
+export function familiaPlano(nome, preco = null) {
   const t = String(nome || "").toUpperCase();
-  for (const [f, re] of FAMILIAS) if (re.test(t)) return f;
-  return "Outros planos";
+  let f = CORTESIAS;
+  for (const [fam, re] of FAMILIAS) if (re.test(t)) { f = fam; break; }
+  return ehBarato(preco) ? CORTESIAS : f;
 }
 
 /** Item avulso que não é produto nem serviço: multa, taxa, pró-rata, inadimplência, estorno, ajuste. */
@@ -167,7 +185,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
           const n = nomePlano(i);
           const at = u._planos.get(n) ?? [0, 0];
           u._planos.set(n, [at[0] + 1, at[1] + v]);
-          const f = familiaPlano(n);
+          const f = familiaPlano(n, planos.get(i.idMembership)?.primeira);
           const af = u._familias.get(f) ?? [0, 0];
           u._familias.set(f, [af[0] + 1, af[1] + v]);
           u.duracaoVenda[faixaDuracao(planos.get(i.idMembership))] += 1;
@@ -226,13 +244,29 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   return por;
 }
 
-/** Catálogo de planos de todas as unidades (id → duração), para classificar a duração dos contratos vendidos. */
+/** Catálogo de planos de todas as unidades (id → duração, nome e valor da primeira parcela), para a duração e o tipo dos contratos. */
 export async function catalogoDePlanos() {
   const planos = new Map();
   for (const id of Object.keys(UNIT_NAMES)) {
-    for (const p of await fetchAll(`/membership?idBranch=${id}`)) planos.set(p.idMembership, { duration: p.duration, durationType: p.durationType });
+    for (const p of await fetchAll(`/membership?idBranch=${id}`)) planos.set(p.idMembership, { duration: p.duration, durationType: p.durationType, nome: p.nameMembership, primeira: primeiraParcela(p) });
   }
   return planos;
+}
+
+let memoCatalogo = null;
+/**
+ * O mesmo catálogo, lido uma vez só por execução (cancelados e não renovados classificam pelo preço do plano). Se a leitura falhar, segue só pelo
+ * nome do plano, avisando, para não derrubar a rotina.
+ */
+export function catalogoEmMemoria() {
+  memoCatalogo ??= catalogoDePlanos().catch((e) => { console.warn(`catálogo de planos indisponível (${e.message}): tipos só pelo nome do plano`); return new Map(); });
+  return memoCatalogo;
+}
+/** Nome do plano (sem espaços repetidos, em maiúsculas) → primeira parcela, para os relatórios que só trazem o nome do contrato. */
+export function precosPorNome(planos) {
+  const m = new Map();
+  for (const p of planos.values()) if (p.nome && p.primeira != null) { const k = String(p.nome).trim().replace(/\s+/g, " ").toUpperCase(); if (!m.has(k)) m.set(k, p.primeira); }
+  return m;
 }
 
 export async function vendasDoMes(ym, planos) {

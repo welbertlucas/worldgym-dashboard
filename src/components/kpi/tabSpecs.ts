@@ -25,7 +25,7 @@ export const brlCurto = (v: number) => (Math.abs(v) >= 1e6 ? `R$ ${(v / 1e6).toL
  * Os mesmos números, com o mesmo nome, em todas as telas.
  */
 export const faturamentoSpec: KpiSpec = {
-  title: "Faturamento", kind: "flow", noDataIfZero: true, direction: "higher", projecao: true,
+  title: "Faturamento", kind: "flow", noDataIfZero: true, direction: "higher",
   pick: (v) => v.total.faturamento, fmt: brlCurto,
 };
 

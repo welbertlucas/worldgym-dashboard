@@ -46,23 +46,11 @@ export function BandeirasCartao({ total, monthLabel, unitLabel }: { total: UnitD
 const CORES_GATEWAY: Record<string, string> = { Stone: "hsl(142 50% 38%)", Rede: "hsl(4 90% 50%)", Cielo: "hsl(205 80% 45%)", Getnet: "hsl(0 70% 40%)", PagSeguro: "hsl(35 90% 50%)" };
 
 /** Por qual gateway / adquirente (Stone, Rede, Cielo...) passou o recebido em cartão. */
-/** Abaixo disso, a taxa registrada cobre pouco das cobranças e o percentual fica abaixo do real: o card avisa. */
-export const COBERTURA_MINIMA_TAXA = 90;
-
-/**
- * "689 cobranças · ticket R$ 159 · taxas R$ 820 (0,75%) · taxa registrada em 96% das cobranças": só quando o mês tem o detalhe (meses antigos não têm).
- * O EVO registra a taxa por cobrança; a que ele não registrou entra como zero, então o percentual só é completo quando a cobertura é alta.
- */
+/** "689 cobranças · ticket R$ 159": só quando o mês tem o detalhe (meses antigos não têm). As taxas não aparecem aqui; a comparação delas é do dono, em Taxa de cartão por unidade. */
 export function detalheDoGateway(det: DetGateway | undefined, valor: number): string | undefined {
   if (!det || !(det[0] > 0)) return undefined;
-  const [n, taxas, comTaxa] = det;
-  const partes = [`${n.toLocaleString("pt-BR")} ${n === 1 ? "cobrança" : "cobranças"}`, `ticket ${moeda(valor / n)}`];
-  if (taxas > 0 && valor > 0) partes.push(`taxas ${moeda(taxas)} (${((taxas / valor) * 100).toFixed(2).replace(".", ",")}%)`);
-  if (comTaxa !== undefined) {
-    const cobertura = Math.round((comTaxa / n) * 100);
-    partes.push(comTaxa === 0 ? "sem taxa registrada no EVO" : `taxa registrada em ${cobertura}% das cobranças${cobertura < COBERTURA_MINIMA_TAXA ? " (incompleta)" : ""}`);
-  }
-  return partes.join(" · ");
+  const n = det[0];
+  return [`${n.toLocaleString("pt-BR")} ${n === 1 ? "cobrança" : "cobranças"}`, `ticket ${moeda(valor / n)}`].join(" · ");
 }
 
 export function GatewaysCartao({ total, monthLabel, unitLabel }: { total: UnitData; monthLabel: string; unitLabel: string }) {

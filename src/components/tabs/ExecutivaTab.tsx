@@ -1,18 +1,11 @@
 import { useState } from "react";
 import { SectionTitle } from "@/components/SectionTitle";
-import { Notice } from "@/components/Notice";
-import { UnitHighlights } from "@/components/UnitHighlights";
-import { RevenueTrend } from "@/components/executiva/RevenueTrend";
-import { TopUnits } from "@/components/executiva/TopUnits";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
 import { faturamentoSpec, oportunidadesCadastradas } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard, type RedeGoal } from "@/components/executiva/MetasKpiCard";
 import { SeletorPeriodo, type Periodo } from "@/components/executiva/SeletorPeriodo";
 import { agregarPeriodo, mesesDoPeriodo, periodoAnterior, rotuloPeriodo } from "@/data/periodo";
-import { ItemVigente, periodoVigente } from "@/components/AlertasVigentes";
-import { type ResultadoVigente } from "@/data/alertasVigentes";
 import { type MonthData, dashboardDataRede } from "@/data/dashboardData";
-import { type UnitDelta } from "@/data/unitMetrics";
 import { formatMetaValue, highestTier, isSingleGoal, progressToNext, resolveGoal, tierReached, TIER_LABEL, type Meta, type MetaKey } from "@/data/metas";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
 import { sameMonthLastYear } from "@/data/alerts";
@@ -23,13 +16,7 @@ interface Props {
   prev?: MonthData;
   /** Há um mês marcado em "Comparar com": os velocímetros mostram só ele, sem o chip do ano anterior. */
   comparaMesEscolhido?: boolean;
-  /** Alertas do mês em andamento (o plano de ação). */
-  vigentes: ResultadoVigente;
-  evalMonth: string | null;
-  deltas: UnitDelta[];
   metas: Meta[];
-  onOpenPlano: () => void;
-  onOpenUnidades: () => void;
   onOpenMetas?: () => void;
   /** Meses usados no gráfico e no mesmo mês do ano anterior: a rede, ou só as unidades da pessoa. */
   serie?: MonthData[];
@@ -39,7 +26,7 @@ interface Props {
 
 const pctText = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
 
-export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalMonth, deltas, metas, onOpenPlano, onOpenUnidades, onOpenMetas, serie = dashboardDataRede, unidades = null }: Props) {
+export function ExecutivaTab({ month, prev, comparaMesEscolhido, metas, onOpenMetas, serie = dashboardDataRede, unidades = null }: Props) {
   const umaUnidade = unidades?.length === 1 ? unidades[0] : null;
   const escopo = !unidades ? "da rede" : umaUnidade ? "da unidade" : "das suas unidades";
   // Meta de um indicador no mês: a da rede (linha TOTAL), a da unidade, ou a soma das metas das unidades da pessoa
@@ -60,13 +47,6 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
   const periodoPrev = noPeriodo && idsAnterior.length ? agregarPeriodo(dosMeses(idsAnterior)) : undefined;
   const parcialDoPeriodo = noPeriodo && isPartialMonth(idsPeriodo[idsPeriodo.length - 1]);
   const t = periodoAtual ? periodoAtual.total : month.total;
-  // Plano de ação do mês em andamento: os mais urgentes (com nível primeiro; sem nenhum, as pendências do dia).
-  const doEscopo = vigentes.alertas;
-  const critical = doEscopo.filter((a) => a.severity === "critical").length;
-  const attention = doEscopo.filter((a) => a.severity === "attention").length;
-  const comNivel = doEscopo.filter((a) => a.severity !== "info");
-  const urgentes = (comNivel.length ? comNivel : doEscopo.filter((a) => a.tipo === "pendencia")).slice(0, 5);
-
   // Metas no mês exibido (da rede ou das unidades da pessoa): progresso rumo ao próximo nível e nível atingido
   const chaves = [...new Set(metas.filter((m) => m.month === month.month && (unidades ? unidades.includes(m.unit) : m.unit === "TOTAL")).map((m) => m.key as MetaKey))];
   const redeGoals: RedeGoal[] = chaves
@@ -77,10 +57,6 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
       return { tier: tierReached(key, g.actual, g.meta), pct, done: next === null, single: isSingleGoal(g.meta) };
     })
     .filter((x): x is RedeGoal => x !== null);
-
-  // Gráfico de tendência: últimos 12 meses FECHADOS (o mês em andamento não entra, para não parecer queda).
-  const closed = serie.filter((d) => !isPartialMonth(d.month)).slice(-12);
-  const partialMonthData = serie.filter((d) => isPartialMonth(d.month)).slice(-1)[0];
 
   // Mesmo mês do ano anterior (só para mês fechado e se existir na planilha).
   const ly = partial || comparaMesEscolhido ? undefined : serie.find((d) => d.month === sameMonthLastYear(month.month));
@@ -120,13 +96,6 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
 
   return (
     <div className="space-y-8 sm:space-y-10">
-      {partial && (
-        <Notice>
-          <b>{formatMonthLong(month.month)} está em andamento</b> — valores e comparação provisórios.
-          {evalMonth && <> Plano de ação: {formatMonthLong(month.month).split(" de ")[0]}. Unidades comparadas em <b>{formatMonthLong(evalMonth)}</b>, último mês fechado.</>}
-        </Notice>
-      )}
-
       <section aria-labelledby="indicadores-titulo">
         <SectionTitle level="page" hint={`${umaUnidade ? `Números de ${umaUnidade}` : unidades ? `Soma das suas ${unidades.length} unidades` : "Totais da rede"} ${noPeriodo ? `no período de ${rotuloPeriodo(periodo!.de, periodo!.ate)} (${idsPeriodo.length} ${idsPeriodo.length === 1 ? "mês" : "meses"}): valores somados e taxas em média ponderada pela base de cada mês.${idsAnterior.length ? ` A marca no arco é o período anterior (${rotuloPeriodo(idsAnterior[0], idsAnterior[idsAnterior.length - 1])}).` : " Não há meses antes dele para comparar."}${parcialDoPeriodo ? " Inclui o mês em andamento, com o que ele tem até hoje." : ""}` : "no mês selecionado. A marca no arco é o mês anterior."}`}>
           <span id="indicadores-titulo">Overview</span>
@@ -136,41 +105,6 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, vigentes, evalM
           {!noPeriodo && <MetasKpiCard goals={redeGoals} partial={partial} onOpen={onOpenMetas ?? (() => {})} escopo={escopo} />}
         </KpiGrid>
       </section>
-
-      {/* Com uma unidade só não há o que ranquear: o gráfico ocupa a linha toda */}
-      <section className={umaUnidade ? "" : "grid gap-6 xl:grid-cols-3"}>
-        <div className={umaUnidade ? "min-w-0" : "xl:col-span-2 min-w-0"}>
-          <RevenueTrend closed={closed} all={serie} partialMonth={partialMonthData} escopo={umaUnidade ? `de ${umaUnidade}` : escopo} />
-        </div>
-        {!umaUnidade && <TopUnits units={month.units} monthLabel={formatMonthLong(month.month)} partial={partial} onOpen={onOpenUnidades} />}
-      </section>
-
-      <section aria-labelledby="prioridades-titulo" className="card-surface overflow-hidden">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-5 sm:p-6">
-          <div className="flex-1 min-w-[14rem]">
-            <h3 id="prioridades-titulo" className="text-base font-semibold text-foreground">{vigentes.month ? `Plano de ação de ${formatMonthLong(vigentes.month)}` : "Plano de ação"}</h3>
-            <p className="text-sm text-muted-foreground">{vigentes.month ? `Os itens mais urgentes do mês em andamento, com os dados de ${periodoVigente(vigentes)}` : "O mês atual ainda não foi lido do EVO"}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="rounded-full bg-destructive/10 text-destructive font-semibold px-3 py-1">{critical} críticos</span>
-            <span className="rounded-full bg-warning/10 text-warning font-semibold px-3 py-1">{attention} em atenção</span>
-            <button type="button" onClick={onOpenPlano} className="rounded-lg text-primary-ink font-semibold underline underline-offset-4 hover:text-primary-ink/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Ver o plano completo</button>
-          </div>
-        </div>
-        {urgentes.length ? (
-          <ul className="divide-y divide-border border-t border-border">{urgentes.map((a) => <li key={a.id} className="p-5 sm:px-6"><ItemVigente a={a} /></li>)}</ul>
-        ) : (
-          <p className="border-t border-border p-5 text-sm text-muted-foreground">{vigentes.month ? `Nada pendente em ${formatMonthLong(vigentes.month)} até agora.` : "O plano aparece depois da primeira leitura do mês no EVO."}</p>
-        )}
-      </section>
-
-      {deltas.length > 1 && (
-        <section>
-          <SectionTitle>{evalMonth ? `Comparação entre unidades em ${formatMonthLong(evalMonth)}` : "Comparação entre unidades"}</SectionTitle>
-          <UnitHighlights deltas={deltas} />
-          <p className="text-xs text-muted-foreground mt-2">Baseado no último mês fechado vs. o anterior. Unidades novas (sem mês anterior) ficam de fora.</p>
-        </section>
-      )}
     </div>
   );
 }

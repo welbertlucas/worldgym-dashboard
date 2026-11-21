@@ -225,6 +225,8 @@ export interface UnitData {
   /** Por gateway: [cobranças de cartão pagas no mês, taxas registradas no campo `fees` do EVO]. Meses antigos não têm. */
   /** Por gateway: [cobranças pagas, taxas registradas pelo EVO, cobranças com taxa registrada]. O terceiro número não existe nos meses lidos antes dele. */
   gatewaysDet?: Record<string, DetGateway>;
+  /** Mês em andamento: cartão de crédito já cobrado, por dia em que o dinheiro cai ({ "AAAA-MM-DD": [valor bruto, cobranças] }). Só o mês atual tem. */
+  cartaoAReceber?: Record<string, [number, number]>;
 }
 
 /** [quantidade, valor] por tipo de venda. `auto` (parte de `renov`) = renovação automática de plano de recorrência mensal; meses antigos não têm. */
@@ -488,7 +490,7 @@ export async function syncDashboardDataFromSheets(): Promise<{
 export interface EvoMonth {
   month: string;
   generatedAt?: string;
-  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "pagantes" | "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "vendasContratos" | "vendasManuais" | "vendasRecorrentes" | "vendasOnlineContratos" | "contratosPlanos" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "conversoesAntigas" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "semanas" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao" | "gatewaysDet" | "vendedores" | "vendedoresTotal">>)[];
+  units: ({ name: string; faturamento: number; recebimento: number } & Partial<Pick<UnitData, "pagantes" | "previsaoFaturamento" | "ativosFim" | "suspensosFim" | "cancelPerfil" | "inadPerfil" | "saldoDevedor" | "vendasContratos" | "vendasManuais" | "vendasRecorrentes" | "vendasOnlineContratos" | "contratosPlanos" | "ativosIni" | "cancelados" | "aVencer" | "naoRenovados" | "naoRenovadosTipos" | "naoRenovadosPlanos" | "fluxoNovos" | "fluxoRetornos" | "fluxoCancelados" | "fluxoVencidos" | "permanenciaMeses" | "motivosCancel" | "canceladosTipos" | "canceladosPlanos" | "origens" | "consultores" | "tempoConversao" | "cobrancas" | "recusaMotivos" | "mesmoDia" | "ritmoAlunos" | "ritmoConversao" | "treinoAtivo" | "treinoVencido" | "treinoFuturo" | "bairros" | "semBairro" | "bairrosInativos" | "semBairroInativos" | "local" | "acessos" | "perfil" | "perfilOport" | "oportunidades" | "conversoes" | "conversoesAntigas" | "npsPromotores" | "npsDetratores" | "npsRespostas" | "novosContratos" | "vendasOnline" | "diarias" | "camisetas" | "coqueteleiras" | "personal" | "kids" | "plus" | "proMais" | "vendasEvo" | "ticketMedio" | "adimplentes" | "inadimplentes" | "inadimplenciaPerc" | "alunosAtivos" | "contratosAtivos" | "contratosEspeciais" | "contratosPersonal" | "contratosLocal" | "contratosParcial" | "contratosRede" | "contratosVendidos" | "familiasVendidas" | "tipoVenda" | "duracaoVenda" | "produtosVendidos" | "taxasCobradas" | "taxasResumo" | "calor" | "entradasDia" | "entradas" | "frequentadores" | "liberacoes" | "liberacoesMotivos" | "liberacoesGrupos" | "outrasUnidades" | "vendasDia" | "semanas" | "formasPagamento" | "notas" | "bandeirasCartao" | "gatewaysCartao" | "gatewaysDet" | "cartaoAReceber" | "vendedores" | "vendedoresTotal">>)[];
 }
 
 function emptyUnit(name: string): UnitData {
@@ -730,6 +732,16 @@ export function somarDet(ms: (Record<string, DetGateway> | undefined)[]): Record
   }
   return Object.fromEntries(Object.entries(out).map(([k, o]) => [k, semCobertura.has(k) ? ([o[0], o[1]] as DetGateway) : (o as DetGateway)]));
 }
+/** Soma os mapas dia → [valor, cobranças] de várias unidades. */
+export function somarCartaoAReceber(ms: (Record<string, [number, number]> | undefined)[]): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {};
+  for (const m of ms) for (const [dia, [v, n]] of Object.entries(m ?? {})) {
+    const o = (out[dia] ??= [0, 0]);
+    o[0] = Math.round((o[0] + v) * 100) / 100;
+    o[1] += n;
+  }
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
 /** Como `normalizarNomes`, para mapas [quantidade, valor]: o mesmo gateway escrito de jeitos diferentes vira um só. */
 export function normalizarDet(m: Record<string, DetGateway>, f: (n: string) => string): Record<string, DetGateway> {
   return somarDet(Object.entries(m).map(([k, v]) => ({ [f(k)]: v })));
@@ -802,6 +814,12 @@ const FORA_RE = /DI[AÁ]RIA|FREE ?PASS|EXPERIMENTAL/i;
  * Vencidos, não renovados e a taxa continuam os do EVO. Detalhe gravado antes da separação (free pass dentro de
  * "Cortesias e promoções") fica como veio.
  */
+/** Meses gravados antes da regra: "Outros planos" (sem tipo reconhecido) conta como Promoções, como nos meses novos. */
+export function outrosEmPromocoes(t: Record<string, number>): Record<string, number> {
+  if (!("Outros planos" in t)) return t;
+  const { "Outros planos": outros, ...resto } = t;
+  return { ...resto, Promoções: (resto.Promoções ?? 0) + outros };
+}
 export function listaSemDiarias(u: Pick<UnitData, "naoRenovadosTipos" | "naoRenovadosPlanos">) {
   const t = u.naoRenovadosTipos;
   if (!t || "Cortesias e promoções" in t) return {};
@@ -878,7 +896,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.aVencer !== undefined && e.naoRenovados !== undefined) {
         unit.aVencer = e.aVencer;
         unit.naoRenovados = e.naoRenovados;
-        if (e.naoRenovadosTipos) unit.naoRenovadosTipos = e.naoRenovadosTipos;
+        if (e.naoRenovadosTipos) unit.naoRenovadosTipos = outrosEmPromocoes(e.naoRenovadosTipos);
         if (e.naoRenovadosPlanos) unit.naoRenovadosPlanos = e.naoRenovadosPlanos;
         unit.renovacoesEvo = true;
         unit.renovacoes = taxaRenovacao(e.aVencer, e.naoRenovados);
@@ -893,7 +911,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
         unit.permanenciaMeses = e.permanenciaMeses ?? 0;
       }
       if (e.motivosCancel !== undefined) unit.motivosCancel = e.motivosCancel;
-      if (e.canceladosTipos) unit.canceladosTipos = e.canceladosTipos;
+      if (e.canceladosTipos) unit.canceladosTipos = outrosEmPromocoes(e.canceladosTipos);
       if (e.canceladosPlanos) unit.canceladosPlanos = e.canceladosPlanos;
       // Origem das oportunidades, cobranças com falha e treinos (EVO).
       if (e.origens !== undefined) unit.origens = e.origens;
@@ -915,6 +933,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       if (e.bandeirasCartao !== undefined) unit.bandeirasCartao = normalizarNomes(e.bandeirasCartao, nomeBandeira);
       if (e.gatewaysCartao !== undefined) unit.gatewaysCartao = normalizarNomes(e.gatewaysCartao, nomeGateway);
       if (e.gatewaysDet !== undefined) unit.gatewaysDet = normalizarDet(e.gatewaysDet, nomeGateway);
+      if (e.cartaoAReceber !== undefined) unit.cartaoAReceber = e.cartaoAReceber;
       if (e.calor !== undefined) { unit.calor = e.calor; unit.entradasDia = e.entradasDia ?? []; unit.entradas = e.entradas ?? 0; unit.frequentadores = e.frequentadores ?? 0; if (e.liberacoes !== undefined) { unit.liberacoes = e.liberacoes; unit.liberacoesMotivos = e.liberacoesMotivos ?? []; if (e.liberacoesGrupos) unit.liberacoesGrupos = e.liberacoesGrupos; } if (e.outrasUnidades) unit.outrasUnidades = e.outrasUnidades; }
       if (e.bairros !== undefined) { unit.bairros = e.bairros; unit.semBairro = e.semBairro ?? 0; if (e.local) unit.local = e.local; }
       if (e.bairrosInativos !== undefined) { unit.bairrosInativos = e.bairrosInativos; unit.semBairroInativos = e.semBairroInativos ?? 0; }
@@ -1029,6 +1048,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       ...(md.units.some((u) => u.bandeirasCartao !== undefined) ? { bandeirasCartao: somarMapas(md.units.map((u) => u.bandeirasCartao)) } : {}),
       ...(md.units.some((u) => u.gatewaysCartao !== undefined) ? { gatewaysCartao: somarMapas(md.units.map((u) => u.gatewaysCartao)) } : {}),
       ...(md.units.some((u) => u.gatewaysDet !== undefined) ? { gatewaysDet: somarDet(md.units.map((u) => u.gatewaysDet)) } : {}),
+      ...(md.units.some((u) => u.cartaoAReceber !== undefined) ? { cartaoAReceber: somarCartaoAReceber(md.units.map((u) => u.cartaoAReceber)) } : {}),
       ...(md.units.some((u) => u.treinoAtivo !== undefined)
         ? { treinoAtivo: md.units.reduce((n, u) => n + (u.treinoAtivo ?? 0), 0), treinoVencido: md.units.reduce((n, u) => n + (u.treinoVencido ?? 0), 0), treinoFuturo: md.units.reduce((n, u) => n + (u.treinoFuturo ?? 0), 0) }
         : {}),

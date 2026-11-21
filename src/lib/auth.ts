@@ -35,8 +35,8 @@ export const podeVerJuridico = () => usuario?.verJuridico === true;
 export const podeVerQualidade = () => usuario?.verQualidade === true;
 /** Checklist da unidade (abertura etc.): quem foi liberado a preencher; o servidor confere de novo. */
 export const podePreencherChecklist = () => usuario?.preencheChecklist === true;
-/** Comparar a taxa de cartão entre as unidades: só dono e Master (quem tem acesso a algumas unidades não vê). */
-export const podeCompararTaxasCartao = () => usuario?.papel === "dono" || usuario?.papel === "master";
+/** Comparar a taxa de cartão entre as unidades: só o dono (nem Master nem quem tem acesso a algumas unidades vê). */
+export const podeCompararTaxasCartao = () => usuario?.papel === "dono";
 /** Editar a qualidade (o servidor confere de novo): sem login (testes e tela aberta) vale como dono. */
 export const podeEditarQualidade = () => (usuario ? usuario.editaQualidade === true : true);
 export const podeGerirAcessos = () => usuario?.papel === "dono" || usuario?.gerenciaAcessos === true;

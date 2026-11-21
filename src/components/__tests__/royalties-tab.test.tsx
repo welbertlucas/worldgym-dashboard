@@ -4,7 +4,8 @@ import { RoyaltiesConteudo } from "@/components/tabs/RoyaltiesTab";
 import { itensDoMenu, TODOS_OS_MENUS, nomeDaTela } from "@/components/nav";
 import { MODELO } from "@/data/__tests__/royalties-fixture";
 import { DetalheDaUnidade } from "@/components/royalties/DetalheDaUnidade";
-import { contexto } from "@/data/royalties";
+import { contexto, filtroInicial, resumoDoPeriodo } from "@/data/royalties";
+import { SeletorDeUnidades, rotuloDasUnidades } from "@/components/royalties/SeletorDeUnidades";
 
 /** O React separa textos vizinhos com comentários vazios; tira para procurar a frase inteira. */
 const limpo = (h: string) => h.replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
@@ -59,5 +60,17 @@ describe("Royalties (menu e tela)", () => {
   it("as devedoras são botões que abrem o detalhe", () => {
     const html = limpo(renderToString(<RoyaltiesConteudo estado={{ fase: "pronto", dados: { disponivel: true, ...MODELO } }} />));
     expect(html).toContain("Alfa: deve R$ 200. Abrir o detalhe");
+  });
+
+  it("dá para escolher mais de uma unidade: o rótulo conta as marcadas e os totais somam só elas", () => {
+    expect(rotuloDasUnidades([])).toBe("Todas as unidades");
+    expect(rotuloDasUnidades(["Alfa"])).toBe("Alfa");
+    expect(rotuloDasUnidades(["Alfa", "Beta", "Gama"])).toBe("3 unidades");
+    const c = contexto(MODELO as never);
+    const [a, b] = c.m.unidades.filter((u) => c.tipoDe[u.nome] === c.tipoDe[c.m.unidades[0].nome]).map((u) => u.nome);
+    const um = (u: string) => resumoDoPeriodo(c, { ...filtroInicial(c), unidades: [u] }).total;
+    expect(resumoDoPeriodo(c, { ...filtroInicial(c), unidades: [a, b] }).total).toBeCloseTo(um(a) + um(b), 2);
+    const html = limpo(renderToString(<SeletorDeUnidades opcoes={["Alfa", "Beta"]} marcadas={["Alfa", "Beta"]} onChange={() => {}} />));
+    expect(html).toContain("2 unidades");
   });
 });

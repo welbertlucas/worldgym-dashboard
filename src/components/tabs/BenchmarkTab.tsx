@@ -3,7 +3,6 @@ import { UnitComparison } from "@/components/UnitComparison";
 import { EvolucaoDaUnidade } from "@/components/unidades/EvolucaoDaUnidade";
 import { getLastClosedMonth } from "@/data/periods";
 import { SectionTitle } from "@/components/SectionTitle";
-import { UnitHighlights } from "@/components/UnitHighlights";
 import { UnitDeltaChart } from "@/components/UnitDeltaChart";
 import { UnitsRanking } from "@/components/unidades/UnitsRanking";
 import { TopUnitsTable } from "@/components/TopUnitsTable";
@@ -37,11 +36,6 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
   const foco = unit && units.some((u) => u.name === unit) ? unit : null;
   const todas = !foco || verTodas === foco;
   const hasDeltas = deltas.length > 0 && !!evalMonth && !!prevEvalMonth;
-  const destaques = hasDeltas && (
-      <Secao id="bm-destaques" titulo="Quem melhorou e quem piorou" descricao={<>Variação de {formatMonthLong(evalMonth!)} em relação a {formatMonthLong(prevEvalMonth!)} (último mês fechado contra o anterior).</>}>
-        <UnitHighlights deltas={deltas} />
-      </Secao>
-  );
   const ranking = (
     <Secao
       id="bm-ranking"
@@ -73,7 +67,7 @@ export function BenchmarkTab({ selectedMonth, evalMonth, prevEvalMonth, deltas, 
         <Abas tela="benchmark" titulo="Ranking da rede" abas={ABAS_BENCHMARK} ativa={aba} onChange={onAba} />
       </div>
 
-      {aba === "posicao" && <>{!foco && destaques}{ranking}{foco && destaques}</>}
+      {aba === "posicao" && ranking}
 
       {aba === "evolucao" && (foco
         ? <EvolucaoDaUnidade unit={foco} />

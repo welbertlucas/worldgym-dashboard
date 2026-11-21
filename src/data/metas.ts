@@ -294,3 +294,69 @@ export function resolveGoal(metas: Meta[], md: MonthData, month: string, unit: s
   if (!TIERS.some((t) => meta[t] !== undefined)) return null;
   return { meta, actual: rows.reduce((s, r) => s + r.u[key], 0), units: rows.length };
 }
+
+/** Indicadores que somam mês a mês (o acumulado do ano faz sentido); os de taxa (churn, inadimplência, renovação, conversão) não. */
+export const SOMAM_NO_ANO: MetaKey[] = ["faturamento", "recebimento", "vendasOnline", "novosContratos"];
+
+export interface MesDoAno { month: string; realizado: number | null; acumulado: number | null; metaOuroAcumulada: number | null }
+export interface AcumuladoDoAno {
+  ano: string;
+  /** Janeiro até o último mês com dado (o mês em andamento entra, parcial). */
+  meses: MesDoAno[];
+  realizado: number;
+  /** Soma das metas mensais cadastradas da rede no ano inteiro, por nível; null sem nenhuma. */
+  metaDoAno: Meta | null;
+  mesesComMeta: number;
+  /** Só os meses fechados: o realizado deles, o mesmo período do ano anterior e a variação. Null quando o ano anterior não tem todos esses meses. */
+  fechados: { n: number; realizado: number; anoAnterior: number | null; variacao: number | null; ultimo: string | null };
+  parcial: boolean;
+}
+
+/**
+ * Quanto a rede já fez no ano (janeiro até o mês exibido) num indicador que soma, contra a meta do ano (a soma das metas mensais) e contra o mesmo
+ * período do ano anterior. A comparação com o ano anterior usa só os meses fechados, para não pôr um mês parcial contra um mês inteiro.
+ */
+export function acumuladoDoAno(data: MonthData[], metas: Meta[], key: MetaKey, ate: string, mesParcial: (m: string) => boolean): AcumuladoDoAno | null {
+  if (!SOMAM_NO_ANO.includes(key)) return null;
+  const ano = ate.slice(0, 4);
+  const ultimo = Number(ate.slice(5, 7));
+  const mm = (n: number) => String(n).padStart(2, "0");
+  const real = (month: string) => { const d = data.find((x) => x.month === month); return d ? actualFor(d, "TOTAL", key) : null; };
+  const metaDoMes = (month: string) => getMeta(metas, month, "TOTAL", key);
+  let acum = 0, ouroAcum = 0, temOuro = false;
+  const meses: MesDoAno[] = [];
+  for (let n = 1; n <= ultimo; n++) {
+    const month = `${ano}-${mm(n)}`;
+    const r = real(month);
+    if (r !== null) acum += r;
+    const ouro = metaDoMes(month)?.ouro;
+    if (ouro !== undefined) { ouroAcum += ouro; temOuro = true; }
+    meses.push({ month, realizado: r, acumulado: r !== null ? Math.round(acum * 100) / 100 : null, metaOuroAcumulada: temOuro ? Math.round(ouroAcum * 100) / 100 : null });
+  }
+  const comDado = meses.filter((m) => m.realizado !== null);
+  if (!comDado.length) return null;
+  const soma: Meta = { month: ano, unit: "TOTAL", key } as Meta;
+  let mesesComMeta = 0;
+  for (let n = 1; n <= 12; n++) {
+    const g = metaDoMes(`${ano}-${mm(n)}`);
+    if (!g) continue;
+    mesesComMeta++;
+    for (const t of TIERS) if (g[t] !== undefined) soma[t] = (soma[t] ?? 0) + g[t]!;
+  }
+  const fechadosMeses = comDado.filter((m) => !mesParcial(m.month));
+  const realizadoFechado = fechadosMeses.reduce((s, m) => s + (m.realizado ?? 0), 0);
+  const anteriores = fechadosMeses.map((m) => real(`${Number(ano) - 1}-${m.month.slice(5)}`));
+  const anoAnterior = fechadosMeses.length && anteriores.every((v) => v !== null) ? anteriores.reduce<number>((s, v) => s + (v ?? 0), 0) : null;
+  return {
+    ano, meses,
+    realizado: Math.round(acum * 100) / 100,
+    metaDoAno: mesesComMeta ? soma : null,
+    mesesComMeta,
+    fechados: {
+      n: fechadosMeses.length, realizado: Math.round(realizadoFechado * 100) / 100, anoAnterior,
+      variacao: anoAnterior ? (realizadoFechado / anoAnterior - 1) * 100 : null,
+      ultimo: fechadosMeses.length ? fechadosMeses[fechadosMeses.length - 1].month : null,
+    },
+    parcial: mesParcial(comDado[comDado.length - 1].month),
+  };
+}

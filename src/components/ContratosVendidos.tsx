@@ -61,7 +61,7 @@ const TIPOS_DA_ROSCA: { nome: string; cor: string }[] = [
 
 /**
  * Fatias da rosca de planos por tipo: WG Local, WG Rede, WG 30 e Aquática; todo o resto dos planos vendidos (cortesias,
- * promoções, parcerias e planos sem tipo) vira "Outros", para a rosca fechar 100% do total.
+ * promoções, parcerias e planos sem tipo) vira "Promoções", para a rosca fechar 100% do total.
  */
 export function fatiasPorTipo(familias: [string, number, number][], vendas: number, valor: number) {
   const principais = TIPOS_DA_ROSCA.map((t) => {
@@ -70,7 +70,8 @@ export function fatiasPorTipo(familias: [string, number, number][], vendas: numb
   }).filter((f) => f.n > 0).sort((a, b) => b.n - a.n);
   const n = vendas - principais.reduce((s, f) => s + f.n, 0);
   const v = valor - principais.reduce((s, f) => s + f.v, 0);
-  return n > 0 ? [...principais, { rotulo: "Outros", n, v: Math.max(0, v), cor: "hsl(var(--foreground) / 0.18)" }] : principais;
+  // O que sobra do total (cortesias, planos sem tipo e planos baratos) é "Promoções". Do maior para o menor, ela entra onde o tamanho mandar.
+  return (n > 0 ? [...principais, { rotulo: "Promoções", n, v: Math.max(0, v), cor: "hsl(var(--foreground) / 0.18)" }] : principais).sort((a, b) => b.n - a.n);
 }
 
 /**
@@ -91,7 +92,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
   const maior = top[0]?.[1] ?? 1;
   const dur = total.duracaoVenda ?? [0, 0, 0, 0, 0];
   const fatias = familias ? fatiasPorTipo(familias, vendas, valor) : null;
-  const lider = fatias ? fatias.filter((f) => f.rotulo !== "Outros").sort((a, b) => b.n - a.n)[0] : null;
+  const lider = fatias ? fatias.filter((f) => f.rotulo !== "Promoções").sort((a, b) => b.n - a.n)[0] : null;
   return (
     <ChartCard
       title={familias ? "Planos mais vendidos por tipo" : "Contratos mais vendidos"}

@@ -85,3 +85,34 @@ async function titulosDoMes(idBranch, ym) {
   }
   return todos;
 }
+
+/**
+ * Cartão de crédito por dia em que o dinheiro cai (data de recebimento do EVO, em geral a cobrança mais 30 dias): { "AAAA-MM-DD": [valor, cobranças] }.
+ * Só crédito, pago e não cancelado, com recebimento dentro do mês `ym`. Só totais: nada de aluno. O valor é o bruto (sem a taxa da operadora).
+ */
+export function somarCartaoAReceber(titulos, ym) {
+  const out = {};
+  for (const r of titulos) {
+    if (!live(r) || !(r.ammountPaid > 0) || !/credit/i.test(r.paymentType?.name ?? "")) continue;
+    const dia = String(r.receivingDate ?? r.dueDate ?? "").slice(0, 10);
+    if (!dia.startsWith(ym)) continue;
+    const o = (out[dia] ??= [0, 0]);
+    o[0] += r.ammountPaid;
+    o[1] += 1;
+  }
+  for (const k of Object.keys(out)) out[k][0] = round2(out[k][0]);
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/** Lê os recebimentos que vencem no mês (os de cartão de crédito já cobrados, que ainda vão cair na conta) e agrupa por dia. */
+export async function cartaoAReceberDoMes(idBranch, ym) {
+  const [y, m] = ym.split("-").map(Number);
+  const fim = `${ym}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
+  const todos = [];
+  for (let skip = 0; ; skip += PAGE) {
+    const rows = await evoGet(`/receivables?idBranch=${idBranch}&dueDateStart=${ym}-01&dueDateEnd=${fim}&take=${PAGE}&skip=${skip}`);
+    todos.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return somarCartaoAReceber(todos, ym);
+}

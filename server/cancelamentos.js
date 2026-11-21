@@ -4,7 +4,7 @@
 import { fetchAll } from "./evo.js";
 import { diaDeCorte } from "./ativos.js";
 import { UNIT_NAMES } from "./units.js";
-import { tipoContrato } from "./vendas.js";
+import { catalogoEmMemoria, tipoContrato } from "./vendas.js";
 import { semanasDeCancelados, semanasVazias } from "./semanas.js";
 
 /** Agrupa o texto livre do EVO em poucas categorias comparáveis. */
@@ -27,7 +27,7 @@ export function resumirMotivos(rows) {
  * Por unidade: motivos (alunos), contratos cancelados por tipo e os planos com mais cancelamentos (nome do contrato no EVO,
  * os 10 maiores). Cada aluno conta uma vez no mês, pelo primeiro contrato cancelado. Só contagens: nenhum dado do aluno sai daqui.
  */
-export function resumirCancelados(rows) {
+export function resumirCancelados(rows, planos = new Map()) {
   const por = {};
   const vistos = new Set();
   for (const r of rows) {
@@ -40,7 +40,7 @@ export function resumirCancelados(rows) {
     const c = categoriaMotivo(r.reasonCancellation);
     u.motivos[c] = (u.motivos[c] ?? 0) + 1;
     const plano = String(r.nameMembership || "Sem nome").trim().replace(/\s+/g, " ");
-    const tipo = tipoContrato(plano);
+    const tipo = tipoContrato(plano, planos.get(r.idMembership)?.primeira);
     u.tipos[tipo] = (u.tipos[tipo] ?? 0) + 1;
     u.planos.set(plano, (u.planos.get(plano) ?? 0) + 1);
   }
@@ -50,7 +50,7 @@ export function resumirCancelados(rows) {
 
 export async function canceladosDoMes(ym, hoje) {
   const rows = await fetchAll(`/api/v3/membermembership?cancelDateStart=${ym}-01&cancelDateEnd=${diaDeCorte(ym, hoje)}`);
-  const por = resumirCancelados(rows);
+  const por = resumirCancelados(rows, await catalogoEmMemoria());
   const sem = semanasDeCancelados(rows, ym, (id) => UNIT_NAMES[id]);
   for (const [nome, u] of Object.entries(por)) u.semanas = sem[nome] ?? semanasVazias(ym, { cancelados: 0 });
   return por;

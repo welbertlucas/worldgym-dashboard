@@ -48,13 +48,27 @@ export function esconderUnidade(u) {
   return saida;
 }
 
-/** Um mês do EVO: unidades da pessoa completas, as outras escondidas. */
-export function filtrarMes(mes, sessao) {
-  if (veTudo(sessao) || !mes) return mes;
-  return { ...mes, units: (mes.units ?? []).map((u) => (propria(sessao, u.name) ? u : esconderUnidade(u))) };
+/**
+ * A taxa de cartão (o que o EVO registra por cobrança paga) é só do dono: os outros níveis recebem só quantas cobranças cada gateway teve
+ * (a taxa e a cobertura dela saem da resposta, não só da tela).
+ */
+export function semTaxasDeCartao(mes) {
+  if (!mes?.units?.some((u) => u.gatewaysDet)) return mes;
+  return {
+    ...mes,
+    units: mes.units.map((u) => (u.gatewaysDet ? { ...u, gatewaysDet: Object.fromEntries(Object.entries(u.gatewaysDet).map(([g, d]) => [g, [d[0], 0]])) } : u)),
+  };
 }
 
-export const filtrarMeses = (meses, sessao) => (veTudo(sessao) ? meses : meses.map((m) => filtrarMes(m, sessao)));
+/** Um mês do EVO: sem as taxas de cartão (só o dono as vê); para o nível unidades, as da pessoa completas e as outras escondidas. */
+export function filtrarMes(mes, sessao) {
+  if (!mes) return mes;
+  const m = sessao.papel === "dono" ? mes : semTaxasDeCartao(mes);
+  if (veTudo(sessao)) return m;
+  return { ...m, units: (m.units ?? []).map((u) => (propria(sessao, u.name) ? u : esconderUnidade(u))) };
+}
+
+export const filtrarMeses = (meses, sessao) => (sessao.papel === "dono" ? meses : meses.map((m) => filtrarMes(m, sessao)));
 
 const indiceDaColuna = (cabecalho, ...nomes) => cabecalho.findIndex((c) => nomes.includes(String(c ?? "").trim().toLowerCase()));
 

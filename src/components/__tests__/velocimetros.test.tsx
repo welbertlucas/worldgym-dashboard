@@ -83,7 +83,7 @@ describe("faixas dos velocímetros = regras de cor existentes", () => {
 });
 
 describe("Visão Executiva em meias-luas", () => {
-  const props = { vigentes: { month: null, dias: 0, comRitmo: false, alertas: [] }, evalMonth: "2026-09", deltas: [], metas: [], onOpenPlano: () => {}, onOpenUnidades: () => {} };
+  const props = { metas: [] };
 
   it("cartão: número dentro do arco, chips de comparação e aviso de parcial", () => {
     const html = renderToString(<KpiGaugeCard title="Churn" value="3,0%" fill={0.25} marker={0.4} tone="good" partial
@@ -128,7 +128,7 @@ describe("Visão Executiva em meias-luas", () => {
       { month: "2026-09", unit: "A", key: "faturamento", bronze: 110000 },
     ];
     const html = renderToString(<ExecutivaTab month={m} prev={ant} {...props} metas={metas as never} serie={[ant, m]} unidades={["A"]} />).replace(/<!-- -->/g, "");
-    for (const s of ["Metas da unidade", "Faturamento de A", "Números de A", "1 de 1 meta atingida", "Plano de ação"]) expect(html).toContain(s);
+    for (const s of ["Metas da unidade", "Números de A", "1 de 1 meta atingida"]) expect(html).toContain(s);
     for (const s of ["da rede", "Maiores faturamentos", "diretoria"]) expect(html).not.toContain(s);
   });
 
@@ -140,7 +140,7 @@ describe("Visão Executiva em meias-luas", () => {
       { month: "2026-09", unit: "B", key: "faturamento", bronze: 90000 },
     ];
     const html = renderToString(<ExecutivaTab month={m} {...props} metas={metas as never} serie={[m]} unidades={["A", "B"]} />).replace(/<!-- -->/g, "");
-    for (const s of ["Metas das suas unidades", "Faturamento das suas unidades", "Soma das suas 2 unidades", "1 de 1 meta atingida", "Maiores faturamentos"]) expect(html).toContain(s);
+    for (const s of ["Metas das suas unidades", "Soma das suas 2 unidades", "1 de 1 meta atingida"]) expect(html).toContain(s);
     expect(html).not.toContain("da rede");
   });
 });

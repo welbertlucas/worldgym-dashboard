@@ -6,11 +6,12 @@ import { Notice } from "@/components/Notice";
 import { Select } from "@/components/ui/select";
 import { TIER_COLOR, TierBadge, TierBullet, TierChips, shownPct, tierName } from "@/components/metas/TierGauge";
 import { GoalRing } from "@/components/metas/GoalRing";
+import { AnoAcumulado } from "@/components/metas/AnoAcumulado";
 import { ExemploMeta } from "@/components/metas/ExemploMeta";
 import { type MonthData, type UnitData } from "@/data/dashboardData";
 import { projecaoContratos, projecaoFaturamento } from "@/data/projecaoMes";
 import {
-  META_INDICATORS, TIER_LABEL, TIERS, actualFor, bulletScale, formatMetaValue, getMeta, isSingleGoal, metaWarnings, progressToNext, resolveGoal, tierReached,
+  META_INDICATORS, TIER_LABEL, TIERS, acumuladoDoAno, actualFor, bulletScale, formatMetaValue, getMeta, isSingleGoal, metaWarnings, progressToNext, resolveGoal, tierReached,
   type Meta, type MetaKey, type TierResult,
 } from "@/data/metas";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
@@ -96,14 +97,20 @@ export function MetasTab({ data, metas, month, unit = null, atualizadoEm = null 
 
   // Histórico (rede) do indicador escolhido: realizado × níveis de meta
   const evoKey = k ?? keysWithMetas[0];
+  // Acumulado do ano (só indicadores que somam): faixa e rosca no topo do histórico, e as linhas do acumulado e da meta acumulada no gráfico.
+  const anoAcum = acumuladoDoAno(data, metas, evoKey, shownMonth, isPartialMonth);
+  const acumPorMes = new Map((anoAcum?.meses ?? []).map((m) => [m.month, m]));
   const evolution = data.slice(-12).map((d) => {
     const meta = getMeta(metas, d.month, "TOTAL", evoKey);
+    const ac = acumPorMes.get(d.month);
     return {
       month: shortMonth(d.month) + (isPartialMonth(d.month) ? " (parc.)" : ""),
       realizado: actualFor(d, "TOTAL", evoKey),
       bronze: meta?.bronze ?? null, prata: meta?.prata ?? null, ouro: meta?.ouro ?? null,
+      acumulado: ac?.acumulado ?? null, metaAcumulada: ac?.metaOuroAcumulada ?? null,
     };
   });
+  const comAcumulado = evolution.some((e) => e.acumulado !== null);
   const hasHistory = evolution.some((e) => e.bronze !== null || e.prata !== null || e.ouro !== null);
 
   return (
@@ -198,18 +205,23 @@ export function MetasTab({ data, metas, month, unit = null, atualizadoEm = null 
         </section>
       )}
 
+      {anoAcum && <AnoAcumulado a={anoAcum} metaKey={evoKey} />}
+
       {hasHistory && (
         <section aria-labelledby="metas-hist" className="card-surface p-5">
           <h3 id="metas-hist" className="text-sm font-semibold text-foreground">Histórico da rede — {META_INDICATORS[evoKey].label}</h3>
-          <p className="text-xs text-muted-foreground mb-4">Realizado mês a mês e os níveis de meta cadastrados da rede.</p>
+          <p className="text-xs text-muted-foreground mb-4">Realizado mês a mês e os níveis de meta cadastrados da rede{comAcumulado && ". As linhas pretas (eixo da direita) mostram o acumulado do ano e a meta ouro acumulada"}.</p>
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={evolution} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis dataKey="month" tick={AXIS_TICK} axisLine={false} tickLine={false} tickMargin={8} minTickGap={16} />
               <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={64} tickFormatter={(v) => (META_INDICATORS[evoKey].format === "currency" ? new Intl.NumberFormat("pt-BR", { notation: "compact" }).format(v) : String(v))} />
+              {comAcumulado && <YAxis yAxisId="acum" orientation="right" tick={AXIS_TICK} axisLine={false} tickLine={false} width={64} tickFormatter={(v) => (META_INDICATORS[evoKey].format === "currency" ? new Intl.NumberFormat("pt-BR", { notation: "compact" }).format(v) : String(v))} />}
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, n: string) => [formatMetaValue(evoKey, v), n]} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="realizado" name="Realizado" fill="hsl(4 90% 50%)" radius={[4, 4, 0, 0]} maxBarSize={16} />
+              {comAcumulado && <Line yAxisId="acum" dataKey="acumulado" name="Acumulado no ano" stroke="hsl(222 25% 22%)" strokeWidth={2.5} dot={{ r: 2 }} connectNulls={false} />}
+              {comAcumulado && <Line yAxisId="acum" dataKey="metaAcumulada" name="Meta ouro acumulada" stroke="hsl(222 25% 22%)" strokeWidth={1.5} strokeDasharray="2 3" dot={false} connectNulls={false} />}
               {TIERS.map((t) => <Line key={t} dataKey={t} name={TIER_LABEL[t]} stroke={TIER_COLOR[t]} strokeWidth={2} strokeDasharray={t === "ouro" ? undefined : "5 3"} dot={{ r: 2 }} connectNulls />)}
             </ComposedChart>
           </ResponsiveContainer>

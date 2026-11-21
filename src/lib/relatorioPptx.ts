@@ -64,19 +64,21 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
   // Números gerais
   if (m.big) {
     const s = slideDeDados();
+    // Até 6 números: 3 colunas; mais que isso (com os contratos vendidos são 7): 4 colunas mais estreitas, com letras um pouco menores.
+    const colunas = m.big.length > 6 ? 4 : 3, larg = colunas === 4 ? 2.3 : 3.1, passo = colunas === 4 ? 2.35 : 3.15, fator = colunas === 4 ? 0.72 : 1;
     m.big.forEach((k, i) => {
-      const col = i % 3, lin = Math.floor(i / 3);
-      const x = 0.5 + col * 3.15, y = 1.35 + lin * 2.8;
+      const col = i % colunas, lin = Math.floor(i / colunas);
+      const x = 0.5 + col * passo, y = 1.35 + lin * 2.8;
       // valores longos (R$ 7.021.350) encolhem para caber na coluna
-      const tam = k.valor.length > 11 ? 36 : k.valor.length > 9 ? 42 : 48;
-      s.addText(k.valor, { x, y, w: 3.1, h: 1.0, fontFace: TIT, fontSize: tam, color: PRETO, valign: "middle" });
-      s.addText(k.nome, { x, y: y + 0.95, w: 3.1, h: 0.5, fontFace: TIT, fontSize: 24, color: VINHO });
+      const tam = Math.round((k.valor.length > 11 ? 36 : k.valor.length > 9 ? 42 : 48) * fator);
+      s.addText(k.valor, { x, y, w: larg, h: 1.0, fontFace: TIT, fontSize: tam, color: PRETO, valign: "middle" });
+      s.addText(k.nome, { x, y: y + 0.95, w: larg, h: 0.5, fontFace: TIT, fontSize: Math.round(24 * (colunas === 4 ? 0.62 : 1)), color: VINHO });
       if (k.variacao !== null) {
         const bom = k.menorMelhor ? k.variacao <= 0 : k.variacao >= 0;
         const txt = k.emPontos ? `${k.variacao >= 0 ? "+" : ""}${k.variacao.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} p.p.` : sinal(k.variacao);
-        s.addText(txt, { x, y: y + 1.45, w: 3.1, h: 0.45, fontFace: TXT, fontSize: 20, bold: true, color: bom ? VERDE : VERM });
+        s.addText(txt, { x, y: y + 1.45, w: larg, h: 0.45, fontFace: TXT, fontSize: Math.round(20 * fator), bold: true, color: bom ? VERDE : VERM });
       }
-      if (k.anterior && m.mesAnteriorCurto) s.addText(`${k.anterior}  ·  ${m.mesAnteriorCurto}`, { x, y: y + 1.9, w: 3.1, h: 0.4, fontFace: TXT, fontSize: 15, color: CINZA });
+      if (k.anterior && m.mesAnteriorCurto) s.addText(`${k.anterior}  ·  ${m.mesAnteriorCurto}`, { x, y: y + 1.9, w: larg, h: 0.4, fontFace: TXT, fontSize: Math.round(15 * (colunas === 4 ? 0.8 : 1)), color: CINZA });
     });
     s.addText(`${m.nUnidades} ${m.nUnidades === 1 ? "unidade" : "unidades"}`, { x: 10.0, y: 1.35, w: 3.2, h: 0.9, fontFace: TIT, fontSize: 48, color: VINHO });
     s.addText(m.escopo === "Rede" ? "na rede World Gym" : m.escopo, { x: 10.0, y: 2.2, w: 3.2, h: 0.5, fontFace: TXT, fontSize: 16, color: PRETO });
@@ -115,8 +117,27 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
     rodape(s);
   }
 
+  // Motivos (cancelamento, recusa do cartão): um slide logo depois do ranking a que pertencem
+  const slideDeMotivos = (mo: NonNullable<ModeloRelatorio["rankings"][number]["motivos"]>) => {
+    const s = slideDeDados();
+    s.addText(mo.titulo.toUpperCase(), { x: 2.0, y: 0.08, w: 9.3, h: 0.8, fontFace: TIT, fontSize: 32, color: TEXTO, align: "center" });
+    s.addText(mo.subtitulo, { x: 2.0, y: 0.82, w: 9.3, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    const ord = [...mo.itens].sort((a, b) => a[1] - b[1]); // a barra horizontal desenha de baixo para cima
+    const pct = (n: number) => `${((n / mo.total) * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+    s.addChart(pptx.ChartType.bar, [{ name: mo.titulo, labels: ord.map((x) => `${x[0]} · ${pct(x[1])}`), values: ord.map((x) => x[1]) }], {
+      x: 0.5, y: 1.15, w: 9.4, h: 5.9, barDir: "bar", chartColors: [VINHO], showValue: true, dataLabelFormatCode: FORMATO_EXCEL.int,
+      dataLabelColor: "FFFFFF", dataLabelFontSize: 10, dataLabelFontFace: TXT, dataLabelPosition: "inEnd", catAxisLabelFontSize: 10, catAxisLabelFontFace: TXT,
+      valAxisHidden: true, valGridLine: { color: "DDD6D1", size: 0.5 }, catGridLine: { style: "none" }, barGapWidthPct: ord.length <= 4 ? 120 : 45, showLegend: false,
+    });
+    s.addText(mo.total.toLocaleString("pt-BR"), { x: 10.1, y: 1.6, w: 3.0, h: 0.9, fontFace: TIT, fontSize: 48, color: VINHO });
+    s.addText(mo.titulo.startsWith("Cancel") ? "cancelamentos com motivo informado" : "cobranças recusadas", { x: 10.1, y: 2.45, w: 3.0, h: 0.7, fontFace: TXT, fontSize: 14, color: PRETO, valign: "top" });
+    if (mo.nota) s.addText(mo.nota, { x: 10.1, y: 3.3, w: 3.0, h: 0.9, fontFace: TXT, fontSize: 12, bold: true, color: VERM, valign: "top" });
+    rodape(s);
+  };
+
   // Rankings (gráfico de barras nativo)
-  for (const r of m.rankings) {
+  for (const r of m.rankings.flatMap((x) => (x.motivos ? [x, { ...x, motivosSo: x.motivos }] : [x]))) {
+    if ("motivosSo" in r) { slideDeMotivos((r as { motivosSo: NonNullable<ModeloRelatorio["rankings"][number]["motivos"]> }).motivosSo); continue; }
     const s = slideDeDados();
     s.addText(r.titulo.toUpperCase(), { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
     s.addText(r.subtitulo, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
@@ -173,6 +194,46 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao): 
       valAxisHidden: true, valGridLine: { color: "DDD6D1", size: 0.5 }, catGridLine: { style: "none" }, barGapWidthPct: r.itens.length <= 3 ? 220 : r.itens.length <= 6 ? 120 : 35, showLegend: false,
     });
     if (r.nota) s.addText(r.nota, { x: 10.2, y: 5.0, w: 2.9, h: 1.8, fontFace: TXT, fontSize: 10, color: PRETO, valign: "top" });
+    rodape(s);
+  }
+
+  // Frequência dos alunos: mapa de calor das entradas do período (dia da semana × hora) e o último check-in dos alunos ativos
+  if (m.frequencia) {
+    const f = m.frequencia;
+    const s = slideDeDados();
+    s.addText("FREQUÊNCIA DOS ALUNOS", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(`entradas na catraca · ${f.periodo}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"], ORDEM = [1, 2, 3, 4, 5, 6, 0]; // os dados começam no domingo
+    const x0 = 1.45, y0 = 1.75, cw = 0.27, ch = 0.52;
+    if (f.calor.length === 168) {
+      const maior = Math.max(...f.calor, 1);
+      const cor = (v: number) => {
+        const t = Math.sqrt(v / maior); // raiz: os horários mais fracos ainda aparecem
+        const mix = (a: number, b: number) => Math.round(a + (b - a) * t).toString(16).padStart(2, "0");
+        return `${mix(0xF3, 0x70)}${mix(0xE6, 0x0E)}${mix(0xE6, 0x0E)}`.toUpperCase();
+      };
+      for (let h = 0; h < 24; h += 2) s.addText(`${h}h`, { x: x0 + h * cw - 0.1, y: y0 - 0.32, w: cw * 2 + 0.2, h: 0.28, fontFace: TXT, fontSize: 9, color: CINZA, align: "center" });
+      ORDEM.forEach((dia, lin) => {
+        s.addText(DIAS[lin], { x: 0.7, y: y0 + lin * ch, w: 0.7, h: ch, fontFace: TXT, fontSize: 11, color: TEXTO, valign: "middle" });
+        for (let h = 0; h < 24; h++) {
+          const v = f.calor[dia * 24 + h];
+          s.addShape(pptx.ShapeType.rect, { x: x0 + h * cw, y: y0 + lin * ch, w: cw - 0.02, h: ch - 0.03, fill: { color: cor(v) }, line: { color: "FFFFFF", width: 0.25 } });
+        }
+      });
+      s.addText(`${f.entradas.toLocaleString("pt-BR")} entradas${f.frequentadores ? ` · ${f.frequentadores.toLocaleString("pt-BR")} alunos diferentes` : ""}`, { x: 0.7, y: y0 + 7 * ch + 0.1, w: 7.4, h: 0.35, fontFace: TXT, fontSize: 14, bold: true, color: TEXTO });
+      s.addText("Quanto mais escuro, mais entradas naquele dia da semana e hora.", { x: 0.7, y: y0 + 7 * ch + 0.45, w: 7.4, h: 0.3, fontFace: TXT, fontSize: 10, italic: true, color: CINZA });
+    } else s.addText("Sem entradas da catraca neste período.", { x: 0.7, y: 3, w: 7.4, h: 0.6, fontFace: TXT, fontSize: 16, color: CINZA });
+    if (f.ultimoCheckin) {
+      const u = f.ultimoCheckin;
+      s.addText("ÚLTIMO CHECK-IN DOS ALUNOS ATIVOS", { x: 8.55, y: 1.25, w: 4.5, h: 0.4, fontFace: TIT, fontSize: 16, color: VINHO });
+      s.addText(`${u.total.toLocaleString("pt-BR")} alunos ativos · ${u.posicao}`, { x: 8.55, y: 1.62, w: 4.5, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA });
+      const ord = u.rotulos.map((r, i) => [r, u.valores[i]] as [string, number]).reverse(); // a barra horizontal desenha de baixo para cima
+      s.addChart(pptx.ChartType.bar, [{ name: "Alunos ativos", labels: ord.map(([r, v]) => `${r} · ${((v / u.total) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`), values: ord.map(([, v]) => v) }], {
+        x: 8.45, y: 2.0, w: 4.7, h: 4.6, barDir: "bar", chartColors: [VINHO], showValue: true, dataLabelFormatCode: FORMATO_EXCEL.int,
+        dataLabelFontSize: 10, dataLabelFontFace: TXT, dataLabelPosition: "outEnd", catAxisLabelFontSize: 10, catAxisLabelFontFace: TXT,
+        valAxisHidden: true, valGridLine: { style: "none" }, catGridLine: { style: "none" }, barGapWidthPct: 60, showLegend: false,
+      });
+    }
     rodape(s);
   }
 

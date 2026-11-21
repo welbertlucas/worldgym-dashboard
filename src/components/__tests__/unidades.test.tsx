@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
-import { UnitHighlights } from "@/components/UnitHighlights";
 import { PosicoesNaRede, UnitsRanking } from "@/components/unidades/UnitsRanking";
 import { BenchmarkTab } from "@/components/tabs/BenchmarkTab";
 import { dashboardDataRede } from "@/data/dashboardData";
@@ -10,19 +9,6 @@ import { computeUnitDeltas } from "@/data/unitMetrics";
 import { month, unit } from "@/data/__tests__/helpers";
 
 afterEach(() => { dashboardData.length = 0; });
-
-describe("UnitHighlights", () => {
-  it("cor segue a direção do indicador: churn em queda é melhora; inadimplência em alta é piora", () => {
-    const prev = month("2026-08", [unit("A", { churn: 8, inadimplenciaPerc: 4 }), unit("B")]);
-    const cur = month("2026-09", [unit("A", { churn: 6, inadimplenciaPerc: 5 }), unit("B")]);
-    const html = renderToString(<UnitHighlights deltas={computeUnitDeltas(cur, prev)} limit={1} />);
-    expect(html).toContain("Resultados positivos");
-    expect(html).toContain("Deterioração de indicadores");
-    expect(html).toMatch(/Churn[\s\S]*?-2,0 p\.p\.[\s\S]*?\(melhora\)/);
-    expect(html).toMatch(/Inadimplência[\s\S]*?\+1,0 p\.p\.[\s\S]*?\(piora\)/);
-    expect(html).toContain("Critério:");
-  });
-});
 
 describe("UnitsRanking", () => {
   const units = [unit("A", { faturamento: 300 }), unit("B", { faturamento: 200 }), unit("C", { faturamento: 500 })];

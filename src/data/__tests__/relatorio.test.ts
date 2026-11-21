@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ID_BIG, RANKINGS, mesDoAnoAnterior, rotuloDoPeriodo, serieMensal, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
+import { ID_BIG, ID_FREQ, RANKINGS, mesDoAnoAnterior, rotuloDoPeriodo, serieMensal, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
 const dados = [
@@ -97,5 +97,71 @@ describe("relatório", () => {
     expect(montarRelatorio(so, "2026-10", ["fat"], ["Itapoã"])!.escopo).toBe("Itapoã"); // quem vê uma unidade só
     expect(montarRelatorio(dados, "2026-10", ["fat"], ["Asa Sul", "Gama"])!.escopo).toBe("2 unidades");
     expect(montarRelatorio(dados, "2026-10", ["fat"], ["Asa Sul", "Gama", "Nova"])!.escopo).toBe("Rede"); // todas as do mês
+  });
+});
+
+describe("relatório: contratos vendidos, motivos e frequência", () => {
+  const calor = Array.from({ length: 168 }, (_, k) => (k % 24 === 18 ? 10 : 1)); // pico às 18h
+  const mk = (extra: Record<string, unknown> = {}) => [
+    month("2025-10", [unit("Asa Sul", { vendasContratos: 80 }), unit("Gama", { vendasContratos: 40 })]),
+    month("2026-10", [
+      unit("Asa Sul", { vendasContratos: 100, cancelados: 7, churn: 3.5, inadimplenciaPerc: 8, motivosCancel: { Mudança: 4, Financeiro: 3 }, recusaMotivos: { "Sem saldo": { n: 6, abertas: 2, valorAberto: 300 } }, calor, entradas: 1000, frequentadores: 200, ...extra }),
+      unit("Gama", { vendasContratos: 60, cancelados: 3, churn: 2, inadimplenciaPerc: 5, motivosCancel: { Mudança: 1, Saúde: 2 }, recusaMotivos: { "Sem saldo": { n: 2, abertas: 0, valorAberto: 0 }, "Cartão vencido": { n: 3, abertas: 1, valorAberto: 99.5 } }, calor, entradas: 500, frequentadores: 100 }),
+    ]),
+  ];
+
+  it("contratos vendidos entra nos números gerais e vira um ranking", () => {
+    const m = montarRelatorio(mk(), "2026-10", [ID_BIG, "cv"], null)!;
+    const cv = m.big!.find((b) => b.nome === "Contratos vendidos")!;
+    expect(cv.valor).toBe("160");
+    expect(cv.variacao).toBeCloseTo(33.3, 1);
+    expect(m.rankings[0].itens).toEqual([["Asa Sul", 100], ["Gama", 60]]);
+    expect(RANKINGS.map((r) => r.id)).toContain("canc");
+  });
+
+  it("cancelamentos e churn trazem os motivos somados; inadimplência traz os motivos de recusa", () => {
+    const m = montarRelatorio(mk(), "2026-10", ["canc", "churn", "inad"], null)!;
+    const canc = m.rankings.find((r) => r.id === "canc")!;
+    expect(canc.itens).toEqual([["Asa Sul", 7], ["Gama", 3]]);
+    // os motivos são os mesmos para Churn e Cancelamentos: ficam no primeiro dos dois na ordem dos slides (Churn)
+    const churn = m.rankings.find((r) => r.id === "churn")!;
+    expect(churn.motivos).toMatchObject({ titulo: "Cancelamentos: motivos", total: 10 });
+    expect(churn.motivos!.itens).toEqual([["Mudança", 5], ["Financeiro", 3], ["Saúde", 2]]);
+    expect(canc.motivos).toBeUndefined();
+    const inad = m.rankings.find((r) => r.id === "inad")!.motivos!;
+    expect(inad.titulo).toBe("Inadimplência: motivos de recusa");
+    expect(inad.itens).toEqual([["Sem saldo", 8], ["Cartão vencido", 3]]);
+    expect(inad.nota).toContain("3 ainda em aberto");
+    expect(resumoDosSlides(m).filter((x) => x.includes("motivos"))).toEqual(["Inadimplência: motivos de recusa", "Cancelamentos: motivos"]); // um slide de motivos logo depois do ranking
+  });
+
+  it("churn e cancelamentos pedidos juntos: os motivos aparecem uma vez só", () => {
+    const m = montarRelatorio(mk(), "2026-10", ["churn", "canc"], null)!;
+    expect(m.rankings.filter((r) => r.motivos).map((r) => r.id)).toEqual(["churn"]);
+    expect(resumoDosSlides(m).filter((x) => x.includes("motivos"))).toHaveLength(1);
+  });
+
+  it("sem motivos guardados o slide de motivos não aparece, e só os 8 maiores entram (o resto vira Outros)", () => {
+    const sem = montarRelatorio([month("2026-10", [unit("A", { cancelados: 2 })])], "2026-10", ["canc"], null)!;
+    expect(sem.rankings[0].motivos).toBeUndefined();
+    const muitos = Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`M${i}`, 11 - i]));
+    const m = montarRelatorio([month("2026-10", [unit("A", { cancelados: 66, motivosCancel: muitos })])], "2026-10", ["canc"], null)!;
+    expect(m.rankings[0].motivos!.itens).toHaveLength(9);
+    expect(m.rankings[0].motivos!.itens[8]).toEqual(["Outros", 6]); // 3 + 2 + 1
+  });
+
+  it("frequência: mapa de calor do período somado nas unidades e o último check-in da leitura mais recente", () => {
+    const acessos = [50, 20, 10, 5, 3, 2];
+    const dadosF = [...mk(), month("2026-11", [unit("Asa Sul", { acessos }), unit("Gama", { acessos: [30, 10, 5, 3, 1, 1] })])];
+    const m = montarRelatorio(dadosF, "2026-10", [ID_FREQ], null)!;
+    expect(m.frequencia!.calor).toHaveLength(168);
+    expect(m.frequencia!.calor[18]).toBe(20); // pico das duas unidades
+    expect(m.frequencia).toMatchObject({ entradas: 1500, frequentadores: 300, periodo: "1-31 out/26" });
+    expect(m.frequencia!.ultimoCheckin).toMatchObject({ valores: [80, 30, 15, 8, 4, 3], total: 140 });
+    expect(m.frequencia!.ultimoCheckin!.posicao).toMatch(/^posição/);
+    expect(resumoDosSlides(m)).toContain("Frequência dos alunos");
+    expect(montarRelatorio(mk(), "2026-10", ["fat"], null)!.frequencia).toBeNull(); // só vem quando foi pedido
+    expect(montarRelatorio(mk(), "2026-10", [ID_FREQ], ["Gama"])!.frequencia!.entradas).toBe(500); // respeita as unidades escolhidas
+    expect(montarRelatorio([month("2026-10", [unit("A")])], "2026-10", [ID_FREQ], null)!.frequencia).toBeNull(); // sem catraca nem último acesso
   });
 });

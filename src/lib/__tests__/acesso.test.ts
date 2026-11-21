@@ -794,6 +794,18 @@ describe("o que o nível 'unidades' enxerga", () => {
     expect(vis.filtrarMes(mes, { papel: "dono", unidades: [] })).toBe(mes);
   });
 
+  it("a taxa de cartão é só do dono: Master e unidades recebem só a contagem de cobranças por gateway", () => {
+    const comTaxa = { ...mes, units: mes.units.map((u: any) => ({ ...u, gatewaysDet: { Stone: [10, 25.5, 9], Rede: [4, 0, 0] } })) };
+    expect(vis.filtrarMes(comTaxa, { papel: "dono", unidades: [] })).toBe(comTaxa);
+    expect(vis.filtrarMeses([comTaxa], { papel: "dono", unidades: [] })[0]).toBe(comTaxa);
+    for (const sessao of [{ papel: "master", unidades: [] }, { papel: "unidades", unidades: [comTaxa.units[0].name] }]) {
+      const f = vis.filtrarMes(comTaxa, sessao);
+      for (const u of f.units) expect(u.gatewaysDet).toEqual({ Stone: [10, 0], Rede: [4, 0] });
+      expect(JSON.stringify(vis.filtrarMeses([comTaxa], sessao))).not.toContain("25.5");
+    }
+    expect(comTaxa.units[0].gatewaysDet.Stone).toEqual([10, 25.5, 9]); // não altera o original
+  });
+
   it("planilha: troca o nome das outras unidades e mantém o total; metas ficam só das dele e da rede", () => {
     const linhas = [["Mês", "Unidade", "Faturamento"], ["2026-10", "Itapoã", "1"], ["2026-10", "Gama", "2"], ["2026-10", "TOTAL", "3"]];
     const f = vis.filtrarLinhasPlanilha(linhas, sessao);

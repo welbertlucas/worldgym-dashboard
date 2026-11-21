@@ -106,6 +106,7 @@ describe("Qualidade (menu e telas)", () => {
     const dados: DadosQualidade = { modo: "unidade", unidades: ["Asa Norte"], modelos: [ABERTURA, MODELO], visitas: [], envios: [] };
     const html = limpo(renderToString(<NovaVisita dados={dados} hoje="2026-11-20" modo="unidade" onSalvou={() => {}} />));
     expect(html).toContain("Preencher o checklist");
+    expect(html).toContain("Aplique o checklist pelo celular, não pelo computador"); // o aviso vale para a unidade e para a visita da franqueadora
     expect(html).toContain("Checklist de abertura");
     expect(html).not.toContain("Roteiro de visitação"); // o da visita fica de fora
     expect(html).not.toContain("Escolha a unidade");
