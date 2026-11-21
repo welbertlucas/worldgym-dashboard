@@ -5,17 +5,51 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { type DadosQualidade, type Visita, dataBR, pctTexto, tomDaNota } from "@/data/qualidade";
+import { type DadosQualidade, type MarcaDeLocal, type Visita, dataBR, pctTexto, tomDaNota } from "@/data/qualidade";
 import { apagarVisita } from "@/lib/qualidade";
+import { ehDono, podeEditarQualidade } from "@/lib/auth";
 import { FotoGuardada } from "@/components/qualidade/Fotos";
 
 const CHIP = { good: "bg-success/10 text-success", warn: "bg-warning/10 text-warning", bad: "bg-destructive/10 text-destructive", neutral: "bg-secondary text-muted-foreground" } as const;
 const POR_VEZ = 15;
 
+const horaSP = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+const metrosTxt = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1).replace(".", ",")} km` : `${m} m`);
+
+/** Uma linha do check-in ou do check-out: horário, onde foi (com o mapa) ou só o IP, e se estava fora do local da unidade. */
+function LinhaMarca({ titulo, m }: { titulo: string; m: MarcaDeLocal }) {
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-2">
+      <b className="font-semibold text-foreground">{titulo} {horaSP(m.em)}</b>
+      {m.loc ? (
+        <>
+          <span className={cn(m.foraDoLocal ? "font-semibold text-destructive" : "text-muted-foreground")}>
+            {m.distanciaM !== undefined ? `${m.foraDoLocal ? "fora do local: " : ""}a ${metrosTxt(m.distanciaM)} da unidade` : "localização registrada"}
+          </span>
+          <a href={`https://www.google.com/maps?q=${m.loc.lat},${m.loc.lng}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-primary-ink underline underline-offset-2">ver no mapa</a>
+        </>
+      ) : <span className="text-muted-foreground">sem localização (só horário e IP {m.ip || "—"})</span>}
+    </li>
+  );
+}
+
 export function Detalhe({ v, onApagar }: { v: Visita; onApagar?: () => void }) {
   const falhas = v.respostas.filter((r) => r.conforme === false).length;
   return (
     <div className="space-y-3 border-t border-border bg-secondary/30 px-4 py-4">
+      {(v.checkin || v.checkout) && (
+        <ul className="space-y-1 rounded-xl border border-border bg-white px-3 py-2 text-sm" aria-label="Check-in e check-out">
+          {v.checkin && <LinhaMarca titulo="Check-in" m={v.checkin} />}
+          {v.checkout && <LinhaMarca titulo="Check-out" m={v.checkout} />}
+          {v.duracaoMin !== undefined && <li className="text-xs text-muted-foreground">Duração: {v.duracaoMin} min</li>}
+        </ul>
+      )}
+      {v.checkin?.selfie && (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-white px-3 py-2">
+          {podeEditarQualidade() || ehDono() ? <FotoGuardada id={v.checkin.selfie} selfie /> : null}
+          <p className="text-sm text-foreground">Selfie no check-in{podeEditarQualidade() || ehDono() ? "" : " registrada (só quem edita a qualidade a vê)"}</p>
+        </div>
+      )}
       <p className="text-xs text-muted-foreground">Avaliador: <b className="font-semibold text-foreground">{v.avaliador.nome || "—"}</b>{v.chegada ? ` · chegada ${v.chegada}` : ""}{v.saida ? ` · saída ${v.saida}` : ""} · {falhas} não {falhas === 1 ? "conforme" : "conformes"}</p>
       <ul className="space-y-2">
         {v.respostas.map((r) => (
@@ -49,7 +83,7 @@ export function Detalhe({ v, onApagar }: { v: Visita; onApagar?: () => void }) {
 }
 
 /** Histórico das visitas dos últimos 12 meses, com filtro por unidade e checklist; cada linha abre as respostas, os comentários e as fotos. */
-export function Visitas({ dados, unidadeInicial, onMudou }: { dados: DadosQualidade; unidadeInicial: string; onMudou: () => void }) {
+export function Visitas({ dados, unidadeInicial, podeApagar = true, onMudou }: { dados: DadosQualidade; unidadeInicial: string; /** Só quem edita a qualidade apaga; Master sem liberação só consulta. */ podeApagar?: boolean; onMudou: () => void }) {
   const [unidade, setUnidade] = useState(unidadeInicial);
   const [modelo, setModelo] = useState("");
   const [aberta, setAberta] = useState<string | null>(null);
@@ -91,7 +125,7 @@ export function Visitas({ dados, unidadeInicial, onMudou }: { dados: DadosQualid
                 <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", CHIP[tomDaNota(v.nota)])}>{pctTexto(v.nota)}</span>
                 <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", aberta === v.id && "rotate-180")} aria-hidden />
               </button>
-              {aberta === v.id && <Detalhe v={v} onApagar={() => void apagar(v)} />}
+              {aberta === v.id && <Detalhe v={v} onApagar={podeApagar ? () => void apagar(v) : undefined} />}
             </li>
           ))}
         </ul>

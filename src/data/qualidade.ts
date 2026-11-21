@@ -7,19 +7,33 @@ export type PedeFoto = "nenhuma" | "nao_conforme" | "sempre";
 export const FOTO_ROTULO: Record<PedeFoto, string> = { nenhuma: "Foto opcional", nao_conforme: "Obrigatória se não conforme", sempre: "Sempre obrigatória" };
 export type TipoItem = "conforme" | "equipamentos" | "vencimento";
 export const TIPO_ROTULO: Record<TipoItem, string> = { conforme: "Conforme ou não", equipamentos: "Lista de equipamentos parados", vencimento: "Data de vencimento (certificado)" };
-export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto; tipo?: TipoItem; /** Unidades em que o item não vale (vale para todas as outras). */ foraDe?: string[] }
+export interface ItemModelo { id: string; grupo: string; texto: string; peso: number; foto: PedeFoto; tipo?: TipoItem; /** Unidades em que o item não vale (vale para todas as outras). */ foraDe?: string[]; /** Unidades em que o item SÓ vale (o item que a unidade pediu e o dono liberou só para ela). */ soEm?: string[] }
 /** Itens do checklist que valem para a unidade (os marcados como "não vale" para ela ficam de fora). */
-export const itensDaUnidade = (itens: ItemModelo[], unidade: string): ItemModelo[] => itens.filter((i) => !(i.foraDe ?? []).includes(unidade));
+export const itensDaUnidade = (itens: ItemModelo[], unidade: string): ItemModelo[] => itens.filter((i) => !(i.foraDe ?? []).includes(unidade) && (!(i.soEm ?? []).length || i.soEm!.includes(unidade)));
 export interface EquipamentoParado { codigo: string; descricao: string; fotos: string[] }
-export interface ModeloChecklist { id: string; nome: string; descricao: string; frequencia: Frequencia; itens: ItemModelo[]; ativo: boolean; atualizadoEm: string }
+export interface ModeloChecklist { id: string; nome: string; descricao: string; frequencia: Frequencia; itens: ItemModelo[]; ativo: boolean; /** Pede selfie no check-in; sem o campo, só a visita da franqueadora pede. */ selfie?: boolean; atualizadoEm: string }
+/** O checklist pede uma selfie no check-in? Por padrão a visita da franqueadora pede e o checklist da unidade não. */
+export const pedeSelfie = (m: Pick<ModeloChecklist, "selfie" | "frequencia">) => (typeof m.selfie === "boolean" ? m.selfie : m.frequencia === "visita");
 export interface RespostaVisita { itemId: string; grupo: string; texto: string; peso?: number; tipo?: TipoItem; conforme: boolean | null; comentario: string; fotos: string[]; equipamentos?: EquipamentoParado[]; /** AAAA-MM-DD, nos itens de vencimento. */ vencimento?: string }
+/** Check-in ou check-out: horário do servidor, localização do aparelho (se a pessoa permitiu), IP e a distância até o local marcado da unidade. */
+export interface MarcaDeLocal { em: string; loc: { lat: number; lng: number; precisao: number } | null; ip: string; distanciaM?: number; foraDoLocal?: boolean; /** Selfie tirada no check-in ("AAAA-MM_uuid"); guardada por poucos meses. */ selfie?: string }
+export interface LocalUnidade { lat: number; lng: number; raio: number }
 export interface Visita {
   /** "unidade" nos envios do checklist da própria unidade. */ origem?: "unidade";
+  /** Check-in e check-out (horário do servidor, localização e IP, e a selfie no check-in), com a duração. */
+  checkin?: MarcaDeLocal; checkout?: MarcaDeLocal; duracaoMin?: number; assinatura?: { nome: string; cargo: string; foto: string };
   id: string; modeloId: string; modeloNome: string; unidade: string; data: string; mes: string;
   avaliador: { nome: string; email: string }; chegada?: string; saida?: string; respostas: RespostaVisita[]; observacao: string; nota: number | null; criadoEm: string;
 }
 /** `modo` "completo": dono e liberados (checklists, visitas, notas e o que as unidades enviam); "unidade": só preencher o checklist da própria unidade. */
-export interface DadosQualidade { modo?: "completo" | "unidade"; unidades: string[]; modelos: ModeloChecklist[]; visitas: Visita[]; /** Envios dos checklists que a própria unidade preenche (não entram na nota). */ envios?: Visita[] }
+/** Pedido de item novo: a unidade descreve o que falta no checklist dela e o dono aprova (o item entra no checklist) ou recusa (com uma resposta). */
+export interface PedidoItem {
+  id: string; unidade: string; modeloId: string; modeloNome: string; texto: string; motivo: string;
+  solicitante: { nome: string; email: string }; status: "pendente" | "aprovado" | "recusado"; criadoEm: string;
+  decisao?: { por: string; em: string; resposta: string; escopo?: "unidade" | "todas"; itemId?: string };
+}
+export const pedidosPendentes = (ps: PedidoItem[] | undefined) => (ps ?? []).filter((p) => p.status === "pendente");
+export interface DadosQualidade { modo?: "completo" | "unidade"; unidades: string[]; modelos: ModeloChecklist[]; visitas: Visita[]; /** Envios dos checklists que a própria unidade preenche (não entram na nota). */ envios?: Visita[]; /** Pedidos de item novo (o dono vê todos; a unidade, os dela). */ pedidos?: PedidoItem[]; /** Onde cada unidade fica (marcado pelo dono), para conferir o local dos check-ins. */ locais?: Record<string, LocalUnidade> }
 
 /** Faixas da nota (% de itens conformes) usadas nas cores. Combinadas como ponto de partida: mudar só com o dono. */
 export const NOTA_BOA = 90;

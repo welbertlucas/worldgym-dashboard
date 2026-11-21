@@ -10,7 +10,7 @@ import { apagarEnvio } from "@/lib/qualidade";
 import { Detalhe } from "@/components/qualidade/Visitas";
 
 /** Acompanhamento dos checklists que as unidades preenchem (abertura etc.): quem enviou, quem está atrasado e o que veio não conforme. Não entra na nota. */
-export function Rotina({ dados, hoje, onMudou }: { dados: DadosQualidade; hoje: string; onMudou: () => void }) {
+export function Rotina({ dados, hoje, podeApagar = true, onMudou }: { dados: DadosQualidade; hoje: string; podeApagar?: boolean; onMudou: () => void }) {
   const [aberta, setAberta] = useState<string | null>(null);
   const linhas = rotinaDasUnidades(dados.envios ?? [], dados.modelos, dados.unidades, hoje);
   if (linhas.length === 0) return <ChartCard title="Rotina das unidades"><ChartEmpty>Nenhum checklist de unidade ainda. Na aba Checklists, use o "checklist de abertura sugerido" (ou crie um com frequência diária, semanal ou mensal) e libere o preenchimento para a unidade na tela Usuários.</ChartEmpty></ChartCard>;
@@ -46,7 +46,7 @@ export function Rotina({ dados, hoje, onMudou }: { dados: DadosQualidade; hoje: 
                   </span>
                   <span className={cn("w-28 text-right text-xs", l.naoConformes > 0 ? "font-semibold text-warning" : "text-muted-foreground")}>{l.ultimo ? (l.naoConformes > 0 ? `${l.naoConformes} não ${l.naoConformes === 1 ? "conforme" : "conformes"}` : "Tudo conforme") : ""}</span>
                 </button>
-                {aberta === id && l.ultimo && <Detalhe v={l.ultimo} onApagar={() => void apagar(l.ultimo!.id, l.ultimo!.mes)} />}
+                {aberta === id && l.ultimo && <Detalhe v={l.ultimo} onApagar={podeApagar ? () => void apagar(l.ultimo!.id, l.ultimo!.mes) : undefined} />}
               </li>
             );
           })}

@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from "react";
-import { Camera, Check, Plus, X } from "lucide-react";
+import { Camera, Check, MapPin, Plus, UserRound, X } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { type DadosQualidade, type ItemModelo, type ModeloChecklist, itensDaUnidade, pctTexto } from "@/data/qualidade";
-import { enviarFoto, reduzirFoto, salvarEnvio, salvarVisita } from "@/lib/qualidade";
+import { type DadosQualidade, type ItemModelo, type ModeloChecklist, itensDaUnidade, pctTexto, pedeSelfie } from "@/data/qualidade";
+import { enviarFoto, fazerCheckin, lerLocalizacao, reduzirFoto, reduzirSelfie, salvarEnvio, salvarVisita, type RespostaCheckin } from "@/lib/qualidade";
+import { ehDono } from "@/lib/auth";
 
 type FotoLocal = { previa: string; dados: string };
 interface EquipamentoLocal { codigo: string; descricao: string; fotos: FotoLocal[] }
@@ -71,7 +72,8 @@ const notaAgora = (itens: ItemModelo[], rs: Resposta[], dataVisita: string) => {
   return total ? (v.filter((x) => x.r.conforme).reduce((t, x) => t + x.peso, 0) / total) * 100 : null;
 };
 
-function Item({ item, r: bruta, dataVisita, onChange }: { item: ItemModelo; r: Resposta; dataVisita: string; onChange: (r: Resposta) => void }) {
+/** Um item do checklist, com as respostas e as fotos. */
+export function Item({ item, r: bruta, dataVisita, mostraPeso = true, onChange }: { item: ItemModelo; r: Resposta; dataVisita: string; /** O peso é da franqueadora: o gestor da unidade não o vê. */ mostraPeso?: boolean; onChange: (r: Resposta) => void }) {
   const r = efetiva(item, bruta, dataVisita);
   const vence = item.tipo === "vencimento";
   const entrada = useRef<HTMLInputElement>(null);
@@ -103,7 +105,7 @@ function Item({ item, r: bruta, dataVisita, onChange }: { item: ItemModelo; r: R
   };
   return (
     <li className="rounded-xl border border-border bg-white p-3">
-      <p className="text-sm font-medium text-foreground">{item.texto}{item.foto === "sempre" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">pede foto</span>}{(item.peso ?? 1) > 1 && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">peso {item.peso}</span>}</p>
+      <p className="text-sm font-medium text-foreground">{item.texto}{item.foto === "sempre" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">pede foto</span>}{mostraPeso && (item.peso ?? 1) > 1 && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">peso {item.peso}</span>}</p>
       {vence ? (
         <div className="mt-2 flex flex-wrap items-end gap-3">
           <label className="text-xs text-muted-foreground">Data de vencimento
@@ -146,17 +148,25 @@ function Item({ item, r: bruta, dataVisita, onChange }: { item: ItemModelo; r: R
 }
 
 /** A visita da franqueadora: escolhe a unidade e o checklist, responde item a item (conforme, não conforme ou não se aplica), comenta e fotografa. */
+const horaDe = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+const metros = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1).replace(".", ",")} km` : `${m} m`);
+
+/**
+ * Visita da franqueadora ou checklist da própria unidade. Começa pelo check-in (horário do servidor e localização do aparelho, se a pessoa permitir), termina
+ * com o check-out automático no envio. O check-in pede uma selfie da pessoa na unidade quando o checklist está marcado para isso (por padrão, a visita da
+ * franqueadora). A data é sempre a de hoje e ninguém escolhe horário: tudo vem do check-in.
+ */
 export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: DadosQualidade; hoje: string; modo?: "visita" | "unidade"; onSalvou: (unidade: string) => void }) {
-  // No modo "unidade" a própria unidade preenche o checklist de rotina: a data é sempre a de hoje e só entram os checklists que ela preenche.
   const daUnidade = modo === "unidade";
   const ativos = dados.modelos.filter((m) => m.ativo && (!daUnidade || m.frequencia !== "visita"));
   const [unidade, setUnidade] = useState(daUnidade && dados.unidades.length === 1 ? dados.unidades[0] : "");
-  const [modeloId, setModeloId] = useState("");
-  const [data, setData] = useState(hoje);
+  const [modeloId, setModeloId] = useState(ativos.length === 1 ? ativos[0].id : ""); // com um checklist só, já vem escolhido
   const [respostas, setRespostas] = useState<Record<string, Resposta>>({});
   const [observacao, setObservacao] = useState("");
-  const [chegada, setChegada] = useState("");
-  const [saida, setSaida] = useState("");
+  const [checkin, setCheckin] = useState<RespostaCheckin | null>(null);
+  const [iniciando, setIniciando] = useState(false);
+  const [selfie, setSelfie] = useState<{ previa: string; dados: string } | null>(null);
+  const [lendoSelfie, setLendoSelfie] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const modelo: ModeloChecklist | undefined = ativos.find((m) => m.id === modeloId);
@@ -168,15 +178,39 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
     return [...m.entries()];
   }, [itens]);
   const lista = itens.map((i) => respostas[i.id] ?? vazia());
-  const nota = notaAgora(itens, lista, data);
+  const nota = notaAgora(itens, lista, hoje);
 
   if (ativos.length === 0) return <ChartCard title={daUnidade ? "Checklist da unidade" : "Nova visita"}><ChartEmpty>{daUnidade ? "Ainda não há checklist disponível para a sua unidade." : "Crie um checklist na aba Checklists para registrar a primeira visita."}</ChartEmpty></ChartCard>;
 
-  const enviar = async () => {
+  const trocou = () => { setCheckin(null); setRespostas({}); setSelfie(null); setErro(""); };
+  const tirarSelfie = async (arquivo: File | undefined) => {
+    if (!arquivo) return;
+    setLendoSelfie(true);
+    try {
+      const dados = await reduzirSelfie(arquivo);
+      setSelfie({ previa: `data:image/jpeg;base64,${dados}`, dados });
+    } catch {
+      setErro("Não consegui usar essa selfie. Tire outra.");
+    }
+    setLendoSelfie(false);
+  };
+  const iniciar = async () => {
     if (!modelo) return;
+    setErro("");
+    setIniciando(true);
+    const loc = await lerLocalizacao();
+    const r = await fazerCheckin({ unidade, modeloId: modelo.id, loc, ...(selfie ? { selfie: selfie.dados } : {}) });
+    setIniciando(false);
+    if (!r.ok) return setErro(r.erro);
+    setCheckin(r.dados.checkin);
+  };
+
+  const enviar = async () => {
+    if (!modelo || !checkin) return;
     setErro("");
     setEnviando(true);
     try {
+      const localizacaoSaida = await lerLocalizacao(8000); // check-out: horário do servidor e, se a pessoa permitir, a localização
       const itensEnviados = [];
       for (const item of itens) {
         const r = respostas[item.id] ?? vazia();
@@ -201,11 +235,11 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
         itensEnviados.push({ itemId: item.id, conforme: item.tipo === "vencimento" ? null : r.conforme, comentario: r.comentario, fotos, ...(item.tipo === "equipamentos" ? { equipamentos } : {}), ...(item.tipo === "vencimento" ? { vencimento: r.vencimento } : {}) });
       }
       const res = daUnidade
-        ? await salvarEnvio({ modeloId: modelo.id, unidade, respostas: itensEnviados, observacao })
-        : await salvarVisita({ modeloId: modelo.id, unidade, data, chegada, saida, respostas: itensEnviados, observacao });
+        ? await salvarEnvio({ modeloId: modelo.id, unidade, checkinId: checkin.id, localizacaoSaida, respostas: itensEnviados, observacao })
+        : await salvarVisita({ modeloId: modelo.id, unidade, checkinId: checkin.id, localizacaoSaida, respostas: itensEnviados, observacao });
       if (!res.ok) { setErro(res.erro); setEnviando(false); return; }
-      toast(daUnidade ? { title: "Checklist enviado", description: `${unidade}: ${modelo.nome}.` } : { title: "Visita registrada", description: `${unidade}: nota ${pctTexto((res.dados as { visita: { nota: number | null } }).visita.nota)}.` });
-      setRespostas({}); setObservacao(""); setModeloId(""); setChegada(""); setSaida("");
+      toast(daUnidade ? { title: "Checklist enviado", description: `${unidade}: ${modelo.nome}. Check-out registrado.` } : { title: "Visita registrada", description: `${unidade}: nota ${pctTexto((res.dados as { visita: { nota: number | null } }).visita.nota)}. Check-out registrado.` });
+      setRespostas({}); setObservacao(""); setModeloId(""); setCheckin(null); setSelfie(null);
       onSalvou(unidade);
     } catch {
       setErro("Não consegui enviar agora. Tente de novo.");
@@ -214,48 +248,64 @@ export function NovaVisita({ dados, hoje, modo = "visita", onSalvou }: { dados: 
   };
 
   return (
-    <ChartCard title={daUnidade ? "Preencher o checklist" : "Nova visita"} subtitle={daUnidade ? "Responda cada item e fotografe o que for preciso. O envio vale para hoje." : "Escolha a unidade e o checklist, responda cada item e fotografe o que for preciso."}>
+    <ChartCard title={daUnidade ? "Preencher o checklist" : "Nova visita"} subtitle={daUnidade ? "Faça o check-in, responda cada item, fotografe o que for preciso e envie. O envio vale para hoje." : "Escolha a unidade e o checklist, faça o check-in com a selfie, responda cada item e registre a visita."}>
       <div className="flex flex-wrap items-end gap-3">
         {!(daUnidade && dados.unidades.length === 1) && <label className="text-xs text-muted-foreground">Unidade
-          <Select aria-label="Unidade visitada" className="mt-1 h-9 w-56 max-w-full" value={unidade} onChange={(e) => setUnidade(e.target.value)}>
+          <Select aria-label="Unidade visitada" className="mt-1 h-9 w-56 max-w-full" value={unidade} onChange={(e) => { setUnidade(e.target.value); trocou(); }}>
             <option value="">Escolha…</option>
             {dados.unidades.map((u) => <option key={u} value={u}>{u}</option>)}
           </Select>
         </label>}
         <label className="text-xs text-muted-foreground">Checklist
-          <Select aria-label="Checklist da visita" className="mt-1 h-9 w-64 max-w-full" value={modeloId} onChange={(e) => { setModeloId(e.target.value); setRespostas({}); }}>
+          <Select aria-label="Checklist da visita" className="mt-1 h-9 w-64 max-w-full" value={modeloId} onChange={(e) => { setModeloId(e.target.value); trocou(); }}>
             <option value="">Escolha…</option>
             {ativos.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
           </Select>
         </label>
-        {!daUnidade && <label className="text-xs text-muted-foreground">Data
-          <input type="date" value={data} max={hoje} onChange={(e) => setData(e.target.value)} aria-label="Data da visita" className="mt-1 h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-        </label>}
       </div>
 
-      {modelo && unidade && (
+      {modelo && unidade && !checkin && (
+        <div className="mt-5 space-y-3 rounded-xl border border-border bg-secondary/30 p-4">
+          <p className="flex items-center gap-2 text-sm font-medium text-foreground"><MapPin className="h-4 w-4" aria-hidden />Check-in</p>
+          <p className="text-sm text-muted-foreground">Ao iniciar, o Atlas registra o horário e a localização do seu aparelho (o navegador vai pedir a sua permissão), só para confirmar que o checklist foi feito na unidade. Sem a localização, ficam registrados apenas o horário e o endereço IP. Ao enviar, o check-out é registrado do mesmo jeito.</p>
+          {pedeSelfie(modelo) && (
+            <div className="space-y-2 rounded-lg border border-border bg-white p-3">
+              <p className="flex items-center gap-2 text-sm font-medium text-foreground"><UserRound className="h-4 w-4" aria-hidden />Selfie na unidade</p>
+              <p className="text-xs text-muted-foreground">Tire uma selfie aí na academia. Ela fica guardada por poucos meses, só para confirmar que o checklist foi feito na unidade, e só o dono e quem edita a qualidade a veem.</p>
+              <div className="flex flex-wrap items-center gap-3">
+                {selfie && <img src={selfie.previa} alt="Sua selfie" className="h-20 w-20 rounded-lg object-cover" />}
+                <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-input bg-white px-3 text-sm font-medium hover:bg-secondary focus-within:ring-2 focus-within:ring-ring">
+                  <Camera className="h-4 w-4" aria-hidden />{lendoSelfie ? "Lendo..." : selfie ? "Tirar outra" : "Tirar a selfie"}
+                  <input type="file" accept="image/*" capture="user" className="sr-only" aria-label="Tirar a selfie" onChange={(e) => { void tirarSelfie(e.target.files?.[0]); e.target.value = ""; }} />
+                </label>
+              </div>
+            </div>
+          )}
+          {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
+          <Button onClick={() => void iniciar()} disabled={iniciando || (pedeSelfie(modelo) && !selfie)}><MapPin className="h-4 w-4" aria-hidden />{iniciando ? "Registrando o check-in..." : "Iniciar o checklist (check-in)"}</Button>
+        </div>
+      )}
+
+      {modelo && unidade && checkin && (
         <div className="mt-5 space-y-5">
+          <p className={cn("flex flex-wrap items-center gap-x-2 rounded-xl px-3 py-2 text-sm", checkin.foraDoLocal ? "bg-warning/10 text-foreground" : "bg-secondary/50 text-foreground")}>
+            <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+            <span><b className="font-semibold">Check-in às {horaDe(checkin.em)}</b>
+              {checkin.comLocalizacao ? (checkin.distanciaM !== undefined ? ` · localização registrada, a ${metros(checkin.distanciaM)} da unidade${checkin.foraDoLocal ? " (fora do local)" : ""}` : " · localização registrada") : " · sem localização (ficou só o horário e o IP)"}</span>
+          </p>
           {grupos.map(([grupo, itens]) => (
             <section key={grupo || "geral"} className="space-y-2">
               {grupo && <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{grupo}</h4>}
-              <ul className="space-y-2">{itens.map((i) => <Item key={i.id} item={i} r={respostas[i.id] ?? vazia()} dataVisita={data} onChange={(r) => setRespostas((s) => ({ ...s, [i.id]: r }))} />)}</ul>
+              <ul className="space-y-2">{itens.map((i) => <Item key={i.id} item={i} r={respostas[i.id] ?? vazia()} dataVisita={hoje} mostraPeso={!daUnidade && ehDono()} onChange={(r) => setRespostas((s) => ({ ...s, [i.id]: r }))} />)}</ul>
             </section>
           ))}
-          {!daUnidade && <div className="flex flex-wrap gap-3">
-            <label className="text-xs text-muted-foreground">Chegada (opcional)
-              <input type="time" value={chegada} onChange={(e) => setChegada(e.target.value)} aria-label="Hora de chegada" className="mt-1 block h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </label>
-            <label className="text-xs text-muted-foreground">Saída (opcional)
-              <input type="time" value={saida} onChange={(e) => setSaida(e.target.value)} aria-label="Hora de saída" className="mt-1 block h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </label>
-          </div>}
           <label className="block text-xs text-muted-foreground">Observação geral (opcional)
             <textarea value={observacao} maxLength={500} onChange={(e) => setObservacao(e.target.value)} rows={2} className="mt-1 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </label>
           {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={() => void enviar()} disabled={enviando}><Check className="h-4 w-4" aria-hidden />{enviando ? "Enviando..." : daUnidade ? "Enviar checklist" : "Registrar visita"}</Button>
-            {!daUnidade && <span className="text-sm text-muted-foreground">Nota até agora: <b className="font-semibold text-foreground tabular-nums">{pctTexto(nota === null ? null : Math.round(nota * 10) / 10)}</b></span>}
+            <Button onClick={() => void enviar()} disabled={enviando}><Check className="h-4 w-4" aria-hidden />{enviando ? "Registrando o check-out..." : daUnidade ? "Enviar e fazer o check-out" : "Registrar a visita e fazer o check-out"}</Button>
+            {!daUnidade && ehDono() && <span className="text-sm text-muted-foreground">Nota até agora: <b className="font-semibold text-foreground tabular-nums">{pctTexto(nota === null ? null : Math.round(nota * 10) / 10)}</b></span>}
           </div>
         </div>
       )}

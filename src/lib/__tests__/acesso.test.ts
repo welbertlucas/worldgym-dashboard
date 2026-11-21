@@ -186,10 +186,15 @@ describe("acessos, níveis e registro", () => {
     const ana = criadaAna.usuario;
     await trocaSenha(ana.id, criadaAna.senhaProvisoria);
     const tokenAna = criarTokenUsuario(ana.id).token;
-    expect(ana.geraRelatorios).toBe(false);
-    expect((await chama(login, com(tokenAna, { method: "GET" }))).body.usuario.geraRelatorios).toBe(false);
-    expect((await post(tokenDono, { acao: "atualizar", id: ana.id, geraRelatorios: true })).body.usuario.geraRelatorios).toBe(true);
+    // todo Master já vê o menu Relatórios; quem tem acesso só a unidades precisa da liberação do dono
     expect((await chama(login, com(tokenAna, { method: "GET" }))).body.usuario.geraRelatorios).toBe(true);
+    const criadoUni = (await post(tokenDono, { acao: "criar", nome: "Caio Unidade", email: "caio.u@exemplo.com", papel: "unidades", unidades: ["Gama"] })).body;
+    await trocaSenha(criadoUni.usuario.id, criadoUni.senhaProvisoria);
+    const tokenUni = criarTokenUsuario(criadoUni.usuario.id).token;
+    expect(criadoUni.usuario.geraRelatorios).toBe(false);
+    expect((await chama(login, com(tokenUni, { method: "GET" }))).body.usuario.geraRelatorios).toBe(false);
+    expect((await post(tokenDono, { acao: "atualizar", id: criadoUni.usuario.id, geraRelatorios: true })).body.usuario.geraRelatorios).toBe(true);
+    expect((await chama(login, com(tokenUni, { method: "GET" }))).body.usuario.geraRelatorios).toBe(true);
     // o dono sempre gera
     expect((await chama(login, com(tokenDono, { method: "GET" }))).body.usuario.geraRelatorios).toBe(true);
     // quem só gerencia acessos não mexe nessa permissão
@@ -237,7 +242,7 @@ describe("acessos, níveis e registro", () => {
     expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "unidades", unidades: ["Gama"], verRoyalties: true })).code).toBe(403);
   });
 
-  it("jurídico: só o dono vê sem liberação; qualquer nível vê se o dono liberar; ninguém além do dono libera; a API usa a mesma regra", async () => {
+  it("jurídico: dono e todo Master veem (só consulta); quem tem acesso a unidades só com a liberação do dono, que só ele dá; a API usa a mesma regra", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;
     const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
@@ -252,30 +257,31 @@ describe("acessos, níveis e registro", () => {
     const veLogin = async (token: string) => (await chama(login, com(token, { method: "GET" }))).body.usuario.verJuridico;
 
     expect(await veLogin(tokenDono)).toBe(true);
-    expect(await veLogin(master.token)).toBe(false);
+    expect(await veLogin(master.token)).toBe(true); // Master vê sem liberação
     expect(await veLogin(uni.token)).toBe(false);
-    expect((await api(master.token)).code).toBe(403);
+    expect((await api(master.token)).code).toBe(200);
+    expect((await api(uni.token)).code).toBe(403);
     expect((await api(tokenDono)).body).toEqual({ disponivel: false });
+    expect(master.u.verJuridico).toBe(false); // a marca guardada é só a liberação explícita (quem tem acesso a unidades)
 
-    // liberar o Master e a unidade
-    expect((await post(tokenDono, { acao: "atualizar", id: master.u.id, verJuridico: true })).body.usuario.verJuridico).toBe(true);
+    // liberar a unidade
     expect((await post(tokenDono, { acao: "atualizar", id: uni.u.id, verJuridico: true })).body.usuario.verJuridico).toBe(true);
-    expect(await veLogin(master.token)).toBe(true);
+    expect(await veLogin(uni.token)).toBe(true);
     expect((await api(uni.token)).code).toBe(200);
     expect((await api(uni.token)).headers["Cache-Control"]).toBe("no-store");
     // os royalties continuam com a regra deles
     expect((await chama(royaltiesApi, com(uni.token, { method: "GET" }))).code).toBe(403);
     // tirar fecha de novo
-    await post(tokenDono, { acao: "atualizar", id: master.u.id, verJuridico: false });
-    expect((await api(master.token)).code).toBe(403);
+    await post(tokenDono, { acao: "atualizar", id: uni.u.id, verJuridico: false });
+    expect((await api(uni.token)).code).toBe(403);
 
     // quem gerencia acessos não dá nem tira essa permissão
     await post(tokenDono, { acao: "atualizar", id: master.u.id, gerenciaAcessos: true });
-    expect((await post(master.token, { acao: "atualizar", id: uni.u.id, verJuridico: false })).code).toBe(403);
-    expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master", verJuridico: true })).code).toBe(403);
+    expect((await post(master.token, { acao: "atualizar", id: uni.u.id, verJuridico: true })).code).toBe(403);
+    expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "unidades", unidades: ["Gama"], verJuridico: true })).code).toBe(403);
   });
 
-  it("qualidade: só o dono e quem ele liberou; liberado cria checklist, registra visita com foto e vê a foto; ninguém além do dono libera", async () => {
+  it("qualidade: dono e todo Master veem (consulta); só o dono e quem ele liberou editam; o peso dos itens é só do dono; ninguém além do dono libera", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;
     const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
@@ -288,25 +294,67 @@ describe("acessos, níveis e registro", () => {
     const q = (token: string, extra: any = {}) => chama(royaltiesApi, com(token, { method: "GET", query: { modulo: "qualidade" }, ...extra }));
     const qpost = (token: string, body: any) => q(token, { method: "POST", body });
 
-    expect((await q(master.token)).code).toBe(403);
-    expect((await qpost(master.token, { acao: "modelo", modelo: { nome: "x", itens: [{ texto: "a" }] } })).code).toBe(403);
+    // Master sem liberação: vê (consulta) a qualidade, mas não edita nada nem faz check-in
+    expect((await q(master.token)).code).toBe(200);
+    expect((await q(master.token)).body.modo).toBe("completo");
+    expect((await chama(login, com(master.token, { method: "GET" }))).body.usuario).toMatchObject({ verQualidade: true, editaQualidade: false });
+    for (const corpo of [
+      { acao: "modelo", modelo: { nome: "x", itens: [{ texto: "a" }] } }, { acao: "checkin", checkin: { unidade: "Gama", modeloId: "x" } }, { acao: "foto", dados: "AAAA" },
+      { acao: "visita", visita: {} }, { acao: "visita-apagar", id: "x", mes: "2026-11" }, { acao: "modelo-apagar", id: "x" },
+    ]) expect((await qpost(master.token, corpo)).code).toBe(403);
+    // o dono cria o checklist com pesos; o Master, que só consulta, não os recebe
+    const dm = (await qpost(tokenDono, { acao: "modelo", modelo: { nome: "Base", itens: [{ texto: "Item pesado", peso: 4 }] } })).body.modelo;
+    expect(dm.itens[0].peso).toBe(4);
+    expect((await q(tokenDono)).body.modelos[0].itens[0].peso).toBe(4);
+    expect("peso" in (await q(master.token)).body.modelos[0].itens[0]).toBe(false);
+    // liberar o Master para editar
     expect((await post(tokenDono, { acao: "atualizar", id: master.u.id, verQualidade: true })).body.usuario.verQualidade).toBe(true);
-    expect((await chama(login, com(master.token, { method: "GET" }))).body.usuario.verQualidade).toBe(true);
+    expect((await chama(login, com(master.token, { method: "GET" }))).body.usuario).toMatchObject({ verQualidade: true, editaQualidade: true });
+    // quem edita sem ser o dono não vê nem muda os pesos: o item que já existia mantém o peso e o novo começa em 1
+    const ed = (await qpost(master.token, { acao: "modelo", modelo: { id: dm.id, nome: "Base editada", itens: [{ id: dm.itens[0].id, texto: "Item pesado", peso: 1 }, { texto: "Item novo", peso: 5 }] } })).body.modelo;
+    expect(ed.nome).toBe("Base editada");
+    expect("peso" in ed.itens[0]).toBe(false); // a resposta também sai sem pesos
+    expect((await q(tokenDono)).body.modelos[0].itens.map((i: any) => i.peso)).toEqual([4, 1]);
+    await qpost(master.token, { acao: "modelo-apagar", id: dm.id });
 
     const m = (await qpost(master.token, { acao: "modelo", modelo: { nome: "Roteiro", itens: [{ texto: "Piso limpo", peso: 2, foto: "sempre" }] } })).body.modelo;
     const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40)]).toString("base64");
     const foto = (await qpost(master.token, { acao: "foto", dados: jpeg })).body.id;
     expect((await qpost(master.token, { acao: "foto", dados: "AAAA" })).code).toBe(400);
     const hoje = new Date().toISOString().slice(0, 10);
-    const sem = await qpost(master.token, { acao: "visita", visita: { modeloId: m.id, unidade: "Asa Norte", data: hoje, respostas: [{ itemId: m.itens[0].id, conforme: true }] } });
+    // visita: exige check-in (horário e localização do aparelho, IP do servidor), assinatura de quem recebeu e não deixa escolher a data
+    const semCheckin = await qpost(master.token, { acao: "visita", visita: { modeloId: m.id, unidade: "Asa Norte", respostas: [{ itemId: m.itens[0].id, conforme: true, fotos: [foto] }] } });
+    expect(semCheckin.code).toBe(400);
+    expect(semCheckin.body.error).toMatch(/check-in/);
+    // a visita da franqueadora pede uma selfie no check-in (padrão do roteiro de visita)
+    const semSelfie = await qpost(master.token, { acao: "checkin", checkin: { unidade: "Asa Norte", modeloId: m.id, loc: { lat: -15.78, lng: -47.9, precisao: 10 } } });
+    expect(semSelfie.code).toBe(400);
+    expect(semSelfie.body.error).toMatch(/selfie/);
+    const ck = await qpost(master.token, { acao: "checkin", checkin: { unidade: "Asa Norte", modeloId: m.id, loc: { lat: -15.78, lng: -47.9, precisao: 10 }, selfie: jpeg } });
+    expect(ck.code).toBe(200);
+    expect(ck.body.checkin).toMatchObject({ comLocalizacao: true, comSelfie: true });
+    const corpo = (extra: any) => ({ modeloId: m.id, unidade: "Asa Norte", data: "2020-01-01", checkinId: ck.body.checkin.id, ...extra });
+    const sem = await qpost(master.token, { acao: "visita", visita: corpo({ respostas: [{ itemId: m.itens[0].id, conforme: true }] }) });
     expect(sem.code).toBe(400); // item pede foto
-    const ok = await qpost(master.token, { acao: "visita", visita: { modeloId: m.id, unidade: "Asa Norte", data: hoje, respostas: [{ itemId: m.itens[0].id, conforme: true, fotos: [foto] }] } });
+    const ok = await qpost(master.token, { acao: "visita", visita: corpo({ localizacaoSaida: { lat: -15.78, lng: -47.9, precisao: 12 }, respostas: [{ itemId: m.itens[0].id, conforme: true, fotos: [foto] }] }) });
     expect(ok.code).toBe(200);
-    expect(ok.body.visita).toMatchObject({ nota: 100, avaliador: { nome: "Ana Master" } });
+    expect(ok.body.visita).toMatchObject({ nota: 100, avaliador: { nome: "Ana Master" }, data: expect.not.stringMatching(/^2020/) });
+    expect(ok.body.visita.assinatura).toBeUndefined();
+    // a selfie é dado pessoal: quem edita (e o dono) abre; quem só consulta, não
+    const selfieId = ok.body.visita.checkin.selfie;
+    expect(Buffer.isBuffer((await q(master.token, { query: { modulo: "qualidade", selfie: selfieId } })).body)).toBe(true);
+    expect(Buffer.isBuffer((await q(tokenDono, { query: { modulo: "qualidade", selfie: selfieId } })).body)).toBe(true);
+    expect((await q(master.token, { query: { modulo: "qualidade", selfie: "../x" } })).code).toBe(400);
+    expect(ok.body.visita.checkin.em).toBeTruthy();
+    expect(ok.body.visita.checkout.loc).toMatchObject({ lat: -15.78 });
+    expect(ok.body.visita.checkin.ip).toBeTruthy();
+    // só o dono marca o local das unidades; Master liberado vê a qualidade mas não mexe nisso
+    expect((await qpost(master.token, { acao: "local", unidade: "Asa Norte", local: { lat: -15.78, lng: -47.9 } })).code).toBe(403);
 
     const lista = (await q(master.token)).body;
     expect(lista.modelos).toHaveLength(1);
     expect(lista.visitas).toHaveLength(1);
+    expect(lista.visitas[0].respostas.some((r: any) => "peso" in r)).toBe(false); // o peso também sai das respostas das visitas
     expect(lista.unidades).toContain("Asa Norte");
     expect((await q(master.token)).headers["Cache-Control"]).toBe("no-store");
     expect(Buffer.isBuffer((await q(master.token, { query: { modulo: "qualidade", foto } })).body)).toBe(true);
@@ -314,11 +362,13 @@ describe("acessos, níveis e registro", () => {
     // royalties e jurídico seguem com as regras deles; o POST só vale na qualidade
     expect((await chama(royaltiesApi, com(master.token, { method: "POST", body: {} }))).code).toBe(405);
 
-    // quem gerencia acessos não dá nem tira a permissão; tirar fecha de novo
+    // quem gerencia acessos não dá nem tira a permissão; tirar a liberação volta a só consulta (o Master continua vendo)
     await post(tokenDono, { acao: "atualizar", id: master.u.id, gerenciaAcessos: true });
     expect((await post(master.token, { acao: "atualizar", id: master.u.id, verQualidade: false })).code).toBe(403);
     await post(tokenDono, { acao: "atualizar", id: master.u.id, verQualidade: false });
-    expect((await q(master.token)).code).toBe(403);
+    expect((await q(master.token)).code).toBe(200);
+    expect((await qpost(master.token, { acao: "modelo", modelo: { nome: "x", itens: [{ texto: "a" }] } })).code).toBe(403);
+    expect((await q(master.token, { query: { modulo: "qualidade", selfie: ok.body.visita.checkin.selfie } })).code).toBe(403); // Master só consulta: sem a selfie
     // apagar a visita (dono) remove também a foto
     expect((await qpost(tokenDono, { acao: "visita-apagar", id: ok.body.visita.id, mes: ok.body.visita.mes })).code).toBe(200);
     expect((await q(tokenDono, { query: { modulo: "qualidade", foto } })).code).toBe(404);
@@ -349,7 +399,10 @@ describe("acessos, níveis e registro", () => {
     // o dono cria o checklist da unidade e um da visita
     const aber = (await qpost(tokenDono, { acao: "modelo", modelo: { nome: "Abertura", frequencia: "diaria", itens: [{ texto: "Recepção limpa" }] } })).body.modelo;
     const rot = (await qpost(tokenDono, { acao: "modelo", modelo: { nome: "Roteiro", frequencia: "visita", itens: [{ texto: "Piso" }] } })).body.modelo;
-    await qpost(tokenDono, { acao: "visita", visita: { modeloId: rot.id, unidade: "Gama", data: new Date().toISOString().slice(0, 10), respostas: [{ itemId: rot.itens[0].id, conforme: true }] } });
+    expect((await qpost(tokenDono, { acao: "local", unidade: "Gama", local: { lat: -16.02, lng: -48.06, raio: 250 } })).body.local).toMatchObject({ raio: 250 });
+    const ckDono = (await qpost(tokenDono, { acao: "checkin", checkin: { unidade: "Gama", modeloId: rot.id, loc: { lat: -16.0201, lng: -48.0601, precisao: 15 }, selfie: jpeg } })).body.checkin;
+    expect(ckDono).toMatchObject({ foraDoLocal: false, comSelfie: true }); // perto do ponto marcado
+    await qpost(tokenDono, { acao: "visita", visita: { modeloId: rot.id, unidade: "Gama", checkinId: ckDono.id, respostas: [{ itemId: rot.itens[0].id, conforme: true }] } });
 
     // o que a unidade enxerga: só o próprio nome, só o checklist dela, nenhuma visita
     const lista = (await q(gama.token)).body;
@@ -362,9 +415,17 @@ describe("acessos, níveis e registro", () => {
 
     // envia o próprio checklist (com foto) e não consegue enviar pela outra unidade nem o checklist da visita
     const foto = (await qpost(gama.token, { acao: "foto", dados: jpeg })).body.id;
-    const ok = await qpost(gama.token, { acao: "envio", envio: { modeloId: aber.id, unidade: "Gama", respostas: [{ itemId: aber.itens[0].id, conforme: true, fotos: [foto] }] } });
+    // sem check-in não envia; o check-in do gestor é do checklist da unidade; o gestor da própria unidade não assina
+    expect((await qpost(gama.token, { acao: "envio", envio: { modeloId: aber.id, unidade: "Gama", respostas: [{ itemId: aber.itens[0].id, conforme: true, fotos: [foto] }] } })).code).toBe(400);
+    expect((await qpost(gama.token, { acao: "checkin", checkin: { unidade: "Itapoã", modeloId: aber.id } })).code).toBe(403);
+    expect((await qpost(gama.token, { acao: "checkin", checkin: { unidade: "Gama", modeloId: rot.id } })).code).toBe(404); // o roteiro da franqueadora não é da unidade
+    const ckGama = (await qpost(gama.token, { acao: "checkin", checkin: { unidade: "Gama", modeloId: aber.id, loc: { lat: -16.0202, lng: -48.0602, precisao: 20 } } })).body.checkin;
+    expect(ckGama).toMatchObject({ comLocalizacao: true, foraDoLocal: false });
+    const ok = await qpost(gama.token, { acao: "envio", envio: { modeloId: aber.id, unidade: "Gama", checkinId: ckGama.id, respostas: [{ itemId: aber.itens[0].id, conforme: true, fotos: [foto] }] } });
     expect(ok.code).toBe(200);
     expect(ok.body.envio).toMatchObject({ origem: "unidade", unidade: "Gama", avaliador: { nome: "Gerente Gama" } });
+    expect(ok.body.envio.assinatura).toBeUndefined();
+    expect(ok.body.envio.checkin.distanciaM).toBeLessThan(100);
     expect((await qpost(gama.token, { acao: "envio", envio: { modeloId: aber.id, unidade: "Itapoã", respostas: [{ itemId: aber.itens[0].id, conforme: true }] } })).code).toBe(403);
     expect((await qpost(gama.token, { acao: "envio", envio: { modeloId: rot.id, unidade: "Gama", respostas: [{ itemId: rot.itens[0].id, conforme: true }] } })).code).toBe(404);
     expect((await q(gama.token)).body.envios).toHaveLength(1);
@@ -379,6 +440,22 @@ describe("acessos, níveis e registro", () => {
     expect(completo.envios).toHaveLength(1);
     expect(completo.visitas).toHaveLength(1);
     expect((await qpost(master.token, { acao: "envio", envio: { modeloId: aber.id, unidade: "Gama", respostas: [{ itemId: aber.itens[0].id, conforme: true }] } })).code).toBe(403);
+    // pedido de item novo: a unidade pede (só para a própria), vê só os dela; só o dono responde
+    const pedido = await qpost(gama.token, { acao: "pedido", pedido: { modeloId: aber.id, unidade: "Gama", texto: "Piscina: cloro medido", motivo: "tem piscina" } });
+    expect(pedido.code).toBe(200);
+    expect((await qpost(gama.token, { acao: "pedido", pedido: { modeloId: aber.id, unidade: "Itapoã", texto: "x" } })).code).toBe(403);
+    expect((await q(gama.token)).body.pedidos.map((p: any) => p.texto)).toEqual(["Piscina: cloro medido"]);
+    expect((await q(itapoa.token)).body.pedidos).toEqual([]); // a outra unidade não vê
+    expect((await q(master.token)).body.pedidos).toEqual([]); // Master liberado vê a qualidade, mas só o dono vê e responde os pedidos
+    expect((await q(tokenDono)).body.pedidos).toHaveLength(1);
+    expect((await qpost(gama.token, { acao: "pedido-decidir", id: pedido.body.pedido.id, decisao: { decisao: "aprovar" } })).code).toBe(403);
+    expect((await qpost(master.token, { acao: "pedido-decidir", id: pedido.body.pedido.id, decisao: { decisao: "aprovar" } })).code).toBe(403);
+    const aprovado = await qpost(tokenDono, { acao: "pedido-decidir", id: pedido.body.pedido.id, decisao: { decisao: "aprovar", escopo: "unidade", resposta: "Ok" } });
+    expect(aprovado.code).toBe(200);
+    expect((await q(gama.token)).body.pedidos[0]).toMatchObject({ status: "aprovado", decisao: { resposta: "Ok" } }); // a unidade vê a resposta
+    expect((await q(gama.token)).body.modelos[0].itens.some((i: any) => i.soEm?.[0] === "Gama")).toBe(true); // e o item já está no checklist dela
+    expect((await qpost(tokenDono, { acao: "pedido-decidir", id: pedido.body.pedido.id, decisao: { decisao: "recusar" } })).code).toBe(409);
+
     // só o dono libera; tirar a liberação fecha
     await post(tokenDono, { acao: "atualizar", id: master.u.id, gerenciaAcessos: true });
     expect((await post(master.token, { acao: "atualizar", id: gama.u.id, preencheChecklist: false })).code).toBe(403);

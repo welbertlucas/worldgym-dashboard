@@ -11,7 +11,7 @@ export const AUTH_REQUIRED_EVENT = "wg-auth-required";
 
 export type Papel = "dono" | "master" | "unidades";
 /** `papelReal` só vem quando o dono está simulando outro nível ("ver como"). `gerenciaAcessos`: Master liberado pelo dono a criar acessos. */
-export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean; /** Liberado pelo dono a gerar apresentações no menu Relatórios (o dono sempre gera). */ geraRelatorios?: boolean; /** Vê o menu Royalties: dono e Master sempre; quem tem acesso só a unidades, se o dono liberou. O servidor já manda o valor final. */ verRoyalties?: boolean; /** Vê o menu Jurídico: o dono, e quem ele liberou (qualquer nível). */ verJuridico?: boolean; /** Usa o menu Qualidade: o dono, e quem ele liberou (qualquer nível). */ verQualidade?: boolean; /** Preenche o checklist da própria unidade (só quem tem acesso a unidades e o dono liberou; o dono sempre). */ preencheChecklist?: boolean; /** Ainda usa a senha provisória: precisa escolher a própria antes de ver dados. */ trocarSenha?: boolean }
+export interface Usuario { nome: string; email: string; papel: Papel; unidades: string[]; legado?: boolean; papelReal?: Papel; gerenciaAcessos?: boolean; /** Liberado pelo dono a gerar apresentações no menu Relatórios (o dono sempre gera). */ geraRelatorios?: boolean; /** Vê o menu Royalties: dono e Master sempre; quem tem acesso só a unidades, se o dono liberou. O servidor já manda o valor final. */ verRoyalties?: boolean; /** Vê o menu Jurídico: o dono, e quem ele liberou (qualquer nível). */ verJuridico?: boolean; /** Usa o menu Qualidade: o dono, e quem ele liberou (qualquer nível). */ verQualidade?: boolean; /** Preenche o checklist da própria unidade (só quem tem acesso a unidades e o dono liberou; o dono sempre). */ preencheChecklist?: boolean; /** Edita a qualidade (cria checklists, registra visitas): o dono e quem ele liberou; Master só consulta. */ editaQualidade?: boolean; /** Ainda usa a senha provisória: precisa escolher a própria antes de ver dados. */ trocarSenha?: boolean }
 
 // Quem está logado e se o login pede e-mail (só depois que o dono cria o primeiro acesso). Vem de GET /api/login.
 let usuario: Usuario | null = null;
@@ -37,6 +37,8 @@ export const podeVerQualidade = () => usuario?.verQualidade === true;
 export const podePreencherChecklist = () => usuario?.preencheChecklist === true;
 /** Comparar a taxa de cartão entre as unidades: só dono e Master (quem tem acesso a algumas unidades não vê). */
 export const podeCompararTaxasCartao = () => usuario?.papel === "dono" || usuario?.papel === "master";
+/** Editar a qualidade (o servidor confere de novo): sem login (testes e tela aberta) vale como dono. */
+export const podeEditarQualidade = () => (usuario ? usuario.editaQualidade === true : true);
 export const podeGerirAcessos = () => usuario?.papel === "dono" || usuario?.gerenciaAcessos === true;
 /** Unidades de quem tem acesso só a algumas; null = enxerga todas. */
 export const unidadesProprias = (): string[] | null => (usuario?.papel === "unidades" ? usuario.unidades : null);

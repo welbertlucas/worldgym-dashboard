@@ -2,14 +2,14 @@ import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
 import { type MetricDetail } from "@/components/MetricCard";
 import { cn } from "@/lib/utils";
-import { DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, DIAS_AVISO_VENCIMENTO, type DadosQualidade, certificadosPorUnidade, dataBR, equipamentosParados, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
+import { pedidosPendentes, DIAS_DA_MEDIA, DIAS_SEM_VISITA, NOTA_ATENCAO, NOTA_BOA, DIAS_AVISO_VENCIMENTO, type DadosQualidade, certificadosPorUnidade, dataBR, equipamentosParados, itensQueMaisFalham, pctTexto, resumoDaRede, resumoPorUnidade, tomDaNota } from "@/data/qualidade";
 import { FotoGuardada } from "@/components/qualidade/Fotos";
 
 const COR_TOM = { good: "bg-emerald-600", warn: "bg-amber-500", bad: "bg-destructive", neutral: "bg-foreground/30" } as const;
 const neutro = (text: string): MetricDetail => ({ text, tone: "neutral" });
 
 /** Visão da rede: cartões do Atlas, ranking de unidades pela nota média dos últimos 90 dias e os itens que mais falham. */
-export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; hoje: string; onUnidade: (u: string) => void }) {
+export function VisaoGeral({ dados, hoje, onUnidade, onPedidos }: { dados: DadosQualidade; hoje: string; onUnidade: (u: string) => void; onPedidos?: () => void }) {
   const r = resumoDaRede(dados.visitas, dados.unidades, hoje);
   const linhas = resumoPorUnidade(dados.visitas, dados.unidades, hoje);
   const falhos = itensQueMaisFalham(dados.visitas, hoje);
@@ -17,8 +17,15 @@ export function VisaoGeral({ dados, hoje, onUnidade }: { dados: DadosQualidade; 
   const certificados = certificadosPorUnidade(dados.visitas, dados.unidades, hoje);
   const temCertificado = certificados.some((c) => c.vencimento);
   const totalUn = dados.unidades.length;
+  const pendentes = pedidosPendentes(dados.pedidos).length;
   return (
     <div className="space-y-4">
+      {onPedidos && pendentes > 0 && (
+        <button type="button" onClick={onPedidos} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-left text-sm text-foreground hover:bg-warning/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span><b>{pendentes} {pendentes === 1 ? "pedido de item novo espera" : "pedidos de item novo esperam"}</b> a sua resposta.</span>
+          <span className="shrink-0 font-semibold underline underline-offset-4">Ver pedidos</span>
+        </button>
+      )}
       <div className="card-surface overflow-hidden">
         <div className="-mr-px -mb-px grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
           <KpiGaugeCard title="Nota média da rede" value={pctTexto(r.notaMedia)} fill={(r.notaMedia ?? 0) / 100} marker={null} tone={tomDaNota(r.notaMedia)} details={[neutro(`Itens conformes, últimos ${DIAS_DA_MEDIA} dias`)]} />

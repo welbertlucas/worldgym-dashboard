@@ -22,9 +22,10 @@ describe("ver como (dono simulando outro nível)", () => {
   it("royalties na simulação: como Master o dono continua vendo; como quem tem acesso a unidades, não", () => {
     const dono = { id: "d", nome: "Dono", email: "d@x.com", papel: "dono", unidades: [], verRoyalties: true, geraRelatorios: true } as any;
     expect(aplicarVerComo(dono, "master", nomes).verRoyalties).toBe(true);
-    expect(aplicarVerComo({ ...dono, verJuridico: true }, "master", nomes).verJuridico).toBe(false); // a liberação do jurídico é de cada pessoa
-    expect(aplicarVerComo({ ...dono, verQualidade: true }, "master", nomes).verQualidade).toBe(false);
+    // como Master o dono vê o Jurídico e a Qualidade (só consulta); a edição e o checklist da unidade são liberações de cada pessoa
+    expect(aplicarVerComo({ ...dono, verJuridico: true, verQualidade: true, editaQualidade: true }, "master", nomes)).toMatchObject({ verJuridico: true, verQualidade: true, editaQualidade: false });
     expect(aplicarVerComo({ ...dono, preencheChecklist: true }, "master", nomes).preencheChecklist).toBe(false);
+    expect(aplicarVerComo({ ...dono, verJuridico: true, verQualidade: true, editaQualidade: true }, cabecalhoVerComo({ papel: "unidades", unidades: ["Itapoã"] })["X-Atlas-Ver-Como"], nomes)).toMatchObject({ verJuridico: false, verQualidade: false, editaQualidade: false });
     expect(aplicarVerComo(dono, cabecalhoVerComo({ papel: "unidades", unidades: ["Itapoã"] })["X-Atlas-Ver-Como"], nomes).verRoyalties).toBe(false);
   });
 

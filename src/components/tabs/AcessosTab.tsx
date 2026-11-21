@@ -134,7 +134,7 @@ export function AcessosTab() {
               {mostrados.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
                   <td className="px-5 py-3"><div className="font-medium text-foreground"><button type="button" onClick={() => setDetalhe(u)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" title="Ver último acesso e histórico">{u.nome}</button>{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
-                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel !== "dono" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Usa qualidade</span>}{u.papel === "unidades" && u.preencheChecklist && <span className="block text-xs text-muted-foreground">Preenche checklist</span>}</td>
+                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel === "unidades" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Edita qualidade</span>}{u.papel === "unidades" && u.preencheChecklist && <span className="block text-xs text-muted-foreground">Preenche checklist</span>}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
                   <td className="px-3 py-3">
@@ -292,10 +292,10 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
           <span>Pode gerenciar acessos <span className="block text-xs text-muted-foreground">Cria, edita e desativa acessos e gera senhas novas. Não mexe na sua conta, não cria outro dono e não passa esta permissão adiante.</span></span>
         </label>
       )}
-      {podeLiberar && (
+      {podeLiberar && papel === "unidades" && (
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={relatorios} onChange={(e) => setRelatorios(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-          <span>Pode gerar relatórios <span className="block text-xs text-muted-foreground">Mostra o menu Relatórios, onde a pessoa monta e baixa a apresentação (.pptx) dos dados que ela já enxerga. Cada download fica no registro de atividades.</span></span>
+          <span>Pode gerar relatórios <span className="block text-xs text-muted-foreground">Mostra o menu Relatórios, onde a pessoa monta e baixa a apresentação (.pptx) dos dados que ela já enxerga. Cada download fica no registro de atividades. Todo Master já vê esse menu.</span></span>
         </label>
       )}
       {podeLiberar && papel === "unidades" && (
@@ -304,16 +304,16 @@ function FormularioAcesso({ unidades, inicial, podeLiberar, onSalvar, onCancelar
           <span>Pode ver royalties <span className="block text-xs text-muted-foreground">Mostra o menu Royalties, com os recebimentos da marca de toda a rede. Dono e Master já veem; quem tem acesso só a unidades precisa desta liberação.</span></span>
         </label>
       )}
-      {podeLiberar && (
+      {podeLiberar && papel === "unidades" && (
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={juridico} onChange={(e) => setJuridico(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-          <span>Pode ver jurídico <span className="block text-xs text-muted-foreground">Mostra o menu Jurídico, com os processos judiciais e extrajudiciais da rede. Só o dono vê sem liberação, em qualquer nível.</span></span>
+          <span>Pode ver jurídico <span className="block text-xs text-muted-foreground">Mostra o menu Jurídico, com os processos judiciais e extrajudiciais da rede. Dono e Master já veem (só consulta); quem tem acesso a unidades precisa desta liberação.</span></span>
         </label>
       )}
       {podeLiberar && (
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={qualidade} onChange={(e) => setQualidade(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-          <span>Pode usar qualidade <span className="block text-xs text-muted-foreground">Mostra o menu Qualidade: criar checklists, registrar visitas às unidades com fotos e ver a nota de cada unidade. Só o dono vê sem liberação, em qualquer nível.</span></span>
+          <span>Pode editar a qualidade <span className="block text-xs text-muted-foreground">Deixa a pessoa criar checklists e registrar visitas às unidades (com check-in, fotos e assinatura). Dono e Master já veem o menu Qualidade, só para consulta; quem tem acesso a unidades também passa a ver tudo com esta liberação.</span></span>
         </label>
       )}
       {podeLiberar && papel === "unidades" && (

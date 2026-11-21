@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
-import { definirArmazem } from "../../../server/armazem.js";
+import { definirArmazem, gravarBytes, lerBytes } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
 import * as q from "../../../server/qualidade.js";
 import { DIAS_SEM_VISITA, MODELO_ABERTURA, MODELO_SUGERIDO, PRAZO_DIAS, certificadosPorUnidade, equipamentosParados, itensDaUnidade, itensQueMaisFalham, resumoDaRede, resumoPorUnidade, rotinaDasUnidades, tomDaNota, type Visita } from "@/data/qualidade";
@@ -176,40 +176,121 @@ describe("visitas", () => {
     expect(q.normalizarModelo(MODELO_SUGERIDO).itens[0]).toMatchObject({ tipo: "equipamentos", peso: 2, foto: "nao_conforme" });
   });
 
-  it("grava por mês, lista as recentes e apaga a visita com as fotos", async () => {
+  // check-in feito 30 minutos antes de AGORA (15h00 UTC = 12h00 em Brasília), no Gama de verdade: perto do ponto marcado como o local da unidade
+  const ANTES = new Date("2026-11-20T14:30:00Z");
+  const autorV = { nome: "Ana", email: "a@x.com" };
+  const checkin = (m: any, tipo: "visita" | "unidade", o: any = {}) => q.criarCheckin({ unidade: o.unidade ?? "Asa Norte", modeloId: m.id, loc: o.loc, selfie: o.selfie === null ? undefined : JPEG }, { autor: o.autor ?? autorV, tipo, ip: o.ip ?? "200.1.1.1", unidadesPermitidas: [o.unidade ?? "Asa Norte"] }, o.agora ?? ANTES);
+
+  it("visita da franqueadora: exige check-in com selfie; a data é a do check-in (ninguém escolhe); o check-out é automático; sem assinatura", async () => {
     const m = await q.salvarModelo({ nome: "Roteiro", itens: [{ texto: "Sala", foto: "sempre" }] });
     const fotoId = await q.salvarFoto(JPEG);
-    const v = await q.salvarVisita({ modeloId: m.id, unidade, data: "2026-11-19", respostas: [{ itemId: m.itens[0].id, conforme: true, fotos: [fotoId] }] }, { nome: "Ana", email: "a@x.com" }, AGORA);
+    const corpo = (ck: any, extra: any = {}) => ({ modeloId: m.id, unidade, data: "2020-01-01", checkinId: ck?.id, respostas: [{ itemId: m.itens[0].id, conforme: true, fotos: [fotoId] }], ...extra });
+    // sem check-in não grava
+    await expect(q.salvarVisita(corpo(null), autorV, AGORA)).rejects.toThrow(/check-in/);
+    // a visita pede selfie no check-in (padrão da visita da franqueadora); pequena e em JPEG
+    await expect(checkin(m, "visita", { selfie: null })).rejects.toThrow(/selfie/);
+    await expect(q.criarCheckin({ unidade, modeloId: m.id, selfie: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(200 * 1024)]).toString("base64") }, { autor: autorV, tipo: "visita", ip: "1.1.1.1", unidadesPermitidas: [unidade] }, ANTES)).rejects.toThrow(/grande/);
+    const ck = await checkin(m, "visita", { loc: { lat: -15.8, lng: -47.9, precisao: 15 } });
+    expect(ck).toMatchObject({ comLocalizacao: true, comSelfie: true });
+    const v = await q.salvarVisita(corpo(ck, { localizacaoSaida: { lat: -15.8001, lng: -47.9001, precisao: 20 } }), autorV, AGORA, { ip: "200.1.1.2" });
+    // a data enviada (2020) é ignorada: vale a do check-in
+    expect(v).toMatchObject({ data: "2026-11-20", mes: "2026-11", chegada: "11:30", saida: "12:00", duracaoMin: 30 });
+    expect(v.assinatura).toBeUndefined();
+    expect(v.checkin).toMatchObject({ em: ANTES.toISOString(), ip: "200.1.1.1", loc: { lat: -15.8, lng: -47.9 }, selfie: expect.stringMatching(/^2026-11_[0-9a-f-]{36}$/) });
+    expect(v.checkout).toMatchObject({ em: AGORA.toISOString(), ip: "200.1.1.2", loc: { lat: -15.8001, lng: -47.9001 } });
+    expect((await q.lerSelfie(v.checkin.selfie)).length).toBeGreaterThan(10);
+    await expect(q.lerSelfie("../x")).rejects.toThrow(/inválida/);
+    // o check-in vale uma vez
+    await expect(q.salvarVisita(corpo(ck), autorV, AGORA)).rejects.toThrow(/já foi usado/);
     expect((await q.visitasRecentes(12, AGORA)).map((x: any) => x.id)).toEqual([v.id]);
     expect((await q.lerFoto(fotoId)).length).toBeGreaterThan(10);
     await q.apagarVisita(v.id, v.mes);
     expect(await q.visitasRecentes(12, AGORA)).toEqual([]);
     await expect(q.lerFoto(fotoId)).rejects.toThrow(/não encontrada/);
-    await expect(q.salvarVisita({ modeloId: "x", unidade, data: "2026-11-19", respostas: [] }, {}, AGORA)).rejects.toThrow(/não existe/);
+    await expect(q.salvarVisita({ modeloId: "x", unidade, respostas: [] }, {}, AGORA)).rejects.toThrow(/não existe/);
   });
 
-  it("envio da unidade: só o checklist que a unidade preenche, só a própria unidade, sempre com a data de hoje; fica à parte das visitas", async () => {
+  it("selfie: o dono escolhe por checklist (a da unidade não pede por padrão) e as selfies passam do prazo de 3 meses e são apagadas", async () => {
+    const visita = await q.salvarModelo({ nome: "Roteiro", frequencia: "visita", itens: [{ texto: "a" }] });
+    const abertura = await q.salvarModelo({ nome: "Abertura", frequencia: "diaria", itens: [{ texto: "a" }] });
+    const comSelfie = await q.salvarModelo({ nome: "Abertura com selfie", frequencia: "diaria", selfie: true, itens: [{ texto: "a" }] });
+    const semSelfie = await q.salvarModelo({ nome: "Visita sem selfie", frequencia: "visita", selfie: false, itens: [{ texto: "a" }] });
+    expect([visita, abertura, comSelfie, semSelfie].map((m: any) => q.pedeSelfie(m))).toEqual([true, false, true, false]);
+    const ckAbertura = await checkin(abertura, "unidade", { selfie: null }); // a abertura não pede: sem selfie passa
+    expect(ckAbertura).toMatchObject({ comSelfie: false });
+    await expect(checkin(comSelfie, "unidade", { selfie: null })).rejects.toThrow(/selfie/);
+    expect((await checkin(semSelfie, "visita", { selfie: null })).comSelfie).toBe(false);
+    // retenção: mês atual e os 3 anteriores ficam; de 4 meses para trás é apagado a cada novo check-in
+    await gravarBytes("qualidade/selfies/2026-07/velha.jpg", Buffer.from("x")); // 4 meses antes de novembro: fora do prazo
+    await gravarBytes("qualidade/selfies/2026-03/mais-velha.jpg", Buffer.from("x"));
+    await gravarBytes("qualidade/selfies/2026-08/dentro.jpg", Buffer.from("x")); // 3 meses antes: ainda dentro
+    await checkin(visita, "visita");
+    expect(await lerBytes("qualidade/selfies/2026-07/velha.jpg")).toBeNull();
+    expect(await lerBytes("qualidade/selfies/2026-08/dentro.jpg")).not.toBeNull();
+  });
+
+  it("check-in: só da própria pessoa, unidade e checklist, até 12 horas depois, e a localização é conferida com o local marcado da unidade", async () => {
+    const m = await q.salvarModelo({ nome: "Roteiro", itens: [{ texto: "Sala" }] });
+    const outro = await q.salvarModelo({ nome: "Outro", itens: [{ texto: "Piso" }] });
+    const resp = [{ itemId: m.itens[0].id, conforme: true }];
+    const base = { modeloId: m.id, unidade, respostas: resp };
+    const ck = await checkin(m, "visita");
+    await expect(q.salvarVisita({ ...base, checkinId: ck.id }, { nome: "Outra", email: "outra@x.com" }, AGORA)).rejects.toThrow(/outra pessoa/);
+    await expect(q.salvarVisita({ ...base, modeloId: outro.id, checkinId: ck.id }, autorV, AGORA)).rejects.toThrow(/outro checklist/);
+    await expect(q.salvarVisita({ ...base, unidade: "Gama", checkinId: ck.id }, autorV, AGORA)).rejects.toThrow(/outro checklist ou de outra pessoa/);
+    await expect(q.salvarVisita({ ...base, checkinId: ck.id }, autorV, new Date(ANTES.getTime() + 13 * 3600 * 1000))).rejects.toThrow(/venceu/);
+    // local marcado da unidade: perto = na unidade; longe = fora do local; sem localização = só o IP
+    await q.salvarLocal("Asa Norte", { lat: -15.7801, lng: -47.8999, raio: 300 });
+    const perto = await checkin(m, "visita", { loc: { lat: -15.7803, lng: -47.9, precisao: 10 } });
+    expect(perto).toMatchObject({ comLocalizacao: true, foraDoLocal: false });
+    expect(perto.distanciaM).toBeLessThan(60);
+    const longe = await checkin(m, "visita", { loc: { lat: -15.85, lng: -47.95, precisao: 10 } });
+    expect(longe).toMatchObject({ foraDoLocal: true });
+    expect(longe.distanciaM).toBeGreaterThan(5000);
+    const sem = await checkin(m, "visita");
+    expect(sem).toMatchObject({ comLocalizacao: false });
+    expect(sem.foraDoLocal).toBeUndefined(); // sem localização não dá para dizer: só o horário e o IP
+    // precisão ruim (200 m) perdoa quem está na beira do raio; coordenadas inválidas viram "sem localização"
+    expect(q.normalizarLocalizacao({ lat: 99, lng: 0 })).toBeNull();
+    expect(q.normalizarLocalizacao({ lat: "x", lng: 0 })).toBeNull();
+    expect(q.normalizarLocalizacao({ lat: -15.1234567, lng: -47.7654321, precisao: 12.4 })).toEqual({ lat: -15.123457, lng: -47.765432, precisao: 12 });
+    await expect(q.salvarLocal("Inventada", { lat: 1, lng: 1 })).rejects.toThrow(/Unidade inválida/);
+    await expect(q.salvarLocal("Gama", { lat: 200, lng: 1 })).rejects.toThrow(/Coordenadas/);
+    expect(q.distanciaM({ lat: -15.78, lng: -47.9 }, { lat: -15.78, lng: -47.9 })).toBe(0);
+    await q.apagarLocal("Asa Norte");
+    expect(await q.lerLocais()).toEqual({});
+  });
+
+  it("envio da unidade: check-in e check-out, sem assinatura; só o checklist que a unidade preenche, só a própria unidade, sempre com a data do check-in; fica à parte das visitas", async () => {
     const abertura = await q.salvarModelo({ nome: "Abertura", frequencia: "diaria", itens: [{ texto: "Recepção limpa" }] });
     const roteiro = await q.salvarModelo({ nome: "Roteiro", frequencia: "visita", itens: [{ texto: "Piso" }] });
     const autor = { nome: "Gerente", email: "g@x.com" };
     const resp = (m: any) => [{ itemId: m.itens[0].id, conforme: true }];
-    const e = await q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", data: "2020-01-01", chegada: "08:00", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA);
-    expect(e).toMatchObject({ origem: "unidade", unidade: "Asa Norte", data: "2026-11-20", chegada: "", avaliador: { nome: "Gerente" } }); // a data enviada é ignorada
-    await expect(q.salvarEnvio({ modeloId: abertura.id, unidade: "Gama", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA)).rejects.toThrow(/sua unidade/);
-    await expect(q.salvarEnvio({ modeloId: roteiro.id, unidade: "Asa Norte", respostas: resp(roteiro) }, autor, ["Asa Norte"], AGORA)).rejects.toThrow(/não está disponível/);
+    const ck = (m: any, o: any = {}) => checkin(m, "unidade", { autor, ...o });
+    const c1 = await ck(abertura);
+    const e = await q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", data: "2020-01-01", chegada: "08:00", checkinId: c1.id, respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA, { ip: "187.0.0.9" });
+    expect(e).toMatchObject({ origem: "unidade", unidade: "Asa Norte", data: "2026-11-20", chegada: "11:30", saida: "12:00", duracaoMin: 30, avaliador: { nome: "Gerente" } }); // a data e a hora enviadas são ignoradas
+    expect(e.assinatura).toBeUndefined(); // o gestor da própria unidade não assina
+    expect(e.checkin).toMatchObject({ ip: "200.1.1.1" });
+    expect(e.checkout).toMatchObject({ ip: "187.0.0.9" });
+    // sem check-in não envia
+    await expect(q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA)).rejects.toThrow(/check-in/);
+    // regras: só a própria unidade e só checklist que a unidade preenche (já no check-in)
+    await expect(q.criarCheckin({ unidade: "Gama", modeloId: abertura.id }, { autor, tipo: "unidade", ip: "1.1.1.1", unidadesPermitidas: ["Asa Norte"] }, AGORA)).rejects.toThrow(/sua unidade/);
+    await expect(q.criarCheckin({ unidade: "Asa Norte", modeloId: roteiro.id }, { autor, tipo: "unidade", ip: "1.1.1.1", unidadesPermitidas: ["Asa Norte"] }, AGORA)).rejects.toThrow(/não está disponível/);
     expect((await q.enviosRecentes(30, AGORA)).map((x: any) => x.id)).toEqual([e.id]);
     expect((await q.enviosRecentes(30, AGORA, ["Gama"]))).toEqual([]);
     expect(await q.visitasRecentes(12, AGORA)).toEqual([]); // envio não é visita: fora da nota e do ranking
     expect(q.modelosDaUnidade(await q.lerModelos()).map((m: any) => m.nome)).toEqual(["Abertura"]);
     // limite por dia e apagar
-    for (let i = 0; i < 4; i += 1) await q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA);
-    await expect(q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA)).rejects.toThrow(/5 envios por dia/);
+    for (let i = 0; i < 4; i += 1) await q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", checkinId: (await ck(abertura)).id, respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA);
+    await expect(q.salvarEnvio({ modeloId: abertura.id, unidade: "Asa Norte", checkinId: (await ck(abertura)).id, respostas: resp(abertura) }, autor, ["Asa Norte"], AGORA)).rejects.toThrow(/5 envios por dia/);
     await q.apagarEnvio(e.id, e.mes);
     expect((await q.enviosRecentes(30, AGORA)).length).toBe(4);
     // a unidade só enxerga a foto do próprio envio
     const foto = await q.salvarFoto(JPEG);
     const m2 = await q.salvarModelo({ nome: "Com foto", frequencia: "semanal", itens: [{ texto: "X", foto: "sempre" }] });
-    await q.salvarEnvio({ modeloId: m2.id, unidade: "Asa Norte", respostas: [{ itemId: m2.itens[0].id, conforme: true, fotos: [foto] }] }, autor, ["Asa Norte"], AGORA);
+    await q.salvarEnvio({ modeloId: m2.id, unidade: "Asa Norte", checkinId: (await ck(m2)).id, respostas: [{ itemId: m2.itens[0].id, conforme: true, fotos: [foto] }] }, autor, ["Asa Norte"], AGORA);
     expect(await q.fotoDeEnvioDe(foto, ["Asa Norte"], AGORA)).toBe(true);
     expect(await q.fotoDeEnvioDe(foto, ["Gama"], AGORA)).toBe(false);
   });
@@ -293,5 +374,15 @@ describe("cálculos da tela de qualidade", () => {
     expect(l.map((x) => [x.unidade, x.situacao, x.dias, x.naoConformes])).toEqual([["C", "atrasado", 10, 0], ["D", "nunca", null, 0], ["B", "em-dia", 1, 1], ["A", "em-dia", 0, 0]]);
     expect(l.every((x) => x.modeloId === "d")).toBe(true); // visita e fora de uso não entram
     expect(PRAZO_DIAS).toEqual({ visita: 0, diaria: 1, semanal: 7, mensal: 31 });
+  });
+
+  it("itens só de uma unidade (soEm): valem só nela; sem a marca valem para todas", () => {
+    const m = q.normalizarModelo({ nome: "R", itens: [{ texto: "Piso" }, { texto: "Piscina", soEm: ["Gama", "Inventada", "Gama"] }] }, AGORA);
+    expect(m.itens[1].soEm).toEqual(["Gama"]);
+    expect(m.itens[0].soEm).toBeUndefined();
+    expect(itensDaUnidade(m.itens, "Gama").map((i) => i.texto)).toEqual(["Piso", "Piscina"]);
+    expect(itensDaUnidade(m.itens, "Asa Norte").map((i) => i.texto)).toEqual(["Piso"]);
+    const v = q.montarVisita({ unidade: "Asa Norte", data: "2026-11-19", respostas: m.itens.map((i: any) => ({ itemId: i.id, conforme: true })) }, m, {}, AGORA);
+    expect(v.respostas.map((r: any) => r.texto)).toEqual(["Piso"]); // a piscina não é perguntada fora do Gama
   });
 });

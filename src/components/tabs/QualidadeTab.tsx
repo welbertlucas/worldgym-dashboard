@@ -10,6 +10,10 @@ import { NovaVisita } from "@/components/qualidade/NovaVisita";
 import { Visitas } from "@/components/qualidade/Visitas";
 import { Modelos } from "@/components/qualidade/Modelos";
 import { Rotina } from "@/components/qualidade/Rotina";
+import { Pedidos } from "@/components/qualidade/Pedidos";
+import { LocaisDasUnidades } from "@/components/qualidade/LocaisDasUnidades";
+import { pedidosPendentes } from "@/data/qualidade";
+import { ehDono, podeEditarQualidade } from "@/lib/auth";
 import { ChecklistDaUnidade } from "@/components/qualidade/ChecklistDaUnidade";
 
 export type EstadoQualidade = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; dados: DadosQualidade };
@@ -38,15 +42,27 @@ export function QualidadeConteudo({ estado, hoje = hojeBR(), recarregar = () => 
   if (estado.fase === "erro") return <ChartCard title="Qualidade"><ChartEmpty>{estado.motivo === "permissao" ? "Você não tem acesso a esta tela." : "Não consegui carregar a qualidade agora. Tente de novo em instantes."}</ChartEmpty></ChartCard>;
   const d = estado.dados;
   if (d.modo === "unidade") return <ChecklistDaUnidade dados={d} hoje={hoje} onMudou={recarregar} />;
-  const ativa = abaAtiva(ABAS, aba);
+  // A aba de pedidos de item novo é só do dono (é ele quem aprova); mostra quantos esperam resposta.
+  const pendentes = pedidosPendentes(d.pedidos).length;
+  // Quem só consulta (Master sem liberação) não vê "Nova visita"; quem edita registra visitas com check-in e assinatura.
+  const edita = podeEditarQualidade();
+  const base = edita ? ABAS : ABAS.filter((a) => a.id !== "visita");
+  const abas: Aba[] = ehDono() ? [...base, { id: "pedidos", rotulo: pendentes > 0 ? `Pedidos (${pendentes})` : "Pedidos" }] : base;
+  const ativa = abaAtiva(abas, aba);
   return (
     <div>
-      <Abas tela="qualidade" titulo="Qualidade" abas={ABAS} ativa={ativa} onChange={setAba} />
-      {ativa === "geral" && <VisaoGeral dados={d} hoje={hoje} onUnidade={(u) => { setUnidade(u); setAba("visitas"); }} />}
-      {ativa === "visita" && <NovaVisita dados={d} hoje={hoje} onSalvou={(u) => { setUnidade(u); setAba("visitas"); recarregar(); }} />}
-      {ativa === "visitas" && <Visitas key={unidade} dados={d} unidadeInicial={unidade} onMudou={recarregar} />}
-      {ativa === "rotina" && <Rotina dados={d} hoje={hoje} onMudou={recarregar} />}
-      {ativa === "checklists" && <Modelos modelos={d.modelos} unidades={d.unidades} onMudou={recarregar} />}
+      <Abas tela="qualidade" titulo="Qualidade" abas={abas} ativa={ativa} onChange={setAba} />
+      {ativa === "geral" && <VisaoGeral dados={d} hoje={hoje} onUnidade={(u) => { setUnidade(u); setAba("visitas"); }} onPedidos={ehDono() ? () => setAba("pedidos") : undefined} />}
+      {ativa === "visita" && edita && <NovaVisita dados={d} hoje={hoje} onSalvou={(u) => { setUnidade(u); setAba("visitas"); recarregar(); }} />}
+      {ativa === "visitas" && <Visitas key={unidade} dados={d} unidadeInicial={unidade} podeApagar={edita} onMudou={recarregar} />}
+      {ativa === "rotina" && <Rotina dados={d} hoje={hoje} podeApagar={edita} onMudou={recarregar} />}
+      {ativa === "pedidos" && ehDono() && <Pedidos dados={d} onMudou={recarregar} />}
+      {ativa === "checklists" && (
+        <div className="space-y-4">
+          <Modelos modelos={d.modelos} unidades={d.unidades} somenteLeitura={!edita} onMudou={recarregar} />
+          {ehDono() && <LocaisDasUnidades unidades={d.unidades} locais={d.locais ?? {}} onMudou={recarregar} />}
+        </div>
+      )}
     </div>
   );
 }

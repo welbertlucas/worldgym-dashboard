@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { baixarFoto } from "@/lib/qualidade";
+import { baixarFoto, baixarSelfie } from "@/lib/qualidade";
 
 /** Miniatura de uma foto guardada no servidor (a rota exige login, então a imagem é baixada com a sessão). Clicar abre grande. */
-export function FotoGuardada({ id }: { id: string }) {
+export function FotoGuardada({ id, selfie = false }: { id: string; /** Foto de selfie do check-in (outro endereço, só dono e quem edita). */ selfie?: boolean }) {
   const [src, setSrc] = useState<string | null>(null);
   const [aberta, setAberta] = useState(false);
   const [falhou, setFalhou] = useState(false);
   useEffect(() => {
     let vivo = true;
     let url: string | null = null;
-    baixarFoto(id).then((u) => { if (!vivo) { if (u) URL.revokeObjectURL(u); return; } url = u; if (u) setSrc(u); else setFalhou(true); });
+    (selfie ? baixarSelfie(id) : baixarFoto(id)).then((u) => { if (!vivo) { if (u) URL.revokeObjectURL(u); return; } url = u; if (u) setSrc(u); else setFalhou(true); });
     return () => { vivo = false; if (url) URL.revokeObjectURL(url); };
   }, [id]);
   useEffect(() => {

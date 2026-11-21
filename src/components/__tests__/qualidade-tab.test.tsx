@@ -6,6 +6,8 @@ import { VisaoGeral } from "@/components/qualidade/VisaoGeral";
 import { NovaVisita } from "@/components/qualidade/NovaVisita";
 import { Rotina } from "@/components/qualidade/Rotina";
 import { ChecklistDaUnidade } from "@/components/qualidade/ChecklistDaUnidade";
+import { Pedidos } from "@/components/qualidade/Pedidos";
+import { PedidosDaUnidade } from "@/components/qualidade/PedidosDaUnidade";
 import { itensDoMenu, TODOS_OS_MENUS, nomeDaTela } from "@/components/nav";
 import { itensDaUnidade, type DadosQualidade, type Visita } from "@/data/qualidade";
 
@@ -108,5 +110,94 @@ describe("Qualidade (menu e telas)", () => {
     expect(html).not.toContain("Roteiro de visitação"); // o da visita fica de fora
     expect(html).not.toContain("Escolha a unidade");
     expect(html).not.toContain('aria-label="Data da visita"');
+  });
+
+  const PEDIDO = { id: "p1", unidade: "Asa Norte", modeloId: "ab", modeloNome: "Checklist de abertura", texto: "Piscina: cloro e pH medidos", motivo: "A unidade tem piscina", solicitante: { nome: "Gerente Asa", email: "g@x.com" }, status: "pendente" as const, criadoEm: "2026-11-19T12:00:00Z" };
+
+  it("dono: a aba Pedidos lista o que espera resposta (com aprovar e recusar) e o que já foi respondido; a visão geral avisa", () => {
+    const respondido = { ...PEDIDO, id: "p2", texto: "Sauna limpa", status: "recusado" as const, decisao: { por: "Dono", em: "2026-11-20T12:00:00Z", resposta: "Já coberto" } };
+    const dados: DadosQualidade = { ...DADOS, modelos: [ABERTURA], pedidos: [PEDIDO, respondido] };
+    const html = limpo(renderToString(<Pedidos dados={dados} onMudou={() => {}} />));
+    for (const t of ["Pedidos de item novo", "Piscina: cloro e pH medidos", "A unidade tem piscina", "Pedido por Gerente Asa", "Aprovar", "Recusar", "Já respondidos", "Sauna limpa", "Recusado", "Já coberto"]) expect(html).toContain(t);
+    expect(limpo(renderToString(<Pedidos dados={{ ...DADOS, pedidos: [] }} onMudou={() => {}} />))).toContain("Nenhum pedido esperando resposta");
+    const abas = limpo(renderToString(<QualidadeConteudo hoje="2026-11-20" estado={{ fase: "pronto", dados }} />));
+    expect(abas).toContain("Pedidos (1)");
+    expect(abas).toContain("1 pedido de item novo espera");
+    expect(abas).not.toContain("Pedidos (2)");
+  });
+
+  it("unidade: pode pedir um item novo e vê a resposta do dono nos próprios pedidos", () => {
+    const aprovado = { ...PEDIDO, id: "p3", texto: "Sauna limpa", status: "aprovado" as const, decisao: { por: "Dono", em: "2026-11-20T12:00:00Z", resposta: "Incluído", escopo: "unidade" as const } };
+    const dados: DadosQualidade = { modo: "unidade", unidades: ["Asa Norte"], modelos: [ABERTURA], visitas: [], envios: [], pedidos: [PEDIDO, aprovado] };
+    const html = limpo(renderToString(<PedidosDaUnidade dados={dados} onMudou={() => {}} />));
+    for (const t of ["Pedir um item novo", "Fazer um pedido", "Aguardando resposta", "Aprovado: já está no seu checklist", "Resposta:", "Incluído"]) expect(html).toContain(t);
+    const tela = limpo(renderToString(<ChecklistDaUnidade dados={dados} hoje="2026-11-20" onMudou={() => {}} />));
+    expect(tela).toContain("Pedir um item novo");
+    expect(tela).not.toContain("Pedidos (");
+    expect(limpo(renderToString(<PedidosDaUnidade dados={{ ...dados, modelos: [] }} onMudou={() => {}} />))).toBe(""); // sem checklist da unidade, sem pedido
+  });
+
+  it("checklists: o item pedido por uma unidade aparece marcado como só dela", () => {
+    const m = { ...MODELO, itens: [{ ...MODELO.itens[0], soEm: ["Gama"] }, MODELO.itens[1]] };
+    expect(limpo(renderToString(<Modelos modelos={[m]} unidades={["Asa Norte", "Gama"]} onMudou={() => {}} />))).toContain("Roteiro de visitação");
+  });
+});
+
+import { Item } from "@/components/qualidade/NovaVisita";
+import { Detalhe } from "@/components/qualidade/Visitas";
+import { LocaisDasUnidades } from "@/components/qualidade/LocaisDasUnidades";
+
+describe("Qualidade: check-in, check-out, selfie e data", () => {
+  const ABRE = { ...MODELO, id: "ab", nome: "Checklist de abertura", frequencia: "diaria" as const };
+
+  it("a unidade começa pelo check-in: o checklist só abre depois dele, sem escolher data nem horário", () => {
+    const dados: DadosQualidade = { modo: "unidade", unidades: ["Asa Norte"], modelos: [ABRE], visitas: [], envios: [] };
+    const html = limpo(renderToString(<NovaVisita dados={dados} hoje="2026-11-20" modo="unidade" onSalvou={() => {}} />));
+    expect(html).toContain("Iniciar o checklist (check-in)");
+    expect(html).toContain("registra o horário e a localização do seu aparelho");
+    expect(html).toContain("endereço IP");
+    expect(html).not.toContain("Equipe uniformizada"); // os itens só aparecem depois do check-in
+    for (const t of ['aria-label="Data da visita"', "Chegada", "Saída", 'type="date"', 'type="time"']) expect(html).not.toContain(t);
+  });
+
+  it("checklist que pede selfie: o check-in mostra o aviso e só libera depois da selfie; o que não pede, não mostra", () => {
+    const dados = (selfie?: boolean): DadosQualidade => ({ modo: "unidade", unidades: ["Asa Norte"], modelos: [{ ...ABRE, ...(selfie === undefined ? {} : { selfie }) }], visitas: [], envios: [] });
+    const com = limpo(renderToString(<NovaVisita dados={dados(true)} hoje="2026-11-20" modo="unidade" onSalvou={() => {}} />));
+    for (const t of ["Selfie na unidade", "Tirar a selfie", "só o dono e quem edita a qualidade a veem"]) expect(com).toContain(t);
+    const tagDoBotao = (h: string) => /<button([^>]*)>(?:(?!<\/button>).)*Iniciar o checklist/.exec(h)?.[1] ?? "";
+    expect(tagDoBotao(com)).toMatch(/\sdisabled=""/); // sem a selfie o botão fica desligado
+    const sem = limpo(renderToString(<NovaVisita dados={dados()} hoje="2026-11-20" modo="unidade" onSalvou={() => {}} />));
+    expect(sem).not.toContain("Selfie na unidade"); // a abertura da unidade não pede por padrão
+    expect(tagDoBotao(sem)).not.toMatch(/\sdisabled=""/);
+  });
+
+  it("a visita da franqueadora também: sem campo de data (nem retroativa nem futura) e sem horário digitado", () => {
+    const html = limpo(renderToString(<NovaVisita dados={{ ...DADOS, modelos: [{ ...MODELO, frequencia: "visita" }] }} hoje="2026-11-20" onSalvou={() => {}} />));
+    expect(html).toContain("Nova visita");
+    for (const t of ['aria-label="Data da visita"', "Chegada (opcional)", "Saída (opcional)", 'type="date"', 'type="time"']) expect(html).not.toContain(t);
+  });
+
+  it("o peso do item aparece só quando a tela manda mostrar (dono em visita); gestor e quem não é dono não veem", () => {
+    const item = { id: "i", grupo: "Banheiros", texto: "Banheiros limpos", peso: 2, foto: "nenhuma" as const };
+    const r = { conforme: null, na: false, comentario: "", fotos: [], equipamentos: [], vencimento: "" };
+    expect(limpo(renderToString(<Item item={item} r={r} dataVisita="2026-11-20" mostraPeso onChange={() => {}} />))).toContain("peso 2");
+    expect(limpo(renderToString(<Item item={item} r={r} dataVisita="2026-11-20" mostraPeso={false} onChange={() => {}} />))).not.toContain("peso");
+  });
+
+  it("o detalhe mostra check-in, check-out, duração, a distância da unidade (e o aviso de fora do local) e a selfie do check-in", () => {
+    const v: Visita = {
+      ...VISITA, chegada: "11:30", saida: "12:00", duracaoMin: 30,
+      checkin: { em: "2026-11-20T14:30:00Z", loc: { lat: -15.78, lng: -47.9, precisao: 10 }, ip: "200.1.1.1", distanciaM: 35, foraDoLocal: false, selfie: "2026-11_11111111-1111-1111-1111-111111111111" },
+      checkout: { em: "2026-11-20T15:00:00Z", loc: { lat: -15.9, lng: -47.95, precisao: 10 }, ip: "200.1.1.2", distanciaM: 13500, foraDoLocal: true },
+    };
+    const html = limpo(renderToString(<Detalhe v={v} />)).replace(/<[^>]+>/g, "");
+    for (const t of ["Check-in 11:30", "a 35 m da unidade", "Check-out 12:00", "fora do local: a 13,5 km da unidade", "Duração: 30 min", "Selfie no check-in", "ver no mapa"]) expect(html).toContain(t);
+    const sem = limpo(renderToString(<Detalhe v={{ ...VISITA, checkin: { em: "2026-11-20T14:30:00Z", loc: null, ip: "187.2.2.2" } }} />));
+    expect(sem).toContain("sem localização (só horário e IP 187.2.2.2)");
+  });
+
+  it("dono: marca o local das unidades (quantas já estão marcadas)", () => {
+    const html = limpo(renderToString(<LocaisDasUnidades unidades={["Asa Norte", "Gama"]} locais={{ Gama: { lat: -16.02, lng: -48.06, raio: 300 } }} onMudou={() => {}} />));
+    for (const t of ["Local das unidades", "1 de 2 unidades com o local marcado", "Usar onde estou", "Gama"]) expect(html).toContain(t);
   });
 });

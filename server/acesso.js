@@ -63,7 +63,7 @@ export const recebeResumo = (u) => u.ativo !== false && u.resumo !== false;
 /** Master a quem o dono liberou criar e alterar acessos (só vale para Master). */
 export const gerenciaAcessos = (u) => u?.papel === "master" && u.gerenciaAcessos === true;
 /** Quem gera apresentações no menu Relatórios: o dono e quem ele liberou (qualquer nível). */
-export const geraRelatorios = (u) => u?.papel === "dono" || u?.geraRelatorios === true;
+export const geraRelatorios = (u) => u?.papel === "dono" || u?.papel === "master" || u?.geraRelatorios === true;
 /** Menu Royalties (recebimentos da marca, dado financeiro da rede): o dono e todo Master veem; quem tem acesso só a unidades vê se o dono liberou. */
 export const verRoyalties = (u) => u?.papel === "dono" || u?.papel === "master" || u?.verRoyalties === true;
 /**
@@ -72,12 +72,14 @@ export const verRoyalties = (u) => u?.papel === "dono" || u?.papel === "master" 
  */
 export const precisaTrocarSenha = (u) => u?.trocarSenha === true || (u?.trocarSenha === undefined && u?.papel !== "dono");
 /** Menu Jurídico (processos da rede, dado sensível): o dono vê; qualquer outro nível só se o dono liberou. */
-export const verJuridico = (u) => u?.papel === "dono" || u?.verJuridico === true;
-/** Menu Qualidade (checklists e visitas às unidades): o dono vê; qualquer outro nível só se o dono liberou. */
-export const verQualidade = (u) => u?.papel === "dono" || u?.verQualidade === true;
+export const verJuridico = (u) => u?.papel === "dono" || u?.papel === "master" || u?.verJuridico === true;
+/** Menu Qualidade, só para ver (checklists, visitas, notas): o dono e todo Master; quem tem acesso a unidades, se o dono liberou. */
+export const verQualidade = (u) => u?.papel === "dono" || u?.papel === "master" || u?.verQualidade === true;
+/** Editar a qualidade (criar checklists, registrar visitas com check-in e assinatura): o dono e quem ele liberou (a marca `verQualidade` guardada na pessoa); Master sem a liberação só consulta. */
+export const editaQualidade = (u) => u?.papel === "dono" || u?.verQualidade === true;
 /** Preencher o checklist da própria unidade (abertura etc.): o dono, ou quem tem acesso a unidades e o dono liberou. Só vê e envia o que é da sua unidade. */
 export const preencheChecklist = (u) => u?.papel === "dono" || (u?.papel === "unidades" && u.preencheChecklist === true);
-export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel !== "dono" && geraRelatorios(u), verRoyalties: verRoyalties(u), verJuridico: verJuridico(u), verQualidade: verQualidade(u), preencheChecklist: preencheChecklist(u), trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
+export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel === "unidades" && u.geraRelatorios === true, verRoyalties: verRoyalties(u), verJuridico: u.papel === "unidades" && u.verJuridico === true, verQualidade: u.papel !== "dono" && u.verQualidade === true, preencheChecklist: preencheChecklist(u), trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
 
 /**
  * Quem não é dono, mas gerencia acessos (ator com gerenciaAcessos), não mexe na conta do dono nem na de outro que

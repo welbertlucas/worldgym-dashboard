@@ -27,6 +27,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-20-pedido-item", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-como-usar",
+    titulo: "Qualidade: a unidade pode pedir um item novo no checklist",
+    texto: "Faltou algo no checklist da unidade? Quem preenche descreve o que precisa ser conferido, e o pedido chega ao dono na aba Pedidos. Ele aprova, escolhendo se o item vale só para aquela unidade ou para todas, ou recusa com uma resposta que a unidade vê. O item aprovado já entra no checklist dela.",
+  },
+  {
     id: "2026-11-20-checklist-unidade", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-como-usar",
     titulo: "Qualidade: a unidade preenche o próprio checklist",
     texto: "Além da visita da franqueadora, cada unidade agora pode preencher um checklist de rotina (como o de abertura) pelo celular, com fotos. Quem tem acesso a unidades e foi liberado vê o menu Qualidade só com o checklist da própria unidade. Na aba Rotina das unidades você acompanha quem enviou, quem está atrasado e o que veio não conforme, sem aprovar nada e sem mexer na nota do ranking. Equipamentos parados informados pela unidade também aparecem no painel da visão geral.",
@@ -34,12 +39,12 @@ export const NOVIDADES: Novidade[] = [
   {
     id: "2026-11-20-qualidade", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-o-que-e",
     titulo: "Qualidade: checklists e visitas às unidades dentro do Atlas",
-    texto: "O roteiro de visitação às unidades (limpeza, uniforme, equipamentos) agora vive no Atlas. O menu Qualidade deixa criar os checklists, registrar a visita a cada unidade item a item (conforme, não conforme ou não se aplica) com comentário e foto, e acompanhar a nota de cada unidade, os itens que mais falham e quem está sem visita. Item não conforme pede o que corrigir; nos itens mais importantes, também uma foto. O menu aparece só para o dono e para quem ele liberar na tela Usuários.",
+    texto: "O roteiro de visitação às unidades (limpeza, uniforme, equipamentos) agora vive no Atlas. O menu Qualidade deixa criar os checklists, registrar a visita a cada unidade item a item (conforme, não conforme ou não se aplica) com comentário e foto, e acompanhar a nota de cada unidade, os itens que mais falham e quem está sem visita. Item não conforme pede o que corrigir; nos itens mais importantes, também uma foto. O menu aparece para o dono e para todo Master (só consulta); quem edita é o dono e quem ele liberar na tela Usuários.",
   },
   {
     id: "2026-11-20-juridico", data: "2026-11-20", tipo: "novo", publico: "juridico", autora: AUTORA, tela: "juridico", artigo: "juridico-o-que-e",
     titulo: "Jurídico: os processos da rede dentro do Atlas",
-    texto: "Os processos que o escritório jurídico manda todo mês ficavam numa planilha. Agora o menu Jurídico mostra quantos processos a rede tem, quanto está em causa, por empresa, por órgão e por tipo de ação, quais estão sem andamento e a lista completa, com filtros de situação, natureza e empresa. O nome da parte contrária e os textos do processo não entram no Atlas. O menu aparece só para o dono e para quem ele liberar na tela Usuários.",
+    texto: "Os processos que o escritório jurídico manda todo mês ficavam numa planilha. Agora o menu Jurídico mostra quantos processos a rede tem, quanto está em causa, por empresa, por órgão e por tipo de ação, quais estão sem andamento e a lista completa, com filtros de situação, natureza e empresa. O nome da parte contrária e os textos do processo não entram no Atlas. O menu aparece para o dono e para todo Master (só consulta); quem edita é o dono e quem ele liberar na tela Usuários.",
   },
   {
     id: "2026-11-20-royalties", data: "2026-11-20", tipo: "novo", publico: "royalties", autora: AUTORA, tela: "royalties", artigo: "royalties-o-que-e",
