@@ -109,6 +109,23 @@ describe("alertas do mês vigente", () => {
     expect(de("D")).toBeUndefined();
   });
 
+  it("ponto de contato do NPS bem abaixo da rede (últimos 2 meses): atenção, crítico e as exceções", () => {
+    const nov = mes("2026-11", [
+      u("A", { npsPontos: { RECEPÇÃO: [30, 10, 12] } }), // NPS −7 contra a rede: crítico
+      u("B", { npsPontos: { RECEPÇÃO: [40, 15, 10] } }), // 12,5 contra ~53: 41 pontos abaixo
+      u("C", { npsPontos: { RECEPÇÃO: [200, 160, 10], LIMPEZA: [200, 160, 10] } }),
+      u("D", { npsPontos: { RECEPÇÃO: [10, 1, 5] } }), // poucas respostas: nada
+    ]);
+    const r = computeAlertasVigentes([...fechados, nov], [], { atualizadoEm: lido, now, incluirRede: false });
+    const de = (unit: string) => r.alertas.find((a) => a.unit === unit && a.kind === "pontoFraco");
+    expect(de("A")).toMatchObject({ severity: "critical", tipo: "pendencia", tela: "retencao/satisfacao" });
+    expect(de("A")?.fact).toContain("Recepção: NPS");
+    expect(de("A")?.fact).toContain("da rede");
+    expect(de("B")?.severity).toBe("attention"); // 41 pontos abaixo da rede: entre os dois limiares (37 e 48)
+    expect(de("C")).toBeUndefined(); // acima da rede
+    expect(de("D")).toBeUndefined(); // menos de 20 respostas na janela
+  });
+
   it("sem o mês corrente nos dados: nada", () => {
     expect(computeAlertasVigentes(fechados, [], { atualizadoEm: lido, now }).month).toBeNull();
   });

@@ -3,6 +3,7 @@
 //  - pendência: algo em aberto agora (cobrar, trocar cartão, dar retorno), vale desde o dia 1;
 //  - ritmo: se o mês vai fechar bem (projeção contra a meta ou contra os meses anteriores), só a partir do dia 10.
 // Limiares aprovados pelo dono em 15/11/2026, calibrados com mai–out/2026 (23 unidades). Ajuste só aqui.
+import { nomeDoPonto, npsDoPonto, somarPontos } from "@/data/npsPontos";
 import { type MonthData, type UnitData } from "@/data/dashboardData";
 import { formatMetaValue, getMeta, lowestTier, TIER_LABEL, type Meta, type MetaKey } from "@/data/metas";
 import { monthKey } from "@/data/periods";
@@ -24,6 +25,10 @@ export const LIMIARES_VIGENTES = {
   inadimplencia: { atencaoPP: 3, minimoPct: 4, criticoPP: 5, criticoMinPct: 8 },
   cartao: { minimoValor: 1000, atencaoPP: 2, criticoPP: 4 },
   detratores: { minRespostas: 10, minDetratores: 3, atencaoPct: 17, criticoPct: 25 },
+  // Ponto de contato do NPS (Recepção, Limpeza, professores...) bem abaixo do NPS da rede nesse mesmo ponto, nos últimos 2 meses (o anterior mais o atual).
+  // Calibrado em 21/11/2026 com out/2024 a out/2026 (373 unidades-mês, só pontos com 20+ respostas): o pior ponto da unidade fica 37 p.p. ou mais abaixo da rede
+  // em 15% das vezes e 48 ou mais em 5%. Só vale se o NPS do ponto na unidade está abaixo de 50 (faixa "melhorar" do WeHelp).
+  pontoFraco: { minRespostas: 20, minRede: 100, npsMaximo: 50, atencaoPP: 37, criticoPP: 48 },
   /** Ritmo com meta: abaixo do nível mais baixo = atenção; abaixo desta fração dele = crítico. */
   meta: { criticoFracao: 0.75 },
   faturamentoSemMeta: { atencaoPct: -7, criticoPct: -12 },
@@ -47,7 +52,7 @@ export type TipoVigente = "pendencia" | "ritmo";
 export type SeveridadeVigente = "critical" | "attention" | "info";
 export type KindVigente =
   | "inadAberta" | "cartaoRecusado" | "detratores" | "liberacoes" | "renovacao" | "sumidos"
-  | "fatRitmo" | "contratosRitmo" | "cancelRitmo" | "conversao";
+  | "fatRitmo" | "contratosRitmo" | "cancelRitmo" | "conversao" | "pontoFraco";
 
 export interface AlertaVigente {
   id: string;
@@ -78,6 +83,7 @@ export const TITULO_VIGENTE: Record<KindVigente, string> = {
   contratosRitmo: "Novos contratos no ritmo do mês",
   cancelRitmo: "Cancelamentos acima do normal",
   conversao: "Conversão de visitantes abaixo do normal",
+  pontoFraco: "Ponto de contato abaixo da rede",
 };
 
 const brl = (v: number) => formatMetaValue("faturamento", v);
@@ -188,6 +194,27 @@ export function computeAlertasVigentes(
         fact: `${int(det)} ${det === 1 ? "aluno deu nota de detrator" : "alunos deram nota de detrator"} (0 a 6) no NPS neste mês, de ${int(resp)} ${resp === 1 ? "resposta" : "respostas"}${resp ? ` (${pct(p)})` : ""}.`,
         action: "Dar retorno a cada detrator em até 48 horas: entender o motivo e dizer o que vai mudar. Os comentários estão no WeHelp.",
       });
+    }
+
+    // 3b. Ponto de contato do NPS bem abaixo da rede (janela: mês anterior + mês atual, para ter respostas suficientes)
+    {
+      const V = L.pontoFraco;
+      const janela = [fechados[fechados.length - 1], cur].filter((d): d is MonthData => !!d);
+      const rede = somarPontos(janela.flatMap((d) => d.units));
+      const meus = somarPontos(janela.flatMap((d) => d.units.filter((x) => x.name === nome)));
+      const fracos = Object.entries(meus)
+        .filter(([p, a]) => a.resp >= V.minRespostas && (rede[p]?.resp ?? 0) >= V.minRede)
+        .map(([p, a]) => { const n = npsDoPonto(a), r = npsDoPonto(rede[p]); return { nome: nomeDoPonto(p), resp: a.resp, nps: n, rede: r, gap: n !== null && r !== null ? r - n : 0 }; })
+        .filter((x) => x.nps !== null && x.nps < V.npsMaximo && x.gap >= V.atencaoPP)
+        .sort((a, b) => b.gap - a.gap);
+      if (fracos.length) {
+        const f = (x: (typeof fracos)[number]) => `${x.nome}: NPS ${int(x.nps ?? 0)} contra ${int(x.rede ?? 0)} da rede (${int(x.resp)} respostas)`;
+        push({
+          unit: nome, kind: "pontoFraco", severity: fracos[0].gap >= V.criticoPP ? "critical" : "attention", weight, tela: "retencao/satisfacao",
+          fact: `${fracos.length === 1 ? "Ponto de contato" : "Pontos de contato"} do NPS bem abaixo da rede nos últimos 2 meses: ${fracos.slice(0, 3).map(f).join("; ")}.`,
+          action: "Conversar com a equipe do setor, ler os comentários desse ponto no WeHelp e combinar uma ação para a próxima semana. O mapa de unidades × pontos está em Retenção → Satisfação.",
+        });
+      }
     }
 
     // 4. Liberações sem pagamento (a regra do mês fechado, proporcional aos dias que já passaram)
