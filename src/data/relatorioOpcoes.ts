@@ -48,7 +48,13 @@ export function previaDoItem(m: ModeloRelatorio, id: string): string | null {
   if (id === ID_MES_ATE_AQUI) return m.mesAteAqui?.itens.length ? m.mesAteAqui.itens.slice(0, 2).map((k) => `${k.nome} ${k.valor}`).join(" · ") + ` (${m.mesAteAqui.periodo})` : null;
   if (id === ID_COMPL) return m.complementares ? `R$ ${Math.round(m.complementares.total).toLocaleString("pt-BR")} em receitas complementares` : null;
   if (id === ID_FREQ) return m.frequencia ? [m.frequencia.entradas ? `${m.frequencia.entradas.toLocaleString("pt-BR")} entradas` : "", m.frequencia.ultimoCheckin ? `${m.frequencia.ultimoCheckin.total.toLocaleString("pt-BR")} alunos ativos no último check-in` : ""].filter(Boolean).join(" · ") : null;
-  if (id === ID_SATISF) return m.satisfacao ? m.satisfacao.notas.map((n) => `${n.nome} ${n.valor}`).join(" · ") : null;
+  if (id === ID_SATISF) {
+    if (!m.satisfacao) return null;
+    const notas = m.satisfacao.notas.map((n) => `${n.nome} ${n.valor}`);
+    // o ponto de contato mais fraco (com base mínima), para o relatório já dizer onde está o problema
+    const fraco = [...(m.satisfacao.pontos ?? [])].reverse().find((p) => p.nps !== null && p.resp >= 15);
+    return [...notas, ...(fraco ? [`ponto mais fraco: ${fraco.nome} ${Math.round(fraco.nps ?? 0)}`] : [])].join(" · ");
+  }
   if (id === ID_METAS) return m.metas ? `${m.metas.linhas.length} ${m.metas.linhas.length === 1 ? "meta" : "metas"} · ${m.metas.escopoTexto}` : null;
   if (id === ID_PLANO) return m.plano ? `plano de ${m.plano.unidade}` : null;
   const r = m.rankings.find((x) => x.id === id);

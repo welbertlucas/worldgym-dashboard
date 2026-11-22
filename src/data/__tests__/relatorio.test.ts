@@ -268,5 +268,20 @@ describe("relatório do mês: receitas complementares num slide só", () => {
     // sem o mês anterior guardado: só o ano anterior
     expect(montarRelatorio([base[0], base[2]], "2026-10", ["fat"], ["Antiga"])!.rankings[0].cartao!.variacaoMes).toBeNull();
   });
+
+  it("satisfação traz o NPS por ponto de contato, com a rede como referência quando o relatório não é da rede toda", () => {
+    const pts = (r: number, p: number, d: number) => ({ nps: 70, npsPontos: { RECEPÇÃO: [r, p, d], "GRADE DE AULAS COLETIVAS": [r, p - 20, d + 10] } as Record<string, [number, number, number]> });
+    const base = [month("2026-10", [unit("A", pts(40, 34, 2) as never), unit("B", pts(60, 40, 8) as never)])];
+    const so = montarRelatorio(base, "2026-10", [ID_SATISF], ["A"])!.satisfacao!;
+    expect(so.pontos!.map((p) => p.nome)).toEqual(["Recepção", "Grade de aulas coletivas"]); // do melhor para o pior
+    expect(so.pontos![0]).toMatchObject({ nps: 80, resp: 40, det: 2 });
+    expect(so.pontos![0].rede).toBeCloseTo(64, 0); // (74 − 10) ÷ 100 da rede
+    expect(so.comparaRede).toBe(true); // uma unidade só: a rede aparece ao lado
+    expect(montarRelatorio(base, "2026-10", [ID_SATISF], null)!.satisfacao!.comparaRede).toBe(false); // rede toda: sem coluna extra
+    expect(resumoDosSlides(montarRelatorio(base, "2026-10", [ID_SATISF], ["A"])!)).toEqual(["Capa", "Satisfação", "Satisfação: pontos de contato", "Encerramento"]);
+    // só com pontos de contato (sem nota no mês), o slide de notas some e o de pontos fica
+    const semNota = [month("2026-10", [unit("A", { nps: 0, notaGoogle: 0, reclameAqui: 0, npsPontos: { RECEPÇÃO: [30, 20, 5] } } as never)])];
+    expect(resumoDosSlides(montarRelatorio(semNota, "2026-10", [ID_SATISF], null)!)).toEqual(["Capa", "Satisfação: pontos de contato", "Encerramento"]);
+  });
 });
 

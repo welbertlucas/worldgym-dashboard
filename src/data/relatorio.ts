@@ -2,6 +2,7 @@
 // Nada de leitura nova no EVO: só os totais mensais que o Atlas já guarda (nunca dado de aluno). O desenho dos slides fica em src/lib/relatorioPptx.ts.
 import { evoAtualizadoEm, somarMotivos, somarRecusa, type MonthData, type UnitData } from "@/data/dashboardData";
 import { paginasDoPlano, type PlanoDaUnidade } from "@/data/relatorioPlano";
+import { npsDoPonto, rankingDePontos, somarPontos } from "@/data/npsPontos";
 import { META_INDICATORS, actualFor, attainment, formatMetaValue, getMeta, highestTier, tierReached, type Meta, type MetaKey } from "@/data/metas";
 
 export type Formato = "brl" | "brl2" | "int" | "pct" | "nota";
@@ -171,7 +172,16 @@ export interface NotaSatisfacao {
   topo: [string, string][];
   fundo: [string, string][];
 }
-export interface SlideSatisfacao { periodo: string; notas: NotaSatisfacao[] }
+/** NPS de um ponto de contato (Recepção, Limpeza...) no slide de Satisfação, com o NPS da rede nesse ponto como referência. */
+export interface PontoDoSlide { nome: string; nps: number | null; resp: number; det: number; rede: number | null }
+export interface SlideSatisfacao {
+  periodo: string;
+  notas: NotaSatisfacao[];
+  /** NPS por ponto de contato, do melhor para o pior (slide seguinte). */
+  pontos?: PontoDoSlide[];
+  /** Mostra a rede ao lado (só quando o relatório não é da rede toda). */
+  comparaRede?: boolean;
+}
 
 /** Metas do mês: o resultado de cada indicador com meta cadastrada e o nível atingido. */
 export interface LinhaMeta {
@@ -475,7 +485,7 @@ const NOTAS: { nome: string; campo: (u: UnitData) => number | undefined; formato
 const mediaDe = (l: UnitData[], f: (u: UnitData) => number | undefined) => { const v = l.map(f).filter((x): x is number => typeof x === "number" && Number.isFinite(x) && x > 0); return { n: v.length, media: v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0 }; };
 
 /** NPS, Google e Reclame Aqui num slide só: só entram as notas que alguma unidade tem no mês. */
-export function montarSatisfacao(periodo: string, atual: UnitData[], ant: UnitData[] | null, antCurto: string | null): SlideSatisfacao | null {
+export function montarSatisfacao(periodo: string, atual: UnitData[], ant: UnitData[] | null, antCurto: string | null, todas: UnitData[] | null = null, redeInteira = true): SlideSatisfacao | null {
   const notas: NotaSatisfacao[] = [];
   for (const d of NOTAS) {
     const { n, media } = mediaDe(atual, d.campo);
@@ -495,7 +505,12 @@ export function montarSatisfacao(periodo: string, atual: UnitData[], ant: UnitDa
       fundo: varios && lista.length > 6 ? lista.slice(-3).map(([nome, v]) => [nome, fmt(v)] as [string, string]) : [],
     });
   }
-  return notas.length ? { periodo, notas } : null;
+  // NPS por ponto de contato (WeHelp): o ranking dos pontos do conjunto de unidades e, quando não é a rede toda, o NPS da rede em cada ponto
+  const ranking = rankingDePontos(atual).filter((r) => r.resp > 0);
+  const redePontos = todas ? somarPontos(todas) : {};
+  const pontos: PontoDoSlide[] = ranking.map((r) => ({ nome: r.nome, nps: r.nps, resp: r.resp, det: r.det, rede: redePontos[r.ponto] ? npsDoPonto(redePontos[r.ponto]) : null }));
+  if (!notas.length && !pontos.length) return null;
+  return { periodo, notas, ...(pontos.length ? { pontos, comparaRede: !redeInteira && !!todas } : {}) };
 }
 
 const CHAVES_DE_META: MetaKey[] = ["faturamento", "recebimento", "vendasOnline", "novosContratos", "icv", "renovacoes", "churn", "inadimplenciaPerc"];
@@ -616,7 +631,7 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
   const complementares = escolheu.has(ID_COMPL) ? montarComplementares(rotuloDoPeriodo(mes), atual, soma(atual, (u) => u.faturamento), ant, antCurto) : null;
   const frequencia = escolheu.has(ID_FREQ) ? montarFrequencia(meses, mes, atual, rotuloDoPeriodo(mes)) : null;
   const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant, antMes) : null;
-  const satisfacao = escolheu.has(ID_SATISF) ? montarSatisfacao(rotuloDoPeriodo(mes), atual, ant, antCurto) : null;
+  const satisfacao = escolheu.has(ID_SATISF) ? montarSatisfacao(rotuloDoPeriodo(mes), atual, ant, antCurto, m.units, !unidades || unidades.length >= m.units.length) : null;
   const rede = !unidades || unidades.length >= m.units.length;
   const metasDoMes = escolheu.has(ID_METAS) ? montarMetasDoMes(metas, m, atual, rede, rotuloDoPeriodo(mes)) : null;
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
@@ -625,5 +640,5 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
 
 /** O que o menu mostra de cada slide, antes de gerar. */
 export function resumoDosSlides(modelo: ModeloRelatorio): string[] {
-  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.satisfacao ? ["Satisfação"] : []), ...(modelo.metas ? ["Metas do mês"] : []), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), ...(modelo.observacoes?.trim() ? ["Observações"] : []), "Encerramento"];
+  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.satisfacao?.notas.length ? ["Satisfação"] : []), ...(modelo.satisfacao?.pontos?.length ? ["Satisfação: pontos de contato"] : []), ...(modelo.metas ? ["Metas do mês"] : []), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), ...(modelo.observacoes?.trim() ? ["Observações"] : []), "Encerramento"];
 }

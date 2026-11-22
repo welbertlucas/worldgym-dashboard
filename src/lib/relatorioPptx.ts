@@ -322,7 +322,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
   }
 
   // Satisfação: NPS, Google e Reclame Aqui num slide só (uma coluna para cada nota)
-  if (m.satisfacao) {
+  if (m.satisfacao?.notas.length) {
     const sf = m.satisfacao;
     const s = slideDeDados();
     s.addText("SATISFAÇÃO", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
@@ -350,6 +350,30 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
       lista(nt.fundo.length ? "Maiores notas" : "Notas por unidade", nt.topo);
       lista("Menores notas", nt.fundo);
     });
+    rodape(s);
+  }
+
+  // Satisfação, 2º slide: NPS por ponto de contato (WeHelp), do melhor para o pior; fora da rede toda, com o NPS da rede ao lado como referência
+  if (m.satisfacao?.pontos?.length) {
+    const sf = m.satisfacao, pontos = sf.pontos!;
+    const s = slideDeDados();
+    s.addText("SATISFAÇÃO", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(`NPS por ponto de contato · apenas em ${sf.periodo}`, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    const BASE = 15; // com menos respostas que isso o NPS do ponto balança: o rótulo avisa
+    const lista = [...pontos].reverse(); // a barra horizontal desenha de baixo para cima
+    const rotulos = lista.map((p) => `${p.nome}${p.resp < BASE ? " (base pequena)" : ""}`);
+    const valor = (n: number | null) => (n === null ? 0 : Math.round(n * 10) / 10);
+    const series = [{ name: sf.comparaRede ? m.escopo : "NPS", labels: rotulos, values: lista.map((p) => valor(p.nps)) }, ...(sf.comparaRede ? [{ name: "Rede", labels: rotulos, values: lista.map((p) => valor(p.rede)) }] : [])];
+    s.addChart(pptx.ChartType.bar, series, {
+      x: 0.5, y: 1.2, w: 9.1, h: 5.8, barDir: "bar", chartColors: sf.comparaRede ? [VINHO, "BDB6B0"] : [VINHO], showValue: true, dataLabelFormatCode: "0.0",
+      dataLabelFontSize: 10, dataLabelFontFace: TXT, dataLabelColor: TEXTO, dataLabelPosition: "outEnd", catAxisLabelFontSize: 11, catAxisLabelFontFace: TXT,
+      valAxisHidden: true, valGridLine: { color: "DDD6D1", size: 0.5 }, catGridLine: { style: "none" }, barGapWidthPct: sf.comparaRede ? 60 : 45, showLegend: sf.comparaRede, legendPos: "b", legendFontSize: 11, legendFontFace: TXT,
+    });
+    const fracos = pontos.filter((p) => p.nps !== null && p.resp >= BASE);
+    const pior = fracos[fracos.length - 1], melhor = fracos[0];
+    if (melhor) { s.addText(melhor.nome, { x: 9.9, y: 1.5, w: 3.1, h: 0.5, fontFace: TIT, fontSize: 18, color: VINHO }); s.addText(`melhor ponto: NPS ${Math.round(melhor.nps ?? 0)}`, { x: 9.9, y: 2.0, w: 3.1, h: 0.35, fontFace: TXT, fontSize: 13, bold: true, color: TEXTO }); }
+    if (pior && pior !== melhor) { s.addText(pior.nome, { x: 9.9, y: 2.9, w: 3.1, h: 0.5, fontFace: TIT, fontSize: 18, color: VERM }); s.addText(`ponto mais fraco: NPS ${Math.round(pior.nps ?? 0)}${pior.rede !== null && sf.comparaRede ? ` (rede ${Math.round(pior.rede)})` : ""}`, { x: 9.9, y: 3.4, w: 3.1, h: 0.6, fontFace: TXT, fontSize: 13, bold: true, color: TEXTO, valign: "top" }); }
+    s.addText("NPS do ponto = promotores menos detratores, em % das respostas que citaram o ponto. Pontos com menos de 15 respostas levam o aviso «base pequena».", { x: 9.9, y: 4.6, w: 3.1, h: 1.6, fontFace: TXT, fontSize: 10, italic: true, color: CINZA, valign: "top" });
     rodape(s);
   }
 
