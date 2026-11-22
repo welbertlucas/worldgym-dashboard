@@ -96,6 +96,7 @@ const RelatoriosTab = telaSobDemanda(() => import("@/components/tabs/RelatoriosT
 const RoyaltiesTab = telaSobDemanda(() => import("@/components/tabs/RoyaltiesTab"), "RoyaltiesTab");
 const JuridicoTab = telaSobDemanda(() => import("@/components/tabs/JuridicoTab"), "JuridicoTab");
 const QualidadeTab = telaSobDemanda(() => import("@/components/tabs/QualidadeTab"), "QualidadeTab");
+const EstudosPontoTab = telaSobDemanda(() => import("@/components/tabs/EstudosPontoTab"), "EstudosPontoTab");
 const AjudaTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "AjudaTab");
 const NovidadesTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "NovidadesTab");
 
@@ -565,7 +566,7 @@ const Index = () => {
 
         {activeTab === "qualidade" && (podeVerQualidade() || podePreencherChecklist()) && <QualidadeTab />}
 
-        {activeTab === "estudos-de-ponto" && (ehDono() || podeVerEstudos()) && <EmBreve titulo="Estudos de ponto" descricao="Geolocalização e geomarketing para estudar onde abrir novas unidades." />}
+        {activeTab === "estudos-de-ponto" && (ehDono() || podeVerEstudos()) && <EstudosPontoTab />}
 
         {activeTab === "unidades-em-obra" && (ehDono() || podeVerObras()) && <EmBreve titulo="Unidades em obra" descricao="Acompanhamento das unidades que estão em construção." />}
 

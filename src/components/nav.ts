@@ -40,6 +40,8 @@ const ESTUDOS_DE_PONTO: NavItem = { id: "estudos-de-ponto", label: "Estudos de p
 const UNIDADES_EM_OBRA: NavItem = { id: "unidades-em-obra", label: "Unidades em obra", icon: HardHat };
 /** Menus e abas reservados ao dono (ainda "Em breve"): ninguém mais os vê nem os acha na busca. */
 export const MENUS_SO_DONO = new Set(["estudos-de-ponto", "unidades-em-obra"]);
+/** Dos menus reservados, os que ainda não têm tela (selo "Em breve" na barra lateral). */
+export const MENUS_EM_BREVE = new Set(["unidades-em-obra"]);
 export const ABAS_SO_DONO = new Set(["financeiro/despesas"]);
 /** Todos os menus que têm endereço (#id). */
 export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, ROYALTIES, JURIDICO, QUALIDADE, RELATORIOS, ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA, ...NAV_RODAPE, USUARIOS];

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { buscarNoMenu, itensDeBusca, itensDoMenu, MENUS_SO_DONO, NAV_RODAPE, type NavItem } from "@/components/nav";
+import { buscarNoMenu, itensDeBusca, itensDoMenu, MENUS_EM_BREVE, NAV_RODAPE, type NavItem } from "@/components/nav";
 import { ehDono, podeVerEstudos, podeVerObras, podeGerarRelatorios, podeGerirAcessos, podeVerJuridico, podePreencherChecklist, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
 import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import wgLogo from "@/assets/wg-logo.png";
@@ -86,7 +86,7 @@ function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: N
       >
         <Icon className="w-[18px] h-[18px] shrink-0 text-primary" aria-hidden />
         <span className={cn("flex-1 text-left", collapsed && "sr-only")}>{item.label}</span>
-        {MENUS_SO_DONO.has(item.id) && !collapsed && (
+        {MENUS_EM_BREVE.has(item.id) && !collapsed && (
           <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-muted-foreground">Em breve</span>
         )}
         {numero > 0 && (
