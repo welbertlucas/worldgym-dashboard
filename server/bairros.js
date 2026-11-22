@@ -18,6 +18,17 @@ export function tituloBairro(s) {
 /** Chave para juntar variações de escrita do mesmo bairro (caixa, acento, espaços). */
 export const chaveBairro = (bairro, cidade) => `${semAcento(bairro).toUpperCase().replace(/\s+/g, " ").trim()}|${semAcento(cidade || "").toUpperCase().replace(/\s+/g, " ").trim()}`;
 
+const UFS = { "DISTRITO FEDERAL": "DF", GOIAS: "GO", BAHIA: "BA", "MINAS GERAIS": "MG", "SAO PAULO": "SP", TOCANTINS: "TO", "MATO GROSSO": "MT", "MATO GROSSO DO SUL": "MS" };
+/** Sigla da UF do cadastro ("Goiás", "go", "GO" -> "GO"); vazio quando não dá para saber. */
+export function normalizarUF(s) {
+  const t = semAcento(String(s || "")).toUpperCase().replace(/\s+/g, " ").trim();
+  return /^[A-Z]{2}$/.test(t) ? t : UFS[t] ?? "";
+}
+/** UF da unidade pelo nome do painel ("Planaltina-GO" -> "GO"; sem sufixo é do DF). */
+export const ufDaUnidade = (nome) => String(nome || "").match(/-(GO|BA|MG|SP)$/)?.[1] ?? "DF";
+/** UF em que o bairro deve estar: Brasília é sempre DF; senão a do cadastro; sem ela, a da unidade. */
+export const ufEsperada = (cidade, uf, nomeUnidade) => (/^bras[ií]lia$/i.test(String(cidade || "").trim()) ? "DF" : uf || ufDaUnidade(nomeUnidade));
+
 /** Alunos ativos hoje por bairro: [{bairro, cidade, uf, n}], do maior para o menor. Alunos sem bairro ficam de fora (`semBairro`). */
 export function contarPorBairro(membros, hoje, entra = ativoNoDia) {
   const por = new Map();
@@ -28,7 +39,7 @@ export function contarPorBairro(membros, hoje, entra = ativoNoDia) {
     const bairro = (m.neighborhood || "").trim();
     if (!bairro) { semBairro++; continue; }
     const cidade = tituloBairro(m.city || "");
-    const uf = (m.state || "DF").trim().toUpperCase();
+    const uf = normalizarUF(m.state); // vazio quando o cadastro não diz: quem aplica completa com a UF da unidade
     const k = chaveBairro(bairro, cidade);
     const o = por.get(k) ?? { bairro: tituloBairro(bairro), cidade, uf, n: 0 };
     o.n++;
@@ -106,14 +117,17 @@ async function nominatim(q, ancora = null) {
   let res;
   for (let t = 1; t <= 5; t++) { // 429/503 do Nominatim são passageiros: espera e tenta de novo
     const caixa = ancora ? `&viewbox=${ancora[1] - CAIXA_GRAUS},${ancora[0] + CAIXA_GRAUS},${ancora[1] + CAIXA_GRAUS},${ancora[0] - CAIXA_GRAUS}&bounded=1` : "";
-    res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br${caixa}&q=${encodeURIComponent(q)}`, { headers: { "User-Agent": UA } });
+    res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=br${caixa}&q=${encodeURIComponent(q)}`, { headers: { "User-Agent": UA } });
     if (res.ok || ![429, 502, 503, 504].includes(res.status)) break;
     await new Promise((r) => setTimeout(r, 8000 * t));
     ultimo = Date.now();
   }
   if (!res.ok) throw new Error(`Nominatim ${res.status}`);
   const [r] = await res.json();
-  return r ? [Math.round(Number(r.lat) * 1e5) / 1e5, Math.round(Number(r.lon) * 1e5) / 1e5] : null;
+  // A UF do resultado (ISO "BR-GO") serve para recusar o bairro de mesmo nome do outro lado da divisa (Planaltina-DF x Planaltina-GO).
+  // A cidade do resultado serve para recusar o bairro de mesmo nome noutra cidade (o "Setor Norte" de Formosa para Planaltina-GO).
+  const a = r?.address ?? {};
+  return r ? { c: [Math.round(Number(r.lat) * 1e5) / 1e5, Math.round(Number(r.lon) * 1e5) / 1e5], uf: String(a["ISO3166-2-lvl4"] || "").replace(/^BR-/, ""), cidade: a.city || a.town || a.village || a.municipality || "" } : null;
 }
 
 const semPrefixo = (b) => b.replace(/^(setor habitacional|setor de habitacoes|setor de habitações|setor de|setor|residencial|condominio|condomínio|parque|vila|jardim)\s+/i, "").replace(/\s+-\s+.*$/, "").replace(/\s+(i{1,3}|iv|v|vi{0,3}|ix|x|\d+)$/i, "").trim();
@@ -124,6 +138,9 @@ const semPrefixo = (b) => b.replace(/^(setor habitacional|setor de habitacoes|se
  * bairro só com a UF (a cidade do cadastro costuma vir errada); e por último a cidade.
  * Com `ancora` ([lat, lng] da unidade), a busca fica numa caixa em volta dela e resultado a mais de RAIO_MAX_KM é descartado:
  * sem isso, "Setor Norte, GO" (Planaltina-GO não tem os setores no OpenStreetMap) caía num Setor Norte a 94 km.
+ * Com `uf`, resultado noutra UF também é descartado (o "Setor Norte" de Planaltina-DF não serve para quem mora em Planaltina-GO).
+ * E resultado noutra cidade também (o "Setor Norte" de Formosa não serve para Planaltina-GO); quem mora em "Brasília" pode estar em qualquer região do DF.
+ * `busca` devolve [lat, lng] ou { c: [lat, lng], uf, cidade }.
  */
 export async function coordenadasDoBairro({ bairro, cidade, uf }, busca = nominatim, ancora = null) {
   const limpo = bairro.replace(/\(.*?\)/g, "").trim();
@@ -134,16 +151,25 @@ export async function coordenadasDoBairro({ bairro, cidade, uf }, busca = nomina
     [limpo, uf], base.length > 3 && [base, uf],
   ].filter(Boolean);
   const vistas = new Set();
+  const serve = (r) => {
+    const c = Array.isArray(r) ? r : r?.c;
+    if (!c || longeDaUnidade(c, ancora)) return null;
+    if (uf && !Array.isArray(r) && r.uf && r.uf !== uf) return null;
+    const cid = semAcento(String(cidade || "")).toLowerCase().trim();
+    const cidR = Array.isArray(r) ? "" : semAcento(String(r.cidade || "")).toLowerCase().trim();
+    if (cid && cidR && cid !== "brasilia" && cidR !== cid) return null;
+    return [c[0], c[1]];
+  };
   for (const partes of consultas) {
     const q = partes.filter(Boolean).join(", ");
     if (vistas.has(q)) continue;
     vistas.add(q);
-    const c = await busca(q, ancora);
-    if (c && !longeDaUnidade(c, ancora)) return c;
+    const c = serve(await busca(q, ancora));
+    if (c) return c;
   }
   if (cidade) {
-    const c = await busca([cidade, uf].filter(Boolean).join(", "), ancora);
-    if (c && !longeDaUnidade(c, ancora)) return [c[0], c[1], 1];
+    const c = serve(await busca([cidade, uf].filter(Boolean).join(", "), ancora));
+    if (c) return [c[0], c[1], 1];
   }
   return null;
 }
@@ -165,7 +191,7 @@ export async function aplicarBairros(u, foto, geo, local, busca = nominatim) {
       const k = chaveBairro(b.bairro, b.cidade);
       // Coordenada longe da unidade (de antes da caixa de busca) é refeita; se continuar sem lugar perto, o bairro fica sem localização.
       if (!geo[k] || longeDaUnidade(geo[k], ancora)) {
-        try { geo[k] = await coordenadasDoBairro(b, busca, ancora); novos++; } catch (e) { falhou = e.message; break; } // não guarda a falha: a próxima carga tenta de novo
+        try { geo[k] = await coordenadasDoBairro({ ...b, uf: ufEsperada(b.cidade, b.uf, u.name) }, busca, ancora); novos++; } catch (e) { falhou = e.message; break; } // não guarda a falha: a próxima carga tenta de novo
       }
       if (geo[k]) saida.push([b.bairro, b.cidade, b.n, geo[k][0], geo[k][1], ...(geo[k][2] ? [1] : [])]);
     }

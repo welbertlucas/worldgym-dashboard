@@ -108,3 +108,51 @@ describe("bairros perto da unidade", () => {
     expect(Object.keys(COORDENADAS_UNIDADES).sort()).toEqual(Object.keys(UNIT_NAMES).sort());
   });
 });
+
+// @ts-expect-error módulo JS do servidor
+import { normalizarUF, ufDaUnidade, ufEsperada } from "../../../server/bairros.js";
+describe("bairro na UF certa", () => {
+  it("recusa o bairro de mesmo nome do outro lado da divisa e cai no centro da cidade certa", async () => {
+    const busca = async (q: string) => {
+      if (q.startsWith("Setor Norte")) return { c: [-15.61, -47.65], uf: "DF" }; // Setor Norte de Planaltina-DF, a ~18 km
+      if (q === "Planaltina, GO") return { c: [-15.452, -47.614], uf: "GO" };
+      return null;
+    };
+    expect(await coordenadasDoBairro({ bairro: "Setor Norte", cidade: "Planaltina", uf: "GO" }, busca, [-15.4533562, -47.6078043])).toEqual([-15.452, -47.614, 1]);
+  });
+
+  it("descobre a UF esperada do bairro", () => {
+    expect(normalizarUF("Goiás")).toBe("GO");
+    expect(normalizarUF(" df ")).toBe("DF");
+    expect(normalizarUF(null)).toBe("");
+    expect(ufDaUnidade("Planaltina-GO")).toBe("GO");
+    expect(ufDaUnidade("Sobradinho")).toBe("DF");
+    expect(ufEsperada("Brasília", "GO", "Jardim Ingá-GO")).toBe("DF"); // Brasília é sempre DF
+    expect(ufEsperada("Planaltina", "", "Planaltina-GO")).toBe("GO"); // sem UF no cadastro, vale a da unidade
+  });
+
+  it("aplica a UF esperada na busca de cada bairro", async () => {
+    const pedidos: string[] = [];
+    const busca = async (q: string) => { pedidos.push(q); return { c: [-15.45, -47.61], uf: "GO" }; };
+    const u: Record<string, unknown> = { name: "Planaltina-GO" };
+    const foto = { lista: [{ bairro: "Setor Sul", cidade: "Planaltina", uf: "", n: 3 }], semBairro: 0, inativos: [], semBairroInativos: 0, acessos: [], perfil: {} };
+    await aplicarBairros(u, foto, {}, [-15.4533562, -47.6078043], busca);
+    expect(pedidos[0]).toBe("Setor Sul, Planaltina, GO");
+  });
+});
+
+describe("bairro na cidade certa", () => {
+  it("recusa o bairro de mesmo nome noutra cidade do mesmo estado", async () => {
+    const busca = async (q: string) => {
+      if (q === "Setor Norte, GO") return { c: [-15.545, -47.289], uf: "GO", cidade: "Formosa" }; // a ~36 km
+      if (q === "Planaltina, GO") return { c: [-15.452, -47.614], uf: "GO", cidade: "Planaltina" };
+      return null;
+    };
+    expect(await coordenadasDoBairro({ bairro: "Setor Norte", cidade: "Planaltina", uf: "GO" }, busca, [-15.4533562, -47.6078043])).toEqual([-15.452, -47.614, 1]);
+  });
+
+  it("quem mora em Brasília pode estar em qualquer região do DF", async () => {
+    const busca = async () => ({ c: [-15.65, -47.79], uf: "DF", cidade: "Sobradinho" });
+    expect(await coordenadasDoBairro({ bairro: "Quadra 4", cidade: "Brasília", uf: "DF" }, busca, [-15.6561816, -47.80474])).toEqual([-15.65, -47.79]);
+  });
+});
