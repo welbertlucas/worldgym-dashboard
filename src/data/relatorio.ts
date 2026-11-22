@@ -34,7 +34,7 @@ export const RANKINGS: DefRanking[] = [
   { id: "churn", rotulo: "Churn (%), com os motivos dos cancelamentos", titulo: "Churn", campo: (u) => u.churn, formato: "pct", menorMelhor: true },
   { id: "canc", rotulo: "Cancelamentos (alunos), com os motivos", titulo: "Cancelamentos", campo: (u) => u.cancelados, formato: "int", menorMelhor: true },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", campo: (u) => u.vendasOnline, formato: "brl" },
-  { id: "op", rotulo: "Visitantes (presenciais, como no cartão do EVO)", titulo: "Visitantes", campo: (u) => u.visitantes ?? u.oportunidades, formato: "int" },
+  { id: "op", rotulo: "Visitantes", titulo: "Visitantes", campo: (u) => u.visitantes ?? u.oportunidades, formato: "int" },
 ];
 
 /** Renovação (%) por unidade: entra logo depois do churn. */
@@ -160,6 +160,8 @@ export interface SlideComplementares {
 
 /** NPS, Google e Reclame Aqui num slide: a nota de cada um (média das unidades com nota), a variação e quem está em cima e embaixo. */
 export interface NotaSatisfacao {
+  /** Relatório semanal: "no mês até aqui: NPS 62 (210 respostas)". */
+  acumulado?: string;
   nome: string;
   valor: string;
   /** Diferença em pontos contra o ano anterior, ou null sem base. */
@@ -174,7 +176,21 @@ export interface NotaSatisfacao {
 }
 /** NPS de um ponto de contato (Recepção, Limpeza...) no slide de Satisfação, com o NPS da rede nesse ponto como referência. */
 export interface PontoDoSlide { nome: string; nps: number | null; resp: number; det: number; rede: number | null }
+/** Relatório semanal: o slide único de Satisfação (NPS do mês até aqui, promotores e detratores da semana e as barras dos pontos de contato). */
+export interface SatisfacaoSemanal {
+  /** NPS do mês até aqui ("62"), ou null sem respostas. */
+  nps: string | null;
+  /** "1-21 nov/26" e "21/11" (os dados do WeHelp vão até esse dia). */
+  periodoAteAgora: string;
+  ateData: string;
+  /** "15-21 nov/26". */
+  semana: string;
+  promotores: number;
+  detratores: number;
+}
 export interface SlideSatisfacao {
+  /** Só no relatório semanal: tudo em um slide. */
+  semanal?: SatisfacaoSemanal;
   periodo: string;
   notas: NotaSatisfacao[];
   /** NPS por ponto de contato, do melhor para o pior (slide seguinte). */
@@ -640,5 +656,5 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
 
 /** O que o menu mostra de cada slide, antes de gerar. */
 export function resumoDosSlides(modelo: ModeloRelatorio): string[] {
-  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.satisfacao?.notas.length ? ["Satisfação"] : []), ...(modelo.satisfacao?.pontos?.length ? ["Satisfação: pontos de contato"] : []), ...(modelo.metas ? ["Metas do mês"] : []), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), ...(modelo.observacoes?.trim() ? ["Observações"] : []), "Encerramento"];
+  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.satisfacao?.semanal || modelo.satisfacao?.notas.length ? ["Satisfação"] : []), ...(!modelo.satisfacao?.semanal && modelo.satisfacao?.pontos?.length ? ["Satisfação: pontos de contato"] : []), ...(modelo.metas ? ["Metas do mês"] : []), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), ...(modelo.observacoes?.trim() ? ["Observações"] : []), "Encerramento"];
 }

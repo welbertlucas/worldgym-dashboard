@@ -334,6 +334,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
       s.addText(nt.nome.toUpperCase(), { x, y: 2.6, w, h: 0.5, fontFace: TIT, fontSize: 24, color: PRETO });
       s.addText(nt.base, { x, y: 3.1, w, h: 0.3, fontFace: TXT, fontSize: 11, color: CINZA });
       let y = 3.45;
+      if (nt.acumulado) { s.addText(nt.acumulado.charAt(0).toUpperCase() + nt.acumulado.slice(1), { x, y: 3.4, w, h: 0.3, fontFace: TXT, fontSize: 12, bold: true, color: VINHO }); y = 3.85; }
       if (nt.variacao !== null) {
         const t = `${nt.variacao >= 0 ? "+" : ""}${nt.variacao.toLocaleString("pt-BR", { minimumFractionDigits: nt.casas, maximumFractionDigits: Math.max(nt.casas, 1) })} pts`;
         s.addText(t, { x, y, w, h: 0.45, fontFace: TXT, fontSize: 20, bold: true, color: nt.variacao >= 0 ? VERDE : VERM });
@@ -354,7 +355,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
   }
 
   // Satisfação, 2º slide: NPS por ponto de contato (WeHelp), do melhor para o pior; fora da rede toda, com o NPS da rede ao lado como referência
-  if (m.satisfacao?.pontos?.length) {
+  if (m.satisfacao?.pontos?.length && !m.satisfacao.semanal) {
     const sf = m.satisfacao, pontos = sf.pontos!;
     const s = slideDeDados();
     s.addText("SATISFAÇÃO", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
@@ -374,6 +375,46 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
     if (melhor) { s.addText(melhor.nome, { x: 9.9, y: 1.5, w: 3.1, h: 0.5, fontFace: TIT, fontSize: 18, color: VINHO }); s.addText(`melhor ponto: NPS ${Math.round(melhor.nps ?? 0)}`, { x: 9.9, y: 2.0, w: 3.1, h: 0.35, fontFace: TXT, fontSize: 13, bold: true, color: TEXTO }); }
     if (pior && pior !== melhor) { s.addText(pior.nome, { x: 9.9, y: 2.9, w: 3.1, h: 0.5, fontFace: TIT, fontSize: 18, color: VERM }); s.addText(`ponto mais fraco: NPS ${Math.round(pior.nps ?? 0)}${pior.rede !== null && sf.comparaRede ? ` (rede ${Math.round(pior.rede)})` : ""}`, { x: 9.9, y: 3.4, w: 3.1, h: 0.6, fontFace: TXT, fontSize: 13, bold: true, color: TEXTO, valign: "top" }); }
     s.addText("NPS do ponto = promotores menos detratores, em % das respostas que citaram o ponto. Pontos com menos de 15 respostas levam o aviso «base pequena».", { x: 9.9, y: 4.6, w: 3.1, h: 1.6, fontFace: TXT, fontSize: 10, italic: true, color: CINZA, valign: "top" });
+    rodape(s);
+  }
+
+  // Satisfação do relatório semanal, tudo num slide só: NPS do mês até aqui (leitura do WeHelp), promotores e detratores da semana e as barras dos pontos de contato
+  if (m.satisfacao?.semanal) {
+    const sf = m.satisfacao, se = sf.semanal!, pontos = sf.pontos ?? [];
+    const s = slideDeDados();
+    s.addText("SATISFAÇÃO", { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(`NPS e pontos de contato · mês até aqui (${se.periodoAteAgora}) · dados do WeHelp até ${se.ateData}`, { x: 2.0, y: 0.82, w: 9.3, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    // Esquerda: o NPS do mês até aqui e, logo embaixo, o quadro vinho da semana (só promotores e detratores)
+    const nota = se.nps === null ? null : Number(se.nps);
+    const cheio = nota === null ? 0 : Math.max(0, Math.min(100, nota)); // a rosca vai de 0 a 100; NPS negativo fica vazio e o número aparece em vermelho
+    s.addChart(pptx.ChartType.doughnut, [{ name: "NPS", labels: ["NPS", "Falta para 100"], values: [cheio, 100 - cheio] }], {
+      x: 1.0, y: 1.15, w: 2.7, h: 2.7, holeSize: 72, chartColors: [nota !== null && nota < 0 ? VERM : VINHO, "E3DBD6"], showLegend: false, showValue: false, showPercent: false, showLabel: false, showTitle: false, dataBorder: { pt: 0, color: "FFFFFF" },
+    });
+    s.addText(se.nps ?? "—", { x: 1.0, y: 1.15, w: 2.7, h: 2.7, fontFace: TIT, fontSize: 54, color: nota !== null && nota < 0 ? VERM : VINHO, align: "center", valign: "middle" });
+    s.addText("NPS do mês até aqui", { x: 0.5, y: 3.8, w: 3.7, h: 0.4, fontFace: TXT, fontSize: 14, bold: true, color: TEXTO, align: "center" });
+    const qx = 0.7, qy = 4.3, qw = 3.3, qh = 2.45;
+    s.addShape(pptx.ShapeType.roundRect, { x: qx, y: qy, w: qw, h: qh, fill: { color: VINHO }, line: { color: VINHO, width: 0 }, rectRadius: 0.12 });
+    s.addText(`NA SEMANA ${se.semana.toUpperCase()}`, { x: qx + 0.1, y: qy + 0.2, w: qw - 0.2, h: 0.5, fontFace: TXT, fontSize: 12, bold: true, color: "FFFFFF", align: "center", valign: "top" });
+    if (se.promotores + se.detratores > 0) {
+      const col = (n: number, rot: string, x: number) => { s.addText(String(n), { x, y: qy + 0.85, w: qw / 2 - 0.1, h: 1.0, fontFace: TIT, fontSize: 54, color: "FFFFFF", align: "center", valign: "middle" }); s.addText(rot, { x, y: qy + 1.85, w: qw / 2 - 0.1, h: 0.4, fontFace: TXT, fontSize: 12, bold: true, color: "FFFFFF", align: "center" }); };
+      col(se.promotores, se.promotores === 1 ? "promotor" : "promotores", qx + 0.05); col(se.detratores, se.detratores === 1 ? "detrator" : "detratores", qx + qw / 2 + 0.05);
+    } else s.addText("sem respostas de NPS na semana", { x: qx + 0.2, y: qy + 1.1, w: qw - 0.4, h: 1.0, fontFace: TXT, fontSize: 14, bold: true, color: "FFFFFF", align: "center", valign: "middle" });
+    // Direita: as barras dos pontos de contato (a rede ao lado quando o relatório não é da rede toda)
+    if (pontos.length) {
+      const BASE = 15;
+      const lista = [...pontos].reverse(); // a barra horizontal desenha de baixo para cima
+      const rotulos = lista.map((p) => `${p.nome}${p.resp < BASE ? " (base pequena)" : ""}`);
+      const valor = (n: number | null) => (n === null ? 0 : Math.round(n * 10) / 10);
+      const series = [{ name: sf.comparaRede ? m.escopo : "NPS", labels: rotulos, values: lista.map((p) => valor(p.nps)) }, ...(sf.comparaRede ? [{ name: "Rede", labels: rotulos, values: lista.map((p) => valor(p.rede)) }] : [])];
+      s.addChart(pptx.ChartType.bar, series, {
+        x: 4.4, y: 1.2, w: 8.6, h: 5.15, barDir: "bar", chartColors: sf.comparaRede ? [VINHO, "BDB6B0"] : [VINHO], showValue: true, dataLabelFormatCode: "0.0",
+        dataLabelFontSize: 10, dataLabelFontFace: TXT, dataLabelColor: TEXTO, dataLabelPosition: "outEnd", catAxisLabelFontSize: 11, catAxisLabelFontFace: TXT,
+        valAxisHidden: true, valGridLine: { color: "DDD6D1", size: 0.5 }, catGridLine: { style: "none" }, barGapWidthPct: sf.comparaRede ? 60 : 45, showLegend: sf.comparaRede, legendPos: "b", legendFontSize: 11, legendFontFace: TXT,
+      });
+      const ok = pontos.filter((p) => p.nps !== null && p.resp >= BASE);
+      const melhor = ok[0], pior = ok[ok.length - 1];
+      if (melhor && pior && melhor !== pior) s.addText(`Melhor: ${melhor.nome}, NPS ${Math.round(melhor.nps ?? 0)}   ·   Mais fraco: ${pior.nome}, NPS ${Math.round(pior.nps ?? 0)}`, { x: 4.4, y: 6.45, w: 8.6, h: 0.4, fontFace: TXT, fontSize: 12, bold: true, color: TEXTO, align: "center" });
+    } else s.addText("O WeHelp ainda não trouxe notas por ponto de contato neste mês.", { x: 4.6, y: 3.2, w: 8.2, h: 0.6, fontFace: TXT, fontSize: 14, color: CINZA, align: "center" });
     rodape(s);
   }
 

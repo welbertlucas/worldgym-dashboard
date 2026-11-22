@@ -104,6 +104,13 @@ export async function npsDoMes(sessao, ym, hoje) {
   return agregarNps(j.result.report);
 }
 
+/** NPS e NPS por ponto de contato de um período qualquer (a semana do relatório): { nps, pontos } por unidade. */
+export async function npsDoPeriodo(sessao, de, ate) {
+  const q = `company_unit_ids=${sessao.filhas.join(",")}&period[start]=${de}&period[end]=${ate}&group_by=COMPANY_UNIT`;
+  const [geral, pontos] = await Promise.all([pegar(`${BASE}/reports/nps-data/CUSTOMER?${q}`, sessao.headers), pegar(`${BASE}/reports/nps-touchpoints/CUSTOMER?${q}`, sessao.headers).catch(() => null)]);
+  return { nps: agregarNps(geral.result.report), pontos: pontos ? agregarNpsPontos(pontos.result.report) : {} };
+}
+
 /** NPS por ponto de contato do mês, por unidade (mesmo período do NPS geral). */
 export async function npsPontosDoMes(sessao, ym, hoje) {
   const fim = diaDeCorte(ym, hoje);

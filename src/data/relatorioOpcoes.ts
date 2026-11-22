@@ -17,7 +17,7 @@ export const GRUPOS_DO_RELATORIO: GrupoRelatorio[] = [
   { titulo: "Visão geral", itens: [o(ID_BIG, true, true), o(ID_MES_ATE_AQUI, false, true), o(ID_METAS, true, false)] },
   { titulo: "Faturamento e vendas", itens: [o("fat", true, true), o("cresc", true, false), o("rec", false, true), o("nc", true, true), o("cv", true, true), o("vo", true, true), o("op", true, true), o(ID_CONVERSAO, false, true), o("tk", true, false), o(ID_COMPL, true, true)] },
   { titulo: "Retenção e cobrança", itens: [o("ad", true, false), o("inad", true, false), o("churn", true, false), o("canc", true, true), o("ren", true, false)] },
-  { titulo: "Satisfação", itens: [o(ID_SATISF, true, false)] },
+  { titulo: "Satisfação", itens: [o(ID_SATISF, true, true)] },
   { titulo: "Alunos", itens: [o(ID_FREQ, true, true)] },
   { titulo: "Plano de ação", itens: [o(ID_PLANO, true, true)] },
 ];
@@ -35,7 +35,7 @@ export function rotuloDaOpcao(id: string, tipo: "mes" | "semana"): string {
   if (id === ID_CONVERSAO) return "Conversão (com a base: convertidas de cadastradas)";
   if (id === ID_COMPL) return "Receitas complementares (um slide só, com a legenda do que são)";
   if (id === ID_FREQ) return `Frequência dos alunos (mapa de calor do período e último check-in)${tipo === "semana" ? " · o mapa é do mês até aqui" : ""}`;
-  if (id === ID_SATISF) return "Satisfação (NPS, nota no Google e no Reclame Aqui, num slide só)";
+  if (id === ID_SATISF) return tipo === "mes" ? "Satisfação (NPS, nota no Google e no Reclame Aqui, num slide só; e o NPS por ponto de contato)" : "Satisfação (NPS do mês até aqui, promotores e detratores da semana e NPS por ponto de contato, num slide só)";
   if (id === ID_PLANO) return "Plano de ação da unidade (itens em aberto do mês em andamento)";
   return (tipo === "mes" ? RANKINGS.find((r) => r.id === id)?.rotulo : SEMANAIS.find((r) => r.id === id)?.rotulo) ?? RANKINGS.find((r) => r.id === id)?.rotulo ?? id;
 }
@@ -50,7 +50,8 @@ export function previaDoItem(m: ModeloRelatorio, id: string): string | null {
   if (id === ID_FREQ) return m.frequencia ? [m.frequencia.entradas ? `${m.frequencia.entradas.toLocaleString("pt-BR")} entradas` : "", m.frequencia.ultimoCheckin ? `${m.frequencia.ultimoCheckin.total.toLocaleString("pt-BR")} alunos ativos no último check-in` : ""].filter(Boolean).join(" · ") : null;
   if (id === ID_SATISF) {
     if (!m.satisfacao) return null;
-    const notas = m.satisfacao.notas.map((n) => `${n.nome} ${n.valor}`);
+    const sem = m.satisfacao.semanal;
+    const notas = sem ? [...(sem.nps !== null ? [`NPS ${sem.nps} (mês até aqui)`] : []), `na semana: ${sem.promotores} promotores, ${sem.detratores} detratores`] : m.satisfacao.notas.map((n) => `${n.nome} ${n.valor}`);
     // o ponto de contato mais fraco (com base mínima), para o relatório já dizer onde está o problema
     const fraco = [...(m.satisfacao.pontos ?? [])].reverse().find((p) => p.nps !== null && p.resp >= 15);
     return [...notas, ...(fraco ? [`ponto mais fraco: ${fraco.nome} ${Math.round(fraco.nps ?? 0)}`] : [])].join(" · ");

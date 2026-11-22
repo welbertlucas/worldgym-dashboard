@@ -2,7 +2,9 @@
 // Uso: node --env-file=.env.local scripts/wehelp-nps.mjs 2026-09 2026-10
 // (WEHELP_CLIENT_ID e WEHELP_CLIENT_SECRET no ambiente)
 import { hojeBR } from "../server/evo.js";
-import { abrirSessao, npsDoMes, npsPontosDoMes } from "../server/wehelp.js";
+import { abrirSessao, npsDoMes, npsDoPeriodo, npsPontosDoMes } from "../server/wehelp.js";
+import { diaDeCorte } from "../server/ativos.js";
+import { datasDaSemana, mesclarSemanas, semanasNoMes } from "../server/semanas.js";
 import { loadMonth, saveMonth } from "../server/store.js";
 
 const meses = process.argv.slice(2);
@@ -25,6 +27,24 @@ for (const ym of meses) {
       delete u.npsPromotores; delete u.npsDetratores; delete u.npsRespostas; delete u.npsPontos;
     }
   }
+  // NPS de cada semana do mês (relatório semanal): respostas, promotores, detratores e os pontos de contato; semana que não começou fica de fora
+  try {
+    const corte = diaDeCorte(ym, hoje);
+    const sem = [];
+    for (let n = 1; n <= semanasNoMes(ym); n++) {
+      const { de, ate } = datasDaSemana(ym, n);
+      if (de > corte) { sem.push(null); continue; }
+      sem.push(await npsDoPeriodo(sessao, de, ate < corte ? ate : corte));
+    }
+    for (const u of blob.units) {
+      const novas = sem.map((w) => {
+        const a = w?.nps[u.name];
+        if (!a || !(a.respostas > 0)) return {};
+        return { npsRespostas: a.respostas, npsPromotores: a.promotores, npsDetratores: a.detratores, ...(w.pontos[u.name] && Object.keys(w.pontos[u.name]).length ? { npsPontos: w.pontos[u.name] } : {}) };
+      });
+      u.semanas = mesclarSemanas((u.semanas ?? []).map((w) => { const { npsRespostas, npsPromotores, npsDetratores, npsPontos, ...resto } = w; return resto; }), novas);
+    }
+  } catch (e) { console.log(`${ym}: NPS por semana indisponível — ${e.message}`); }
   blob.npsEm = new Date().toISOString();
   await saveMonth(blob);
   console.log(`${ym}: ${com} unidades com NPS`);

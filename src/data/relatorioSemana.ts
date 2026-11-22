@@ -4,7 +4,8 @@ import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
 import type { Meta, MetaKey } from "@/data/metas";
 import type { PlanoDaUnidade } from "@/data/relatorioPlano";
 import type { AteAgora } from "@/data/relatorio";
-import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, NOTA_RECEBIMENTO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, notaContratosEspeciais, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
+import { npsDoPonto, rankingDePontos, somarPontos } from "@/data/npsPontos";
+import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, ID_SATISF, NOTA_RECEBIMENTO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, notaContratosEspeciais, motivosDoRanking, type BigNumero, type PontoDoSlide, type SlideSatisfacao, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -57,11 +58,11 @@ export const SEMANAIS: DefSemana[] = [
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", formato: "int", campo: (s) => s.novosContratos },
   { id: "cv", rotulo: "Contratos vendidos", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.vendasContratos },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", formato: "brl", campo: (s) => s.vendasOnline },
-  { id: "op", rotulo: "Visitantes (presenciais, como no cartão do EVO)", titulo: "Visitantes", formato: "int", campo: (s) => s.visitantes ?? s.oportunidades },
+  { id: "op", rotulo: "Visitantes", titulo: "Visitantes", formato: "int", campo: (s) => s.visitantes ?? s.oportunidades },
   { id: "canc", rotulo: "Cancelamentos", titulo: "Cancelamentos", formato: "int", campo: (s) => s.cancelados, menorMelhor: true },
 ];
-/** Relatório semanal com variação e comparação com a mesma semana do mês anterior (desligado por decisão do dono). */
-export const COMPARAR_COM_MES_ANTERIOR = false;
+/** Relatório semanal com variação e comparação com a mesma semana do mês anterior (religado a pedido do dono em 21/11/2026, só para semana fechada e quando o mês anterior tem a semana). */
+export const COMPARAR_COM_MES_ANTERIOR = true;
 
 export const ID_CONVERSAO = "conv";
 /** Slide "O mês até aqui". */
@@ -73,7 +74,7 @@ const ACUMULADOS: { id: string; chave: MetaKey | null }[] = [
   { id: "fat", chave: "faturamento" }, { id: "rec", chave: "recebimento" }, { id: "nc", chave: "novosContratos" }, { id: "cv", chave: null }, { id: "vo", chave: "vendasOnline" }, { id: "op", chave: null }, { id: "canc", chave: null },
 ];
 export const INDICADORES_SEMANA_PADRAO = [ID_BIG, ID_MES_ATE_AQUI, "fat", "nc", "cv", "op", ID_CONVERSAO, "canc", ID_PLANO];
-export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "cv", "vo", "op", ID_CONVERSAO, "canc", ID_COMPL, ID_FREQ, ID_PLANO];
+export const TODOS_SEMANA = [ID_BIG, ID_MES_ATE_AQUI, "fat", "rec", "nc", "cv", "vo", "op", ID_CONVERSAO, "canc", ID_SATISF, ID_COMPL, ID_FREQ, ID_PLANO];
 /** Abaixo disso a conversão da semana vale pouco (um aluno muda vários pontos): o slide avisa. */
 export const BASE_PEQUENA = 10;
 
@@ -141,6 +142,13 @@ export function metaDoEscopo(metas: Meta[], mes: string, chave: MetaKey, nomes: 
   return undefined;
 }
 
+/** NPS por ponto de contato de uma unidade somando as semanas 1 a `ate` do mês. */
+function somaSemanas(u: UnitData, ate: number): Record<string, [number, number, number]> {
+  const por: Record<string, [number, number, number]> = {};
+  for (let n = 1; n <= ate; n++) for (const [ponto, [r, p, d]] of Object.entries(u.semanas?.[n - 1]?.npsPontos ?? {})) { const a = (por[ponto] ??= [0, 0, 0]); a[0] += r; a[1] += p; a[2] += d; }
+  return por;
+}
+
 interface Dados { u: UnitData; s: SemanaDoMes }
 const daSemana = (m: MonthData | undefined, n: number, nomes: string[] | null): Dados[] =>
   (m?.units ?? []).filter((u) => !nomes || nomes.includes(u.name)).flatMap((u) => (u.semanas?.[n - 1] ? [{ u, s: u.semanas[n - 1] }] : []));
@@ -161,8 +169,8 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
 
   const mAnt = meses.find((x) => x.month === mesAnterior(mes));
   const limAnt = limitesDaSemana(mesAnterior(mes), semana);
-  // Decisão do dono (21/11/2026): o relatório semanal não mostra variação nem comparação com o mês anterior (nem toda unidade tem o período anterior).
-  // O código da comparação continua aqui: para voltar, troque COMPARAR_COM_MES_ANTERIOR para true.
+  // Decisão do dono (21/11/2026): os indicadores do semanal voltam a mostrar a variação contra a mesma semana do mês anterior (verde bom, vermelho ruim).
+  // Só em semana fechada e só quando o mês anterior tem aquela semana; o quadro vinho do mês até aqui continua sem comparação.
   const comparar = COMPARAR_COM_MES_ANTERIOR && estado === "fechada" && !!mAnt && !!limAnt;
   const ant = comparar ? daSemana(mAnt, semana, unidades) : [];
   const temAnt = comparar && ant.length > 0;
@@ -258,6 +266,25 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   }
   for (const r of rankings) { const a = ateAgora[r.id]; if (a) r.ateAgora = a; }
 
+  // Satisfação (um slide só): o NPS e os pontos de contato do MÊS ATÉ AQUI (semanas 1 a N, a leitura do WeHelp da madrugada) e, ao lado, só os promotores e
+  // detratores da semana. Não há NPS da semana: com cerca de 10 respostas por unidade ele balança demais. Google e Reclame Aqui só existem por mês.
+  let satisfacao: SlideSatisfacao | null = null;
+  if (escolheu.has(ID_SATISF)) {
+    const naEscopo = m.units.filter((x) => nomesAtual.includes(x.name));
+    let rA = 0, pA = 0, dA = 0;
+    for (let n = 1; n <= semana; n++) for (const u of naEscopo) { const w = u.semanas?.[n - 1]; rA += num(w?.npsRespostas); pA += num(w?.npsPromotores); dA += num(w?.npsDetratores); }
+    const promSem = somaCampo(atual, (s) => s.npsPromotores), detSem = somaCampo(atual, (s) => s.npsDetratores);
+    const ate = (arr: UnitData[]) => arr.map((u) => ({ npsPontos: somaSemanas(u, semana) }));
+    const meus = rankingDePontos(ate(naEscopo)).filter((x) => x.resp > 0);
+    const redePontos = somarPontos(ate(m.units));
+    const pontos: PontoDoSlide[] = meus.map((x) => ({ nome: x.nome, nps: x.nps, resp: x.resp, det: x.det, rede: redePontos[x.ponto] ? npsDoPonto(redePontos[x.ponto]) : null }));
+    if (rA > 0 || pontos.length) {
+      satisfacao = {
+        periodo, notas: [], ...(pontos.length ? { pontos, comparaRede: !!unidades && unidades.length < m.units.length } : {}),
+        semanal: { nps: rA > 0 ? String(Math.round(((pA - dA) / rA) * 100)) : null, periodoAteAgora, ateData: `${dd(estado === "fechada" ? lim.ate : fechados)}/${mes.slice(5, 7)}`, semana: periodo, promotores: promSem, detratores: detSem },
+      };
+    }
+  }
   // "O mês até aqui": acumulado das semanas 1 a N (a semana em andamento entra até onde os dados chegaram), contra a meta e contra o mesmo ponto do mês anterior
   let mesAteAqui: MesAteAqui | null = null;
   if (escolheu.has(ID_MES_ATE_AQUI)) {
@@ -271,7 +298,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
       const def = SEMANAIS.find((d) => d.id === id)!;
       const v = acumulado(m, semana, nomes, def.campo);
       if (v === null) continue;
-      const b = temAnt ? acumulado(mAnt, semana, nomes, def.campo) : null;
+      const b: number | null = null; // quadro vinho do mês até aqui: sem comparação (decisão do dono)
       const alvo = chave ? metaDoEscopo(metas, mes, chave, nomes, rede) : undefined;
       const pct = alvo ? (v / alvo.alvo) * 100 : null;
       itens.push({
@@ -292,7 +319,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   const parcialAte = estado === "andamento" ? `${dd(fechados)}/${mes.slice(5, 7)}` : null;
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,
-    tipo: "semana", parcialAte, mesAteAqui, ateAgora, frequencia, complementares,
+    tipo: "semana", parcialAte, mesAteAqui, ateAgora, frequencia, complementares, satisfacao,
     notaRecebimento: big?.some((k) => k.nome === "Recebimento") || rankings.some((r) => r.id === "rec") || mesAteAqui?.itens.some((k) => k.nome === "Recebimento") ? NOTA_RECEBIMENTO : null,
     // O plano é de uma unidade só e do mês em andamento: quem monta já confere isso, aqui só entra se foi pedido e o relatório é de uma unidade
     plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.u.name ? plano : null,

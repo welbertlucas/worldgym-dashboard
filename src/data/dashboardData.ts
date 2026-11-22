@@ -47,6 +47,8 @@ export interface SemanaDoMes {
   oportunidades?: number; conversoes?: number; conversoesAntigas?: number; cancelados?: number;
   /** Visitantes (presenciais) e convertidos da semana, como no cartão do Dashboard do EVO. */
   visitantes?: number; convertidos?: number;
+  /** NPS da semana (WeHelp): respostas, promotores, detratores e o NPS por ponto de contato. */
+  npsRespostas?: number; npsPromotores?: number; npsDetratores?: number; npsPontos?: Record<string, [number, number, number]>;
 }
 
 export interface UnitData {

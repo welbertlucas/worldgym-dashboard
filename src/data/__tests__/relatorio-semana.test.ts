@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
 import { limitesDaSemana as limitesServidor, semanasNoMes as semanasServidor } from "../../../server/semanas.js";
 import { BASE_PEQUENA, COMPARAR_COM_MES_ANTERIOR, ID_CONVERSAO, ID_MES_ATE_AQUI, metaDoEscopo, serieSemanal, estadoDaSemana, limitesDaSemana, mesAnterior, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
-import { ID_BIG, ID_COMPL, resumoDosSlides } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, ID_SATISF, resumoDosSlides } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
 const com = (name: string, semanas: Record<string, number>[]) => unit(name, { semanas } as never);
@@ -39,16 +39,16 @@ describe("semanas no painel (mesmas regras do servidor)", () => {
 });
 
 describe("relatório semanal", () => {
-  it("semana fechada não mostra variação nem comparação com o mês anterior (decisão do dono)", () => {
+  it("semana fechada compara com a mesma semana do mês anterior (verde bom, vermelho ruim; religado em 21/11/2026)", () => {
     const m = montarRelatorioSemanal(meses, "2026-11", 1, [ID_BIG, "fat", "canc"], null, 30)!;
     expect(m.tipo).toBe("semana");
     expect(m.periodo).toBe("1-7 nov/26");
-    expect(m.mesAnteriorCurto).toBeNull();
+    expect(m.mesAnteriorCurto).toBe("1-7 out/26");
     const fat = m.big![0];
     expect(fat.valor).toBe("R$ 1.550");
-    expect(fat.variacao).toBeNull();
-    expect(fat.anterior).toBeNull();
-    expect(COMPARAR_COM_MES_ANTERIOR).toBe(false);
+    expect(fat.variacao).toBeCloseTo(3.33, 1); // 1.550 contra 1.500 da semana 1-7 out
+    expect(fat.anterior).toBe("R$ 1.500"); // o período vem em mesAnteriorCurto
+    expect(COMPARAR_COM_MES_ANTERIOR).toBe(true);
     const canc = m.big!.find((k) => k.nome === "Cancelamentos")!;
     expect(canc.menorMelhor).toBe(true);
     expect(m.rankings.map((r) => r.id)).toEqual(["fat", "canc"]);
@@ -73,14 +73,15 @@ describe("relatório semanal", () => {
     expect(r.itens).toEqual([["Asa Norte", 40], ["Gama", 20]]);
   });
 
-  it("uma unidade só vira cartão com o valor da semana e a base (sem variação)", () => {
+  it("uma unidade só vira cartão com o valor da semana, a base e a variação contra o mês anterior", () => {
     const m = montarRelatorioSemanal(meses, "2026-11", 1, ["fat", ID_CONVERSAO, "canc"], ["Asa Norte"], 30)!;
     const [fat, conv, canc] = m.rankings;
     expect(fat.itens).toEqual([]);
-    expect(fat.cartao).toMatchObject({ valor: "R$ 1.100", anterior: null, variacao: null });
+    expect(fat.cartao).toMatchObject({ valor: "R$ 1.100", anterior: "R$ 1.000  ·  1-7 out/26" });
+    expect(fat.cartao!.variacao).toBeCloseTo(10, 5);
     expect(conv.cartao!.valor).toBe("40,0%");
-    expect(conv.cartao!.anterior).toBe("10 de 25 visitantes"); // todo percentual leva a base
-    expect(conv.cartao!.variacao).toBeNull();
+    expect(conv.cartao!.anterior).toContain("10 de 25 visitantes"); // todo percentual leva a base
+    expect(conv.cartao!.anterior).toContain("antes: 25,0% (1-7 out/26)");
     expect(canc.cartao!.menorMelhor).toBe(true);
     expect(m.escopo).toBe("Asa Norte");
   });
@@ -217,5 +218,26 @@ describe("relatório semanal: contratos vendidos, mês até aqui no Overview e r
     const m2 = montarRelatorioSemanal([dois], "2026-11", 1, ["cv"], null, 7)!;
     expect(m2.rankings[0].ateAgora!.texto).toBe("total das unidades no mês até aqui (1-7 nov/26): 15");
   });
-});
 
+  it("satisfação do relatório semanal, em um slide só: NPS e pontos de contato do mês até aqui, e só promotores e detratores da semana", () => {
+    const sem = [
+      { npsRespostas: 40, npsPromotores: 30, npsDetratores: 4, npsPontos: { RECEPÇÃO: [40, 30, 4] as [number, number, number] } },
+      { npsRespostas: 50, npsPromotores: 35, npsDetratores: 10, npsPontos: { RECEPÇÃO: [50, 35, 10], MANUTENÇÃO: [30, 12, 9] as [number, number, number] } },
+    ];
+    const outro = [{ npsRespostas: 20, npsPromotores: 8, npsDetratores: 8, npsPontos: { RECEPÇÃO: [20, 8, 8] as [number, number, number] } }, {}];
+    const base = month("2026-11", [com("Asa Norte", sem as never), com("Gama", outro as never)]);
+    const m = montarRelatorioSemanal([base], "2026-11", 2, [ID_SATISF], ["Asa Norte"], 14)!;
+    const sf = m.satisfacao!;
+    expect(sf.notas).toEqual([]); // não há mais coluna de notas separada
+    expect(sf.semanal).toEqual({ nps: "57", periodoAteAgora: "1-14 nov/26", ateData: "14/11", semana: "8-14 nov/26", promotores: 35, detratores: 10 }); // NPS (65 − 14) ÷ 90 nas semanas 1 e 2; a semana só traz os números
+    expect(sf.pontos!.map((p) => [p.nome, p.resp])).toEqual([["Recepção", 90], ["Manutenção", 30]]); // soma das semanas 1 e 2, do melhor para o pior
+    expect(sf.comparaRede).toBe(true); // uma unidade: a rede aparece ao lado
+    expect(resumoDosSlides(m)).toEqual(["Capa", "Satisfação", "Encerramento"]); // um slide só
+    // a rede toda: a rede ao lado não é repetida
+    expect(montarRelatorioSemanal([base], "2026-11", 2, [ID_SATISF], null, 14)!.satisfacao!.comparaRede).toBe(false);
+    // churn e renovação não existem por semana (amostra pequena): pedir não gera slide
+    expect(montarRelatorioSemanal([base], "2026-11", 2, ["churn", "ren"], null, 14)!.rankings).toHaveLength(0);
+    // semana sem resposta de NPS: sem slide de satisfação
+    expect(montarRelatorioSemanal([month("2026-11", [com("Asa Norte", [{ faturamento: 1 }] as never)])], "2026-11", 1, [ID_SATISF], null, 7)!.satisfacao).toBeNull();
+  });
+});
