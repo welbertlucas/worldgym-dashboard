@@ -195,6 +195,18 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
     rodape(s);
   };
 
+  /** Percentual do cartão (0 a 100) quando o indicador é uma porcentagem; null nos demais. */
+  const percentualDoCartao = (id: string, formato: string, valor: string): number | null => {
+    if (formato !== "pct" || id === "cresc") return null; // crescimento não é parte de um todo
+    const n = parseFloat(valor.replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) && n >= 0 && n <= 100 ? n : null;
+  };
+  /** Rosca com a parte do percentual em vinho (a favor ou contra: a cor da variação é que diz se é bom). */
+  const roscaDoPercentual = (s: ReturnType<typeof pptx.addSlide>, p: number, x: number, y: number, lado: number) =>
+    s.addChart(pptx.ChartType.doughnut, [{ name: "Percentual", labels: ["Parte", "Restante"], values: [p, 100 - p] }], {
+      x, y, w: lado, h: lado, holeSize: 68, chartColors: [VINHO, "E3DBD6"], showLegend: false, showValue: false, showPercent: false, showLabel: false, showTitle: false, dataBorder: { pt: 0, color: "FFFFFF" },
+    });
+
   // Rankings (gráfico de barras nativo)
   for (const r of m.rankings.flatMap((x) => (x.motivos ? [x, { ...x, motivosSo: x.motivos }] : [x]))) {
     if ("motivosSo" in r) { slideDeMotivos((r as { motivosSo: NonNullable<ModeloRelatorio["rankings"][number]["motivos"]> }).motivosSo); continue; }
@@ -212,8 +224,11 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
       // Uma unidade só: valor e variação em cima, evolução dos últimos períodos embaixo (coluna do período em vinho; meta como linha)
       const c = r.cartao, sr = c.serie!;
       const tam = c.valor.length > 11 ? 56 : c.valor.length > 8 ? 66 : 80;
-      s.addText(c.valor, { x: 0.5, y: 1.2, w: largEsq, h: 1.3, fontFace: TIT, fontSize: tam, color: VINHO, align: "center", valign: "middle" });
-      comparativos(s, c, 0.5, largEsq, 2.5, { fontVar: 28, offsetAnt: 0.55, fontAnt: 18 });
+      // Indicador em porcentagem: rosca à esquerda e o número com a variação à direita
+      const pc = percentualDoCartao(r.id, r.formato, c.valor), cx = 0.5 + largEsq / 2, bx = pc !== null ? cx - 3.9 + 2.6 : 0.5, bw = pc !== null ? 5.2 : largEsq;
+      if (pc !== null) roscaDoPercentual(s, pc, cx - 3.9, 1.15, 2.3);
+      s.addText(c.valor, { x: bx, y: 1.2, w: bw, h: 1.3, fontFace: TIT, fontSize: tam, color: VINHO, align: "center", valign: "middle" });
+      comparativos(s, c, bx, bw, 2.5, { fontVar: 28, offsetAnt: 0.55, fontAnt: 18 });
       if (caixa) caixaAcumulado(s, caixa, QUADRO.x, 1.3, QUADRO.w, 5.3);
       const rotulos = sr.rotulos.map((x, i) => (sr.parcial && i === sr.destaque ? `${x} (em andamento)` : x));
       // Semanal: a semana do relatório em vinho, as outras semanas do mês em vermelho médio e as do mês anterior em cinza
@@ -232,8 +247,10 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
       // Uma unidade só: valor em destaque, variação e o valor do ano anterior
       const c = r.cartao;
       const tam = c.valor.length > 11 ? 72 : c.valor.length > 8 ? 88 : 110;
-      s.addText(c.valor, { x: 0.5, y: 1.9, w: largEsq, h: 1.9, fontFace: TIT, fontSize: caixa ? Math.min(tam, 90) : tam, color: VINHO, align: "center", valign: "middle" });
-      comparativos(s, c, 0.5, largEsq, 4.0, { fontVar: 40, offsetAnt: 0.9, fontAnt: 22 });
+      const pc = percentualDoCartao(r.id, r.formato, c.valor), cx = 0.5 + largEsq / 2, bx = pc !== null ? cx - 4.25 + 3.3 : 0.5, bw = pc !== null ? 5.2 : largEsq;
+      if (pc !== null) roscaDoPercentual(s, pc, cx - 4.25, 1.55, 3.0);
+      s.addText(c.valor, { x: bx, y: 1.9, w: bw, h: 1.9, fontFace: TIT, fontSize: caixa ? Math.min(tam, 90) : pc !== null ? Math.min(tam, 90) : tam, color: VINHO, align: "center", valign: "middle" });
+      comparativos(s, c, bx, bw, 4.0, { fontVar: pc !== null ? 32 : 40, offsetAnt: 0.9, fontAnt: pc !== null ? 18 : 22 });
       if (caixa) caixaAcumulado(s, caixa, QUADRO.x, 1.3, QUADRO.w, 5.3);
       if (c.meta) {
         // Barra de progresso da meta do mês (como no esboço aprovado): trilho cinza e preenchimento vinho
