@@ -56,7 +56,7 @@ export function ChecklistDaUnidade({ dados, hoje, onMudou }: { dados: DadosQuali
                     <span className="min-w-0 flex-1 text-sm"><span className="font-medium text-foreground">{v.modeloNome}</span><span className="block text-xs text-muted-foreground">{v.avaliador.nome}</span></span>
                     <span className={cn("shrink-0 text-xs", v.respostas.some((r) => r.conforme === false) ? "font-semibold text-warning" : "text-muted-foreground")}>{v.respostas.filter((r) => r.conforme === false).length > 0 ? `${v.respostas.filter((r) => r.conforme === false).length} não conformes` : "Tudo conforme"}</span>
                   </button>
-                  {aberta === v.id && <Detalhe v={v} />}
+                  {aberta === v.id && <Detalhe v={v} planos={dados.planos ?? []} />}
                 </li>
               ))}
             </ul>

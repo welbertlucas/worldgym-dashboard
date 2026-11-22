@@ -46,7 +46,7 @@ export function Rotina({ dados, hoje, podeApagar = true, onMudou }: { dados: Dad
                   </span>
                   <span className={cn("w-28 text-right text-xs", l.naoConformes > 0 ? "font-semibold text-warning" : "text-muted-foreground")}>{l.ultimo ? (l.naoConformes > 0 ? `${l.naoConformes} não ${l.naoConformes === 1 ? "conforme" : "conformes"}` : "Tudo conforme") : ""}</span>
                 </button>
-                {aberta === id && l.ultimo && <Detalhe v={l.ultimo} onApagar={podeApagar ? () => void apagar(l.ultimo!.id, l.ultimo!.mes) : undefined} />}
+                {aberta === id && l.ultimo && <Detalhe v={l.ultimo} planos={dados.planos ?? []} onApagar={podeApagar ? () => void apagar(l.ultimo!.id, l.ultimo!.mes) : undefined} />}
               </li>
             );
           })}

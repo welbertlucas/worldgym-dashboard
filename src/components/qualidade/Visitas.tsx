@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Check, ChevronDown, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Download, Trash2, X } from "lucide-react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { AXIS_TICK, GRID, REF_LINE, TOOLTIP_STYLE } from "@/components/chartTheme";
-import { type DadosQualidade, type MarcaDeLocal, type Visita, NOTA_ATENCAO, NOTA_BOA, avaliadoresDasVisitas, dataBR, evolucaoDaNota, gruposDasVisitas, notaFiltrada, pctTexto, tomDaNota } from "@/data/qualidade";
+import { type DadosQualidade, type MarcaDeLocal, type PlanoAcao, type Visita, NOTA_ATENCAO, NOTA_BOA, avaliadoresDasVisitas, dataBR, evolucaoDaNota, gruposDasVisitas, notaFiltrada, pctTexto, tomDaNota } from "@/data/qualidade";
 import { apagarVisita } from "@/lib/qualidade";
-import { ehDono, podeEditarQualidade } from "@/lib/auth";
+import { ehDono, getUsuario, podeEditarQualidade } from "@/lib/auth";
 import { FotoGuardada } from "@/components/qualidade/Fotos";
 
 const CHIP = { good: "bg-success/10 text-success", warn: "bg-warning/10 text-warning", bad: "bg-destructive/10 text-destructive", neutral: "bg-secondary text-muted-foreground" } as const;
@@ -35,7 +35,24 @@ function LinhaMarca({ titulo, m }: { titulo: string; m: MarcaDeLocal }) {
   );
 }
 
-export function Detalhe({ v, onApagar }: { v: Visita; onApagar?: () => void }) {
+/** Baixa o relatório da visita em PDF (nota, respostas por grupo, comentários, fotos, planos de ação e assinatura). A selfie não entra. */
+function BotaoPdf({ v, planos }: { v: Visita; planos: PlanoAcao[] }) {
+  const [gerando, setGerando] = useState(false);
+  const baixar = async () => {
+    setGerando(true);
+    try {
+      const { gerarPdfDaVisita } = await import("@/lib/qualidadePdf");
+      await gerarPdfDaVisita(v, planos, { email: getUsuario()?.email ?? "" });
+    } catch {
+      toast({ title: "Não consegui gerar o PDF agora", description: "Tente de novo em instantes.", variant: "destructive" });
+    } finally {
+      setGerando(false);
+    }
+  };
+  return <Button variant="outline" size="sm" onClick={() => void baixar()} disabled={gerando}><Download className="h-4 w-4" aria-hidden /> {gerando ? "Gerando PDF..." : "Baixar PDF"}</Button>;
+}
+
+export function Detalhe({ v, planos = [], onApagar }: { v: Visita; planos?: PlanoAcao[]; onApagar?: () => void }) {
   const falhas = v.respostas.filter((r) => r.conforme === false).length;
   return (
     <div className="space-y-3 border-t border-border bg-secondary/30 px-4 py-4">
@@ -79,7 +96,10 @@ export function Detalhe({ v, onApagar }: { v: Visita; onApagar?: () => void }) {
         ))}
       </ul>
       {v.observacao && <p className="text-sm text-foreground"><b className="font-semibold">Observação:</b> {v.observacao}</p>}
+      <div className="flex flex-wrap gap-2">
+      <BotaoPdf v={v} planos={planos} />
       {onApagar && <Button variant="outline" size="sm" onClick={onApagar}><Trash2 className="h-4 w-4" aria-hidden /> Apagar {v.origem === "unidade" ? "este envio" : "esta visita"}</Button>}
+      </div>
     </div>
   );
 }
@@ -169,7 +189,7 @@ export function Visitas({ dados, unidadeInicial, podeApagar = true, onMudou }: {
                 <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", CHIP[tomDaNota(notaFiltrada(v, grupo))])}>{pctTexto(notaFiltrada(v, grupo))}</span>
                 <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", aberta === v.id && "rotate-180")} aria-hidden />
               </button>
-              {aberta === v.id && <Detalhe v={v} onApagar={podeApagar ? () => void apagar(v) : undefined} />}
+              {aberta === v.id && <Detalhe v={v} planos={dados.planos ?? []} onApagar={podeApagar ? () => void apagar(v) : undefined} />}
             </li>
           ))}
         </ul>
