@@ -38,7 +38,7 @@ function Destaque({ titulo, valor, atual, anterior, anoAnterior, ym, melhorSeSob
   );
 }
 
-// Regra de cor do sistema (igual ao Faturamento × Recebimento): vermelho da marca na série; cinza tracejado no ano anterior.
+// Regra de cor do sistema (igual ao Faturamento × Pagamentos dos clientes): vermelho da marca na série; cinza tracejado no ano anterior.
 const BRAND = "hsl(4 90% 50%)";
 const ANO_ANTERIOR = "hsl(220 9% 62%)";
 

@@ -41,7 +41,7 @@ const a = (secao: SecaoAjuda, id: string, titulo: string, resumo: string, paragr
 const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   // Primeiros passos
   a("comecando", "o-que-e-o-atlas", "O que é o Atlas", "O painel de resultados da rede World Gym.", [
-    "O Atlas reúne num lugar só os números das academias: faturamento, recebimento, inadimplência, vendas, oportunidades, alunos, acessos na catraca, retenção, metas e marketing.",
+    "O Atlas reúne num lugar só os números das academias: faturamento, pagamentos dos clientes, inadimplência, vendas, oportunidades, alunos, acessos na catraca, retenção, metas e marketing.",
     "Os números vêm do EVO, das contas de anúncio do Meta, das pesquisas de satisfação e da planilha de metas. Você não precisa lançar nada no Atlas: ele lê essas fontes sozinho.",
     "A primeira tela é o Overview, com os principais números do mês. As outras telas ficam no menu lateral (no celular, no botão de três linhas no canto de cima). No rodapé do menu ficam as Novidades e esta Central de ajuda.",
     "Quem recebeu o acesso também tem o menu Relatórios, que monta no PowerPoint a apresentação da reunião semanal, com os números da semana ou do mês.",
@@ -56,7 +56,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Use as setas para escolher e Enter para abrir.",
   ]),
   a("comecando", "mes-em-andamento", "Mês em andamento", "Os números do mês atual são parciais.", [
-    "O mês que ainda não terminou mostra o que aconteceu até agora. Por isso o faturamento, as vendas e o recebimento parecem menores do que nos meses fechados.",
+    "O mês que ainda não terminou mostra o que aconteceu até agora. Por isso o faturamento, as vendas e os pagamentos dos clientes parecem menores do que nos meses fechados.",
     "Para comparar de forma justa, os alertas do mês em andamento olham o mesmo dia dos meses anteriores. As Metas mostram a projeção de fechamento no ritmo atual.",
   ]),
   a("comecando", "novidades", "Novidades", "O que mudou no Atlas fica em Novidades, no rodapé do menu.", [
@@ -67,7 +67,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   // Telas
   a("telas", "tela-overview", "Overview", "Os principais números do mês, num olhar.", [
     "Cada velocímetro mostra um indicador do mês selecionado. A marca no arco é o mês anterior: dá para ver na hora se subiu ou caiu.",
-    "Para olhar vários meses juntos, use Ver por período e escolha o mês inicial e o final. Faturamento, recebimento e vendas online são somados; churn, inadimplência, renovação e conversão viram a média dos meses ponderada pelo tamanho de cada um (alunos ativos no início, pagantes, contratos a vencer e oportunidades). A marca no arco passa a ser o período anterior, do mesmo tamanho. O X volta ao mês do topo.",
+    "Para olhar vários meses juntos, use Ver por período e escolha o mês inicial e o final. Faturamento, pagamentos dos clientes e vendas online são somados; churn, inadimplência, renovação e conversão viram a média dos meses ponderada pelo tamanho de cada um (alunos ativos no início, pagantes, contratos a vencer e oportunidades). A marca no arco passa a ser o período anterior, do mesmo tamanho. O X volta ao mês do topo.",
     "Mais abaixo vem a comparação entre unidades no último mês fechado.",
   ], { tela: "executiva", imagem: "overview" }),
   a("telas", "tela-plano", "Plano de ação", "O que fazer em cada unidade neste mês.", [
@@ -90,9 +90,9 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Oportunidades: de onde vêm, o perfil, o tempo até fechar e os consultores que mais convertem. Na tabela por unidade, a coluna \"De cadastros antigos\" mostra quem se cadastrou em meses anteriores e fechou neste mês; ela não entra na taxa de conversão.",
     "Receitas complementares: diárias, personal, brinquedoteca, WG Plus, Pro+, camisetas e coqueteleiras.",
   ], { tela: "comercial", imagem: "comercial" }),
-  a("telas", "tela-financeiro", "Financeiro", "Faturamento, recebimento, inadimplência e notas fiscais.", [
-    "Resumo: faturamento, recebimento, inadimplência e ticket médio, com a previsão de faturamento até o fim do mês.",
-    "Recebimento: formas de pagamento, bandeiras de cartão e taxas cobradas. No cartão, o gateway (Stone, Rede, Cielo...) mostra quanto entrou por cada um, quantas cobranças foram e o ticket; quando o EVO informa, também as taxas e quanto elas pesam no recebido. Esse percentual é a taxa que o EVO registrou, não a cobrada no extrato da operadora; a cobrança sem taxa registrada entra como zero, e por isso o card diz em quantos % das cobranças há taxa registrada (abaixo de 90% o número fica marcado como incompleto).",
+  a("telas", "tela-financeiro", "Financeiro", "Faturamento, pagamentos dos clientes, inadimplência e notas fiscais.", [
+    "Resumo: faturamento, pagamentos dos clientes, inadimplência e ticket médio, com a previsão de faturamento até o fim do mês.",
+    "Pagamentos dos clientes: formas de pagamento, bandeiras de cartão e taxas cobradas. No cartão, o gateway (Stone, Rede, Cielo...) mostra quanto entrou por cada um, quantas cobranças foram e o ticket; quando o EVO informa, também as taxas e quanto elas pesam no recebido. Esse percentual é a taxa que o EVO registrou, não a cobrada no extrato da operadora; a cobrança sem taxa registrada entra como zero, e por isso o card diz em quantos % das cobranças há taxa registrada (abaixo de 90% o número fica marcado como incompleto).",
     "Inadimplência: cobranças de cartão recusadas, saldo devedor por unidade e o perfil de quem está em atraso.",
     "Notas fiscais: notas emitidas no mês por unidade.",
   ], { tela: "financeiro", imagem: "financeiro" }),
@@ -155,7 +155,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   ]),
   a("duvidas", "diferente-do-evo", "Por que um número é diferente do que vejo no EVO?", "O Atlas usa regras próprias e é gravado de madrugada.", [
     "Cada indicador tem uma regra de cálculo, explicada em “O que significa cada indicador” e no botão “i” de cada card. O painel Gerencial do EVO usa outras regras, e o número dele muda durante o dia. O Atlas é gravado de madrugada, então os dois só batem por acaso.",
-    "Faturamento: é o mesmo número do “Total de vendas” do Gerencial do EVO, o valor das vendas de contrato lançadas no mês (recepção, cartão recorrente e online). O Atlas usa uma conta só, com o mesmo nome e o mesmo valor, em Overview, Financeiro e Comercial. Pequenas diferenças para o EVO podem sobrar porque o EVO ainda tira vendas ao longo do dia, como as de cartão recusado. O Recebimento, no Financeiro, é outra informação: o que foi efetivamente pago.",
+    "Faturamento: é o mesmo número do “Total de vendas” do Gerencial do EVO, o valor das vendas de contrato lançadas no mês (recepção, cartão recorrente e online). O Atlas usa uma conta só, com o mesmo nome e o mesmo valor, em Overview, Financeiro e Comercial. Pequenas diferenças para o EVO podem sobrar porque o EVO ainda tira vendas ao longo do dia, como as de cartão recusado. Os Pagamentos dos clientes, no Financeiro, são outra informação: o que os clientes pagaram no mês, segundo o EVO.",
     "Contratos vendidos: o cartão Contratos Vendidos do Atlas segue o do EVO e soma matrículas, rematrículas e renovações feitas na recepção, sem a renovação automática do cartão, a diária e o personal. Já as metas de novos contratos e o Saldo de Clientes continuam contando só matrículas e rematrículas (contratos novos), sem as renovações.",
     "Conversão: segue o relatório de cadastro e conversão de oportunidades, e não o número de visitantes do Resumo gerencial do EVO, que usa outra regra e também conta quem se cadastrou antes e fechou agora. Esse grupo aparece à parte, na coluna “De cadastros antigos” de Oportunidades por unidade.",
     "Se mesmo assim o número parecer errado, avise quem liberou o seu acesso.",
@@ -255,7 +255,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O ranking recomeça todo mês. Está visível só para você, em teste por um mês (até 16/12/2026), para ver como as unidades se distribuem antes de decidir se a rede também vê.",
   ], { tela: "plano" }),
   a("dono", "dono-rotinas", "Rotinas automáticas e avisos", "O que roda sozinho e quando você é avisado.", [
-    "De madrugada o Atlas lê o EVO; de manhã lê o Meta e envia o resumo por e-mail; o Instagram é lido a cada 4 horas; a lista de usuários tem backup diário. A leitura do EVO também separa os números de cada semana do mês (faturamento, recebimento, vendas, oportunidades e cancelamentos), que alimentam o relatório semanal.",
+    "De madrugada o Atlas lê o EVO; de manhã lê o Meta e envia o resumo por e-mail; o Instagram é lido a cada 4 horas; a lista de usuários tem backup diário. A leitura do EVO também separa os números de cada semana do mês (faturamento, pagamentos dos clientes, vendas, oportunidades e cancelamentos), que alimentam o relatório semanal.",
     "Se alguma dessas rotinas falhar ou passar do tempo, chega um e-mail só para você dizendo o que deixou de ser atualizado. A etapa que lê os alunos tem limite de 150 minutos: se o EVO estiver lento, ela falha sozinha e as outras etapas (vendas, oportunidades, cancelamentos e a atualização do painel) ainda rodam.",
   ], { atualizadoEm: "2026-11-17" }),
   a("dono", "dono-atualizar", "Atualizar da planilha", "O botão de setas no cabeçalho.", [

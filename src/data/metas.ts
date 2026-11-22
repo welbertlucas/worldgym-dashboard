@@ -27,7 +27,7 @@ export interface Meta {
 
 export const META_INDICATORS: Record<MetaKey, { label: string; lowerIsBetter: boolean; format: "currency" | "number" | "percent" }> = {
   faturamento: { label: "Faturamento", lowerIsBetter: false, format: "currency" },
-  recebimento: { label: "Recebimento", lowerIsBetter: false, format: "currency" },
+  recebimento: { label: "Pagamentos dos clientes", lowerIsBetter: false, format: "currency" },
   vendasOnline: { label: "Vendas Online", lowerIsBetter: false, format: "currency" },
   novosContratos: { label: "Novos Contratos", lowerIsBetter: false, format: "number" },
   churn: { label: "Churn", lowerIsBetter: true, format: "percent" },

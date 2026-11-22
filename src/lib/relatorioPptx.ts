@@ -123,7 +123,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
       // valores longos (R$ 7.021.350) encolhem para caber na coluna
       const tam = Math.round((k.valor.length > 11 ? 36 : k.valor.length > 9 ? 42 : 48) * fator);
       s.addText(k.valor, { x, y, w: larg, h: 1.0, fontFace: TIT, fontSize: tam, color: PRETO, valign: "middle" });
-      s.addText(k.nome, { x, y: y + 0.95, w: larg, h: 0.5, fontFace: TIT, fontSize: Math.round(24 * (colunas === 4 ? 0.62 : 1)), color: VINHO });
+      s.addText(k.nome, { x, y: y + 0.95, w: larg, h: 0.5, fontFace: TIT, fontSize: Math.round(24 * (colunas === 4 ? 0.62 : 1) * (k.nome.length > 20 ? 0.78 : 1)), color: VINHO }); // nome comprido ("Pagamentos dos clientes") encolhe para não quebrar a linha
       let yy = y + 1.45;
       if (k.nota) { s.addText(k.nota, { x, y: yy - 0.02, w: larg, h: 0.26, fontFace: TXT, fontSize: Math.round(10.5 * (colunas === 4 ? 0.85 : 1)), italic: true, color: CINZA }); yy += 0.25; }
       // Comparações: com o mesmo mês do ano anterior (quando a unidade existia) e com o mês anterior
@@ -173,7 +173,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
       if (m.oportunidades !== null) s.addText(`${m.oportunidades.toLocaleString("pt-BR")} visitantes${m.convertidas !== null ? `\n${m.convertidas.toLocaleString("pt-BR")} convertidos` : ""}`, { x: 9.9, y: 5.9 + dy * 0.8, w: 3.3, h: 0.7, fontFace: TXT, fontSize: 16, bold: true, color: VINHO, align: "center", valign: "top" });
     }
     if (m.notaComparacao && m.big.some((k) => k.variacao !== null || (k.variacaoMes ?? null) !== null)) s.addText(m.notaComparacao, { x: 0.7, y: 6.62, w: 12.0, h: 0.4, fontFace: TXT, fontSize: 9.5, italic: true, color: CINZA, valign: "top" });
-    if (m.notaRecebimento && m.big.some((k) => k.nome === "Recebimento")) s.addText(m.notaRecebimento, { x: 0.7, y: 6.62, w: 12.0, h: 0.4, fontFace: TXT, fontSize: 9.5, italic: true, color: CINZA, valign: "top" });
+    if (m.notaRecebimento && m.big.some((k) => k.nome === "Pagamentos dos clientes")) s.addText(m.notaRecebimento, { x: 0.7, y: 6.62, w: 12.0, h: 0.4, fontFace: TXT, fontSize: 9.5, italic: true, color: CINZA, valign: "top" });
     rodape(s);
   }
 
@@ -217,7 +217,7 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
     const caixa = r.ateAgora;
     const largEsq = caixa ? 8.9 : 11.7; // largura da área do número (o quadro ocupa a direita)
     const topoGrafico = 1.15;
-    // Recebimento de uma unidade só (cartão): o aviso fica no pé do slide. Em ranking, o aviso vai na coluna da direita (r.nota).
+    // Pagamentos dos clientes de uma unidade só (cartão): o aviso fica no pé do slide. Em ranking, o aviso vai na coluna da direita (r.nota).
     const reduzGrafico = r.id === "rec" && r.cartao ? 0.3 : 0;
     if (r.id === "rec" && r.cartao) s.addText(NOTA_RECEBIMENTO, { x: caixa ? 0.6 : 1.2, y: 6.72, w: caixa ? 8.9 : 10.9, h: 0.36, fontFace: TXT, fontSize: 9.5, italic: true, color: CINZA, align: "center", valign: "top" });
     if (r.cartao?.serie) {

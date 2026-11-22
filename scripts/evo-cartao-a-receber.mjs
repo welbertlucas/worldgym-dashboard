@@ -1,4 +1,4 @@
-// Grava por unidade, no mês em andamento, o cartão de crédito já cobrado que ainda vai cair na conta, por dia (a tela de Recebimento mostra o calendário).
+// Grava por unidade, no mês em andamento, o cartão de crédito já cobrado que ainda vai cair na conta, por dia (a tela de Pagamentos dos clientes mostra o calendário).
 // Só o mês atual importa (nos fechados tudo já caiu); os outros meses pedidos são ignorados.
 // Uso: node --env-file=.env.local scripts/evo-cartao-a-receber.mjs 2026-11
 import { UNIT_NAMES } from "../server/units.js";

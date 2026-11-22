@@ -122,11 +122,11 @@ export function computeAlerts(data: MonthData[], metas: Meta[] = [], now: Date =
       }
     }
 
-    // Recebimento / faturamento
+    // Pagamentos dos clientes / faturamento
     if (u.faturamento > 0 && u.recebimento > 0 && u.recebimento / u.faturamento < C.recebimento.minRatio) {
       push({ unit: u.name, kind: "recebimento", severity: "attention", weight,
-        rule: `recebimento < ${C.recebimento.minRatio * 100}% do faturamento`,
-        fact: `Recebimento equivale a ${pct((u.recebimento / u.faturamento) * 100)} do faturamento (${fmtBRL(u.recebimento)} de ${fmtBRL(u.faturamento)}).` });
+        rule: `pagamentos dos clientes < ${C.recebimento.minRatio * 100}% do faturamento`,
+        fact: `Os pagamentos dos clientes equivalem a ${pct((u.recebimento / u.faturamento) * 100)} do faturamento (${fmtBRL(u.recebimento)} de ${fmtBRL(u.faturamento)}).` });
     }
   }
 

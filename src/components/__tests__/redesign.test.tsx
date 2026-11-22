@@ -68,7 +68,7 @@ describe("Visão Executiva", () => {
     const html = renderToString(
       <ExecutivaTab month={cur} prev={months[2]} metas={[]} />,
     ).replace(/<!-- -->/g, "");
-    for (const s of ["Overview", "Faturamento", "Recebimento", "Churn", "Inadimplência", "Metas da rede"]) expect(html).toContain(s);
+    for (const s of ["Overview", "Faturamento", "Pagamentos dos clientes", "Churn", "Inadimplência", "Metas da rede"]) expect(html).toContain(s);
     for (const s of ["Faturamento da rede", "Maiores faturamentos", "Plano de ação", "Ver o plano completo", "Comparação entre unidades"]) expect(html).not.toContain(s);
     expect(html).toContain("vs. set. de 2025"); // comparativo anual quando o mês do ano anterior existe
     expect(html).toContain("vs. ago. de 2026"); // mês fechado: compara com o mês anterior, citando o mês

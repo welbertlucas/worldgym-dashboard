@@ -61,10 +61,10 @@ describe("renderização dos cabeçalhos", () => {
   it("Financeiro: título, valores do último mês fechado com cada série identificada e nota do parcial", () => {
     seed();
     const html = renderToString(<RevenueChart selectedUnit={null} />).replace(/<!-- -->/g, "");
-    expect(html).toContain("Faturamento × Recebimento");
+    expect(html).toContain("Faturamento × Pagamentos dos clientes");
     expect(html).toContain("Último mês fechado:");
     expect(html).toContain(">Faturamento<");
-    expect(html).toContain(">Recebimento<");
+    expect(html).toContain(">Pagamentos dos clientes<");
     expect(html.replace(/\s|&nbsp;/g, "")).toContain("R$162K"); // faturamento do último mês fechado
     expect(html.replace(/\s|&nbsp;/g, "")).toContain("R$142K"); // recebimento do último mês fechado
     expect(html).toContain("em andamento");
@@ -85,7 +85,7 @@ describe("renderização dos cabeçalhos", () => {
   it("estado vazio orienta e não desenha o gráfico", () => {
     seed();
     const a = renderToString(<RevenueChart selectedUnit="Z" />).replace(/<!-- -->/g, "");
-    expect(a).toContain("Sem faturamento nem recebimento de Z");
+    expect(a).toContain("Sem faturamento nem pagamentos de Z");
     const b = renderToString(<NovosContratosChart selectedUnit="Z" />).replace(/<!-- -->/g, "");
     expect(b).toContain("Sem novos contratos nem cancelamentos de Z");
     expect(a).not.toContain("recharts");

@@ -86,7 +86,7 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, metas, onOpenMe
   const recebRatio = cobrado ? (t.recebimento / cobrado) * 100 : 0;
   const specs: KpiSpec[] = [
     faturamentoSpec,
-    { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do que foi cobrado`, tone: "neutral" }] },
+    { title: "Pagamentos dos clientes", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do que foi cobrado`, tone: "neutral" }] },
     { title: "Vendas Online", kind: "flow", pick: (v) => v.total.vendasOnline, fmt: brl },
     { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pctText },
     { title: "Inadimplência", kind: "rate", rateKey: "inadimplenciaPerc", pick: (v) => v.total.inadimplenciaPerc, fmt: pctText },

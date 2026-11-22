@@ -54,7 +54,7 @@ export interface DefSemana {
 /** Indicadores que existem por semana (ticket, inadimplência, adimplentes, churn e notas são do mês, não da semana). */
 export const SEMANAIS: DefSemana[] = [
   { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", formato: "brl", campo: (s) => s.totalVendas ?? s.faturamento },
-  { id: "rec", rotulo: "Recebimento", titulo: "Recebimento", formato: "brl", campo: (s) => s.recebimento },
+  { id: "rec", rotulo: "Pagamentos dos clientes", titulo: "Pagamentos dos clientes", formato: "brl", campo: (s) => s.recebimento },
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", formato: "int", campo: (s) => s.novosContratos },
   { id: "cv", rotulo: "Contratos vendidos", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.vendasContratos },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", formato: "brl", campo: (s) => s.vendasOnline },
@@ -320,7 +320,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,
     tipo: "semana", parcialAte, mesAteAqui, ateAgora, frequencia, complementares, satisfacao,
-    notaRecebimento: big?.some((k) => k.nome === "Recebimento") || rankings.some((r) => r.id === "rec") || mesAteAqui?.itens.some((k) => k.nome === "Recebimento") ? NOTA_RECEBIMENTO : null,
+    notaRecebimento: big?.some((k) => k.nome === "Pagamentos dos clientes") || rankings.some((r) => r.id === "rec") || mesAteAqui?.itens.some((k) => k.nome === "Pagamentos dos clientes") ? NOTA_RECEBIMENTO : null,
     // O plano é de uma unidade só e do mês em andamento: quem monta já confere isso, aqui só entra se foi pedido e o relatório é de uma unidade
     plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.u.name ? plano : null,
   };

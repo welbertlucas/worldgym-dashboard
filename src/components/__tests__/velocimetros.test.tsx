@@ -97,7 +97,7 @@ describe("Visão Executiva em meias-luas", () => {
     const m = month("2026-09", [unit("A"), unit("B")]);
     dashboardData.push(ant, m);
     const html = renderToString(<ExecutivaTab month={m} prev={ant} {...props} />).replace(/<!-- -->/g, "");
-    for (const s of ["Faturamento", "Recebimento", "Vendas Online", "Churn", "Inadimplência", "Renovação", "Conversão", "Metas da rede", "A marca no arco é o mês anterior"]) expect(html).toContain(s);
+    for (const s of ["Faturamento", "Pagamentos dos clientes", "Vendas Online", "Churn", "Inadimplência", "Renovação", "Conversão", "Metas da rede", "A marca no arco é o mês anterior"]) expect(html).toContain(s);
     expect(html).not.toContain("Em andamento");
     expect(html).not.toContain("Saúde da carteira");
   });

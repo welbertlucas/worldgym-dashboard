@@ -17,9 +17,9 @@ export function FormasPagamento({ total, monthLabel, unitLabel }: { total: UnitD
   const soma = l.reduce((s, [, v]) => s + v, 0);
   return (
     <DonutList
-      title="Recebimento por forma de pagamento"
+      title="Pagamentos por forma de pagamento"
       subtitle={`${unitLabel} • ${monthLabel} • valor pago no mês, pela data do pagamento`}
-      center={{ value: formatAbbreviatedNumber(soma), caption: "recebido" }}
+      center={{ value: formatAbbreviatedNumber(soma), caption: "pago" }}
       empty="Sem formas de pagamento do EVO neste mês."
       items={l.map(([label, value], k) => ({ label, value, color: CORES[k % CORES.length], valueText: moeda(value) }))}
     />
@@ -34,7 +34,7 @@ export function BandeirasCartao({ total, monthLabel, unitLabel }: { total: UnitD
   const soma = l.reduce((s, [, v]) => s + v, 0);
   return (
     <DonutList
-      title="Recebimento em cartão por bandeira"
+      title="Pagamentos em cartão por bandeira"
       subtitle={`${unitLabel} • ${monthLabel} • crédito e débito, pela data do pagamento`}
       center={{ value: formatAbbreviatedNumber(soma), caption: "em cartão" }}
       empty="Sem bandeiras do EVO neste mês."
@@ -58,7 +58,7 @@ export function GatewaysCartao({ total, monthLabel, unitLabel }: { total: UnitDa
   const soma = l.reduce((s, [, v]) => s + v, 0);
   return (
     <DonutList
-      title="Recebimento em cartão por gateway"
+      title="Pagamentos em cartão por gateway"
       subtitle={`${unitLabel} • ${monthLabel} • adquirente da transação, crédito e débito`}
       center={{ value: formatAbbreviatedNumber(soma), caption: "em cartão" }}
       empty="Sem gateways do EVO neste mês."

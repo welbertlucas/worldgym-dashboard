@@ -62,7 +62,7 @@ function RevenueTooltip({ active, payload }: { active?: boolean; payload?: { pay
   return (
     <TooltipCard
       title={formatMonthLong(r.month)}
-      rows={[{ label: "Faturamento", value: brl(r.fat), color: BRAND }, { label: "Recebimento", value: brl(r.rec), color: SLATE }]}
+      rows={[{ label: "Faturamento", value: brl(r.fat), color: BRAND }, { label: "Pagamentos dos clientes", value: brl(r.rec), color: SLATE }]}
       note={r.partial ? "Mês em andamento: valores parciais" : undefined}
     />
   );
@@ -83,7 +83,7 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
 
   return (
     <ChartCard
-      title="Faturamento × Recebimento"
+      title="Faturamento × Pagamentos dos clientes"
       subtitle={<>Média de faturamento dos últimos 12 meses fechados: {brlCompact(avgFaturamento)}</>}
       headline={
         last && !empty ? (
@@ -91,14 +91,14 @@ export function RevenueChart({ selectedUnit }: RevenueChartProps) {
             <p className="mb-2 text-xs text-muted-foreground">Último mês fechado: <span className="first-letter:uppercase">{formatMonthLong(last.month)}</span></p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:flex sm:gap-x-12">
               <HeadlineStat swatch={<Swatch color={BRAND} />} label="Faturamento" value={formatAbbreviatedNumber(last.fat)} />
-              <HeadlineStat swatch={<Swatch color={SLATE} thin />} label="Recebimento" value={formatAbbreviatedNumber(last.rec)} />
+              <HeadlineStat swatch={<Swatch color={SLATE} thin />} label="Pagamentos dos clientes" value={formatAbbreviatedNumber(last.rec)} />
             </div>
           </>
         ) : undefined
       }
     >
       {empty ? (
-        <ChartEmpty>{selectedUnit ? `Sem faturamento nem recebimento de ${selectedUnit} nos últimos 12 meses.` : "Sem faturamento nem recebimento nos últimos 12 meses."}</ChartEmpty>
+        <ChartEmpty>{selectedUnit ? `Sem faturamento nem pagamentos de ${selectedUnit} nos últimos 12 meses.` : "Sem faturamento nem pagamentos nos últimos 12 meses."}</ChartEmpty>
       ) : (
         <>
           <div className="h-[260px] sm:h-[280px]">

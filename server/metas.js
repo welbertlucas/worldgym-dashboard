@@ -7,7 +7,7 @@ export const TIERS = ["bronze", "prata", "ouro"];
 
 export const INDICADORES_META = {
   faturamento: { rotulo: "Faturamento", menorMelhor: false, formato: "moeda" },
-  recebimento: { rotulo: "Recebimento", menorMelhor: false, formato: "moeda" },
+  recebimento: { rotulo: "Pagamentos dos clientes", menorMelhor: false, formato: "moeda" },
   vendasOnline: { rotulo: "Vendas online", menorMelhor: false, formato: "moeda" },
   novosContratos: { rotulo: "Novos contratos", menorMelhor: false, formato: "numero" },
   churn: { rotulo: "Churn", menorMelhor: true, formato: "percentual" },

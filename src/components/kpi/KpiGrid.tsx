@@ -35,7 +35,7 @@ export interface KpiSpec {
   semTextoDoMesAnterior?: boolean;
 }
 
-const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Recebimento"]);
+const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Pagamentos dos clientes"]);
 /** Fonte do número: faturamento e recebimento vêm do EVO; inadimplência também, nos meses em que o EVO a calculou. */
 function sourceOf(title: string, v: MonthView): string {
   if (EVO_TITLES.has(title)) return "EVO";

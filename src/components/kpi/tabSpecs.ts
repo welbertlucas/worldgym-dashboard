@@ -72,8 +72,8 @@ export const complementaresSpecs: KpiSpec[] = [
 
 export const financeiroSpecs: KpiSpec[] = [
   faturamentoSpec,
-  { title: "Recebimento", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber },
-  // Ticket = recebimento ÷ ativos: no mês em andamento acumula como o recebimento (comparado como fluxo).
+  { title: "Pagamentos dos clientes", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber },
+  // Ticket = pagamentos dos clientes ÷ ativos: no mês em andamento acumula como o recebimento (comparado como fluxo).
   { title: "Ticket Médio", kind: "flow", pick: (v) => v.total.ticketMedio, fmt: brl },
 ];
 

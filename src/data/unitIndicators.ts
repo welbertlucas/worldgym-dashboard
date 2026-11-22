@@ -38,7 +38,7 @@ const field = (key: keyof UnitData) => (u: UnitData) => u[key] as number;
 // Receitas complementares ficam SEM regra: não há critério definido de "melhor" entre unidades.
 export const INDICATORS: Indicator[] = [
   { key: "faturamento", label: "Faturamento", category: "financeiro", format: "currency", direction: "higher", value: field("faturamento") },
-  { key: "recebimento", label: "Recebimento", category: "financeiro", format: "currency", direction: "higher", value: field("recebimento") },
+  { key: "recebimento", label: "Pagamentos dos clientes", category: "financeiro", format: "currency", direction: "higher", value: field("recebimento") },
   { key: "ticketMedio", label: "Ticket médio", category: "financeiro", format: "currency", direction: "higher", value: field("ticketMedio") },
   { key: "novosContratos", label: "Novos contratos", category: "comercial", format: "number", direction: "higher", value: field("novosContratos") },
   { key: "vendasOnline", label: "Vendas online", category: "comercial", format: "currency", direction: "higher", value: field("vendasOnline") },
