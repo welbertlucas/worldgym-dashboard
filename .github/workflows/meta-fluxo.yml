@@ -1,0 +1,25 @@
+name: Fluxo do Meta nas unidades
+
+# Estimativa de público do Meta em volta de cada unidade (quem mora x quem esteve recentemente), para o estudo de ponto.
+# Só leitura; o resultado vai para o Blob privado, nunca para o log (repositório público). Roda só à mão.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fluxo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Estimativas de público
+        env:
+          META_TOKEN_DFGO: ${{ secrets.META_TOKEN_DFGO }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: node scripts/meta-fluxo.mjs
