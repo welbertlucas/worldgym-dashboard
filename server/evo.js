@@ -6,7 +6,7 @@
 //  - recebimento = soma de `ammountPaid` dos títulos efetivamente cobrados no mês (data
 //    `chargeDate`, a do pagamento — `receivingDate` é sempre igual ao vencimento), sem cancelados.
 
-import { UNIT_NAMES } from "./units.js";
+import { COORDENADAS_UNIDADES, UNIT_NAMES } from "./units.js";
 import { semanasFinanceiro } from "./semanas.js";
 
 const BASE = "https://evo-integracao.w12app.com.br/api/v1";
@@ -148,7 +148,11 @@ const PAGINA_TITULOS = 1000;
 
 export async function listBranches() {
   const all = await evoGet("/configuration");
-  return all.filter((b) => b.idBranch > 0).map((b) => ({ idBranch: b.idBranch, name: String(b.name).trim(), latitude: b.latitude, longitude: b.longitude }));
+  // A posição do EVO erra em várias unidades (até 58 km): vale a do Google Maps quando a unidade está na tabela.
+  return all.filter((b) => b.idBranch > 0).map((b) => {
+    const [lat, lng] = COORDENADAS_UNIDADES[b.idBranch] ?? [b.latitude, b.longitude];
+    return { idBranch: b.idBranch, name: String(b.name).trim(), latitude: lat, longitude: lng };
+  });
 }
 
 function monthRange(ym) {

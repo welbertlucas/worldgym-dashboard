@@ -25,3 +25,32 @@ export const UNIT_NAMES = {
   31: "Jardim Ingá-GO",
   32: "Valparaíso-GO",
 };
+
+// Onde cada unidade fica [lat, lng], tirado do Google Maps (aba "Links Google" da planilha, links conferidos pelo dono), em 22/11/2026.
+// O /configuration do EVO erra a posição de várias (Planaltina-DF a 58 km, Novo Gama 25 km, Planaltina-GO 18 km, Jardim Ingá 12 km):
+// estas coordenadas valem no lugar das do EVO (mapa dos alunos e geocodificação dos bairros). Endereço comercial, público.
+export const COORDENADAS_UNIDADES = {
+  5: [-15.7557218, -47.8931096],
+  6: [-16.0144302, -48.0684536],
+  7: [-15.7522375, -47.7630588],
+  8: [-15.4533562, -47.6078043],
+  10: [-15.8690492, -48.0861428],
+  13: [-15.8744931, -48.0158519],
+  14: [-15.9033965, -47.7714658],
+  15: [-15.9031352, -48.0503539],
+  16: [-15.8225421, -48.1113706],
+  17: [-15.6561816, -47.80474],
+  18: [-15.8356616, -48.0167096],
+  19: [-15.8646933, -48.0577339],
+  20: [-15.7407875, -48.2699431],
+  21: [-15.9696175, -48.0451139],
+  22: [-16.7180193, -49.2642381],
+  23: [-15.8404538, -48.0206161],
+  24: [-15.6182258, -47.6514559],
+  25: [-16.0499591, -48.0287172],
+  26: [-12.995648, -38.4449992],
+  28: [-16.011052, -47.9937093],
+  30: [-15.8107399, -48.0784125],
+  31: [-16.1537691, -47.9546244],
+  32: [-16.0721155, -47.9855943],
+};

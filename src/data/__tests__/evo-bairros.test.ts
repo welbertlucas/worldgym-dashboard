@@ -58,3 +58,53 @@ describe("mapa dos alunos", () => {
     expect(dadosDoMapa("B", ["A", "B"]).alunos).toBe(8);
   });
 });
+
+// @ts-expect-error módulo JS do servidor
+import { aplicarBairros, distanciaKm, RAIO_MAX_KM } from "../../../server/bairros.js";
+// @ts-expect-error módulo JS do servidor
+import { COORDENADAS_UNIDADES } from "../../../server/units.js";
+describe("bairros perto da unidade", () => {
+  const PLANALTINA_GO: [number, number] = [-15.4533562, -47.6078043];
+
+  it("descarta o bairro achado longe da unidade e cai na cidade, perto dela", async () => {
+    const consultas: Array<[string, unknown]> = [];
+    // O OpenStreetMap não tem os setores de Planaltina-GO: a busca sem a cidade acha um "Setor Norte" a ~94 km
+    const busca = async (q: string, ancora: unknown) => {
+      consultas.push([q, ancora]);
+      if (q === "Setor Norte, GO") return [-16.3, -48.2];
+      if (q === "Planaltina, GO") return [-15.452, -47.614];
+      return null;
+    };
+    const c = await coordenadasDoBairro({ bairro: "Setor Norte", cidade: "Planaltina", uf: "GO" }, busca, PLANALTINA_GO);
+    expect(c).toEqual([-15.452, -47.614, 1]); // aproximado: centro da cidade
+    expect(consultas.every(([, a]) => a === PLANALTINA_GO)).toBe(true); // toda busca vai com a caixa em volta da unidade
+    expect(distanciaKm(PLANALTINA_GO, [-16.3, -48.2])).toBeGreaterThan(RAIO_MAX_KM);
+  });
+
+  it("sem nada perto, o bairro fica sem localização", async () => {
+    const longe = async () => [-12.97, -38.5]; // Salvador
+    expect(await coordenadasDoBairro({ bairro: "Centro", cidade: "Cidade Ocidental", uf: "GO" }, longe, PLANALTINA_GO)).toBeNull();
+  });
+
+  it("refaz a coordenada guardada longe da unidade, mantém a que está perto e marca a unidade no lugar certo", async () => {
+    const geo: Record<string, unknown> = {
+      [chaveBairro("Setor Norte", "Planaltina")]: [-16.3, -48.2], // guardada errada, a ~94 km
+      [chaveBairro("Setor Leste", "Planaltina")]: [-15.455, -47.6], // certa
+    };
+    const buscas: string[] = [];
+    const busca = async (q: string) => { buscas.push(q); return q === "Planaltina, GO" ? [-15.452, -47.614] : null; };
+    const u: Record<string, unknown> = { name: "Planaltina-GO" };
+    const foto = { lista: [{ bairro: "Setor Norte", cidade: "Planaltina", uf: "GO", n: 10 }, { bairro: "Setor Leste", cidade: "Planaltina", uf: "GO", n: 5 }], semBairro: 0, inativos: [], semBairroInativos: 0, acessos: [], perfil: {} };
+    const r = await aplicarBairros(u, foto, geo, PLANALTINA_GO, busca);
+    expect(r.falhou).toBe(false);
+    expect(u.bairros).toEqual([["Setor Norte", "Planaltina", 10, -15.452, -47.614, 1], ["Setor Leste", "Planaltina", 5, -15.455, -47.6]]);
+    expect(buscas.some((q) => q.startsWith("Setor Leste"))).toBe(false); // a que estava perto não foi buscada de novo
+    expect(u.local).toEqual(PLANALTINA_GO);
+  });
+
+  it("toda unidade do painel tem a posição do Google Maps", async () => {
+    // @ts-expect-error módulo JS do servidor
+    const { UNIT_NAMES } = await import("../../../server/units.js");
+    expect(Object.keys(COORDENADAS_UNIDADES).sort()).toEqual(Object.keys(UNIT_NAMES).sort());
+  });
+});
