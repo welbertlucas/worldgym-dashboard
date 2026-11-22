@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ID_BIG, ID_SATISF, montarRelatorio } from "@/data/relatorio";
+import { montarRelatorioSemanal } from "@/data/relatorioSemana";
 import { GRUPOS_DO_RELATORIO, TODOS_OS_IDS, previaDoItem, rotuloDaOpcao } from "@/data/relatorioOpcoes";
 import { lerEscolhas, salvarEscolhas } from "@/lib/relatorioEscolhas";
 import { month, unit } from "./helpers";
@@ -28,6 +29,15 @@ describe("opções do relatório", () => {
     expect(previaDoItem(m, "inad")).toBeNull(); // não foi marcado
     const um = montarRelatorio(dados, "2026-10", ["fat"], ["Asa Sul"])!;
     expect(previaDoItem(um, "fat")).toBe("R$ 120.000");
+  });
+});
+
+describe("prévia do relatório semanal", () => {
+  it("mostra o número da semana e, em seguida, o acumulado do mês até agora", () => {
+    const base = [month("2026-11", [unit("Itapoã", { semanas: [{ vendasContratos: 38, vendasContratosEspeciais: 1 }, { vendasContratos: 52, vendasContratosEspeciais: 1 }, { vendasContratos: 37, vendasContratosEspeciais: 6 }] } as never)])];
+    const m = montarRelatorioSemanal(base, "2026-11", 3, ["cv"], ["Itapoã"], 21)!;
+    expect(previaDoItem(m, "cv")).toBe("na semana (15-21 nov/26): 37 · no mês até aqui (1-21 nov/26): 127, dos quais 8 são especiais");
+    expect(rotuloDaOpcao("cv", "semana")).toBe("Contratos vendidos"); // sem o "(total)" que confundia com o total do mês
   });
 });
 

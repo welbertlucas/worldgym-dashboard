@@ -26,7 +26,7 @@ export const RANKINGS: DefRanking[] = [
   { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", campo: (u) => u.faturamento, formato: "brl" },
   { id: "cresc", rotulo: "Crescimento do faturamento (contra o ano anterior)", titulo: "Crescimento faturamento*", campo: (u) => u.faturamento, formato: "pct", crescimento: true },
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", campo: (u) => u.novosContratos, formato: "int" },
-  { id: "cv", rotulo: "Contratos vendidos (total, como no Gerencial do EVO)", titulo: "Contratos vendidos", campo: (u) => u.vendasContratos, formato: "int" },
+  { id: "cv", rotulo: "Contratos vendidos (como no Gerencial do EVO)", titulo: "Contratos vendidos", campo: (u) => u.vendasContratos, formato: "int" },
   { id: "tk", rotulo: "Ticket médio", titulo: "Ticket médio", campo: (u) => u.ticketMedio, formato: "brl2" },
   { id: "ad", rotulo: "Adimplentes", titulo: "Adimplentes", campo: (u) => u.adimplentes, formato: "int" },
   { id: "inad", rotulo: "Inadimplência (%), com os principais motivos de recusa", titulo: "Inadimplência", campo: (u) => u.inadimplenciaPerc, formato: "pct", menorMelhor: true },
@@ -80,6 +80,9 @@ export interface BigNumero {
   /** Em indicador em que cair é bom (inadimplência). */
   menorMelhor?: boolean;
   anterior: string | null;
+  /** Relatório de mês fechado: a segunda comparação, com o MÊS ANTERIOR (a primeira é com o mesmo mês do ano anterior, quando a unidade existia). */
+  variacaoMes?: number | null;
+  anteriorMes?: string | null;
   /** Linha pequena embaixo do nome (ex.: contratos especiais dentro do total de contratos vendidos). */
   nota?: string;
 }
@@ -91,6 +94,9 @@ export interface Cartao {
   emPontos?: boolean;
   menorMelhor?: boolean;
   anterior: string | null;
+  /** Relatório de mês fechado: comparação com o mês anterior (a de cima é com o mesmo mês do ano anterior). */
+  variacaoMes?: number | null;
+  anteriorMes?: string | null;
   /** Barra de progresso da meta do mês (só relatório de mês fechado): quanto do nível mais alto já foi atingido. */
   meta?: { pct: number; texto: string };
   /** Evolução dos últimos períodos (até 6) para o gráfico de colunas: o último é o do relatório. */
@@ -108,6 +114,8 @@ export interface SerieEvolucao {
   metaLinha?: { valor: number; rotulo: string };
   /** Período em andamento: a última coluna ainda não fechou. */
   parcial?: boolean;
+  /** Semanal: quais colunas são do mês do relatório (as outras são do mês anterior e saem em cinza). */
+  noMes?: boolean[];
 }
 
 /** Número de períodos no gráfico de evolução. */
@@ -179,6 +187,8 @@ export interface SlideMetas { periodo: string; linhas: LinhaMeta[]; escopoTexto:
 
 export interface SlideRanking {
   id: string;
+  /** Relatório semanal: o acumulado do mês até aqui, no quadro vinho ao lado do gráfico. */
+  ateAgora?: AteAgora;
   /** Motivos que vão num slide logo depois deste (cancelamentos e inadimplência). */
   motivos?: SlideMotivos;
   titulo: string;
@@ -214,6 +224,20 @@ export interface MesAteAqui {
   itens: ItemMesAteAqui[];
 }
 
+/** O acumulado do mês até aqui de um indicador do relatório semanal: vai no quadro vinho ao lado do gráfico (só o total, sem comparação: nem toda unidade tem o mês anterior). */
+export interface AteAgora {
+  /** "127" ou "R$ 206.786" (conversão: "48,4% (38 de 77 visitantes)"). */
+  valor: string;
+  /** "dos quais 8 são especiais" (só nos contratos vendidos). */
+  nota?: string;
+  /** "no mês até aqui (1-21 nov/26): 127, dos quais 8 são especiais" (prévia do menu). */
+  texto: string;
+  /** "1-21 nov/26". */
+  periodo: string;
+  /** Meta do mês (nível mais alto cadastrado): quanto já foi feito. */
+  meta?: { pct: number; texto: string };
+}
+
 export interface ModeloRelatorio {
   mes: string;
   /** "OUT/2026". */
@@ -222,6 +246,10 @@ export interface ModeloRelatorio {
   periodo: string;
   /** "out/2025", ou null se o ano anterior não está guardado. */
   mesAnteriorCurto: string | null;
+  /** Relatório de mês fechado: "set/2026", o mês anterior (null se não está guardado). */
+  mesPassadoCurto?: string | null;
+  /** Várias unidades: aviso de que a comparação inclui unidades que ainda não existiam no mês comparado (abertas depois). */
+  notaComparacao?: string | null;
   escopo: string;
   nUnidades: number;
   big: BigNumero[] | null;
@@ -246,6 +274,8 @@ export interface ModeloRelatorio {
   satisfacao?: SlideSatisfacao | null;
   /** Slide "Metas do mês". */
   metas?: SlideMetas | null;
+  /** Relatório semanal: o acumulado do mês até aqui de cada indicador (id → valor), para a semana nunca aparecer sozinha. */
+  ateAgora?: Record<string, AteAgora>;
   /** Aviso sobre o recebimento (relatório semanal): inclui títulos vencidos de meses anteriores que foram pagos agora. */
   notaRecebimento?: string | null;
   /** Texto livre da pessoa que gera o relatório (slide "Observações"). */
@@ -258,6 +288,8 @@ const mesCurtoMin = (m: string) => { const [y, n] = m.split("-"); return `${MESE
 /** Período como aparece na capa: "1-30 nov/26" (o mês inteiro, por enquanto). */
 export const rotuloDoPeriodo = (m: string) => { const [y, n] = m.split("-").map(Number); return `1-${new Date(y, n, 0).getDate()} ${MESES[n - 1]}/${String(y).slice(2)}`; };
 export const mesDoAnoAnterior = (m: string) => { const [y, n] = m.split("-"); return `${Number(y) - 1}-${n}`; };
+/** "2026-10" → "2026-09". */
+const mesAnteriorDe = (m: string) => { const [y, n] = m.split("-").map(Number); return new Date(Date.UTC(y, n - 2, 1)).toISOString().slice(0, 7); };
 
 /** Meses fechados que o painel tem (um relatório de mês em andamento mostraria números parciais). */
 export const mesesParaRelatorio = (meses: string[], hoje = new Date()) => {
@@ -326,8 +358,8 @@ export function serieMensal(meses: MonthData[], mes: string, unidade: string, de
 const soma = (l: UnitData[], f: (u: UnitData) => number) => l.reduce((s, u) => s + (Number.isFinite(f(u)) ? f(u) : 0), 0);
 const variacao = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : null);
 
-function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNumero[]; conversao: number | null; oportunidades: number | null; convertidas: number | null } {
-  const tem = !!ant?.length;
+function numerosGerais(atual: UnitData[], ant: UnitData[] | null, antMes: UnitData[] | null = null): { big: BigNumero[]; conversao: number | null; oportunidades: number | null; convertidas: number | null } {
+  const tem = !!ant?.length, temM = !!antMes?.length;
   const fmtBrl = (n: number) => "R$ " + n.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
   const fmtBrl2 = (n: number) => "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtInt = (n: number) => Math.round(n).toLocaleString("pt-BR");
@@ -336,16 +368,16 @@ function numerosGerais(atual: UnitData[], ant: UnitData[] | null): { big: BigNum
   // Ticket médio da rede = média simples das unidades (como no resto do Atlas).
   const ticket = (l: UnitData[]) => (l.length ? soma(l, (u) => u.ticketMedio) / l.length : 0);
   const comp = (f: (u: UnitData) => number, fmt: (n: number) => string, nome: string): BigNumero => {
-    const a = soma(atual, f), b = tem ? soma(ant!, f) : 0;
-    return { nome, valor: fmt(a), variacao: tem ? variacao(a, b) : null, anterior: tem && b > 0 ? fmt(b) : null };
+    const a = soma(atual, f), b = tem ? soma(ant!, f) : 0, bm = temM ? soma(antMes!, f) : 0;
+    return { nome, valor: fmt(a), variacao: tem ? variacao(a, b) : null, anterior: tem && b > 0 ? fmt(b) : null, variacaoMes: temM ? variacao(a, bm) : null, anteriorMes: temM && bm > 0 ? fmt(bm) : null };
   };
   const big: BigNumero[] = [
     comp((u) => u.faturamento, fmtBrl, "Faturamento"),
     comp((u) => u.adimplentes, fmtInt, "Adimplentes"),
     comp((u) => u.novosContratos, fmtInt, "Novos contratos"),
     { ...comp((u) => u.vendasContratos ?? 0, fmtInt, "Contratos vendidos"), nota: notaContratosEspeciais(soma(atual, (u) => u.vendasContratosEspeciais ?? 0)) },
-    { nome: "Ticket médio", valor: fmtBrl2(ticket(atual)), variacao: tem && ticket(ant!) > 0 ? variacao(ticket(atual), ticket(ant!)) : null, anterior: tem && ticket(ant!) > 0 ? fmtBrl2(ticket(ant!)) : null },
-    { nome: "Inadimplentes", valor: fmtPct(taxaInad(atual)), variacao: tem ? taxaInad(atual) - taxaInad(ant!) : null, emPontos: true, menorMelhor: true, anterior: tem ? fmtPct(taxaInad(ant!)) : null },
+    { nome: "Ticket médio", valor: fmtBrl2(ticket(atual)), variacao: tem && ticket(ant!) > 0 ? variacao(ticket(atual), ticket(ant!)) : null, anterior: tem && ticket(ant!) > 0 ? fmtBrl2(ticket(ant!)) : null, variacaoMes: temM && ticket(antMes!) > 0 ? variacao(ticket(atual), ticket(antMes!)) : null, anteriorMes: temM && ticket(antMes!) > 0 ? fmtBrl2(ticket(antMes!)) : null },
+    { nome: "Inadimplentes", valor: fmtPct(taxaInad(atual)), variacao: tem ? taxaInad(atual) - taxaInad(ant!) : null, emPontos: true, menorMelhor: true, anterior: tem ? fmtPct(taxaInad(ant!)) : null, variacaoMes: temM ? taxaInad(atual) - taxaInad(antMes!) : null, anteriorMes: temM ? fmtPct(taxaInad(antMes!)) : null },
     comp((u) => u.vendasOnline, fmtBrl, "Vendas online"),
   ];
   const op = soma(atual, (u) => u.visitantes ?? u.oportunidades), cv = soma(atual, (u) => u.convertidos ?? u.conversoes);
@@ -513,7 +545,17 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
   const ant = mAnt ? noEscopo(mAnt.units) : null;
   const porNomeAnt = new Map((ant ?? []).map((u) => [u.name, u]));
   const antCurto = mAnt ? mesCurtoMin(mAnt.month) : null;
+  // Segunda comparação: com o mês anterior (a unidade pode não ter sido aberta no mesmo mês do ano anterior; aí só esta aparece)
+  const mMes = meses.find((x) => x.month === mesAnteriorDe(mes));
+  const antMes = mMes ? noEscopo(mMes.units) : null;
+  const porNomeMes = new Map((antMes ?? []).map((u) => [u.name, u]));
+  const mesPassadoCurto = mMes ? mesCurtoMin(mMes.month) : null;
   const escolheu = new Set(selecionados);
+  // Várias unidades: quem foi aberta depois entra nos números do mês e não tinha o mês comparado; o relatório avisa
+  const sem = (base: Map<string, UnitData>) => atual.filter((u) => !((base.get(u.name)?.faturamento ?? 0) > 0)).length;
+  const semAno = atual.length > 1 && ant ? sem(porNomeAnt) : 0, semMes = atual.length > 1 && antMes ? sem(porNomeMes) : 0;
+  const partesNota = [semAno > 0 && antCurto ? `${semAno} ${semAno === 1 ? "unidade" : "unidades"} sem ${antCurto}` : "", semMes > 0 && mesPassadoCurto ? `${semMes} ${semMes === 1 ? "unidade" : "unidades"} sem ${mesPassadoCurto}` : ""].filter(Boolean);
+  const notaComparacao = partesNota.length ? `As comparações incluem unidades abertas depois do período comparado (${partesNota.join("; ")}).` : null;
 
   const rankings: SlideRanking[] = [];
   const umaSo = atual.length === 1 ? atual[0] : null;
@@ -536,7 +578,10 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
       const temBase = typeof b === "number" && Number.isFinite(b) && b > 0;
       const emPontos = def.formato === "pct";
       const variacaoCartao = !temBase ? null : emPontos ? v - (b as number) : (b as number) > 0 ? ((v - (b as number)) / (b as number)) * 100 : null;
-      rankings.push({ id: def.id, titulo: def.titulo, subtitulo: `apenas em ${mesCurto(mes)}`, formato: def.formato, itens: [], cartao: { valor: fmtValor(def.formato, v), variacao: variacaoCartao, emPontos, menorMelhor: def.menorMelhor, anterior: temBase && antCurto ? `${fmtValor(def.formato, b as number)}  ·  ${antCurto}` : null, meta: progressoDaMeta(metas, mes, umaSo.name, def.id, v, def.formato), serie: serieComMeta(serieMensal(meses, mes, umaSo.name, def), metas, mes, umaSo.name, def.id, def.formato) } });
+      const bm = porNomeMes.has(umaSo.name) ? def.campo(porNomeMes.get(umaSo.name)!) : null;
+      const temBaseMes = typeof bm === "number" && Number.isFinite(bm) && bm > 0;
+      const variacaoMesCartao = !temBaseMes ? null : emPontos ? v - (bm as number) : ((v - (bm as number)) / (bm as number)) * 100;
+      rankings.push({ id: def.id, titulo: def.titulo, subtitulo: `apenas em ${mesCurto(mes)}`, formato: def.formato, itens: [], cartao: { valor: fmtValor(def.formato, v), variacao: variacaoCartao, emPontos, menorMelhor: def.menorMelhor, anterior: temBase && antCurto ? `${fmtValor(def.formato, b as number)}  ·  ${antCurto}` : null, variacaoMes: variacaoMesCartao, anteriorMes: temBaseMes && mesPassadoCurto ? `${fmtValor(def.formato, bm as number)}  ·  ${mesPassadoCurto}` : null, meta: progressoDaMeta(metas, mes, umaSo.name, def.id, v, def.formato), serie: serieComMeta(serieMensal(meses, mes, umaSo.name, def), metas, mes, umaSo.name, def.id, def.formato) } });
       continue;
     }
     let itens: [string, number][] = [];
@@ -570,12 +615,12 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
   }
   const complementares = escolheu.has(ID_COMPL) ? montarComplementares(rotuloDoPeriodo(mes), atual, soma(atual, (u) => u.faturamento), ant, antCurto) : null;
   const frequencia = escolheu.has(ID_FREQ) ? montarFrequencia(meses, mes, atual, rotuloDoPeriodo(mes)) : null;
-  const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant) : null;
+  const geral = escolheu.has(ID_BIG) ? numerosGerais(atual, ant, antMes) : null;
   const satisfacao = escolheu.has(ID_SATISF) ? montarSatisfacao(rotuloDoPeriodo(mes), atual, ant, antCurto) : null;
   const rede = !unidades || unidades.length >= m.units.length;
   const metasDoMes = escolheu.has(ID_METAS) ? montarMetasDoMes(metas, m, atual, rede, rotuloDoPeriodo(mes)) : null;
   const escopo = !unidades ? "Rede" : atual.length === 1 ? atual[0].name : unidades.length >= m.units.length ? "Rede" : `${atual.length} unidades`;
-  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, frequencia, complementares, satisfacao, metas: metasDoMes, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
+  return { mes, mesCurto: mesCurto(mes), periodo: rotuloDoPeriodo(mes), mesAnteriorCurto: antCurto, mesPassadoCurto, notaComparacao, escopo, nUnidades: atual.length, big: geral?.big ?? null, conversao: geral?.conversao ?? null, oportunidades: geral?.oportunidades ?? null, convertidas: geral?.convertidas ?? null, rankings, frequencia, complementares, satisfacao, metas: metasDoMes, plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.name ? plano : null };
 }
 
 /** O que o menu mostra de cada slide, antes de gerar. */

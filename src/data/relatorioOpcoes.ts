@@ -53,7 +53,10 @@ export function previaDoItem(m: ModeloRelatorio, id: string): string | null {
   if (id === ID_PLANO) return m.plano ? `plano de ${m.plano.unidade}` : null;
   const r = m.rankings.find((x) => x.id === id);
   if (!r) return null;
-  if (r.cartao) return r.cartao.valor + (r.cartao.variacao !== null ? ` (${sinal(r.cartao.variacao, !!r.cartao.emPontos)})` : "");
+  // Relatório semanal: o número da semana e, logo depois, o acumulado do mês até aqui (nunca a semana sozinha)
+  const a = m.tipo === "semana" ? m.ateAgora?.[id] : undefined;
+  const ate = a ? ` · ${a.texto}` : "";
+  if (r.cartao) return `${m.tipo === "semana" ? `na semana (${m.periodo}): ` : ""}${r.cartao.valor}${r.cartao.variacao !== null ? ` (${sinal(r.cartao.variacao, !!r.cartao.emPontos)})` : ""}${ate}`;
   const [nome, v] = r.itens[0] ?? [];
-  return nome === undefined ? null : `1º ${nome}: ${fmtValor(r.formato, v as number)}`;
+  return nome === undefined ? null : `1º ${nome}: ${fmtValor(r.formato, v as number)}${m.tipo === "semana" ? ` (semana ${m.periodo})` : ""}${ate}`;
 }

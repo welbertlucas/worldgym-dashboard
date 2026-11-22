@@ -183,7 +183,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
                 <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => setIndicadores([])}>Limpar</button>
               </div>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Cada item marcado vira um slide, e embaixo dele aparecem os números que vão nele. O que só existe no {tipo === "mes" ? "relatório da semana" : "mês fechado"} fica apagado.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Cada item marcado vira um slide, e embaixo dele aparecem os números que vão nele. O que só existe no {tipo === "mes" ? "relatório da semana" : "mês fechado"} fica apagado.{tipo === "semana" ? " Na semana, cada indicador mostra o número da semana e, em seguida, o total do mês até agora." : ""}</p>
             <div className="mt-4 space-y-5">
               {GRUPOS_DO_RELATORIO.map((g) => (
                 <div key={g.titulo}>

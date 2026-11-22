@@ -3,6 +3,7 @@
 import type { MonthData, SemanaDoMes, UnitData } from "@/data/dashboardData";
 import type { Meta, MetaKey } from "@/data/metas";
 import type { PlanoDaUnidade } from "@/data/relatorioPlano";
+import type { AteAgora } from "@/data/relatorio";
 import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, NOTA_RECEBIMENTO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, notaContratosEspeciais, motivosDoRanking, type BigNumero, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -54,11 +55,14 @@ export const SEMANAIS: DefSemana[] = [
   { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", formato: "brl", campo: (s) => s.totalVendas ?? s.faturamento },
   { id: "rec", rotulo: "Recebimento", titulo: "Recebimento", formato: "brl", campo: (s) => s.recebimento },
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", formato: "int", campo: (s) => s.novosContratos },
-  { id: "cv", rotulo: "Contratos vendidos (total)", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.vendasContratos },
+  { id: "cv", rotulo: "Contratos vendidos", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.vendasContratos },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", formato: "brl", campo: (s) => s.vendasOnline },
   { id: "op", rotulo: "Visitantes (presenciais, como no cartão do EVO)", titulo: "Visitantes", formato: "int", campo: (s) => s.visitantes ?? s.oportunidades },
   { id: "canc", rotulo: "Cancelamentos", titulo: "Cancelamentos", formato: "int", campo: (s) => s.cancelados, menorMelhor: true },
 ];
+/** Relatório semanal com variação e comparação com a mesma semana do mês anterior (desligado por decisão do dono). */
+export const COMPARAR_COM_MES_ANTERIOR = false;
+
 export const ID_CONVERSAO = "conv";
 /** Slide "O mês até aqui". */
 export const ID_MES_ATE_AQUI = "mes";
@@ -105,6 +109,7 @@ export function serieSemanal(meses: MonthData[], mes: string, semana: number, un
     destaque: ult.length - 1,
     comparada: iComp >= 0 ? iComp : undefined,
     parcial: estadoDaSemana(mes, semana, fechados) === "andamento",
+    noMes: ult.map((p) => p.mes === mes),
   };
 }
 
@@ -156,7 +161,9 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
 
   const mAnt = meses.find((x) => x.month === mesAnterior(mes));
   const limAnt = limitesDaSemana(mesAnterior(mes), semana);
-  const comparar = estado === "fechada" && !!mAnt && !!limAnt;
+  // Decisão do dono (21/11/2026): o relatório semanal não mostra variação nem comparação com o mês anterior (nem toda unidade tem o período anterior).
+  // O código da comparação continua aqui: para voltar, troque COMPARAR_COM_MES_ANTERIOR para true.
+  const comparar = COMPARAR_COM_MES_ANTERIOR && estado === "fechada" && !!mAnt && !!limAnt;
   const ant = comparar ? daSemana(mAnt, semana, unidades) : [];
   const temAnt = comparar && ant.length > 0;
   const rotuloAnt = temAnt ? rotuloDaSemana(mesAnterior(mes), semana) : null;
@@ -222,6 +229,35 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
     if (oportunidades <= 0) { oportunidades = null; convertidas = null; }
   }
 
+  // "Até agora no mês": o acumulado de cada indicador (semanas 1 a N), para o número da semana nunca aparecer sozinho no relatório
+  const nomesAtual = atual.map((d) => d.u.name);
+  const periodoAteAgora = rotuloAcumulado(mes, estado === "fechada" ? lim.ate : fechados);
+  const prefixoAteAgora = umaSo ? "no mês até aqui" : "total das unidades no mês até aqui";
+  const ateAgora: Record<string, AteAgora> = {};
+  const redeAteAgora = !unidades || unidades.length >= m.units.length;
+  const chaveDoId = Object.fromEntries(ACUMULADOS.map((a) => [a.id, a.chave]));
+  for (const def of SEMANAIS) {
+    const v = acumulado(m, semana, nomesAtual, def.campo);
+    if (v === null) continue;
+    const nota = def.id === "cv" ? notaContratosEspeciais(acumulado(m, semana, nomesAtual, (s) => s.vendasContratosEspeciais) ?? 0) : undefined;
+    const chave = chaveDoId[def.id];
+    const alvo = chave ? metaDoEscopo(metas, mes, chave, nomesAtual, redeAteAgora) : undefined;
+    const pct = alvo ? (v / alvo.alvo) * 100 : null;
+    ateAgora[def.id] = {
+      valor: fmt(def.formato, v), nota, periodo: periodoAteAgora, texto: `${prefixoAteAgora} (${periodoAteAgora}): ${fmt(def.formato, v)}${nota ? `, ${nota}` : ""}`,
+      meta: alvo && pct !== null ? { pct, texto: `${Math.round(pct).toLocaleString("pt-BR")}% da meta ${alvo.nivel} · ${fmt(def.formato, alvo.alvo)}` } : undefined,
+    };
+  }
+  {
+    // A conversão não se soma: no acumulado é a taxa do mês até aqui (convertidos ÷ visitantes de 1 até o fim da semana)
+    const vis = acumulado(m, semana, nomesAtual, (s) => s.visitantes ?? s.oportunidades), cvs = acumulado(m, semana, nomesAtual, (s) => s.convertidos ?? s.conversoes);
+    if (vis !== null && cvs !== null && vis > 0) {
+      const v = `${fmtPct((cvs / vis) * 100)} (${fmt("int", cvs)} de ${fmt("int", vis)} visitantes)`;
+      ateAgora[ID_CONVERSAO] = { valor: v, periodo: periodoAteAgora, texto: `${prefixoAteAgora} (${periodoAteAgora}): ${v}` };
+    }
+  }
+  for (const r of rankings) { const a = ateAgora[r.id]; if (a) r.ateAgora = a; }
+
   // "O mês até aqui": acumulado das semanas 1 a N (a semana em andamento entra até onde os dados chegaram), contra a meta e contra o mesmo ponto do mês anterior
   let mesAteAqui: MesAteAqui | null = null;
   if (escolheu.has(ID_MES_ATE_AQUI)) {
@@ -256,7 +292,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   const parcialAte = estado === "andamento" ? `${dd(fechados)}/${mes.slice(5, 7)}` : null;
   return {
     mes, mesCurto: mesCurto(mes), periodo, mesAnteriorCurto: rotuloAnt, escopo, nUnidades: atual.length, big, conversao, oportunidades, convertidas, rankings,
-    tipo: "semana", parcialAte, mesAteAqui, frequencia, complementares,
+    tipo: "semana", parcialAte, mesAteAqui, ateAgora, frequencia, complementares,
     notaRecebimento: big?.some((k) => k.nome === "Recebimento") || rankings.some((r) => r.id === "rec") || mesAteAqui?.itens.some((k) => k.nome === "Recebimento") ? NOTA_RECEBIMENTO : null,
     // O plano é de uma unidade só e do mês em andamento: quem monta já confere isso, aqui só entra se foi pedido e o relatório é de uma unidade
     plano: escolheu.has(ID_PLANO) && umaSo && plano && plano.unidade === umaSo.u.name ? plano : null,

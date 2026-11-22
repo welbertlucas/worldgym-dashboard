@@ -237,4 +237,36 @@ describe("relatório do mês: receitas complementares num slide só", () => {
     expect(cv.nota).toBe("dos quais 3 são especiais");
     expect(montarRelatorio([month("2026-10", [unit("Gama", { vendasContratos: 10 } as never)])], "2026-10", [ID_BIG], null)!.big!.find((k) => k.nome === "Contratos vendidos")!.nota).toBeUndefined();
   });
+
+  it("mês fechado compara com o mesmo mês do ano anterior (se a unidade existia) e com o mês anterior; sem o ano anterior, só com o mês anterior", () => {
+    const base = [
+      month("2025-10", [unit("Antiga", { faturamento: 100000 })]),
+      month("2026-09", [unit("Antiga", { faturamento: 150000 }), unit("Nova", { faturamento: 20000 })]),
+      month("2026-10", [unit("Antiga", { faturamento: 120000 }), unit("Nova", { faturamento: 30000 })]),
+    ];
+    // unidade antiga: as duas comparações
+    const a = montarRelatorio(base, "2026-10", ["fat"], ["Antiga"])!;
+    expect(a.rankings[0].cartao).toMatchObject({ valor: "R$ 120.000", anterior: "R$ 100.000  ·  out/2025", anteriorMes: "R$ 150.000  ·  set/2026" });
+    expect(a.rankings[0].cartao!.variacao).toBeCloseTo(20, 5); // contra out/2025
+    expect(a.rankings[0].cartao!.variacaoMes).toBeCloseTo(-20, 5); // contra set/2026
+    expect(a.mesAnteriorCurto).toBe("out/2025");
+    expect(a.mesPassadoCurto).toBe("set/2026");
+    // unidade aberta depois: sem o ano anterior, só o mês anterior
+    const n = montarRelatorio(base, "2026-10", ["fat"], ["Nova"])!.rankings[0].cartao!;
+    expect(n.variacao).toBeNull();
+    expect(n.anterior).toBeNull();
+    expect(n.variacaoMes).toBeCloseTo(50, 5); // 20.000 → 30.000
+    expect(n.anteriorMes).toBe("R$ 20.000  ·  set/2026");
+    // os números gerais da rede trazem as duas variações
+    const g = montarRelatorio(base, "2026-10", [ID_BIG], null)!.big![0];
+    expect(g.variacao).toBeCloseTo(50, 5); // 150.000 contra 100.000 (as duas unidades no mês; só uma existia no ano anterior)
+    expect(g.variacaoMes).toBeCloseTo(-11.76, 1); // 150.000 contra 170.000
+    // várias unidades: aviso de que a comparação inclui a unidade aberta depois
+    const nota = montarRelatorio(base, "2026-10", [ID_BIG], null)!.notaComparacao;
+    expect(nota).toBe("As comparações incluem unidades abertas depois do período comparado (1 unidade sem out/2025).");
+    expect(montarRelatorio(base, "2026-10", [ID_BIG], ["Antiga"])!.notaComparacao).toBeNull(); // uma unidade que existia: sem aviso
+    // sem o mês anterior guardado: só o ano anterior
+    expect(montarRelatorio([base[0], base[2]], "2026-10", ["fat"], ["Antiga"])!.rankings[0].cartao!.variacaoMes).toBeNull();
+  });
 });
+

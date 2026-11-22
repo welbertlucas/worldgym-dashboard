@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS do servidor
 import { limitesDaSemana as limitesServidor, semanasNoMes as semanasServidor } from "../../../server/semanas.js";
-import { BASE_PEQUENA, ID_CONVERSAO, ID_MES_ATE_AQUI, metaDoEscopo, serieSemanal, estadoDaSemana, limitesDaSemana, mesAnterior, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
+import { BASE_PEQUENA, COMPARAR_COM_MES_ANTERIOR, ID_CONVERSAO, ID_MES_ATE_AQUI, metaDoEscopo, serieSemanal, estadoDaSemana, limitesDaSemana, mesAnterior, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
 import { ID_BIG, ID_COMPL, resumoDosSlides } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
@@ -39,15 +39,16 @@ describe("semanas no painel (mesmas regras do servidor)", () => {
 });
 
 describe("relatório semanal", () => {
-  it("semana fechada compara com a mesma semana do mês anterior", () => {
+  it("semana fechada não mostra variação nem comparação com o mês anterior (decisão do dono)", () => {
     const m = montarRelatorioSemanal(meses, "2026-11", 1, [ID_BIG, "fat", "canc"], null, 30)!;
     expect(m.tipo).toBe("semana");
     expect(m.periodo).toBe("1-7 nov/26");
-    expect(m.mesAnteriorCurto).toBe("1-7 out/26");
+    expect(m.mesAnteriorCurto).toBeNull();
     const fat = m.big![0];
     expect(fat.valor).toBe("R$ 1.550");
-    expect(fat.variacao).toBeCloseTo(3.33, 1); // 1550 contra 1500
-    expect(fat.anterior).toBe("R$ 1.500");
+    expect(fat.variacao).toBeNull();
+    expect(fat.anterior).toBeNull();
+    expect(COMPARAR_COM_MES_ANTERIOR).toBe(false);
     const canc = m.big!.find((k) => k.nome === "Cancelamentos")!;
     expect(canc.menorMelhor).toBe(true);
     expect(m.rankings.map((r) => r.id)).toEqual(["fat", "canc"]);
@@ -72,17 +73,14 @@ describe("relatório semanal", () => {
     expect(r.itens).toEqual([["Asa Norte", 40], ["Gama", 20]]);
   });
 
-  it("uma unidade só vira cartão com variação, base e semana anterior", () => {
+  it("uma unidade só vira cartão com o valor da semana e a base (sem variação)", () => {
     const m = montarRelatorioSemanal(meses, "2026-11", 1, ["fat", ID_CONVERSAO, "canc"], ["Asa Norte"], 30)!;
     const [fat, conv, canc] = m.rankings;
     expect(fat.itens).toEqual([]);
-    expect(fat.cartao).toMatchObject({ valor: "R$ 1.100", anterior: "R$ 1.000  ·  1-7 out/26" });
-    expect(fat.cartao!.variacao).toBeCloseTo(10, 5);
+    expect(fat.cartao).toMatchObject({ valor: "R$ 1.100", anterior: null, variacao: null });
     expect(conv.cartao!.valor).toBe("40,0%");
-    expect(conv.cartao!.anterior).toContain("10 de 25 visitantes");
-    expect(conv.cartao!.anterior).toContain("antes: 25,0%");
-    expect(conv.cartao!.variacao).toBeCloseTo(15, 5); // pontos percentuais
-    expect(conv.cartao!.emPontos).toBe(true);
+    expect(conv.cartao!.anterior).toBe("10 de 25 visitantes"); // todo percentual leva a base
+    expect(conv.cartao!.variacao).toBeNull();
     expect(canc.cartao!.menorMelhor).toBe(true);
     expect(m.escopo).toBe("Asa Norte");
   });
@@ -113,7 +111,7 @@ describe("relatório semanal", () => {
     expect(serieSemanal(meses, "2026-11", 3, "Asa Norte", (x) => x.faturamento, 30)).toBeUndefined(); // sem número na semana pedida
   });
 
-  it("O mês até aqui: acumulado das semanas contra o mesmo ponto do mês anterior e contra a meta (soma das unidades), com o ritmo do mês", () => {
+  it("O mês até aqui: acumulado das semanas contra a meta (soma das unidades), com o ritmo do mês e sem comparação com o mês anterior", () => {
     const metas = [
       { month: "2026-11", unit: "Asa Norte", key: "faturamento", prata: 4000, ouro: 5000 },
       { month: "2026-11", unit: "Gama", key: "faturamento", ouro: 3000 },
@@ -125,8 +123,8 @@ describe("relatório semanal", () => {
     expect(a.ritmo).toBeCloseTo(46.67, 1);
     const fat = a.itens.find((i) => i.nome === "Faturamento")!;
     expect(fat.valor).toBe("R$ 3.100"); // 1100+900 + 450+650
-    expect(fat.variacao).toBeCloseTo(-26.19, 1); // contra 4.200 (1000+2000+500+700)
-    expect(fat.anterior).toBe("R$ 4.200 no mesmo ponto de out/26");
+    expect(fat.variacao).toBeNull();
+    expect(fat.anterior).toBeNull();
     expect(fat.meta!.texto).toBe("39% da meta ouro · R$ 8.000");
     expect(a.itens.find((i) => i.nome === "Novos contratos")!.meta).toBeUndefined(); // sem meta cadastrada
     expect(m.rankings).toHaveLength(0);
@@ -201,6 +199,23 @@ describe("relatório semanal: contratos vendidos, mês até aqui no Overview e r
     expect(m.convertidas).toBe(12);
     expect(m.conversao).toBeCloseTo(40, 5);
     expect(m.big!.find((b) => b.nome === "Visitantes")!.valor).toBe("30");
+  });
+
+  it("cada indicador da semana traz o acumulado do mês até agora (semanas 1 a N) e, nos contratos vendidos, quantos são especiais", () => {
+    const base = month("2026-11", [
+      com("Asa Norte", [{ faturamento: 100, vendasContratos: 38, vendasContratosEspeciais: 1, visitantes: 20, convertidos: 10 }, { faturamento: 150, vendasContratos: 52, vendasContratosEspeciais: 1, visitantes: 30, convertidos: 12 }, { faturamento: 80, vendasContratos: 37, vendasContratosEspeciais: 6, visitantes: 10, convertidos: 8 }]),
+    ]);
+    const m = montarRelatorioSemanal([base], "2026-11", 3, ["fat", "cv", ID_CONVERSAO], ["Asa Norte"], 21)!;
+    expect(m.ateAgora!.cv).toMatchObject({ valor: "127", nota: "dos quais 8 são especiais" });
+    expect(m.ateAgora!.fat.valor).toBe("R$ 330");
+    expect(m.ateAgora![ID_CONVERSAO].valor).toBe("50,0% (30 de 60 visitantes)"); // taxa acumulada, e não a soma de taxas
+    const cv = m.rankings.find((r) => r.id === "cv")!;
+    expect(cv.cartao!.valor).toBe("37"); // a semana continua sendo o número grande
+    expect(cv.ateAgora!.texto).toBe("no mês até aqui (1-21 nov/26): 127, dos quais 8 são especiais");
+    // várias unidades: o total do conjunto
+    const dois = month("2026-11", [com("A", [{ vendasContratos: 10 }]), com("B", [{ vendasContratos: 5 }])]);
+    const m2 = montarRelatorioSemanal([dois], "2026-11", 1, ["cv"], null, 7)!;
+    expect(m2.rankings[0].ateAgora!.texto).toBe("total das unidades no mês até aqui (1-7 nov/26): 15");
   });
 });
 
