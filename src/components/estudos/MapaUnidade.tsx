@@ -7,11 +7,13 @@ import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/compon
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
-import { COR_OUTROS_BAIRROS, CORES_BAIRROS, LegendaCenso, LegendaRenda, RoscaBairros, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
+import { Barras, Destaque, Linha, Nota, Partes, ReguaSimples, Secao } from "@/components/estudos/blocos";
+import { MapPin, Network, TrendingUp, Users } from "lucide-react";
+import { COR_OUTROS_BAIRROS, CORES_BAIRROS, LegendaCenso, type ResumoCenso, LegendaRenda, RoscaBairros, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 export { LegendaRenda };
-import { LIMITES_SUGESTAO, REGRAS_NOVA_UNIDADE, desenharSugestoes, enderecoCurto, textoConcorrencia, textoParecerSugestao, textoSugestoes, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
+import { REGRAS_NOVA_UNIDADE, SecaoSugestoes, type ResultadoSugestoes, desenharSugestoes, enderecoCurto, textoParecerSugestao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
-import { avaliarPonto, faixaDaFatia, comercioEm, rendaTotalEm, MINUTOS_PADRAO, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { avaliarPonto, faixaDaFatia, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "oportunidade";
@@ -172,7 +174,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     }
     for (const o of dados.unidades ?? []) {
       if (!o.c || o.nome === u.nome || lente === "limpa") continue;
-      L.marker(o.c, { icon: bolinha(L, "#c41230", lente === "rede" ? 15 : 11, lente === "rede" ? 1 : 0.7) }).bindTooltip(`World Gym ${o.nome}, a ${fmtKm(km(o.c, u.c))}`).addTo(camadas);
+      // outras unidades: pino menor que o da unidade aberta (34)
+      L.marker(o.c, { icon: pino(L, "#c41230", lente === "rede" ? 24 : 20) }).bindTooltip(`World Gym ${o.nome}, a ${fmtKm(km(o.c, u.c))}`).addTo(camadas);
       if (lente === "rede") L.circle(o.c, { radius: 2400, color: "#c41230", weight: 1, dashArray: "3 4", fillOpacity: 0.05, interactive: false }).addTo(camadas);
     }
     // canibalização: a área da própria unidade também, mais marcada, para ver onde ela encosta nas vizinhas
@@ -201,6 +204,9 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     const m = ref.current;
     if (!m || !u.c) return;
     setGerando(true);
+    // as fotos saem do mapa: na aba Estudo ele está escondido (sem tamanho) e as fotos vinham vazias; mostra o mapa durante a exportação
+    const vistaAntes = vista;
+    if (vista === "estudo") { setVista("mapa"); await pausa(400); m.mapa.invalidateSize({ animate: false }); }
     const lenteAntes = lente, poisAntes = pois, verAntes = verPois;
     setPois(null); // as academias só aparecem na foto delas
     // Fotos do mapa num enquadramento fixo (o mesmo para todo mundo): satélite do imóvel e uma foto por tema, na área de 10 min de carro.
@@ -213,7 +219,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       for (const [, la, ln, n] of u.bairros ?? []) if (n >= alunosBairro * 0.02 && km([la, ln], u.c) <= raioAlunos * 2) areaAlunos.extend([la, ln]);
       const temIdade = !!dados.censo?.celulas.some((c) => c[5]?.length), temDom = !!dados.censo?.celulas.some((c) => c[4]);
       const fotos = {
-        sat: await foto("limpa", { centro: u.c, zoom: 16 }, true),
+        sat: await foto("limpa", { centro: u.c, zoom: 18 }, true),
         alunos: await foto("alunos", { limites: areaAlunos }),
         oportunidade: cap ? await foto("oportunidade", { limites: areaAlunos }) : null,
         idade: temIdade ? await foto("idade", { limites: areaLim }) : null,
@@ -242,7 +248,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         parteNaArea: parte10, min80, onde80, topBairros: [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8), alunosBairro,
         esperadoNaArea, perfil, renda, novaUnidade, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
       }));
-    } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); }
+    } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };
 
   return (
@@ -269,41 +275,20 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             <p className="mt-1">Vermelho: onde o modelo espera alunos. Círculos escuros: onde eles moram hoje. Vermelho forte sem círculo é onde vale fazer marketing.</p>
           </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
-            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><RoscaBairros total={alunosBairro} nota={`${alunosBairro.toLocaleString("pt-BR")} alunos com bairro localizado${u.alunos ? `, de ${u.alunos.toLocaleString("pt-BR")} ativos` : ""} (EVO).`} bairros={topBairros.map(([b, , , n]) => ({ nome: b.replace(/\s*\([^)]*\)/, ""), n }))} /></div>}{area10 ? "" : "Tracejado: onde moram 80%."}</>
-            : lente === "rede" ? <>
-              {cap?.divideCom.length ? (() => {
-                const so = Math.max(0, 1 - cap.divideCom.reduce((a, d) => a + d.parte, 0));
-                return <RoscaComLegenda soPercentual total={100} centro={{ valor: `${Math.round(so * 100)}%`, rotulo: "exclusivo" }}
-                  fatias={[{ rotulo: "Só desta unidade", n: so * 100, cor: "#8c0c22" }, ...cap.divideCom.map((d, i) => ({ rotulo: `Divide com ${d.nome.replace("World Gym ", "")}`, n: d.parte * 100, cor: ["#e0475e", "#f6bcc5", "#cfd3d9"][i] ?? "#cfd3d9" }))]} />;
-              })() : <p>Nenhuma World Gym divide a área desta unidade.</p>}
-              <p className="mt-1.5">Parte do público da área que outras World Gym também atraem. No mapa, o círculo cheio é a área desta unidade; os tracejados, a de cada vizinha.</p>
-            </> : null}
+            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><RoscaBairros total={alunosBairro} bairros={topBairros.map(([b, , , n]) => ({ nome: b.replace(/\s*\([^)]*\)/, ""), n }))} /></div>}{area10 ? "" : "Tracejado: onde moram 80%."}</>
+            : lente === "rede" ? <p>O círculo cheio é a área desta unidade; os tracejados, a de cada vizinha. Quanto do público ela divide com cada uma está na aba Estudo.</p>
+            : null}
           sobre={[
             ...(pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []),
             ...(compParec?.itens.length ? [{ id: "parecidas", rotulo: "Unidades parecidas", ativo: verParec, alternar: () => {
               if (!verParec) { const m = ref.current; if (m && u.c) m.mapa.fitBounds(m.L.latLngBounds([u.c, ...compParec.itens.flatMap((x) => (x.u.c ? [x.u.c] : []))]).pad(0.2)); }
               setVerParec((v) => !v);
-            }, legenda: <>
-              <p className="text-foreground">{leituraParecidas(compParec, u.vendas)}</p>
-              {compParec.itens.map((it) => <p key={it.u.nome} className="mt-1.5"><b className={it.parecida ? "text-success" : ""}>{it.u.nome}</b>: {it.u.vendas ? reais(it.u.vendas) : "—"} por mês{it.parecida ? "" : " (vizinhança diferente, só referência)"}. {it.leitura}</p>)}
-              <p className="mt-1.5 text-[11px]">Anel verde no mapa: parecida; cinza: só referência. Comparação pelos moradores e pela renda a até 2 km.</p>
-            </> }] : []),
+            }, legenda: <p>Anel verde: parecida; cinza: só referência. A comparação está na aba Estudo.</p> }] : []),
             ...(candidatasNova ? [{ id: "nova", rotulo: "Onde abrir outra unidade", ativo: verNova, alternar: () => { if (!verNova) verNovaUnidade(); setVerNova((v) => !v); }, legenda: !novaUnidade ? <p>Conferindo as academias em volta das posições…</p> : <>
               {novaUnidade.sugestoes.length
-                ? <>{novaUnidade.sugestoes.map((x, i) => (
-                    <div key={i} className="mb-1.5">
-                      <p>Posição {i + 1}: a {x.distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, público {x.ganho >= 0 ? "+" : "−"}{Math.abs(Math.round(x.ganho * 100))}% em relação ao da unidade.</p>
-                      <p className="mt-0.5 text-foreground">{endsNova[i] ? enderecoCurto(endsNova[i]) : "Buscando o endereço…"}</p>
-                      {x.divideCom.length > 0 && <p className="mt-0.5">Divide {x.divideCom.map((d) => `${Math.round(d.parte * 100)}% com ${d.nome.replace("World Gym ", "")}`).join(", ")}.</p>}
-                      {textoConcorrencia(x.concorrencia) && <p className="mt-0.5">{textoConcorrencia(x.concorrencia)}.</p>}
-                      {textoParecerSugestao(x.parecer) && <p className="mt-0.5 font-medium text-foreground">{textoParecerSugestao(x.parecer)}.</p>}
-                      {estudarPosicao && <Button size="sm" variant="outline" className="mt-1 h-7 bg-white px-2.5 text-xs" onClick={() => estudarPosicao(x.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u, endsNova[i])}>Estudar esta posição</Button>}
-                    </div>
-                  ))}
-                  <button type="button" onClick={verNovaUnidade} className="mt-1 font-medium text-foreground underline underline-offset-2">Ver as posições no mapa</button></>
+                ? <>{novaUnidade.sugestoes.map((x, i) => <p key={i} className="mb-1"><b className="text-foreground">{i + 1}.</b> {endsNova[i] ? enderecoCurto(endsNova[i]) : "Buscando o endereço…"}{textoParecerSugestao(x.parecer) ? ` · ${textoParecerSugestao(x.parecer)}` : ""}</p>)}
+                  <p className="mt-1">Detalhes e o botão para estudar cada posição estão na aba Estudo.</p></>
                 : <p>Pelo que o Atlas mede, a região não comporta outra unidade hoje.</p>}
-              <details className="mt-1"><summary className="cursor-pointer font-medium text-foreground">Como foi calculado</summary>
-                <p className="mt-1">{textoSugestoes(novaUnidade, "nova", u.nome)}</p><p className="mt-1 text-[11px]">{LIMITES_SUGESTAO}</p></details>
             </> }] : []),
           ]} />}
         mapa={<>
@@ -313,28 +298,110 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
         </>}
-        estudo={<>
-      {/* números principais numa faixa fina, embaixo do mapa (decisão do dono, 23/11/2026: ao abrir, o mapa ocupa a tela inteira, sem rolar) */}
-      <div className="flex flex-wrap gap-2 text-[13px]">
-        {[
-          u.vendas != null ? { v: reais(u.vendas), r: "por mês", tom: comparado == null ? "" : comparado >= 0 ? "text-success" : "text-destructive" } : null,
-          porM2 && mediana ? { v: `R$ ${Math.round(porM2).toLocaleString("pt-BR")}/m²`, r: `rede R$ ${mediana.toLocaleString("pt-BR")}`, tom: "" } : null,
-          u.previsto && u.vendas != null && u.madura ? { v: `${u.vendas >= u.previsto.provavel ? "+" : "−"}${Math.abs(Math.round((u.vendas / u.previsto.provavel - 1) * 100))}%`, r: "vs. modelo", tom: u.vendas >= u.previsto.provavel ? "text-success" : "text-destructive" } : null,
-          u.alunos != null ? { v: u.alunos.toLocaleString("pt-BR"), r: "alunos", tom: "" } : null,
-          area10 ? { v: pct0(parte10), r: `a até ${MINUTOS_PADRAO} min`, tom: "" } : { v: fmtKm(r80), r: "raio onde moram 80%", tom: "" },
-          moradoresArea != null ? { v: `${Math.round(moradoresArea / 1000).toLocaleString("pt-BR")} mil`, r: `moradores ${area10 ? `em ${MINUTOS_PADRAO} min` : "na área"}`, tom: "" } : null,
-        ].filter((x): x is { v: string; r: string; tom: string } => !!x).map((x) => (
-          <div key={x.r} className="flex items-baseline gap-1.5 whitespace-nowrap rounded-xl border bg-white px-2.5 py-1">
-            <b className={`font-display text-lg tabular-nums ${x.tom || "text-foreground"}`}>{x.v}</b><span className="text-muted-foreground">{x.r}</span>
-          </div>
-        ))}
-        {!u.madura && <span className="self-center text-[11px] text-muted-foreground">Ainda amadurecendo: a comparação vale a partir de 12 meses de operação.</span>}
-      </div>
-
-
-          {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
-        </>}
+        estudo={<EstudoDaUnidade u={u} porM2={porM2} mediana={mediana} area10={!!area10} parte10={parte10} onde80={onde80}
+          moradoresArea={moradoresArea} resumo={resumoCenso} topBairros={[...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8)} alunosBairro={alunosBairro}
+          divideCom={cap?.divideCom ?? null} compParec={compParec} faixaFatia={faixaDaFatia(refsModelo)} novaUnidade={candidatasNova ? novaUnidade : null} pois={pois}
+          aoEstudar={estudarPosicao ? (s, i, e) => estudarPosicao(s.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u, e) : undefined}
+          aoVerNoMapa={() => { setVista("mapa"); setVerNova(true); setTimeout(verNovaUnidade, 60); }} />}
       />
     </>
+  );
+}
+
+/**
+ * Aba Estudo da unidade em operação (pedido do dono, 23/11/2026): os números reais em cards, no padrão do estudo de ponto, sem previsão nem
+ * parecer (a unidade já tem o resultado do EVO). As legendas do mapa ficam só com a chave de cores; o detalhe mora aqui.
+ */
+function EstudoDaUnidade({ u, porM2, mediana, area10, parte10, onde80, moradoresArea, resumo, topBairros, alunosBairro, divideCom, compParec, faixaFatia, novaUnidade, pois, aoEstudar, aoVerNoMapa }: {
+  u: UnidadeEstudo; porM2: number | null; mediana: number | null; area10: boolean; parte10: number | null; onde80: string;
+  moradoresArea: number | null; resumo: ResumoCenso | undefined; topBairros: [string, number, number, number][]; alunosBairro: number;
+  divideCom: { nome: string; parte: number }[] | null; compParec: ReturnType<typeof compararComParecidas> | null; faixaFatia: ReturnType<typeof faixaDaFatia>;
+  novaUnidade: ResultadoSugestoes | null; pois: ResultadoPois | null; aoEstudar?: (s: Sugestao, i: number, endereco?: string | null) => void; aoVerNoMapa: () => void;
+}) {
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  const mil = (x: number) => `${Math.round(x / 1000).toLocaleString("pt-BR")} mil`;
+  const vsModelo = u.previsto && u.vendas != null && u.madura ? u.vendas / u.previsto.provavel - 1 : null;
+  const potencial = resumo?.potencial?.total ?? null;
+  const fatia = u.vendas && potencial ? u.vendas / potencial : null;
+  const idade = resumo?.idade, totIdade = idade ? idade.reduce((a, b) => a + b, 0) : 0;
+  const renda = resumo?.renda;
+  const so = divideCom ? Math.max(0, 1 - divideCom.reduce((a, d) => a + d.parte, 0)) : null;
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Secao icone={TrendingUp} titulo="Resultado">
+        <Destaque valor={u.vendas != null ? reais(u.vendas) : "—"} rotulo="vendas por mês (EVO)" tom={vsModelo == null ? "marca" : vsModelo >= 0 ? "bom" : "ruim"} />
+        {u.previsto && u.vendas != null && u.madura && <ReguaSimples min={u.previsto.pessimista} max={u.previsto.otimista} valor={u.vendas} rotuloMin={reais(u.previsto.pessimista)} rotuloMax={reais(u.previsto.otimista)}
+          rotuloValor={`modelo ${reais(u.previsto.provavel)}`} bom={u.vendas >= u.previsto.provavel} />}
+        <div className="mt-3">
+          {vsModelo != null && <Linha rotulo="Diferença para o modelo" valor={`${vsModelo >= 0 ? "+" : "−"}${pct(Math.abs(vsModelo))}`} />}
+          {porM2 && <Linha rotulo="Vendas por m²" valor={`R$ ${Math.round(porM2).toLocaleString("pt-BR")}${mediana ? ` (rede R$ ${mediana.toLocaleString("pt-BR")})` : ""}`} />}
+          {u.alunos != null && <Linha rotulo="Alunos ativos" valor={u.alunos.toLocaleString("pt-BR")} />}
+          {u.ticket && <Linha rotulo="Ticket médio" valor={`R$ ${u.ticket.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />}
+          {u.m2 && <Linha rotulo="Tamanho" valor={`${u.m2.toLocaleString("pt-BR")} m²`} />}
+          {fatia != null && <Linha rotulo={`Fatia do potencial em ${MINUTOS_PADRAO} min`} valor={pct(fatia)} />}
+        </div>
+        {fatia != null && faixaFatia && <div className="mt-3"><Nota>
+          A unidade vende o equivalente a {pct(fatia)} do que os moradores da área de {MINUTOS_PADRAO} min gastam com recreações e esportes.
+          Nas {faixaFatia.unidades} unidades maduras do modelo a mediana é {pct(faixaFatia.mediana)}, a comum vai até {pct(faixaFatia.comum)} e a maior chega a {pct(faixaFatia.maxima)}.
+        </Nota></div>}
+        {!u.madura && <p className="mt-2 text-[11px] text-muted-foreground">Ainda amadurecendo: a comparação com o modelo vale a partir de 12 meses de operação.</p>}
+      </Secao>
+
+      <Secao icone={MapPin} titulo="De onde vêm os alunos">
+        <div className="grid grid-cols-2 gap-3">
+          <Destaque valor={parte10 != null ? pct(parte10) : "—"} rotulo={`moram a até ${MINUTOS_PADRAO} min de carro`} />
+          <Destaque valor={onde80.replace(" de carro", "")} rotulo={onde80.includes("de carro") ? "de carro: ali moram 80%" : "onde moram 80%"} />
+        </div>
+        {topBairros.length > 0 && <div className="mt-4"><Barras itens={topBairros.map(([b, , , n], i) => ({ rotulo: b.replace(/\s*\([^)]*\)/, ""), valor: n, texto: `${n.toLocaleString("pt-BR")} · ${pct(alunosBairro ? n / alunosBairro : 0)}`, destaque: i === 0 }))} /></div>}
+        <p className="mt-2 text-[11px] text-muted-foreground">{alunosBairro.toLocaleString("pt-BR")} alunos com bairro localizado{u.alunos ? `, de ${u.alunos.toLocaleString("pt-BR")} ativos` : ""} (EVO). Só contagens por bairro.</p>
+      </Secao>
+
+      <Secao icone={Users} titulo={`Área de ${MINUTOS_PADRAO} min de carro`}>
+        {!area10 && <p className="mb-2 text-[12px] text-muted-foreground">Sem a área de deslocamento: números num raio de 5 km.</p>}
+        <div className="grid grid-cols-2 gap-3">
+          <Destaque valor={moradoresArea != null ? mil(moradoresArea) : "—"} rotulo="moradores" />
+          <Destaque valor={potencial != null ? (potencial >= 1e6 ? `R$ ${(potencial / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : reais(potencial)) : "—"} rotulo="potencial de consumo por mês" />
+        </div>
+        <div className="mt-3">
+          {resumo?.domicilios?.total ? <Linha rotulo="Domicílios" valor={`${resumo.domicilios.total.toLocaleString("pt-BR")}${resumo.domicilios.porDomicilio ? ` (${resumo.domicilios.porDomicilio.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} moradores cada)` : ""}`} /> : null}
+          {idade && totIdade > 0 && <Linha rotulo="De 20 a 49 anos" valor={pct((idade[2] + idade[3] + idade[4]) / totIdade)} />}
+          {resumo?.rendaTotal && <Linha rotulo="Renda média do domicílio" valor={`R$ ${Math.round(resumo.rendaTotal.porDomicilio).toLocaleString("pt-BR")}`} />}
+          {resumo?.comercio != null && <Linha rotulo="Pontos de comércio e serviços" valor={resumo.comercio.toLocaleString("pt-BR")} />}
+        </div>
+        {renda && renda.moradores > 0 && <div className="mt-3">
+          <p className="mb-1.5 text-[12px] font-medium text-foreground">{renda.porDomicilio ? "Domicílios" : "Moradores"} por classe de renda</p>
+          <Partes partes={renda.classes.filter((c) => c.parte > 0).map((c) => ({ rotulo: c.id, parte: c.parte, cor: c.cor }))} />
+        </div>}
+        {idade && totIdade > 0 && <div className="mt-3">
+          <p className="mb-1.5 text-[12px] font-medium text-foreground">Moradores por idade</p>
+          <Barras itens={FAIXAS_IDADE.map((f, i) => ({ rotulo: f.replace(/^.*\(|\)$/g, ""), valor: idade[i], texto: pct(idade[i] / totIdade), destaque: i >= 2 && i <= 4 }))} />
+        </div>}
+        <p className="mt-2 text-[11px] text-muted-foreground">Censo 2022 (IBGE) por hexágono; renda do domicílio e potencial (POF 2017-2018, corrigido pelo IPCA) são estimativas.</p>
+      </Secao>
+
+      <Secao icone={Network} titulo="Rede">
+        {so != null && divideCom && divideCom.length > 0
+          ? <><Partes partes={[{ rotulo: "Só desta unidade", parte: so, cor: "#8c0c22" }, ...divideCom.map((d, i) => ({ rotulo: `Divide com ${d.nome.replace("World Gym ", "")}`, parte: d.parte, cor: ["#e0475e", "#f6bcc5", "#cfd3d9"][i] ?? "#cfd3d9" }))]} />
+              <p className="mt-2 text-[12px] text-muted-foreground">Parte do público da área que outras World Gym também atraem.</p></>
+          : <p className="text-[13px]">Nenhuma World Gym divide a área desta unidade.</p>}
+        {compParec && compParec.itens.length > 0 && <div className="mt-4">
+          <p className="mb-1.5 text-[12px] font-medium text-foreground">Unidades parecidas</p>
+          <Nota>{leituraParecidas(compParec, u.vendas)}</Nota>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            {compParec.itens.map((it) => (
+              <div key={it.u.nome} className={`rounded-xl border p-2.5 ${it.parecida ? "" : "border-dashed opacity-80"}`}>
+                <div className="flex items-center justify-between gap-1"><b className="truncate text-[13px]">{it.u.nome}</b><span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${it.parecida ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{it.parecida ? "parecida" : "referência"}</span></div>
+                <p className="mt-1 text-[13px] tabular-nums">{it.u.vendas ? reais(it.u.vendas) : "—"} <span className="text-muted-foreground">por mês</span></p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{it.leitura}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">Unidades maduras do mesmo modelo, comparadas pelos moradores e pela renda a até 2 km.</p>
+        </div>}
+      </Secao>
+
+      {novaUnidade && <SecaoSugestoes res={novaUnidade} tipo="nova" nome={u.nome} aoEstudar={aoEstudar} aoVerNoMapa={aoVerNoMapa} />}
+      {pois && <SecaoPois res={pois} />}
+    </div>
   );
 }

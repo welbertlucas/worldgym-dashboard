@@ -109,7 +109,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
         texto: [cap.divideCom.length
           ? `A área do ponto se sobrepõe à de unidades World Gym. Pelo modelo de captação, ${cap.divideCom.map((x) => `${pct(x.parte)} do público seria dividido com a ${x.nome}`).join(", ")}. ${cap.divideCom.reduce((a, x) => a + x.parte, 0) >= 0.25 ? "É uma sobreposição alta: a nova unidade tiraria alunos da rede, o que precisa entrar na decisão." : "É uma sobreposição moderada, aceitável em redes adensadas."}`
           : "Nenhuma World Gym divide de forma relevante a área do ponto: a nova unidade não tiraria alunos da rede."],
-        ...(d.fotoRede ? { foto: { dados: d.fotoRede, legenda: "Bolinhas vermelhas: World Gym em operação. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA } : {}),
+        ...(d.fotoRede ? { foto: { dados: d.fotoRede, legenda: "Pinos vermelhos pequenos: World Gym em operação. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA } : {}),
         ...(cap.divideCom.length ? { grafico: { tipo: "rosca" as const, titulo: "Público do ponto", fatias: [{ rotulo: "Só do ponto", valor: Math.max(0, 1 - cap.divideCom.reduce((a, x) => a + x.parte, 0)), cor: "#c41230" }, ...cap.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } } : {}),
       });
       if (r) secoes.push({
@@ -151,7 +151,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       });
       if (d.sugestoes) secoes.push({
         titulo: "Recomendação de Localização", novaPagina: true, linhas: [], texto: [textoSugestoes(d.sugestoes, "ponto", p.nome)], nota: LIMITES_SUGESTAO,
-        ...(d.fotoSugestoes ? { foto: { dados: d.fotoSugestoes, legenda: `Pino com letra: o ponto estudado. Pinos cinza numerados: posições sugeridas (mesma numeração da tabela). Bolinhas vermelhas: World Gym.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro do ponto.` : ""}` }, altFoto: ALT_FOTO_MAPA } : {}),
+        ...(d.fotoSugestoes ? { foto: { dados: d.fotoSugestoes, legenda: `Pino com letra: o ponto estudado. Pinos cinza numerados: posições sugeridas (mesma numeração da tabela). Pinos vermelhos pequenos: World Gym.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro do ponto.` : ""}` }, altFoto: ALT_FOTO_MAPA } : {}),
         ...(d.sugestoes.sugestoes.length ? { tabela: { colunas: ["Posição", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.sugestoes) } } : {}),
       });
       if (pt.parecidas.itens.length) secoes.push({
@@ -196,7 +196,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
     capa: { titulo: "Estudo de Geomarketing", linha: "Avaliação de Ponto", subtitulo: d.pontos.map((x) => x.ponto.endereco ?? `${x.ponto.nome}${x.ponto.regiao ? ` | ${x.ponto.regiao}` : ""}`).join(" · ") }, // capa com o endereço do ponto (pedido do dono, 23/11/2026)
     paginas,
     ...(d.pontos.length > 1 ? {
-      fotoComparacao: { dados: d.comparacao?.foto ?? null, legenda: "Letras: os pontos estudados; bolinhas vermelhas: unidades World Gym." },
+      fotoComparacao: { dados: d.comparacao?.foto ?? null, legenda: "Letras: os pontos estudados; pinos vermelhos pequenos: unidades World Gym." },
       comparacao: {
         colunas: ["Ponto", "Modelo e m²", "Vendas previstas", "Payback", "Veredito", "Decisão"],
         linhas: d.pontos.map((x) => [`${x.letra}. ${x.ponto.nome}`, `${pr.modelos[x.ponto.modelo].nome}, ${num(x.ponto.m2)} m²`, x.resultado ? reais(x.resultado.provavel) : "—", x.resultado ? meses(x.resultado.payback) : "—", x.resultado ? VEREDITO_ROTULO[x.resultado.veredito] : "—", DECISAO_ROTULO[x.ponto.decisao?.status ?? "analise"]]),

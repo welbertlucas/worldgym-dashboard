@@ -80,10 +80,10 @@ export const urlStreetView = (c: [number, number]) =>
     : `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${c[0]},${c[1]}`;
 
 /**
- * Foto do mapa como está na tela (para o PDF): azulejos do fundo em tons de cinza, as camadas desenhadas em canvas
+ * Foto do mapa como está na tela (para o PDF): azulejos do fundo coloridos (cinza só com `cinza`), as camadas desenhadas em canvas
  * (o mapa usa preferCanvas) e os alfinetes/bolinhas. Os azulejos precisam ter vindo com crossOrigin, senão o canvas fica "sujo".
  */
-export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = true): Promise<string | null> {
+export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = false): Promise<string | null> {
   try {
     const el = mapa.getContainer(), caixa = el.getBoundingClientRect(), esc = 2;
     const c = document.createElement("canvas");
@@ -142,7 +142,7 @@ export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = true): Pro
 export const pausa = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 type MapaBase = { mapa: import("leaflet").Map; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer };
 
-/** Fundos do mapa (como no Mapfry): padrão (ruas coloridas), cinza (o do estudo e do PDF), relevo e satélite. */
+/** Fundos do mapa (como no Mapfry): padrão (ruas coloridas, também no PDF), cinza, relevo e satélite. */
 export type Fundo = "padrao" | "cinza" | "relevo" | "satelite";
 export const URL_OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 export const URL_RELEVO = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
@@ -178,7 +178,7 @@ export const LADO_FOTO = 900;
 export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, number]; zoom: number } | { limites: import("leaflet").LatLngBounds }, satelite = false): Promise<string | null> {
   const centro = m.mapa.getCenter(), zoom = m.mapa.getZoom();
   const tinhaSat = m.mapa.hasLayer(m.sat), tinhaRuas = m.mapa.hasLayer(m.ruas);
-  // o PDF sai sempre com as ruas do mapa padrão (em cinza), qualquer que seja o fundo escolhido na tela
+  // o PDF sai sempre com as ruas do mapa padrão (colorido), qualquer que seja o fundo escolhido na tela
   const urlAntes = urlDe(m.ruas);
   if (!satelite && urlAntes !== URL_OSM) m.ruas.setUrl(URL_OSM);
   // foto QUADRADA (como nos estudos do Mapfry), do mesmo tamanho em todos os mapas: o mapa vira um quadrado de LADO_FOTO só durante a foto,
@@ -196,7 +196,7 @@ export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, numbe
     else m.mapa.setView(alvo.centro, alvo.zoom, { animate: false });
     m.mapa.options.zoomSnap = snap;
     await esperarAzulejos(m);
-    return await fotoDoMapa(m.mapa, !satelite);
+    return await fotoDoMapa(m.mapa); // fundo padrão (colorido), como na tela (pedido do dono, 23/11/2026)
   } finally {
     if (m.mapa.hasLayer(m.sat) !== tinhaSat) { if (tinhaSat) m.sat.addTo(m.mapa); else m.mapa.removeLayer(m.sat); }
     if (m.mapa.hasLayer(m.ruas) !== tinhaRuas) { if (tinhaRuas) m.ruas.addTo(m.mapa); else m.mapa.removeLayer(m.ruas); }

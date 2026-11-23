@@ -222,7 +222,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     texto: [d.divideCom.length
       ? `A área da unidade se sobrepõe à de outras World Gym. Pelo modelo de captação, ${d.divideCom.map((x) => `${pct(x.parte, 0)} do potencial é disputado com a ${x.nome}`).join(", ")}. ${perda >= 0.25 ? "É uma sobreposição alta: ações comerciais devem ser coordenadas entre as unidades para não disputar o mesmo aluno com desconto, e novas aberturas nessa direção pedem cuidado." : "É uma sobreposição moderada, comum em redes adensadas; vale combinar campanhas entre as unidades para cobrir os bairros de fronteira."}`
       : "Nenhuma outra World Gym divide de forma relevante a área desta unidade: não há canibalização dentro da rede, e o crescimento depende só da disputa com a concorrência externa."],
-    foto: { dados: d.fotos.rede, legenda: "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA,
+    foto: { dados: d.fotos.rede, legenda: "Pinos vermelhos pequenos: outras World Gym. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA,
     grafico: d.divideCom.length ? { tipo: "rosca", titulo: "Potencial de captação da unidade", fatias: [{ rotulo: `Só da World Gym ${u.nome}`, valor: Math.max(0, 1 - perda), cor: "#c41230" }, ...d.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } : undefined,
   });
 
@@ -242,7 +242,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     secoes.push({
       titulo: "Oportunidade de Nova Unidade", novaPagina: true, linhas: [],
       texto: [textoSugestoes(d.novaUnidade, "nova", u.nome), LIMITES_SUGESTAO],
-      foto: d.fotos.nova ? { dados: d.fotos.nova, legenda: "Pinos cinza numerados: regiões sugeridas. Bolinhas vermelhas: World Gym em operação." } : undefined, altFoto: ALT_FOTO_MAPA,
+      foto: d.fotos.nova ? { dados: d.fotos.nova, legenda: "Pinos cinza numerados: regiões sugeridas. Pinos vermelhos pequenos: World Gym em operação." } : undefined, altFoto: ALT_FOTO_MAPA,
       ...(d.novaUnidade.sugestoes.length ? { tabela: { colunas: ["Região", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.novaUnidade) } } : {}),
     });
   }

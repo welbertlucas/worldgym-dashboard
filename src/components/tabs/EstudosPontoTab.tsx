@@ -204,8 +204,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     // unidades da rede (sempre, discretas; em destaque na lente "Nossa rede")
     for (const u of dados.unidades!) {
       if (!u.c) continue;
-      const tam = lente === "rede" ? 15 : 11;
-      L.marker(u.c, { icon: L.divIcon({ className: "", html: `<div style="width:${tam}px;height:${tam}px;border-radius:50%;background:#c41230;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);opacity:${lente === "rede" ? 1 : 0.7}"></div>`, iconSize: [tam, tam], iconAnchor: [tam / 2, tam / 2] }) })
+      // pino pequeno (pedido do dono, 23/11/2026): bolinha não lia como unidade quando o mapa está afastado
+      L.marker(u.c, { icon: pino(L, "#c41230", lente === "rede" ? 24 : 20) })
         .bindTooltip(`<strong>World Gym ${u.nome}</strong>${u.m2 ? `<br/>${u.m2.toLocaleString("pt-BR")} m²` : ""}${u.vendas ? `<br/>${reais(u.vendas)} por mês` : ""}${u.madura ? "" : "<br/><em>ainda amadurecendo</em>"}`).addTo(camadas);
       if (lente === "rede" && dados.premissas) L.circle(u.c, { radius: 2400, color: "#c41230", weight: 1, dashArray: "3 4", fillOpacity: 0.05, interactive: false }).addTo(camadas);
     }
@@ -258,14 +258,17 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     const m = mapaRef.current;
     if (!m) return;
     setGerando(true);
+    // as fotos saem do mapa: na aba Estudo ele está escondido (sem tamanho) e as fotos vinham vazias; mostra o mapa durante a exportação
+    const vistaAntes = vista;
+    if (vista === "estudo") { setVista("mapa"); await pausa(400); m.mapa.invalidateSize({ animate: false }); }
     const lenteAntes = lente, poisAntes = pois, verAntes = verPois;
     // fotos para o PDF: o mapa como está na tela, o satélite de cada ponto e, do ponto aberto, uma foto por tema na área de 10 min
     const tirar = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
-      const fotoGeral = pontos.length > 1 ? await fotoDoMapa(m.mapa, !satelite) : null;
+      const fotoGeral = pontos.length > 1 ? await fotoDoMapa(m.mapa) : null;
       setPois(null); // as academias só aparecem na foto delas
       const sats = new Map<string, string | null>();
-      for (const p of pontos) sats.set(p.id, await tirar("limpa", { centro: p.c, zoom: 16 }, true));
+      for (const p of pontos) sats.set(p.id, await tirar("limpa", { centro: p.c, zoom: 18 }, true));
       const censo = dados.censo!;
       const areaLim = atual ? (area10 ? limitesDaArea(m.L, area10).pad(0.1) : m.L.latLng(atual.c).toBounds(Math.max(2.5, cap?.raio80 ?? 3) * 2000)) : null;
       const temIdade = censo.celulas.some((c) => c[5]?.length), temDom = censo.celulas.some((c) => c[4]);
@@ -306,7 +309,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!) : [], parecidas: compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
         }),
       }));
-    } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); }
+    } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };
 
   return (
