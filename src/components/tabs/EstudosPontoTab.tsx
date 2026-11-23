@@ -7,15 +7,17 @@ import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 import { fotoDoMapa, fotoEnquadrada, gradienteRampa, pausa, pino } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento } from "@/components/estudos/deslocamento";
-import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { CSS_POIS, ControlePois, SecaoPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Faixa, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { Building2, Calculator, Gavel, ListChecks, Store, TrendingUp } from "lucide-react";
-import { gerarPdfDoEstudo, nomeDoArquivo } from "@/lib/estudoPdf";
-import { LegendaRenda, MapaUnidade } from "@/components/estudos/MapaUnidade";
+import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
+import { montarPdfPonto } from "@/components/estudos/pdfPonto";
+import { MapaUnidade } from "@/components/estudos/MapaUnidade";
+import { LegendaCenso, desenharCenso, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/controlesMapa";
-import { LIMITES_SUGESTAO, SecaoSugestoes, desenharSugestoes, linhasSugestoes, textoSugestoes } from "@/components/estudos/sugestoes";
+import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
 import {
-  DECISAO_ROTULO, MINUTOS_PADRAO, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, classeDaRenda, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
@@ -26,11 +28,11 @@ const ITENS: { k: keyof Ponto["imovel"]; rotulo: string }[] = [
   { k: "polo", rotulo: "Polo comercial" }, { k: "aPe", rotulo: "Bom acesso a pé" },
 ];
 // "limpa": só os pinos (usada nas fotos de satélite do PDF)
-type Lente = "captacao" | "pessoas" | "renda" | "rede" | "limpa";
+type Lente = "captacao" | "pessoas" | "idade" | "domicilios" | "renda" | "consumo" | "rede" | "limpa";
 const LENTES: { id: Lente; rotulo: string }[] = [
-  { id: "captacao", rotulo: "De onde vêm os alunos" }, { id: "pessoas", rotulo: "Pessoas" }, { id: "renda", rotulo: "Renda" }, { id: "rede", rotulo: "Nossa rede" },
+  { id: "captacao", rotulo: "Captação estimada" }, { id: "pessoas", rotulo: "População" }, { id: "idade", rotulo: "Idade" }, { id: "domicilios", rotulo: "Domicílios" },
+  { id: "renda", rotulo: "Renda" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "rede", rotulo: "Canibalização" },
 ];
-const COR_VEREDITO: Record<Veredito, string> = { aprovado: "text-success", atencao: "text-warning", reprovado: "text-destructive" };
 const FUNDO_VEREDITO: Record<Veredito, string> = { aprovado: "bg-success/10 text-success", atencao: "bg-warning/10 text-warning", reprovado: "bg-destructive/10 text-destructive" };
 // rampa quente da captação: do amarelo-claro ao vinho
 const RAMPA = [[255, 236, 179], [253, 186, 116], [239, 106, 70], [196, 18, 48], [122, 10, 32]];
@@ -169,18 +171,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         L.polygon(hex(lat, lng), { stroke: false, fillColor: rampa(t ** 0.6), fillOpacity: 0.22 + 0.5 * Math.sqrt(t), interactive: false }).addTo(camadas);
       });
       if (cap.raio80 && !area10) L.circle(atual.c, { radius: cap.raio80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
-    } else if ((lente === "pessoas" || lente === "renda") && atual) {
-      const vis = censo.celulas.filter(([lat, lng]) => (area10 ? dentroDaArea(lat, lng, area10) : km([lat, lng], atual.c) < 5));
-      const v = (c: (typeof vis)[number]) => (lente === "pessoas" ? c[2] : c[3] ?? 0);
-      const xs = vis.map(v).filter((x) => x > 0).sort((a, b) => a - b), mx = xs[Math.floor(xs.length * 0.95)] ?? 1;
-      for (const c of vis) {
-        const t = Math.min(1, v(c) / mx), classe = lente === "renda" ? classeDaRenda(c[3]) : null;
-        if (lente === "renda" && !classe) continue;
-        L.polygon(hex(c[0], c[1]), lente === "renda"
-          ? { color: "#fff", weight: 1, opacity: 0.6, fillColor: classe!.cor, fillOpacity: 0.45 }
-          : { color: "#fff", weight: 1, opacity: 0.6, fillColor: "#c41230", fillOpacity: 0.04 + t * t * 0.42 })
-          .bindTooltip(lente === "pessoas" ? `${c[2].toLocaleString("pt-BR")} moradores` : c[3] ? `${classeDaRenda(c[3])?.rotulo ?? ""}: renda média do responsável R$ ${c[3].toLocaleString("pt-BR")}` : "Sem dado de renda", { sticky: true }).addTo(camadas);
-      }
+    } else if (ehCamadaCenso(lente) && atual) {
+      desenharCenso(L, camadas, censo, lente, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5));
     }
     // unidades da rede (sempre, discretas; em destaque na lente "Nossa rede")
     for (const u of dados.unidades!) {
@@ -233,56 +225,44 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (!m) return;
     setGerando(true);
     const lenteAntes = lente, poisAntes = pois;
-    // fotos para o PDF: o mapa como está na tela, o satélite de cada ponto e, do ponto aberto, a área de captação e as academias
+    // fotos para o PDF: o mapa como está na tela, o satélite de cada ponto e, do ponto aberto, uma foto por tema na área de 10 min
     const tirar = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
-      const foto = await fotoDoMapa(m.mapa, !satelite);
+      const fotoGeral = pontos.length > 1 ? await fotoDoMapa(m.mapa, !satelite) : null;
       setPois(null); // as academias só aparecem na foto delas
       const sats = new Map<string, string | null>();
       for (const p of pontos) sats.set(p.id, await tirar("limpa", { centro: p.c, zoom: 16 }, true));
-      const fotoCap = atual && cap ? await tirar("captacao", { limites: area10 ? limitesDaArea(m.L, area10).pad(0.1) : m.L.latLng(atual.c).toBounds(Math.max(2.5, cap.raio80) * 2000) }) : null;
-      if (pois) { setPois(pois); await pausa(300); }
-      const fotoPois = atual && pois ? await tirar("limpa", { limites: pois.areaRotulo && area10 ? limitesDaArea(m.L, area10).pad(0.08) : m.L.latLng(pois.c).toBounds(pois.raioKm * 2000) }) : null;
+      const censo = dados.censo!;
+      const areaLim = atual ? (area10 ? limitesDaArea(m.L, area10).pad(0.1) : m.L.latLng(atual.c).toBounds(Math.max(2.5, cap?.raio80 ?? 3) * 2000)) : null;
+      const temIdade = censo.celulas.some((c) => c[5]?.length), temDom = censo.celulas.some((c) => c[4]);
+      const fotoCap = atual && cap && areaLim ? await tirar("captacao", { limites: areaLim }) : null;
+      const fotos = {
+        idade: atual && area10 && temIdade ? await tirar("idade", { limites: areaLim! }) : null,
+        domicilios: atual && area10 && temDom ? await tirar("domicilios", { limites: areaLim! }) : null,
+        renda: atual && area10 ? await tirar("renda", { limites: areaLim! }) : null,
+        consumo: atual && area10 && temDom ? await tirar("consumo", { limites: areaLim! }) : null,
+        pois: null as string | null,
+      };
+      const fotoRede = atual ? await tirar("rede", { limites: m.L.latLng(atual.c).toBounds(14000) }) : null;
+      if (poisAntes && atual) {
+        setPois(poisAntes); await pausa(300);
+        fotos.pois = await tirar("limpa", { limites: poisAntes.areaRotulo && area10 ? limitesDaArea(m.L, area10).pad(0.08) : m.L.latLng(poisAntes.c).toBounds(poisAntes.raioKm * 2000) });
+      }
       setLente(lenteAntes);
-      const reg = dados.premissas!.regua;
-      const paginas = pontos.map((p, i) => {
-        const rr = resultados.get(p.id);
-        const cp = captacaoDe(p, dados.censo!, dados.unidades!, todos, dados.premissas!.curva);
-        const fs = rr ? fatoresDe(p, rr, cp, dados.unidades!, dados.censo!, dados.premissas!) : [];
-        const pr = parecidas(p, dados.censo!, dados.unidades!);
-        return {
-          titulo: `${letra(i)}. ${p.nome}`, subtitulo: `${regiaoDe(p, dados.unidades!)} · ${dados.premissas!.modelos[p.modelo].nome} · ${p.m2.toLocaleString("pt-BR")} m²`,
-          foto: { dados: sats.get(p.id) ?? null, legenda: "O ponto visto de cima (imagem de satélite)." },
-          faixa: rr ? { texto: `${VEREDITO_ROTULO[rr.veredito]} pelo modelo · payback ${meses(rr.payback)}`, tom: (rr.veredito === "aprovado" ? "bom" : rr.veredito === "atencao" ? "atencao" : "ruim") as "bom" | "atencao" | "ruim" } : undefined,
-          destaques: rr ? [{ valor: reais(rr.provavel), rotulo: "vendas por mês previstas" }, { valor: rr.lucro > 0 ? reais(rr.lucro) : "prejuízo", rotulo: "lucro por mês" }, { valor: meses(rr.payback), rotulo: "para o investimento voltar" }] : undefined,
-          frase: rr ? `Deve vender ${reais(rr.provavel)} por mês (entre ${reais(rr.pessimista)} e ${reais(rr.otimista)}). Para pagar o investimento em ${reg.mesesAprovado / 12} anos, precisa de ${reais(rr.meta)}.` : undefined,
-          numeros: rr ? [
-            { rotulo: "Investimento", valor: `R$ ${(rr.investimento / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi` },
-            { rotulo: "80% dos alunos a até", valor: `${cp.raio80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km` },
-            ...(p.id === atual?.id && moradores10 != null ? [{ rotulo: `Moradores em ${MINUTOS_PADRAO} min de carro`, valor: `${Math.round(moradores10 / 1000).toLocaleString("pt-BR")} mil` }] : []),
-          ] : [],
-          secoes: [
-            ...(p.id === atual?.id && fotoCap ? [{ titulo: "Onde estariam os alunos", novaPagina: true, linhas: [], foto: { dados: fotoCap, legenda: area10 ? "Mais escuro = onde o modelo espera mais alunos. Linha verde: até 10 min de carro; tracejado verde: 10 min a pé." : "Mais escuro = onde o modelo espera mais alunos. Tracejado: área onde morariam 80% deles." } }] : []),
-            { titulo: "O que pesa", linhas: fs.map((f) => ({ texto: `${f.positivo ? "+" : "−"} ${f.texto}`, tom: (f.positivo ? "bom" : "ruim") as "bom" | "ruim" })) },
-            { titulo: "Decisão", linhas: [{ texto: DECISAO_ROTULO[p.decisao?.status ?? "analise"] + (p.decisao?.unidade ? `: ${p.decisao.unidade}` : ""), valor: p.decisao?.em ? new Date(p.decisao.em).toLocaleDateString("pt-BR") : undefined }], paragrafo: p.decisao?.comentario || undefined },
-            ...(pois && p.id === atual?.id ? [{ titulo: `${rotuloPois(pois)} ${ondePois(pois)}: ${totalPois(pois)}`, novaPagina: true, foto: { dados: fotoPois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, linhas: pois.lugares.map((l, k) => ({ texto: `${k + 1}. ${l.nome}${l.rede ? ` (${l.rede})` : ""}`, valor: `${l.km.toLocaleString("pt-BR")} km` })), paragrafo: "Fonte: Google. Os números seguem a ordem de distância." }] : []),
-            { titulo: "O imóvel", linhas: ITENS.map((it) => ({ texto: it.rotulo, valor: p.imovel[it.k] ? "sim" : "não" })) },
-            ...(p.id === atual?.id && sugestoes ? [{ titulo: "Recomendação de localização", novaPagina: true, linhas: [], texto: [textoSugestoes(sugestoes, "ponto", p.nome), LIMITES_SUGESTAO],
-              ...(sugestoes.sugestoes.length ? { tabela: { colunas: ["Posição", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(sugestoes) } } : {}) }] : []),
-            ...(pr.length ? [{ titulo: "Unidades parecidas na rede", linhas: pr.map((u) => ({ texto: `${u.nome}, ${u.m2?.toLocaleString("pt-BR")} m²`, valor: u.vendas ? reais(u.vendas) : "—" })), paragrafo: "Mesma quantidade de moradores e renda a até 2 km." }] : []),
-          ],
-        };
-      });
-      await gerarPdfDoEstudo({
-        arquivo: nomeDoArquivo(pontos.length === 1 ? `estudo-de-ponto-${pontos[0].nome}` : "estudos-de-ponto"), cabecalho: "Estudo de ponto", foto: null,
-        fotoComparacao: pontos.length > 1 ? { dados: foto, legenda: "Mapa do estudo, como estava na tela. Letras: os pontos estudados; bolinhas vermelhas: unidades World Gym." } : undefined,
-        capa: { titulo: "Estudo de Geomarketing", linha: "Avaliação de Ponto", subtitulo: pontos.map((p) => `${p.nome}${p.regiao ? ` | ${p.regiao}` : ""}`).join(" · ") },
-        paginas,
-        comparacao: pontos.length > 1 ? {
-          colunas: ["Ponto", "Modelo e m²", "Vendas previstas", "Payback", "Veredito", "Decisão"],
-          linhas: pontos.map((p, i) => { const rr = resultados.get(p.id); return [`${letra(i)}. ${p.nome}`, `${dados.premissas!.modelos[p.modelo].nome}, ${p.m2.toLocaleString("pt-BR")} m²`, rr ? reais(rr.provavel) : "—", rr ? meses(rr.payback) : "—", rr ? VEREDITO_ROTULO[rr.veredito] : "—", DECISAO_ROTULO[p.decisao?.status ?? "analise"]]; }),
-        } : undefined,
-      });
+      const mercado = atual && area10 ? {
+        perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10),
+        densidade: densidadeNaArea(censo, area10), pois: poisAntes, fotos,
+      } : null;
+      await gerarPdfDoEstudo(montarPdfPonto({
+        premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado,
+        fotoCaptacao: fotoCap, fotoRede, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
+        pontos: pontos.map((p, i) => {
+          const rr = resultados.get(p.id) ?? null;
+          const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
+          return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp,
+            fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!) : [], parecidas: parecidas(p, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
+        }),
+      }));
     } finally { setLente(lenteAntes); setPois(poisAntes); setGerando(false); }
   };
 
@@ -321,7 +301,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
-          </> : lente === "renda" ? <LegendaRenda /> : lente === "pessoas" ? "Vermelho mais forte = mais moradores (Censo 2022)." : lente === "rede" ? "Bolinhas vermelhas: World Gym. Círculos: área de cada unidade." : null} />
+          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} /> : lente === "rede" ? "Bolinhas vermelhas: World Gym. Círculos: área de cada unidade." : null} />
         <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} satelite={satelite} setSatelite={setSatelite} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
         <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}

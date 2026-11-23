@@ -119,7 +119,7 @@ export function km(a: [number, number], b: [number, number]): number {
 export const m2Efetivo = (m2: number, p: PremissaModelo) => (m2 <= p.limiteM2 ? m2 : p.limiteM2 + (m2 - p.limiteM2) * p.pesoAcima);
 export const investimentoDe = (m2: number, p: PremissaModelo) => (p.investimento * m2) / p.padraoM2;
 export const custoFixoDe = (m2: number, p: PremissaModelo) => p.fixoBase + p.fixoPorM2 * m2;
-const lucroDe = (vendas: number, m2: number, p: PremissaModelo) => vendas * (1 - p.variavel) - custoFixoDe(m2, p);
+export const lucroDe = (vendas: number, m2: number, p: PremissaModelo) => vendas * (1 - p.variavel) - custoFixoDe(m2, p);
 /** Meses para o investimento voltar, contando a maturação. Infinity quando não dá lucro. */
 export function paybackDe(vendas: number, m2: number, p: PremissaModelo, maturacao: number): number {
   const l = lucroDe(vendas, m2, p);

@@ -49,19 +49,110 @@ export function classificarConcorrentes(pois: ResultadoPois | null) {
   return { total: lugares.length, redes, independentes, modalidades, diretos: redes.length + independentes.length, nomesRedes };
 }
 
+/** Dados de mercado da área (iguais para unidade em operação e ponto novo). `vendas`: unidade = o que vende; ponto = a meta da régua. */
+export interface DadosMercado {
+  tipo: "unidade" | "ponto"; nome: string; area: string; vendas: number | null; alunosNaArea: number | null;
+  perfil: ReturnType<typeof perfilNaArea> | null; renda: ReturnType<typeof classesNoRaio> | null; potencial: ReturnType<typeof potencialNaArea> | null;
+  densidade?: ReturnType<typeof densidadeNaArea> | null; pois: ResultadoPois | null;
+  fotos: { idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; pois: string | null };
+}
+/** Números de mercado da área: concorrência classificada, praticantes, habitantes por academia e participação. */
+export function resumoMercado(m: Pick<DadosMercado, "perfil" | "renda" | "pois" | "alunosNaArea">) {
+  const conc = classificarConcorrentes(m.pois);
+  const moradores = m.perfil?.moradores ?? null;
+  const praticantes = moradores != null ? moradores * PENETRACAO_MERCADO : null;
+  const share = m.alunosNaArea != null && praticantes ? m.alunosNaArea / praticantes : null;
+  const habPorAcademia = moradores != null && conc ? moradores / (conc.diretos + 1) : null;
+  const pratPorAcademia = praticantes != null && conc ? praticantes / (conc.diretos + 1) : null;
+  const nivelConcorrencia = habPorAcademia == null ? null : habPorAcademia <= 1950 ? "saturada" : habPorAcademia <= 3000 ? "alta" : habPorAcademia <= 6600 ? "moderada" : "baixa";
+  const perfilRenda = m.renda ? (m.renda.cde >= 0.75 ? "predominantemente popular" : m.renda.ab >= 0.4 ? "de renda mais alta" : "misto") : null;
+  return { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda };
+}
+/** Seções de mercado: faixa etária, domicílios, perfil socioeconômico, potencial de consumo e concorrência. */
+export function secoesDeMercado(m: DadosMercado): Secao[] {
+  const { perfil, renda, area } = m;
+  const { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado(m);
+  const secoes: Secao[] = [];
+  // ---------- Perfil etário ----------
+  if (perfil?.idade && perfil.parte20a49 != null) {
+    const tot = perfil.idade.reduce((a, b) => a + b, 0);
+    const p2049 = perfil.parte20a49, nucleo = (perfil.idade[3] + perfil.idade[4]) / tot;
+    secoes.push({
+      titulo: "População por Faixa Etária", novaPagina: true, linhas: [],
+      texto: [`A população de 20 a 49 anos ${area} soma ${num(tot * p2049)} pessoas, ${pct(p2049)} do total. ${p2049 >= 0.49 ? "É uma aderência etária alta ao público de academia." : p2049 >= 0.42 ? "É uma aderência etária média, com base relevante de público economicamente ativo." : "A aderência etária é baixa: a área é mais jovem ou mais envelhecida que o público típico, o que pede oferta e comunicação ajustadas."} Na rede, 55% dos alunos ativos têm de 25 a 44 anos, faixa em que o churn e a inadimplência são menores que entre os mais jovens; na área, os moradores de 30 a 49 anos são ${pct(nucleo)}.`],
+      foto: { dados: m.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade com mais moradores (Censo 2022)." }, altFoto: 85,
+      legenda: FAIXAS_IDADE.map((f, i) => ({ cor: CORES_IDADE[i], texto: `${f}: ${num(perfil.idade![i])} (${pct(perfil.idade![i] / tot, 0)})` })),
+      destaques: [{ valor: pct(p2049), rotulo: "moradores de 20 a 49 anos" }, { valor: mil(tot * p2049), rotulo: "pessoas de 20 a 49 anos" }],
+    });
+  }
+
+  // ---------- Domicílios e densidade ----------
+  if (perfil?.domicilios && perfil.porDomicilio) {
+    const pd = perfil.porDomicilio;
+    secoes.push({
+      titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
+      destaques: [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }, { valor: dec(pd), rotulo: "moradores por domicílio" }, { valor: mil(perfil.moradores), rotulo: "moradores" }],
+      texto: [`A área conta com ${num(perfil.domicilios)} domicílios ocupados, com média de ${dec(pd)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)}). ${pd >= 2.95 ? "Famílias maiores dividem a renda entre mais pessoas: o consumo é compartilhado e a sensibilidade a preço é maior, o que reforça ticket acessível, planos familiares e alto volume de alunos." : pd <= 2.55 ? "Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor." : "O tamanho das famílias está perto da média nacional: o público combina famílias e adultos que moram sozinhos, sem pressão extra sobre o preço."}`],
+      foto: { dados: m.fotos.domicilios, legenda: "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)." }, altFoto: 85,
+      ...(m.densidade ? { grafico: { tipo: "rosca" as const, titulo: "Domicílios por faixa de moradores por domicílio", fatias: m.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
+    });
+  }
+
+  // ---------- Perfil socioeconômico ----------
+  if (renda && m.fotos.renda) {
+    const [a, b] = [...renda.classes].sort((x, y) => y.parte - x.parte);
+    secoes.push({
+      titulo: "Perfil Socioeconômico", novaPagina: true, linhas: [],
+      texto: [`A região tem perfil ${perfilRenda}: ${pct(renda.ab)} dos moradores estão nas classes AA, A e B e ${pct(renda.cde)} nas classes C, D e E. As classes que mais aparecem são a ${a.id} (${pct(a.parte)}) e a ${b.id} (${pct(b.parte)}), ${renda.cde >= 0.75 ? "o que indica sensibilidade a preço e favorece modelos focados em escala e eficiência, como o Low Cost." : renda.ab >= 0.4 ? "o que abre espaço para planos de maior valor, serviços adicionais e o modelo Pro." : "o que pede uma oferta que atenda as duas faixas, com plano de entrada e opções de maior valor."}${renda.media ? ` A renda média do responsável pelo domicílio na área é de R$ ${num(Math.round(renda.media / 10) * 10)}.` : ""}`],
+      foto: { dados: m.fotos.renda, legenda: "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022, estimativa por hexágono)." }, altFoto: 88,
+      grafico: { tipo: "rosca", titulo: "Distribuição dos moradores por classe de renda", fatias: CLASSES_RENDA.map((c) => ({ rotulo: `${c.rotulo} (${c.faixa})`, valor: renda.classes.find((x) => x.id === c.id)?.parte ?? 0, cor: c.cor })), centro: mil(renda.moradores), rotuloCentro: "moradores" },
+    });
+  }
+
+  // ---------- Potencial de consumo ----------
+  if (m.potencial) {
+    const pot = m.potencial, fatia = m.vendas != null && pot.total ? m.vendas / pot.total : null;
+    secoes.push({
+      titulo: "Potencial de Consumo", novaPagina: true, linhas: [],
+      destaques: [{ valor: `R$ ${pot.total >= 1e6 ? `${(pot.total / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `${Math.round(pot.total / 1000).toLocaleString("pt-BR")} mil`}`, rotulo: "potencial de consumo por mês" }, { valor: `R$ ${dec(pot.porDomicilio)}`, rotulo: "por domicílio por mês" }, ...(fatia != null ? [{ valor: pct(fatia, 0), rotulo: m.tipo === "unidade" ? "do potencial é o que a unidade vende" : "do potencial precisa ser capturado" }] : [])],
+      texto: [
+        `Os ${num(pot.domicilios)} domicílios ${area} gastam, juntos, cerca de R$ ${num(pot.total)} por mês com recreações e esportes (academias, clubes, aulas e eventos esportivos), pela renda de cada região. ${renda && renda.cde >= 0.75 ? "Apesar da renda predominantemente popular, a escala de domicílios forma uma base de mercado que sustenta operações de volume." : "A renda da área sustenta gasto acima da média com atividade física, o que favorece ticket maior e serviços adicionais."}`,
+        ...(fatia != null ? [m.tipo === "unidade"
+          ? `A World Gym ${m.nome} vende ${reais(m.vendas!)} por mês, o equivalente a ${pct(fatia, 0)} desse potencial. ${fatia >= 0.36 ? "É uma fatia alta: parte das vendas vem de alunos de fora da área e o espaço para crescer dentro dela é mais estreito (nos estudos da rede, pontos novos que precisariam de mais de ~36% do potencial foram reprovados)." : fatia >= 0.33 ? "É uma fatia na zona de atenção usada nos estudos da rede (33% a 35%)." : "É uma fatia confortável (nos estudos da rede, até ~32% do potencial é considerado capturável), o que indica espaço para crescer."}`
+          : `Para chegar à meta de ${reais(m.vendas!)} por mês (o que paga o investimento no prazo da régua da rede), o ponto precisaria capturar ${pct(fatia, 0)} desse potencial. ${fatia >= 0.36 ? "É uma fatia alta demais: nos estudos da rede, pontos que precisavam de mais de ~36% do potencial foram reprovados." : fatia >= 0.33 ? "Está na zona de atenção dos estudos da rede (33% a 35%)." : "Está dentro do que os estudos da rede consideram capturável (até ~32%)."}`] : []),
+        `Estimativa: gasto médio mensal das famílias com recreações e esportes por faixa de renda (IBGE, POF 2017-2018), corrigido pela inflação (×${dec(CORRECAO_POF)}) e aplicado à renda média do responsável de cada hexágono do Censo 2022. Como a família costuma ter mais de uma renda, o número tende a ser conservador.`,
+      ],
+      foto: { dados: m.fotos.consumo, legenda: "Mais escuro = maior gasto estimado com recreações e esportes." }, altFoto: 95,
+    });
+  }
+
+  // ---------- Concorrência e mercado ----------
+  if (m.pois && conc) {
+    const texto: string[] = [];
+    texto.push(`Foram identificados ${conc.total} lugares cadastrados como academia no Google ${m.pois.areaRotulo ? `na área de ${m.pois.areaRotulo}` : `a até ${m.pois.raioKm.toLocaleString("pt-BR")} km`}. Separando por tipo: ${conc.redes.length} unidades de grandes redes${conc.nomesRedes.length ? ` (${conc.nomesRedes.map((r) => `${r.rede}${r.n > 1 ? ` ${r.n}` : ""}`).join(", ")})` : ""}, ${conc.independentes.length} academias independentes e ${conc.modalidades.length} studios e modalidades (lutas, pilates, dança, crossfit), que disputam só parte do mesmo aluno. A classificação é automática pelo nome e vale conferir.`);
+    if (habPorAcademia != null && pratPorAcademia != null && praticantes != null) texto.push(`Com ${mil(moradores)} moradores e ${conc.diretos} concorrentes diretos mais ${m.tipo === "unidade" ? "a própria unidade" : "a nova unidade"}, a área tem ${num(habPorAcademia)} habitantes por academia: concorrência ${nivelConcorrencia}${nivelConcorrencia === "saturada" ? " (nos estudos da rede, áreas abaixo de ~1.950 habitantes por academia foram reprovadas por saturação)" : ""}. Pela premissa de ${pct(PENETRACAO_MERCADO, 0)} de penetração, são cerca de ${mil(praticantes)} praticantes, ou ${num(pratPorAcademia)} por academia${share != null ? `; a World Gym ${m.nome} tem cerca de ${pct(share, 0)} desse mercado com os alunos que moram na área` : ""}.`);
+    secoes.push({
+      titulo: "Análise de Concorrência", novaPagina: true, linhas: [], texto,
+      destaques: [{ valor: num(conc.diretos), rotulo: "concorrentes diretos" }, ...(habPorAcademia != null ? [{ valor: num(habPorAcademia), rotulo: "habitantes por academia" }] : []), ...(share != null ? [{ valor: pct(share, 0), rotulo: "participação no mercado da área" }] : [])],
+      foto: { dados: m.fotos.pois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, altFoto: 92,
+    });
+    secoes.push({
+      titulo: "Composição da Concorrência", novaPagina: true, linhas: [],
+      texto: [`Dos ${conc.total} lugares, ${conc.diretos} disputam diretamente o aluno da World Gym (grandes redes e academias independentes). Os studios e modalidades atendem nichos e entram só em parte na disputa.`],
+      grafico: { tipo: "rosca", fatias: [{ rotulo: "Grandes redes", valor: conc.redes.length, cor: "#1b2130" }, { rotulo: "Academias independentes", valor: conc.independentes.length, cor: "#1f5f8b" }, { rotulo: "Studios e modalidades", valor: conc.modalidades.length, cor: "#b9c3d0" }], centro: String(conc.total), rotuloCentro: "lugares" },
+      tabela: { colunas: ["Nº", "Academia", "km"], larguras: [0.35, 3, 0.55], blocos: 2, linhas: m.pois.lugares.map((l, i) => [String(i + 1), l.rede ? `${l.nome} (${l.rede})` : l.nome, l.km.toLocaleString("pt-BR")]) },
+    });
+  }
+
+  return secoes;
+}
+
 export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
   const { u, faixa, perfil, renda } = d;
   const area = d.temArea ? `na área de até ${d.minutos} minutos de carro` : "na área onde moram 80% dos alunos";
   const mes = (d.hoje ?? new Date()).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-  const conc = classificarConcorrentes(d.pois);
-  const moradores = perfil?.moradores ?? null;
   const alunosNaArea = u.alunos != null && d.parteNaArea != null ? u.alunos * d.parteNaArea : null;
-  const praticantes = moradores != null ? moradores * PENETRACAO_MERCADO : null;
-  const share = alunosNaArea != null && praticantes ? alunosNaArea / praticantes : null;
-  const habPorAcademia = moradores != null && conc ? moradores / (conc.diretos + 1) : null;
-  const pratPorAcademia = praticantes != null && conc ? praticantes / (conc.diretos + 1) : null;
-  const nivelConcorrencia = habPorAcademia == null ? null : habPorAcademia <= 1950 ? "saturada" : habPorAcademia <= 3000 ? "alta" : habPorAcademia <= 6600 ? "moderada" : "baixa";
-  const perfilRenda = renda ? (renda.cde >= 0.75 ? "predominantemente popular" : renda.ab >= 0.4 ? "de renda mais alta" : "misto") : null;
+  const { conc, moradores, share, habPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado({ perfil, renda, pois: d.pois, alunosNaArea });
   const secoes: Secao[] = [];
 
   // ---------- Resumo (página principal) ----------
@@ -120,74 +211,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     secoes.push({ titulo: "Oportunidades de Captação", novaPagina: true, linhas: [], texto, foto: { dados: d.fotos.oportunidade, legenda: "Azul: demanda esperada pelo modelo (mais escuro = mais alunos esperados). Bolhas vermelhas: alunos reais por bairro (maior = mais alunos)." } });
   }
 
-  // ---------- Perfil etário ----------
-  if (perfil?.idade && perfil.parte20a49 != null) {
-    const tot = perfil.idade.reduce((a, b) => a + b, 0);
-    const p2049 = perfil.parte20a49, nucleo = (perfil.idade[3] + perfil.idade[4]) / tot;
-    secoes.push({
-      titulo: "População por Faixa Etária", novaPagina: true, linhas: [],
-      texto: [`A população de 20 a 49 anos ${area} soma ${num(tot * p2049)} pessoas, ${pct(p2049)} do total. ${p2049 >= 0.49 ? "É uma aderência etária alta ao público de academia." : p2049 >= 0.42 ? "É uma aderência etária média, com base relevante de público economicamente ativo." : "A aderência etária é baixa: a área é mais jovem ou mais envelhecida que o público típico, o que pede oferta e comunicação ajustadas."} Na rede, 55% dos alunos ativos têm de 25 a 44 anos, faixa em que o churn e a inadimplência são menores que entre os mais jovens; na área, os moradores de 30 a 49 anos são ${pct(nucleo)}.`],
-      foto: { dados: d.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade com mais moradores (Censo 2022)." }, altFoto: 85,
-      legenda: FAIXAS_IDADE.map((f, i) => ({ cor: CORES_IDADE[i], texto: `${f}: ${num(perfil.idade![i])} (${pct(perfil.idade![i] / tot, 0)})` })),
-      destaques: [{ valor: pct(p2049), rotulo: "moradores de 20 a 49 anos" }, { valor: mil(tot * p2049), rotulo: "pessoas de 20 a 49 anos" }],
-    });
-  }
-
-  // ---------- Domicílios e densidade ----------
-  if (perfil?.domicilios && perfil.porDomicilio) {
-    const pd = perfil.porDomicilio;
-    secoes.push({
-      titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
-      destaques: [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }, { valor: dec(pd), rotulo: "moradores por domicílio" }, { valor: mil(perfil.moradores), rotulo: "moradores" }],
-      texto: [`A área conta com ${num(perfil.domicilios)} domicílios ocupados, com média de ${dec(pd)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)}). ${pd >= 2.95 ? "Famílias maiores dividem a renda entre mais pessoas: o consumo é compartilhado e a sensibilidade a preço é maior, o que reforça ticket acessível, planos familiares e alto volume de alunos." : pd <= 2.55 ? "Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor." : "O tamanho das famílias está perto da média nacional: o público combina famílias e adultos que moram sozinhos, sem pressão extra sobre o preço."}`],
-      foto: { dados: d.fotos.domicilios, legenda: "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)." }, altFoto: 85,
-      ...(d.densidade ? { grafico: { tipo: "rosca" as const, titulo: "Domicílios por faixa de moradores por domicílio", fatias: d.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
-    });
-  }
-
-  // ---------- Perfil socioeconômico ----------
-  if (renda && d.fotos.renda) {
-    const [a, b] = [...renda.classes].sort((x, y) => y.parte - x.parte);
-    secoes.push({
-      titulo: "Perfil Socioeconômico", novaPagina: true, linhas: [],
-      texto: [`A região tem perfil ${perfilRenda}: ${pct(renda.ab)} dos moradores estão nas classes AA, A e B e ${pct(renda.cde)} nas classes C, D e E. As classes que mais aparecem são a ${a.id} (${pct(a.parte)}) e a ${b.id} (${pct(b.parte)}), ${renda.cde >= 0.75 ? "o que indica sensibilidade a preço e favorece modelos focados em escala e eficiência, como o Low Cost." : renda.ab >= 0.4 ? "o que abre espaço para planos de maior valor, serviços adicionais e o modelo Pro." : "o que pede uma oferta que atenda as duas faixas, com plano de entrada e opções de maior valor."}${renda.media ? ` A renda média do responsável pelo domicílio na área é de R$ ${num(Math.round(renda.media / 10) * 10)}.` : ""}`],
-      foto: { dados: d.fotos.renda, legenda: "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022, estimativa por hexágono)." }, altFoto: 88,
-      grafico: { tipo: "rosca", titulo: "Distribuição dos moradores por classe de renda", fatias: CLASSES_RENDA.map((c) => ({ rotulo: `${c.rotulo} (${c.faixa})`, valor: renda.classes.find((x) => x.id === c.id)?.parte ?? 0, cor: c.cor })), centro: mil(renda.moradores), rotuloCentro: "moradores" },
-    });
-  }
-
-  // ---------- Potencial de consumo ----------
-  if (d.potencial) {
-    const pot = d.potencial, fatia = u.vendas != null && pot.total ? u.vendas / pot.total : null;
-    secoes.push({
-      titulo: "Potencial de Consumo", novaPagina: true, linhas: [],
-      destaques: [{ valor: `R$ ${pot.total >= 1e6 ? `${(pot.total / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `${Math.round(pot.total / 1000).toLocaleString("pt-BR")} mil`}`, rotulo: "potencial de consumo por mês" }, { valor: `R$ ${dec(pot.porDomicilio)}`, rotulo: "por domicílio por mês" }, ...(fatia != null ? [{ valor: pct(fatia, 0), rotulo: "do potencial é o que a unidade vende" }] : [])],
-      texto: [
-        `Os ${num(pot.domicilios)} domicílios ${area} gastam, juntos, cerca de R$ ${num(pot.total)} por mês com recreações e esportes (academias, clubes, aulas e eventos esportivos), pela renda de cada região. ${renda && renda.cde >= 0.75 ? "Apesar da renda predominantemente popular, a escala de domicílios forma uma base de mercado que sustenta operações de volume." : "A renda da área sustenta gasto acima da média com atividade física, o que favorece ticket maior e serviços adicionais."}`,
-        ...(fatia != null ? [`A World Gym ${u.nome} vende ${reais(u.vendas!)} por mês, o equivalente a ${pct(fatia, 0)} desse potencial. ${fatia >= 0.36 ? "É uma fatia alta: parte das vendas vem de alunos de fora da área e o espaço para crescer dentro dela é mais estreito (nos estudos da rede, pontos novos que precisariam de mais de ~36% do potencial foram reprovados)." : fatia >= 0.33 ? "É uma fatia na zona de atenção usada nos estudos da rede (33% a 35%)." : "É uma fatia confortável (nos estudos da rede, até ~32% do potencial é considerado capturável), o que indica espaço para crescer."}`] : []),
-        `Estimativa: gasto médio mensal das famílias com recreações e esportes por faixa de renda (IBGE, POF 2017-2018), corrigido pela inflação (×${dec(CORRECAO_POF)}) e aplicado à renda média do responsável de cada hexágono do Censo 2022. Como a família costuma ter mais de uma renda, o número tende a ser conservador.`,
-      ],
-      foto: { dados: d.fotos.consumo, legenda: "Mais escuro = maior gasto estimado com recreações e esportes." }, altFoto: 95,
-    });
-  }
-
-  // ---------- Concorrência e mercado ----------
-  if (d.pois && conc) {
-    const texto: string[] = [];
-    texto.push(`Foram identificados ${conc.total} lugares cadastrados como academia no Google ${d.pois.areaRotulo ? `na área de ${d.pois.areaRotulo}` : `a até ${d.pois.raioKm.toLocaleString("pt-BR")} km`}. Separando por tipo: ${conc.redes.length} unidades de grandes redes${conc.nomesRedes.length ? ` (${conc.nomesRedes.map((r) => `${r.rede}${r.n > 1 ? ` ${r.n}` : ""}`).join(", ")})` : ""}, ${conc.independentes.length} academias independentes e ${conc.modalidades.length} studios e modalidades (lutas, pilates, dança, crossfit), que disputam só parte do mesmo aluno. A classificação é automática pelo nome e vale conferir.`);
-    if (habPorAcademia != null && pratPorAcademia != null && praticantes != null) texto.push(`Com ${mil(moradores)} moradores e ${conc.diretos} concorrentes diretos mais a própria unidade, a área tem ${num(habPorAcademia)} habitantes por academia: concorrência ${nivelConcorrencia}${nivelConcorrencia === "saturada" ? " (nos estudos da rede, áreas abaixo de ~1.950 habitantes por academia foram reprovadas por saturação)" : ""}. Pela premissa de ${pct(PENETRACAO_MERCADO, 0)} de penetração, são cerca de ${mil(praticantes)} praticantes, ou ${num(pratPorAcademia)} por academia${share != null ? `; a World Gym ${u.nome} tem cerca de ${pct(share, 0)} desse mercado com os alunos que moram na área` : ""}.`);
-    secoes.push({
-      titulo: "Análise de Concorrência", novaPagina: true, linhas: [], texto,
-      destaques: [{ valor: num(conc.diretos), rotulo: "concorrentes diretos" }, ...(habPorAcademia != null ? [{ valor: num(habPorAcademia), rotulo: "habitantes por academia" }] : []), ...(share != null ? [{ valor: pct(share, 0), rotulo: "participação no mercado da área" }] : [])],
-      foto: { dados: d.fotos.pois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, altFoto: 92,
-    });
-    secoes.push({
-      titulo: "Composição da Concorrência", novaPagina: true, linhas: [],
-      texto: [`Dos ${conc.total} lugares, ${conc.diretos} disputam diretamente o aluno da World Gym (grandes redes e academias independentes). Os studios e modalidades atendem nichos e entram só em parte na disputa.`],
-      grafico: { tipo: "rosca", fatias: [{ rotulo: "Grandes redes", valor: conc.redes.length, cor: "#1b2130" }, { rotulo: "Academias independentes", valor: conc.independentes.length, cor: "#1f5f8b" }, { rotulo: "Studios e modalidades", valor: conc.modalidades.length, cor: "#b9c3d0" }], centro: String(conc.total), rotuloCentro: "lugares" },
-      tabela: { colunas: ["Nº", "Academia", "km"], larguras: [0.35, 3, 0.55], blocos: 2, linhas: d.pois.lugares.map((l, i) => [String(i + 1), l.rede ? `${l.nome} (${l.rede})` : l.nome, l.km.toLocaleString("pt-BR")]) },
-    });
-  }
+  secoes.push(...secoesDeMercado({ tipo: "unidade", nome: u.nome, area, vendas: u.vendas, alunosNaArea, perfil, renda, potencial: d.potencial, densidade: d.densidade, pois: d.pois, fotos: d.fotos }));
 
   // ---------- Canibalização ----------
   const perda = d.divideCom.reduce((a, x) => a + x.parte, 0);

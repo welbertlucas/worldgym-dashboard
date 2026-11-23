@@ -9,9 +9,11 @@ import { CSS_POIS, ControlePois, SecaoPois, usePoisNoMapa, type ModoPois, type R
 import { Destaque, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { MapPin, Scale, TrendingUp, Users } from "lucide-react";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
+import { AZUL, LegendaCenso, LegendaRenda, desenharCenso, ehCamadaCenso } from "@/components/estudos/camadasCenso";
+export { LegendaRenda };
 import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
-import { CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, MINUTOS_PADRAO, classeDensidade, densidadeNaArea, faixaPredominante, posicoesMelhores, captacaoDe, classeDaRenda, classesNaArea, classesNoRaio, dentroDaArea, gastoDoDomicilio, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { MINUTOS_PADRAO, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + alunos (foto do PDF)
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "consumo" | "rede" | "limpa" | "oportunidade";
@@ -20,8 +22,6 @@ const LENTES: { id: Lente; rotulo: string }[] = [
   { id: "pessoas", rotulo: "População" }, { id: "idade", rotulo: "Idade" }, { id: "domicilios", rotulo: "Domicílios" },
   { id: "renda", rotulo: "Renda" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "rede", rotulo: "Canibalização" },
 ];
-/** Escala azul da demanda e do potencial de consumo. */
-const AZUL = (t: number) => `rgb(${Math.round(222 - 190 * t)},${Math.round(235 - 160 * t)},${Math.round(252 - 60 * t)})`;
 const fmtKm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`);
 
 /**
@@ -131,45 +131,9 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
         L.polygon(hexagono(lat, lng, censo.rk), { stroke: false, fillColor: rampa(t ** 0.6), fillOpacity: 0.22 + 0.5 * Math.sqrt(t), interactive: false }).addTo(camadas);
       });
       if (cap.raio80 && !area10) L.circle(u.c, { radius: cap.raio80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
-    } else if (lente === "consumo" && censo) {
-      // gasto estimado com recreações e esportes por hexágono (domicílios × gasto pela renda, POF/IBGE)
-      const vis = censo.celulas.filter(([la, ln, , , d]) => d && (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5));
-      const val = (c: (typeof vis)[number]) => (c[4] ?? 0) * (gastoDoDomicilio(c[3]) ?? 0);
-      const xs = vis.map(val).filter((x) => x > 0).sort((a, b) => a - b), mx = xs[Math.floor(xs.length * 0.95)] ?? 1;
-      for (const c of vis) {
-        const v = val(c), t = Math.min(1, v / mx);
-        L.polygon(hexagono(c[0], c[1], censo.rk), { color: "#fff", weight: 1, opacity: 0.6, fillColor: AZUL(t), fillOpacity: 0.72 })
-          .bindTooltip(`R$ ${Math.round(v).toLocaleString("pt-BR")} por mês em recreações e esportes (estimativa)`, { sticky: true }).addTo(camadas);
-      }
-    } else if ((lente === "idade" || lente === "domicilios") && censo) {
-      // idade: cada hexágono na cor da faixa com mais moradores; domicílios: na cor da faixa de moradores por domicílio (Censo 2022)
-      const vis = censo.celulas.filter(([la, ln, , , d, ida]) => (lente === "idade" ? ida?.length : d) && (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5));
-      for (const c of vis) {
-        if (lente === "idade") {
-          const i = faixaPredominante(c[5]);
-          if (i == null) continue;
-          L.polygon(hexagono(c[0], c[1], censo.rk), { color: "#fff", weight: 1, opacity: 0.6, fillColor: CORES_IDADE[i], fillOpacity: 0.62 })
-            .bindTooltip(`Predomina: ${FAIXAS_IDADE[i]}`, { sticky: true }).addTo(camadas);
-        } else {
-          const pd = c[2] / (c[4] as number), k = classeDensidade(pd);
-          L.polygon(hexagono(c[0], c[1], censo.rk), { color: "#fff", weight: 1, opacity: 0.6, fillColor: CLASSES_DENSIDADE[k].cor, fillOpacity: 0.65 })
-            .bindTooltip(`${pd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio`, { sticky: true }).addTo(camadas);
-        }
-      }
-    } else if ((lente === "pessoas" || lente === "renda") && censo) {
+    } else if (ehCamadaCenso(lente) && censo) {
       // como no Mapfry: só os hexágonos de dentro da área de deslocamento (sem ela, num raio de 5 km)
-      const vis = censo.celulas.filter(([la, ln]) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5));
-      const v = (c: (typeof vis)[number]) => (lente === "pessoas" ? c[2] : c[3] ?? 0);
-      const xs = vis.map(v).filter((x) => x > 0).sort((a, b) => a - b), mx = xs[Math.floor(xs.length * 0.95)] ?? 1;
-      for (const c of vis) {
-        const t = Math.min(1, v(c) / mx), classe = lente === "renda" ? classeDaRenda(c[3]) : null;
-        if (lente === "renda" && !classe) continue;
-        // pessoas: vermelho mais forte onde mora mais gente; renda: uma cor por classe (legenda em cima do mapa)
-        L.polygon(hexagono(c[0], c[1], censo.rk), lente === "renda"
-          ? { color: "#fff", weight: 1, opacity: 0.6, fillColor: classe!.cor, fillOpacity: 0.45 }
-          : { color: "#fff", weight: 1, opacity: 0.6, fillColor: "#c41230", fillOpacity: 0.04 + t * t * 0.42 })
-          .bindTooltip(lente === "pessoas" ? `${c[2].toLocaleString("pt-BR")} moradores` : c[3] ? `${classeDaRenda(c[3])?.rotulo ?? ""}: renda média do responsável R$ ${c[3].toLocaleString("pt-BR")}` : "Sem dado de renda", { sticky: true }).addTo(camadas);
-      }
+      desenharCenso(L, camadas, censo, lente, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5));
     }
     for (const o of dados.unidades ?? []) {
       if (!o.c || o.nome === u.nome || lente === "limpa") continue;
@@ -270,17 +234,9 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
           legenda={lente === "modelo" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">Onde o modelo espera alunos, pela gente que mora perto e pelas outras World Gym. {area10 ? LEGENDA_DESLOCAMENTO : ""}</p>
-          </> : lente === "renda" ? <LegendaRenda /> : lente === "idade" || lente === "domicilios" ? (
-            <div className="space-y-1">
-              {lente === "idade" && <p>Cor da faixa com mais moradores:</p>}
-              {(lente === "idade" ? FAIXAS_IDADE.map((f, i) => ({ rotulo: f, cor: CORES_IDADE[i] })) : CLASSES_DENSIDADE).map((x) => (
-                <div key={x.rotulo} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: x.cor }} />{x.rotulo}</div>
-              ))}
-            </div>
-          ) : lente === "consumo" ? (
-            <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: `linear-gradient(90deg,${AZUL(0)},${AZUL(1)})` }} />mais gasto com esporte</div>
-          ) : lente === "alunos" ? <>Bolha maior = mais alunos no bairro. {area10 ? LEGENDA_DESLOCAMENTO : "Tracejado: onde moram 80%."}</>
-            : lente === "pessoas" ? "Vermelho mais forte = mais moradores (Censo 2022)." : lente === "rede" ? "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." : null} />
+          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} />
+            : lente === "alunos" ? <>Bolha maior = mais alunos no bairro. {area10 ? LEGENDA_DESLOCAMENTO : "Tracejado: onde moram 80%."}</>
+            : lente === "rede" ? "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." : null} />
         <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} satelite={satelite} setSatelite={setSatelite} verRua={verRua} setVerRua={setVerRua} />
         <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={u.c} aviso={false} area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
@@ -323,16 +279,6 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
       </div>
       {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
       {novaUnidade && <div className="grid gap-4 lg:grid-cols-2"><SecaoSugestoes res={novaUnidade} tipo="nova" nome={u.nome} /></div>}
-    </div>
-  );
-}
-
-/** Legenda da lente Renda: uma cor por classe (renda média do responsável, Censo 2022). */
-export function LegendaRenda() {
-  return (
-    <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 rounded-lg bg-white/95 px-3 py-1.5 text-xs text-muted-foreground shadow" title="Classe pela renda média do responsável pelo domicílio (Censo 2022)">
-      {CLASSES_RENDA.map((c) => <span key={c.id} className="flex items-center gap-1" title={c.faixa}><span className="h-2.5 w-2.5 rounded-sm" style={{ background: c.cor }} />{c.id}</span>)}
-      <span className="border-l pl-2">renda média do responsável</span>
     </div>
   );
 }
