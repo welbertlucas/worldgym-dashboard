@@ -2,6 +2,7 @@
 // Nada de leitura nova no EVO: só os totais mensais que o Atlas já guarda (nunca dado de aluno). O desenho dos slides fica em src/lib/relatorioPptx.ts.
 import { evoAtualizadoEm, somarMotivos, somarRecusa, type MonthData, type UnitData } from "@/data/dashboardData";
 import { paginasDoPlano, type PlanoDaUnidade } from "@/data/relatorioPlano";
+import type { SlideExtra } from "@/data/relatorioExtras";
 import { npsDoPonto, rankingDePontos, somarPontos } from "@/data/npsPontos";
 import { META_INDICATORS, actualFor, attainment, formatMetaValue, getMeta, highestTier, tierReached, type Meta, type MetaKey } from "@/data/metas";
 
@@ -306,6 +307,8 @@ export interface ModeloRelatorio {
   notaRecebimento?: string | null;
   /** Texto livre da pessoa que gera o relatório (slide "Observações"). */
   observacoes?: string | null;
+  /** Slides extras: projeção de fechamento, saldo de alunos e vendas de uma campanha (montados à parte, em relatorioExtras). */
+  extras?: SlideExtra[];
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -656,5 +659,5 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
 
 /** O que o menu mostra de cada slide, antes de gerar. */
 export function resumoDosSlides(modelo: ModeloRelatorio): string[] {
-  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.satisfacao?.semanal || modelo.satisfacao?.notas.length ? ["Satisfação"] : []), ...(!modelo.satisfacao?.semanal && modelo.satisfacao?.pontos?.length ? ["Satisfação: pontos de contato"] : []), ...(modelo.metas ? ["Metas do mês"] : []), ...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), ...(modelo.observacoes?.trim() ? ["Observações"] : []), "Encerramento"];
+  return ["Capa", ...(modelo.big ? ["Overview"] : []), ...modelo.rankings.flatMap((r) => [r.titulo.replace("*", ""), ...(r.motivos ? [r.motivos.titulo] : [])]), ...(modelo.complementares ? ["Receitas complementares"] : []), ...(modelo.satisfacao?.semanal || modelo.satisfacao?.notas.length ? ["Satisfação"] : []), ...(!modelo.satisfacao?.semanal && modelo.satisfacao?.pontos?.length ? ["Satisfação: pontos de contato"] : []), ...(modelo.metas ? ["Metas do mês"] : []), ...(modelo.extras ?? []).map((x) => x.titulo),...(modelo.frequencia ? ["Frequência dos alunos"] : []), ...(modelo.plano ? [`Plano de ação${paginasDoPlano(modelo.plano).paginas.length > 1 ? ` (${paginasDoPlano(modelo.plano).paginas.length} slides)` : ""}`] : []), ...(modelo.observacoes?.trim() ? ["Observações"] : []), "Encerramento"];
 }

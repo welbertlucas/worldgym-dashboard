@@ -11,10 +11,11 @@ import type { ResultadoVigente } from "@/data/alertasVigentes";
 import { carregarFeitos, type Feito } from "@/data/planoFeitos";
 import { planoDaUnidade } from "@/data/relatorioPlano";
 import { formatMonthLong, isPartialMonth } from "@/data/periods";
-import { diasFechados } from "@/data/vendasDia";
+import { diasFechados, diasNoMes } from "@/data/vendasDia";
 import { INDICADORES_PADRAO, LEGENDA_COMPLEMENTARES, mesesParaRelatorio, montarRelatorio, resumoDosSlides, type ModeloRelatorio } from "@/data/relatorio";
 import { ID_PLANO, INDICADORES_SEMANA_PADRAO, estadoDaSemana, montarRelatorioSemanal, rotuloDaSemana, semanasNoMes, temSemanas } from "@/data/relatorioSemana";
 import { AVISO_DO_RECEBIMENTO, GRUPOS_DO_RELATORIO, previaDoItem, rotuloDaOpcao } from "@/data/relatorioOpcoes";
+import { ID_CAMPANHA, IDS_EXTRAS, montarExtras } from "@/data/relatorioExtras";
 import { lerEscolhas, salvarEscolhas } from "@/lib/relatorioEscolhas";
 import { getUsuario, podeGerarRelatorios, unidadesProprias } from "@/lib/auth";
 import { registrarExportacao } from "@/lib/atividade";
@@ -43,6 +44,10 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
   const [indMes, setIndMes] = useState<string[]>(lembrado.indMes ?? INDICADORES_PADRAO);
   const [indSem, setIndSem] = useState<string[]>(lembrado.indSem ?? INDICADORES_SEMANA_PADRAO);
   const [obs, setObs] = useState("");
+  // Campanha (ex.: Black Friday): nome e período em dias do mês do relatório; não fica guardada
+  const [campNome, setCampNome] = useState("Black Friday");
+  const [campDe, setCampDe] = useState("");
+  const [campAte, setCampAte] = useState("");
   // Lembra a última escolha (o texto das observações é de cada relatório e não fica guardado)
   useEffect(() => { salvarEscolhas(email, { tipo, escopo, marcadas, indMes, indSem }); }, [email, tipo, escopo, marcadas, indMes, indSem]);
   const [gerando, setGerando] = useState(false);
@@ -69,7 +74,16 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
     const m = tipo === "mes"
       ? montarRelatorio(dados, mes, indicadores, selecao, metas, pl)
       : montarRelatorioSemanal(dados, mesSem, semana, indicadores, selecao, fechadosDe(mesSem), metas, pl);
-    return m ? { ...m, observacoes: obs.trim() || null } : null;
+    if (!m) return null;
+    const ym = tipo === "mes" ? mes : mesSem;
+    const doMes = dados.find((d) => d.month === ym)?.units.map((u) => u.name) ?? [];
+    const nomesSel = selecao ?? doMes;
+    const parcial = isPartialMonth(ym);
+    const extras = montarExtras(dados, ym, indicadores.filter((i) => IDS_EXTRAS.includes(i)), nomesSel, !selecao || selecao.length >= doMes.length, {
+      fechados: parcial ? fechadosDe(ym) : diasNoMes(ym), parcial, metas,
+      campanha: campDe && campAte ? { nome: campNome, de: Number(campDe), ate: Number(campAte) } : null,
+    });
+    return { ...m, observacoes: obs.trim() || null, extras };
   };
   const modelo = montar(unidades, plano);
   // Quem pode gerar um arquivo para cada unidade: relatório com mais de uma unidade
@@ -193,7 +207,7 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
                       const existe = tipo === "mes" ? it.mes : it.semana;
                       const marcado = existe && indicadores.includes(it.id);
                       const previa = marcado && modelo ? previaDoItem(modelo, it.id) : null;
-                      const ranking = it.id !== ID_PLANO && !["big", "mes", "metas", "conv", "compl", "freq", "satisf"].includes(it.id);
+                      const ranking = it.id !== ID_PLANO && !["big", "mes", "metas", "conv", "compl", "freq", "satisf", ...IDS_EXTRAS].includes(it.id);
                       const rotulo = `${ranking ? prefixo : ""}${rotuloDaOpcao(it.id, tipo)}`;
                       return (
                         <label key={it.id} className={cn("flex items-start gap-2 text-sm", existe ? "text-foreground" : "cursor-not-allowed text-muted-foreground/50")}>
@@ -204,6 +218,14 @@ export function RelatoriosTab({ dados, atualizadoEm = null, metas = [], vigentes
                             {existe && it.id === ID_PLANO && motivoSemPlano && <span className="block text-xs text-muted-foreground">{motivoSemPlano}</span>}
                             {existe && it.id === "rec" && <span className="block text-xs text-muted-foreground">{AVISO_DO_RECEBIMENTO}</span>}
                             {existe && it.id === "compl" && <span className="block text-xs text-muted-foreground">{LEGENDA_COMPLEMENTARES}</span>}
+                            {marcado && it.id === ID_CAMPANHA && (
+                              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground" onClick={(e) => e.preventDefault()}>
+                                <input aria-label="Nome da campanha" value={campNome} onChange={(e) => setCampNome(e.target.value)} maxLength={40} className="h-7 w-32 rounded-md border border-input bg-white px-2 text-xs text-foreground" />
+                                do dia <input aria-label="Primeiro dia da campanha" type="number" min={1} max={diasNoMes(mesDoRelatorio || "2026-01")} value={campDe} onChange={(e) => setCampDe(e.target.value)} className="h-7 w-14 rounded-md border border-input bg-white px-2 text-xs text-foreground" />
+                                ao dia <input aria-label="Último dia da campanha" type="number" min={1} max={diasNoMes(mesDoRelatorio || "2026-01")} value={campAte} onChange={(e) => setCampAte(e.target.value)} className="h-7 w-14 rounded-md border border-input bg-white px-2 text-xs text-foreground" />
+                                {!(campDe && campAte) && <span className="w-full">Informe os dias da campanha (do mês do relatório).</span>}
+                              </span>
+                            )}
                             {marcado && modelo && (previa
                               ? <span className="block text-xs font-medium text-primary">{previa}</span>
                               : <span className="block text-xs text-muted-foreground">Sem dado neste período: o slide não será gerado.</span>)}

@@ -458,6 +458,23 @@ export async function gerarApresentacao(m: ModeloRelatorio, op: OpcoesGeracao, s
     rodape(s);
   }
 
+  // Extras (projeção de fechamento, saldo de alunos, campanha): até 4 números grandes lado a lado, com o detalhe embaixo e uma nota
+  for (const x of m.extras ?? []) {
+    const s = slideDeDados();
+    s.addText(x.titulo.toUpperCase(), { x: 2.6, y: 0.08, w: 8.2, h: 0.8, fontFace: TIT, fontSize: 34, color: TEXTO, align: "center" });
+    s.addText(x.subtitulo, { x: 2.6, y: 0.82, w: 8.2, h: 0.3, fontFace: TXT, fontSize: 10, color: CINZA, align: "center" });
+    const col = x.blocos.length, larg = 12.0 / col;
+    x.blocos.forEach((b, i) => {
+      const bx = 0.65 + i * larg, w = larg - 0.25;
+      const tam = b.valor.length > 11 ? 40 : b.valor.length > 8 ? 48 : 60;
+      s.addText(b.valor, { x: bx, y: 2.0, w, h: 1.3, fontFace: TIT, fontSize: Math.round(tam * (col === 4 ? 0.82 : 1)), color: b.cor === "bom" ? VERDE : b.cor === "ruim" ? VERM : PRETO, valign: "middle" });
+      s.addText(b.nome, { x: bx, y: 3.35, w, h: 0.5, fontFace: TIT, fontSize: col === 4 ? 20 : 24, color: VINHO });
+      if (b.detalhe) s.addText(b.detalhe, { x: bx, y: 3.9, w, h: 1.1, fontFace: TXT, fontSize: 13, color: CINZA, valign: "top" });
+    });
+    if (x.nota) s.addText(x.nota, { x: 0.7, y: 6.35, w: 12.0, h: 0.6, fontFace: TXT, fontSize: 10.5, italic: true, color: CINZA, valign: "top" });
+    rodape(s);
+  }
+
   // Plano de ação da unidade (relatório semanal de uma unidade): o que está em aberto no plano do mês, para a reunião
   if (m.plano) {
     const p = m.plano;

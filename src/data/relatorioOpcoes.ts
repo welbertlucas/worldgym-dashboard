@@ -1,6 +1,7 @@
 // Opções do menu Relatórios: uma lista só, agrupada por assunto, com o que existe no mês fechado e na semana, e a prévia dos números de cada item marcado.
 import { ID_BIG, ID_COMPL, ID_FREQ, ID_METAS, ID_SATISF, RANKINGS, fmtValor, type ModeloRelatorio } from "@/data/relatorio";
 import { ID_CONVERSAO, ID_MES_ATE_AQUI, ID_PLANO, SEMANAIS } from "@/data/relatorioSemana";
+import { ID_CAMPANHA, ID_PROJECAO, ID_SALDO } from "@/data/relatorioExtras";
 
 export interface OpcaoRelatorio {
   id: string;
@@ -14,11 +15,11 @@ const o = (id: string, mes: boolean, semana: boolean): OpcaoRelatorio => ({ id, 
 
 /** Todos os itens que dá para marcar, por assunto. A ordem dos slides continua a do modelo (Overview, indicadores, complementares, satisfação, metas, frequência, plano). */
 export const GRUPOS_DO_RELATORIO: GrupoRelatorio[] = [
-  { titulo: "Visão geral", itens: [o(ID_BIG, true, true), o(ID_MES_ATE_AQUI, false, true), o(ID_METAS, true, false)] },
-  { titulo: "Faturamento e vendas", itens: [o("fat", true, true), o("cresc", true, false), o("rec", false, true), o("nc", true, true), o("cv", true, true), o("vo", true, true), o("op", true, true), o(ID_CONVERSAO, false, true), o("tk", true, false), o(ID_COMPL, true, true)] },
+  { titulo: "Visão geral", itens: [o(ID_BIG, true, true), o(ID_MES_ATE_AQUI, false, true), o(ID_METAS, true, false), o(ID_PROJECAO, false, true)] },
+  { titulo: "Faturamento e vendas", itens: [o("fat", true, true), o("cresc", true, false), o("rec", false, true), o("nc", true, true), o("cv", true, true), o("vo", true, true), o("op", true, true), o(ID_CONVERSAO, false, true), o("tk", true, false), o(ID_COMPL, true, true), o(ID_CAMPANHA, true, true)] },
   { titulo: "Retenção e cobrança", itens: [o("ad", true, false), o("inad", true, false), o("churn", true, false), o("canc", true, true), o("ren", true, false)] },
   { titulo: "Satisfação", itens: [o(ID_SATISF, true, true)] },
-  { titulo: "Alunos", itens: [o(ID_FREQ, true, true)] },
+  { titulo: "Alunos", itens: [o(ID_SALDO, true, true), o(ID_FREQ, true, true)] },
   { titulo: "Plano de ação", itens: [o(ID_PLANO, true, true)] },
 ];
 
@@ -37,6 +38,9 @@ export function rotuloDaOpcao(id: string, tipo: "mes" | "semana"): string {
   if (id === ID_FREQ) return `Frequência dos alunos (mapa de calor do período e último check-in)${tipo === "semana" ? " · o mapa é do mês até aqui" : ""}`;
   if (id === ID_SATISF) return tipo === "mes" ? "Satisfação (NPS, nota no Google e no Reclame Aqui, num slide só; e o NPS por ponto de contato)" : "Satisfação (NPS do mês até aqui, promotores e detratores da semana e NPS por ponto de contato, num slide só)";
   if (id === ID_PLANO) return "Plano de ação da unidade (itens em aberto do mês em andamento)";
+  if (id === ID_PROJECAO) return "Projeção de fechamento do mês (novos contratos e faturamento, com a meta)";
+  if (id === ID_SALDO) return "Saldo de alunos (ativos no início, entradas, saídas e saldo líquido)";
+  if (id === ID_CAMPANHA) return "Vendas de uma campanha (ex.: Black Friday): novos contratos nos dias escolhidos";
   return (tipo === "mes" ? RANKINGS.find((r) => r.id === id)?.rotulo : SEMANAIS.find((r) => r.id === id)?.rotulo) ?? RANKINGS.find((r) => r.id === id)?.rotulo ?? id;
 }
 
@@ -58,6 +62,9 @@ export function previaDoItem(m: ModeloRelatorio, id: string): string | null {
   }
   if (id === ID_METAS) return m.metas ? `${m.metas.linhas.length} ${m.metas.linhas.length === 1 ? "meta" : "metas"} · ${m.metas.escopoTexto}` : null;
   if (id === ID_PLANO) return m.plano ? `plano de ${m.plano.unidade}` : null;
+  const extra = m.extras?.find((x) => x.id === id);
+  if (extra) return extra.blocos.slice(0, 2).map((b) => `${b.nome} ${b.valor}`).join(" · ");
+  if (id === ID_PROJECAO || id === ID_SALDO || id === ID_CAMPANHA) return null;
   const r = m.rankings.find((x) => x.id === id);
   if (!r) return null;
   // Relatório semanal: o número da semana e, logo depois, o acumulado do mês até aqui (nunca a semana sozinha)
