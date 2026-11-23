@@ -19,7 +19,7 @@ import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
 import { ErroEstudos, lerEstudos, modoDe, podeEditar, salvarPontos } from "../server/estudos.js";
 import { ErroPois, buscarPois } from "../server/pois.js";
-import { ErroDeslocamento, buscarDeslocamento, buscarEndereco } from "../server/deslocamento.js";
+import { ErroDeslocamento, buscarDeslocamento, buscarEndereco, enderecoDaPosicao } from "../server/deslocamento.js";
 import { COORDENADAS_UNIDADES, UNIT_NAMES } from "../server/units.js";
 const COORDENADAS_POR_NOME = Object.fromEntries(Object.entries(UNIT_NAMES).map(([id, n]) => [n, COORDENADAS_UNIDADES[id]]));
 import { loadAll } from "../server/store.js";
@@ -34,6 +34,11 @@ async function estudos(req, res, sessao) {
   if (c.acao === "endereco") {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "busca de endereço só nos estudos de pontos novos" });
     return res.status(200).json(await buscarEndereco(c));
+  }
+  // Endereço aproximado de uma posição sugerida (nova unidade, posição melhor): estratégia de expansão, fora do modo unidade
+  if (c.acao === "endereco-posicao") {
+    if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
+    return res.status(200).json(await enderecoDaPosicao(c));
   }
   if (c.acao === "pois" || c.acao === "deslocamento") {
     if (modoDe(sessao) === "unidade") {

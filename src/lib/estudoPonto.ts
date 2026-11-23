@@ -471,3 +471,50 @@ export function vagasDoPonto(alunos: number, imovel: ImovelItens) {
 export const SITUACAO_VAGAS: Record<SituacaoVagas, string> = { suficiente: "suficiente", limite: "no limite", insuficiente: "insuficiente", "sem-dado": "vagas não informadas" };
 /** Veredito final: o do modelo, mas estacionamento insuficiente reprova (critério eliminatório). */
 export const vereditoFinal = (v: Veredito, vagas: { situacao: SituacaoVagas } | null): Veredito => (vagas?.situacao === "insuficiente" ? "reprovado" : v);
+
+// ---------- Unidades parecidas, com comparação (pedido do dono, 23/11/2026) ----------
+
+/** Quão diferente é a vizinhança (2 km) de duas posições: distância entre os logaritmos de moradores e de renda. */
+const LIMITE_PARECIDA = 0.4; // ~ até 40-50% de diferença em moradores ou renda
+export interface ItemParecida { u: UnidadeEstudo; moradores: number; renda: number | null; difMoradores: number; difRenda: number | null; parecida: boolean; leitura: string }
+const pctTxt = (x: number) => `${Math.abs(Math.round(x * 100))}%`;
+
+/**
+ * Compara a vizinhança de uma posição (moradores e renda a até 2 km) com as unidades maduras do mesmo modelo e devolve as 3 mais parecidas,
+ * cada uma com a leitura ("o ponto tem 20% mais moradores e renda 10% menor que Gama"). `semReferencia`: nenhuma passa do limite de parecida.
+ * `excluir`: a própria unidade, no estudo de uma unidade em operação.
+ */
+export function compararComParecidas(c: [number, number], modelo: Modelo, censo: Censo, unidades: UnidadeEstudo[], { excluir, n = 3, sujeito = "o ponto" }: { excluir?: string; n?: number; sujeito?: string } = {}) {
+  const alvo = arredores(c, censo);
+  const ln = (x: number | null) => Math.log(Math.max(1, x ?? 1));
+  const cand = unidades.filter((u) => u.madura && u.c && u.vendas && u.modelo === modelo && u.nome !== excluir).map((u) => {
+    const a = arredores(u.c as [number, number], censo);
+    const d = Math.hypot(ln(a.pop) - ln(alvo.pop), alvo.renda && a.renda ? ln(a.renda) - ln(alvo.renda) : 0);
+    return { u, a, d };
+  }).sort((x, y) => x.d - y.d).slice(0, n);
+  const itens: ItemParecida[] = cand.map(({ u, a, d }) => {
+    const difMoradores = a.pop ? alvo.pop / a.pop - 1 : 0;
+    const difRenda = alvo.renda && a.renda ? alvo.renda / a.renda - 1 : null;
+    const partes = [
+      Math.abs(difMoradores) < 0.1 ? "quase os mesmos moradores" : `${pctTxt(difMoradores)} ${difMoradores > 0 ? "mais" : "menos"} moradores`,
+      difRenda == null ? null : Math.abs(difRenda) < 0.1 ? "renda parecida" : `renda ${pctTxt(difRenda)} ${difRenda > 0 ? "maior" : "menor"}`,
+    ].filter(Boolean);
+    return { u, moradores: a.pop, renda: a.renda, difMoradores, difRenda, parecida: d <= LIMITE_PARECIDA, leitura: `${sujeito.charAt(0).toUpperCase() + sujeito.slice(1)} tem ${partes.join(" e ")} a até 2 km que a WG ${u.nome}.` };
+  });
+  return { alvo, itens, semReferencia: !itens.some((i) => i.parecida) };
+}
+
+/** Leitura geral: o que as parecidas dizem sobre o ponto (ou sobre a unidade em operação, com `vendas`). */
+export function leituraParecidas(res: ReturnType<typeof compararComParecidas>, vendas?: number | null) {
+  const boas = res.itens.filter((i) => i.parecida);
+  if (!res.itens.length) return "A rede ainda não tem unidades maduras deste modelo para comparar.";
+  if (res.semReferencia) return "Nenhuma unidade madura da rede tem vizinhança parecida (moradores e renda a até 2 km). As mais próximas aparecem abaixo só como referência: a previsão fica menos segura.";
+  const media = boas.reduce((a, i) => a + (i.u.vendas ?? 0), 0) / boas.length;
+  const mediaMoradores = boas.reduce((a, i) => a + i.moradores, 0) / boas.length;
+  const maisGente = res.alvo.pop / mediaMoradores - 1;
+  if (vendas != null) {
+    const dif = vendas / media - 1;
+    return `As ${boas.length === 1 ? "unidade parecida vende" : `${boas.length} unidades parecidas vendem`} em média R$ ${Math.round(media / 1000).toLocaleString("pt-BR")} mil por mês; esta unidade vende ${pctTxt(dif)} ${dif >= 0 ? "a mais" : "a menos"}. ${Math.abs(maisGente) < 0.15 ? (dif >= 0.1 ? "Com vizinhança parecida, a diferença vem mais da operação (gestão, equipe, preço) do que do ponto." : dif <= -0.1 ? "Com vizinhança parecida, a diferença indica espaço para melhorar a operação: as parecidas vendem mais com o mesmo tipo de entorno." : "Vende em linha com unidades de entorno parecido.") : maisGente > 0 ? "Ela tem mais moradores em volta que as parecidas, o que explica parte da diferença." : "Ela tem menos moradores em volta que as parecidas, o que explica parte da diferença."}`;
+  }
+  return `${boas.length === 1 ? "A unidade parecida vende" : `As ${boas.length} unidades parecidas vendem`} em média R$ ${Math.round(media / 1000).toLocaleString("pt-BR")} mil por mês. ${Math.abs(maisGente) < 0.15 ? "O ponto tem vizinhança parecida com a delas: é uma boa referência do que ele pode vender." : maisGente > 0 ? `O ponto tem ${pctTxt(maisGente)} mais moradores em volta que elas, o que favorece vender acima dessa média.` : `O ponto tem ${pctTxt(maisGente)} menos moradores em volta que elas: é prudente esperar menos que essa média.`}`;
+}

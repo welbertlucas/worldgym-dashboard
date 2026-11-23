@@ -83,18 +83,30 @@ function RoscaRenda({ classes }: { classes: { id: string; cor: string; parte: nu
   );
 }
 
+/** Caixa do total da área (o mesmo topo das listas), para as camadas que mostram só um número. */
+function CaixaTotal({ rotulo, valor, onde, nota }: { rotulo: string; valor: string; onde?: string; nota?: string }) {
+  return (
+    <div className="rounded-lg bg-muted px-2.5 py-1.5 text-foreground">
+      <div className="flex items-center justify-between gap-2 text-[12px] leading-tight"><span className="font-medium">{rotulo}</span><b className="whitespace-nowrap tabular-nums">{valor}</b></div>
+      {onde && <p className="text-[10.5px] leading-tight text-muted-foreground">{onde}</p>}
+      {nota && <p className="mt-1 text-[10.5px] leading-tight text-muted-foreground">{nota}</p>}
+    </div>
+  );
+}
+
 /** Lista no estilo do Mapfry: total em cima (com a faixa de cores) e cada item com o número e uma barra fina na cor dele. */
-function ListaTotais({ total, rotuloTotal, itens }: { total: number; rotuloTotal: string; itens: { rotulo: string; n: number; cor: string }[] }) {
+function ListaTotais({ total, rotuloTotal, onde, itens }: { total: number; rotuloTotal: string; onde?: string; itens: { rotulo: string; n: number; cor: string }[] }) {
   const mx = Math.max(1, ...itens.map((i) => i.n));
   return (
     <div className="space-y-2 text-foreground">
       <div className="rounded-lg bg-muted px-2.5 py-1.5">
-        <div className="flex items-center justify-between text-[12px]"><span>{rotuloTotal}</span><b className="tabular-nums">{Math.round(total).toLocaleString("pt-BR")}</b></div>
+        <div className="flex items-center justify-between gap-2 text-[12px] leading-tight"><span className="font-medium">{rotuloTotal}</span><b className="whitespace-nowrap tabular-nums">{Math.round(total).toLocaleString("pt-BR")}</b></div>
+        {onde && <p className="text-[10.5px] leading-tight text-muted-foreground">{onde}</p>}
         <div className="mt-1 h-1 rounded-full" style={{ background: `linear-gradient(90deg,${itens.map((i) => i.cor).join(",")})` }} />
       </div>
       {itens.map((i) => (
         <div key={i.rotulo}>
-          <div className="flex items-baseline justify-between gap-2 text-[12px]"><span className="min-w-0">{i.rotulo}</span><span className="whitespace-nowrap tabular-nums"><b>{Math.round(i.n).toLocaleString("pt-BR")}</b> <span className="text-muted-foreground">{total ? Math.round((i.n / total) * 100) : 0}%</span></span></div>
+          <div className="flex items-center justify-between gap-2 text-[11.5px] leading-tight"><span className="min-w-0 truncate" title={i.rotulo}>{i.rotulo}</span><span className="whitespace-nowrap tabular-nums"><b>{Math.round(i.n).toLocaleString("pt-BR")}</b> <span className="text-muted-foreground">{total ? Math.round((i.n / total) * 100) : 0}%</span></span></div>
           <div className="mt-1 h-1 rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${(i.n / mx) * 100}%`, background: i.cor }} /></div>
         </div>
       ))}
@@ -121,7 +133,7 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
   }
   if (camada === "pessoas") return (
     <div className="space-y-1">
-      {resumo?.moradores ? <div className="text-foreground"><span className="font-display text-2xl font-semibold leading-none text-primary">{Math.round(resumo.moradores).toLocaleString("pt-BR")}</span> <span className="text-xs text-muted-foreground">moradores {resumo.onde ?? "na área"}</span></div> : null}
+      {resumo?.moradores ? <CaixaTotal rotulo="Moradores" valor={Math.round(resumo.moradores).toLocaleString("pt-BR")} onde={resumo.onde ?? "na área"} /> : null}
       <p>Vermelho mais forte = mais moradores no hexágono (Censo 2022). Passe o mouse para ver o número.</p>
     </div>
   );
@@ -129,8 +141,7 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
     const pt = resumo?.potencial;
     return (
       <div className="space-y-2">
-        {pt && <div className="text-foreground"><div className="font-display text-2xl font-semibold leading-none text-primary">{reaisCurto(pt.total)}<span className="ml-1 text-xs font-normal text-muted-foreground">por mês</span></div>
-          <p className="mt-1 text-[11px] text-muted-foreground">gasto com recreações e esportes {resumo?.onde ?? "na área"}: {pt.domicilios.toLocaleString("pt-BR")} domicílios, R$ {Math.round(pt.porDomicilio).toLocaleString("pt-BR")} por domicílio (estimativa POF e Censo).</p></div>}
+        {pt && <CaixaTotal rotulo="Gasto com esportes por mês" valor={reaisCurto(pt.total)} onde={resumo?.onde ?? "na área"} nota={`${pt.domicilios.toLocaleString("pt-BR")} domicílios, R$ ${Math.round(pt.porDomicilio).toLocaleString("pt-BR")} por domicílio (estimativa POF e Censo).`} />}
         <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: `linear-gradient(90deg,${AZUL(0)},${AZUL(1)})` }} />mais gasto com esporte</div>
       </div>
     );
@@ -140,7 +151,7 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
     return (
       <div className="space-y-2">
         {t && soma > 0
-          ? <ListaTotais total={soma} rotuloTotal={`Moradores ${resumo?.onde ?? "na área"}`} itens={FAIXAS_IDADE.map((f, k) => ({ rotulo: f, n: t[k], cor: CORES_IDADE[k] }))} />
+          ? <ListaTotais total={soma} rotuloTotal="Moradores" onde={resumo?.onde ?? "na área"} itens={FAIXAS_IDADE.map((f, k) => ({ rotulo: f, n: t[k], cor: CORES_IDADE[k] }))} />
           : FAIXAS_IDADE.map((f, k) => <div key={f} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: CORES_IDADE[k] }} />{f}</div>)}
         <p className="text-[11px]">No mapa, cada hexágono tem a cor da faixa que predomina, comparando moradores por ano de idade (as faixas do Censo têm tamanhos diferentes).</p>
       </div>
@@ -149,7 +160,7 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
   const dm = resumo?.domicilios;
   if (dm && dm.total > 0) return (
     <div className="space-y-2">
-      <ListaTotais total={dm.total} rotuloTotal={`Domicílios ${resumo?.onde ?? "na área"}`} itens={dm.classes.map((x) => ({ rotulo: x.rotulo, n: x.domicilios, cor: x.cor }))} />
+      <ListaTotais total={dm.total} rotuloTotal="Domicílios" onde={resumo?.onde ?? "na área"} itens={dm.classes.map((x) => ({ rotulo: x.rotulo, n: x.domicilios, cor: x.cor }))} />
       <p className="text-[11px]">{dm.porDomicilio ? `Média de ${dm.porDomicilio.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio. ` : ""}{dm.porTamanho ? "Domicílios ocupados por número de moradores; no mapa, a cor do tamanho mais comum em cada hexágono (Censo 2022)." : "Cada faixa soma os domicílios dos hexágonos com aquela média de moradores (Censo 2022)."}</p>
     </div>
   );

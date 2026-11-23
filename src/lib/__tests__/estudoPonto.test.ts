@@ -389,3 +389,21 @@ describe("domicílios por número de moradores", () => {
     expect(sem.porTamanho).toBe(false);
   });
 });
+
+describe("unidades parecidas com comparação", () => {
+  it("aponta parecida, só referência e a leitura; sem parecida, avisa", async () => {
+    const { compararComParecidas, leituraParecidas } = await import("@/lib/estudoPonto");
+    // inventado: 3 vizinhanças em volta de 3 posições; renda igual
+    const censo = { rk: 0.3, celulas: [[0, 0, 1000, 3000], [1, 1, 1200, 3000], [2, 2, 5000, 3000]] } as never;
+    const u = (nome: string, c: [number, number], vendas: number) => ({ nome, c, m2: 1000, modelo: "low", abertura: null, madura: true, vendas, alunos: 1 }) as never;
+    const r = compararComParecidas([0, 0], "low", censo, [u("A", [1, 1], 300000), u("B", [2, 2], 400000)]);
+    expect(r.itens.map((i) => i.u.nome)).toEqual(["A", "B"]);
+    expect(r.itens[0].parecida).toBe(true); expect(r.itens[1].parecida).toBe(false);
+    expect(r.itens[0].leitura).toContain("menos moradores");
+    expect(leituraParecidas(r)).toContain("R$ 300 mil");
+    const longe = compararComParecidas([0, 0], "low", censo, [u("B", [2, 2], 400000)]);
+    expect(longe.semReferencia).toBe(true);
+    expect(leituraParecidas(longe)).toContain("Nenhuma unidade");
+    expect(leituraParecidas(r, 360000)).toContain("a mais");
+  });
+});

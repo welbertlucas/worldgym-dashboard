@@ -1,0 +1,58 @@
+// Mapa da rede: só as unidades World Gym (Low Cost e Pro), sem os estudos de cada uma. Clique numa unidade abre o estudo dela.
+import "leaflet/dist/leaflet.css";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { carregarLeaflet, pino, type Leaflet } from "@/components/estudos/mapaComum";
+import { reais, type UnidadeEstudo } from "@/lib/estudoPonto";
+
+const COR = { low: "#c41230", pro: "#1b2130" } as const;
+const NOME = { low: "Low Cost", pro: "Pro" } as const;
+
+export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[]; abrir?: (nome: string) => void; voltar: () => void }) {
+  const el = useRef<HTMLDivElement>(null);
+  const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; grupo: import("leaflet").FeatureGroup } | null>(null);
+  const [pronto, setPronto] = useState(false);
+  const comPosicao = unidades.filter((u) => u.c);
+  useEffect(() => {
+    let vivo = true;
+    carregarLeaflet().then((L) => {
+      if (!vivo || !el.current) return;
+      const mapa = L.map(el.current, { zoomControl: true, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView([-15.8, -47.9], 5);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(mapa);
+      ref.current = { L, mapa, grupo: L.featureGroup().addTo(mapa) };
+      setPronto(true);
+    });
+    return () => { vivo = false; ref.current?.mapa.remove(); ref.current = null; };
+  }, []);
+  useEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    m.grupo.clearLayers();
+    for (const u of comPosicao) {
+      const mk = m.L.marker(u.c as [number, number], { title: u.nome, icon: pino(m.L, COR[u.modelo], 30) })
+        .bindTooltip(`<strong>World Gym ${u.nome}</strong><br/>${NOME[u.modelo]}${u.m2 ? ` · ${u.m2.toLocaleString("pt-BR")} m²` : ""}${u.vendas ? `<br/>${reais(u.vendas)} por mês` : ""}${u.alunos ? ` · ${u.alunos.toLocaleString("pt-BR")} alunos` : ""}${abrir ? "<br/><em>clique para abrir o estudo</em>" : ""}`, { direction: "top" })
+        .addTo(m.grupo);
+      if (abrir) mk.on("click", () => abrir(u.nome));
+    }
+    if (comPosicao.length) m.mapa.fitBounds(m.grupo.getBounds(), { padding: [40, 40], maxZoom: 11 });
+  }, [pronto, unidades, abrir]); // eslint-disable-line react-hooks/exhaustive-deps
+  const n = (mod: "low" | "pro") => comPosicao.filter((u) => u.modelo === mod).length;
+  return (
+    <div className="space-y-3">
+      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={voltar}>Todos os estudos</Button>
+          <h2 className="font-display text-2xl font-medium">Mapa da rede</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full" style={{ background: COR.low }} />{n("low")} Low Cost</span>
+          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full" style={{ background: COR.pro }} />{n("pro")} Pro</span>
+          <span>{comPosicao.length} unidades</span>
+        </div>
+      </div>
+      <div ref={el} className="mapa-cinza h-[calc(100vh-11rem)] min-h-[520px] overflow-hidden rounded-2xl border" aria-label="Mapa das unidades da rede" />
+      {abrir && <p className="text-xs text-muted-foreground">Passe o mouse numa unidade para ver os números; clique para abrir o estudo dela.</p>}
+    </div>
+  );
+}

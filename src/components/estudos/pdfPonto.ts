@@ -4,7 +4,7 @@
 // Os textos são montados por regras fixas a partir dos números da tela; o que é estimativa ou premissa aparece escrito como tal.
 import type { ConteudoPdf, PaginaDoEstudo, Secao } from "@/lib/estudoPdf";
 import { nomeDoArquivo } from "@/lib/estudoPdf";
-import { DECISAO_ROTULO, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { DECISAO_ROTULO, compararComParecidas, leituraParecidas, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
 import { PENETRACAO_MERCADO, resumoMercado, secoesDeMercado, type DadosMercado } from "@/components/estudos/pdfUnidade";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
@@ -15,7 +15,7 @@ const preco = (x: number) => `R$ ${x.toLocaleString("pt-BR", { minimumFractionDi
 
 export interface PontoNoPdf {
   ponto: Ponto; letra: string; regiao: string; resultado: Resultado | null; captacao: Captacao; fatores: Fator[];
-  parecidas: UnidadeEstudo[]; foto: string | null;
+  parecidas: ReturnType<typeof compararComParecidas>; foto: string | null;
 }
 export interface DadosPdfPonto {
   pontos: PontoNoPdf[]; premissas: Premissas; minutos: number; temArea: boolean;
@@ -152,10 +152,11 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
         ...(d.fotoSugestoes ? { foto: { dados: d.fotoSugestoes, legenda: `Pino com letra: o ponto estudado. Pinos cinza numerados: posições sugeridas (mesma numeração da tabela). Bolinhas vermelhas: World Gym.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro do ponto.` : ""}` }, altFoto: 95 } : {}),
         ...(d.sugestoes.sugestoes.length ? { tabela: { colunas: ["Posição", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.sugestoes) } } : {}),
       });
-      if (pt.parecidas.length) secoes.push({
-        titulo: "Unidades Parecidas na Rede", linhas: [],
-        texto: ["Unidades maduras do mesmo modelo com quantidade de moradores e renda parecidas a até 2 km: são a referência real do que um ponto assim costuma vender."],
-        tabela: { colunas: ["Unidade", "Tamanho", "Vendas por mês"], larguras: [2, 1, 1], linhas: pt.parecidas.map((u) => [u.nome, u.m2 ? `${num(u.m2)} m²` : "—", u.vendas ? reais(u.vendas) : "—"]) },
+      if (pt.parecidas.itens.length) secoes.push({
+        titulo: "Unidades Parecidas na Rede", novaPagina: true, linhas: [],
+        texto: [leituraParecidas(pt.parecidas), ...pt.parecidas.itens.map((it) => `${it.leitura} A WG ${it.u.nome} vende ${it.u.vendas ? reais(it.u.vendas) : "—"} por mês${it.parecida ? "." : " (vizinhança diferente: só referência)."}`)],
+        tabela: { colunas: ["Unidade", "Vendas por mês", "Moradores (2 km)", "Renda média", "Parecida?"], larguras: [1.6, 1, 1, 1, 0.8], linhas: pt.parecidas.itens.map((it) => [it.u.nome, it.u.vendas ? reais(it.u.vendas) : "—", mil(it.moradores), it.renda ? `R$ ${num(it.renda)}` : "—", it.parecida ? "sim" : "não"]) },
+        paragrafo: `Unidades maduras do mesmo modelo, comparadas pelos moradores e pela renda média a até 2 km (Censo 2022). O ponto: ${mil(pt.parecidas.alvo.pop)} moradores${pt.parecidas.alvo.renda ? ` e renda média de R$ ${num(pt.parecidas.alvo.renda)}` : ""}.`,
       });
       // conclusão
       const m = merc ? resumoMercado({ perfil: merc.perfil, renda: merc.renda, pois: merc.pois, alunosNaArea: null }) : null;

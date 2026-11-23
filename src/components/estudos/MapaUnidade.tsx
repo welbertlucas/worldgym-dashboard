@@ -10,9 +10,9 @@ import { Barras, Partes } from "@/components/estudos/blocos";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { LegendaCenso, LegendaRenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 export { LegendaRenda };
-import { LIMITES_SUGESTAO, desenharSugestoes, textoSugestoes } from "@/components/estudos/sugestoes";
+import { LIMITES_SUGESTAO, desenharSugestoes, enderecoCurto, textoSugestoes, useEnderecos } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
-import { MINUTOS_PADRAO, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { MINUTOS_PADRAO, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "consumo" | "rede" | "limpa" | "oportunidade";
@@ -29,7 +29,7 @@ const fmtKm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("pt
  * `voltar` some quando a pessoa só tem acesso à própria unidade.
  */
 /** `estudarPosicao`: cria um estudo de ponto numa posição sugerida para nova unidade e abre esse estudo (só para quem cria estudos). */
-export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }: { dados: DadosEstudos; unidades: UnidadeEstudo[]; inicial: string; voltar?: () => void; estudarPosicao?: (c: [number, number], nome: string, u: UnidadeEstudo) => void }) {
+export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, verRede }: { dados: DadosEstudos; unidades: UnidadeEstudo[]; inicial: string; voltar?: () => void; estudarPosicao?: (c: [number, number], nome: string, u: UnidadeEstudo, endereco?: string | null) => void; verRede?: () => void }) {
   const [nome, setNome] = useState(inicial);
   const [lente, setLente] = useState<Lente>("alunos");
   const [satelite, setSatelite] = useState(false);
@@ -40,6 +40,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }
   const [modoPois, setModoPois] = useState<ModoPois>("nomes");
   const [verPois, setVerPois] = useState(true);
   const [verNova, setVerNova] = useState(true);
+  const [verParec, setVerParec] = useState(false);
   const el = useRef<HTMLDivElement>(null);
   const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; camadas: import("leaflet").LayerGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
   const [pronto, setPronto] = useState(false);
@@ -76,6 +77,10 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }
     moradores: area10 ? moradoresNaArea(dados.censo, area10) : dados.censo.celulas.reduce((a, [la, ln, p]) => a + (km([la, ln], u.c as [number, number]) < 5 ? p : 0), 0),
     onde: area10 ? `em ${MINUTOS_PADRAO} min de carro` : "num raio de 5 km",
   } : undefined), [u?.nome, area10, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Unidades maduras do mesmo modelo com vizinhança parecida (moradores e renda a até 2 km), para separar o efeito do ponto do da operação.
+  // No modo unidade as outras unidades vêm sem vendas, então a comparação não aparece.
+  const compParec = useMemo(() => (u?.c && dados.censo ? compararComParecidas(u.c, u.modelo, dados.censo, dados.unidades ?? [], { excluir: u.nome, sujeito: "esta unidade" }) : null), [u?.nome, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  const endsNova = useEnderecos(novaUnidade);
   const verNovaUnidade = () => {
     const m = ref.current;
     if (!m || !u?.c || !novaUnidade?.sugestoes.length) return;
@@ -157,7 +162,13 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
     // posições sugeridas para uma nova unidade: em todas as camadas (menos a limpa das fotos)
     if (lente !== "limpa" && verNova) desenharSugestoes(L, camadas, novaUnidade);
-  }, [lente, u, cap, capMapa, pronto, rua, areas, novaUnidade, verNova]); // eslint-disable-line react-hooks/exhaustive-deps
+    // unidades parecidas: anel verde (parecida) ou cinza (só referência) com o nome
+    if (lente !== "limpa" && verParec) for (const it of compParec?.itens ?? []) {
+      if (!it.u.c) continue;
+      L.circleMarker(it.u.c, { radius: 13, color: it.parecida ? "#127a3a" : "#8a93a3", weight: 3, fill: false, interactive: false }).addTo(camadas);
+      L.marker(it.u.c, { interactive: false, icon: L.divIcon({ className: "", iconSize: [140, 16], iconAnchor: [-14, 8], html: `<div style="font:700 11px/16px Inter,sans-serif;color:${it.parecida ? "#127a3a" : "#5b6577"};text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;white-space:nowrap">${it.u.nome}</div>` }) }).addTo(camadas);
+    }
+  }, [lente, u, cap, capMapa, pronto, rua, areas, novaUnidade, verNova, verParec, compParec]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
   const aoPois = (r: ResultadoPois | null) => { setPois(r); setVerPois(true); };
@@ -208,7 +219,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }
       await gerarPdfDoEstudo(montarPdfUnidade({
         u, faixa: dados.vendasPorM2?.[u.modelo] ?? null, porM2, comparado, minutos: MINUTOS_PADRAO, temArea: !!area10,
         parteNaArea: parte10, min80, onde80, topBairros: [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8), alunosBairro,
-        esperadoNaArea, perfil, renda, novaUnidade, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
+        esperadoNaArea, perfil, renda, novaUnidade, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
       }));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); }
   };
@@ -221,6 +232,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           {voltar && <Button variant="outline" size="sm" onClick={voltar}>Todos os estudos</Button>}
+          {verRede && <Button variant="outline" size="sm" onClick={verRede}>Mapa da rede</Button>}
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Estudo da unidade{u.m2 ? `, ${u.m2.toLocaleString("pt-BR")} m²` : ""}</p>
             <h2 className="truncate font-display text-2xl font-medium">World Gym {u.nome}</h2>
@@ -273,12 +285,21 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }
             </> : null}
           sobre={[
             ...(pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []),
+            ...(compParec?.itens.length ? [{ id: "parecidas", rotulo: "Unidades parecidas", ativo: verParec, alternar: () => {
+              if (!verParec) { const m = ref.current; if (m && u.c) m.mapa.fitBounds(m.L.latLngBounds([u.c, ...compParec.itens.flatMap((x) => (x.u.c ? [x.u.c] : []))]).pad(0.2)); }
+              setVerParec((v) => !v);
+            }, legenda: <>
+              <p className="text-foreground">{leituraParecidas(compParec, u.vendas)}</p>
+              {compParec.itens.map((it) => <p key={it.u.nome} className="mt-1.5"><b className={it.parecida ? "text-success" : ""}>{it.u.nome}</b>: {it.u.vendas ? reais(it.u.vendas) : "—"} por mês{it.parecida ? "" : " (vizinhança diferente, só referência)"}. {it.leitura}</p>)}
+              <p className="mt-1.5 text-[11px]">Anel verde no mapa: parecida; cinza: só referência. Comparação pelos moradores e pela renda a até 2 km (Censo 2022).</p>
+            </> }] : []),
             ...(novaUnidade ? [{ id: "nova", rotulo: "Onde abrir outra unidade", ativo: verNova, alternar: () => { if (!verNova) verNovaUnidade(); setVerNova((v) => !v); }, legenda: <>
               {novaUnidade.sugestoes.length
                 ? <>{novaUnidade.sugestoes.map((x, i) => (
                     <div key={i} className="mb-1.5">
                       <p>Posição {i + 1}: a {x.distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, público {x.ganho >= 0 ? "+" : "−"}{Math.abs(Math.round(x.ganho * 100))}% em relação ao da unidade.</p>
-                      {estudarPosicao && <Button size="sm" variant="outline" className="mt-1 h-7 bg-white px-2.5 text-xs" onClick={() => estudarPosicao(x.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u)}>Estudar esta posição</Button>}
+                      <p className="mt-0.5 text-foreground">{endsNova[i] ? enderecoCurto(endsNova[i]) : "Buscando o endereço…"}</p>
+                      {estudarPosicao && <Button size="sm" variant="outline" className="mt-1 h-7 bg-white px-2.5 text-xs" onClick={() => estudarPosicao(x.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u, endsNova[i])}>Estudar esta posição</Button>}
                     </div>
                   ))}
                   <button type="button" onClick={verNovaUnidade} className="mt-1 font-medium text-foreground underline underline-offset-2">Ver as posições no mapa</button></>

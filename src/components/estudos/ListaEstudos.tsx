@@ -90,7 +90,7 @@ function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nom
   );
 }
 
-export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void }) {
+export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar, verRede }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void; verRede?: () => void }) {
   const [busca, setBusca] = useState("");
   const [veredito, setVeredito] = useState<Veredito | "">("");
   const [decisao, setDecisao] = useState<StatusDecisao | "">("");
@@ -121,7 +121,10 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
       <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h2 className="font-display text-2xl font-medium">Estudos de ponto</h2><p className="text-sm text-muted-foreground">As unidades em operação e cada imóvel avaliado, com a previsão do modelo e a decisão.</p></div>
-        {editavel && <Button onClick={novo}>Novo estudo</Button>}
+        <div className="flex items-center gap-2">
+          {verRede && <Button variant="outline" onClick={verRede}>Mapa da rede</Button>}
+          {editavel && <Button onClick={novo}>Novo estudo</Button>}
+        </div>
       </div>
 
       {abrirUnidade && <UnidadesEmOperacao dados={dados} abrir={abrirUnidade} />}

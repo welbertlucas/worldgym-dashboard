@@ -73,3 +73,18 @@ export async function buscarEndereco(pedido, { chave = process.env.MAPBOX_TOKEN,
     })),
   };
 }
+
+/**
+ * Endereço aproximado de uma posição (rua, bairro e cidade), para as posições sugeridas pelo Atlas (Mapbox Geocoding v6, reverso).
+ * Só para quem vê estudos de pontos novos; a posição sai do servidor e o texto não é guardado.
+ */
+export async function enderecoDaPosicao(pedido, { chave = process.env.MAPBOX_TOKEN, fetcher = fetch } = {}) {
+  const c = Array.isArray(pedido?.c) ? pedido.c.map(Number) : [];
+  if (c.length !== 2 || !c.every(Number.isFinite) || c[0] < -34 || c[0] > 6 || c[1] < -75 || c[1] > -32) throw new ErroDeslocamento("Posição inválida.");
+  if (!chave) throw new ErroDeslocamento("A busca de endereço ainda não foi configurada no servidor.", 503);
+  const url = `https://api.mapbox.com/search/geocode/v6/reverse?longitude=${c[1]}&latitude=${c[0]}&language=pt&limit=1&types=address,street,neighborhood,locality,place&access_token=${encodeURIComponent(chave)}`;
+  let j;
+  try { j = await (await fetcher(url)).json(); } catch { throw new ErroDeslocamento("O Mapbox não respondeu agora.", 502); }
+  const f = j?.features?.[0]?.properties;
+  return { endereco: f ? (f.full_address ?? [f.name, f.place_formatted].filter(Boolean).join(", ")) : null };
+}

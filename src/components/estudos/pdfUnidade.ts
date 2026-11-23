@@ -4,7 +4,7 @@
 // números da própria tela: nada inventado; o que é estimativa ou premissa de mercado aparece escrito como tal.
 import type { ConteudoPdf, Secao } from "@/lib/estudoPdf";
 import { nomeDoArquivo } from "@/lib/estudoPdf";
-import { CLASSES_RENDA, CORES_IDADE, CORRECAO_POF, FAIXAS_IDADE, reais, type densidadeNaArea, type UnidadeEstudo, type classesNoRaio, type perfilNaArea, type potencialNaArea, type FaixaM2 } from "@/lib/estudoPonto";
+import { compararComParecidas, leituraParecidas, CLASSES_RENDA, CORES_IDADE, CORRECAO_POF, FAIXAS_IDADE, reais, type densidadeNaArea, type UnidadeEstudo, type classesNoRaio, type perfilNaArea, type potencialNaArea, type FaixaM2 } from "@/lib/estudoPonto";
 import type { ResultadoPois } from "@/components/estudos/pois";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
@@ -27,6 +27,8 @@ export interface DadosPdfUnidade {
   densidade?: ReturnType<typeof densidadeNaArea> | null;
   /** Onde abrir outra unidade na região (só para quem vê a estratégia de expansão). */
   novaUnidade?: ResultadoSugestoes | null;
+  /** Unidades maduras do mesmo modelo com vizinhança parecida (moradores e renda a até 2 km). */
+  parecidas?: ReturnType<typeof compararComParecidas> | null;
   pois: ResultadoPois | null;
   divideCom: { nome: string; parte: number }[];
   fotos: { sat: string | null; alunos: string | null; oportunidade: string | null; idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; nova?: string | null; pois: string | null; rede: string | null };
@@ -222,6 +224,17 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
       : "Nenhuma outra World Gym divide de forma relevante a área desta unidade: não há canibalização dentro da rede, e o crescimento depende só da disputa com a concorrência externa."],
     foto: { dados: d.fotos.rede, legenda: "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." }, altFoto: 100,
     grafico: d.divideCom.length ? { tipo: "rosca", titulo: "Potencial de captação da unidade", fatias: [{ rotulo: `Só da World Gym ${u.nome}`, valor: Math.max(0, 1 - perda), cor: "#c41230" }, ...d.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } : undefined,
+  });
+
+  // ---------- Unidades parecidas ----------
+  if (d.parecidas?.itens.length) secoes.push({
+    titulo: "Unidades Parecidas na Rede", novaPagina: true, linhas: [],
+    texto: [leituraParecidas(d.parecidas, u.vendas), ...d.parecidas.itens.map((it) => `${it.leitura} A WG ${it.u.nome} vende ${it.u.vendas ? reais(it.u.vendas) : "—"} por mês${it.parecida ? "." : " (vizinhança diferente: só referência)."}`)],
+    tabela: { colunas: ["Unidade", "Vendas por mês", "Moradores (2 km)", "Renda média", "Parecida?"], larguras: [1.6, 1, 1, 1, 0.8], linhas: [
+      [`${u.nome} (esta)`, u.vendas != null ? reais(u.vendas) : "—", mil(d.parecidas.alvo.pop), d.parecidas.alvo.renda ? `R$ ${num(d.parecidas.alvo.renda)}` : "—", ""],
+      ...d.parecidas.itens.map((it) => [it.u.nome, it.u.vendas ? reais(it.u.vendas) : "—", mil(it.moradores), it.renda ? `R$ ${num(it.renda)}` : "—", it.parecida ? "sim" : "não"]),
+    ] },
+    paragrafo: "Unidades maduras do mesmo modelo, comparadas pelos moradores e pela renda média a até 2 km (Censo 2022). Com vizinhança parecida, a diferença de vendas tende a vir da operação (gestão, equipe, preço), e não do ponto.",
   });
 
   // ---------- Nova unidade na região ----------

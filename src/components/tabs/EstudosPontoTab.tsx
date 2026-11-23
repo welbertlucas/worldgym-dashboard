@@ -12,13 +12,14 @@ import { Destaque, Faixa, Linha, Nota, Secao } from "@/components/estudos/blocos
 import { Building2, Calculator, Gavel, ListChecks, Store, TrendingUp } from "lucide-react";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { montarPdfPonto } from "@/components/estudos/pdfPonto";
+import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import { LegendaCenso, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/controlesMapa";
-import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
+import { SecaoSugestoes, desenharSugestoes, enderecoCurto } from "@/components/estudos/sugestoes";
 import {
   DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
-  SITUACAO_POPULACAO, SITUACAO_VAGAS, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
+  SITUACAO_POPULACAO, SITUACAO_VAGAS, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
@@ -213,10 +214,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     const mk = m.L.marker(achado.c, { zIndexOffset: 3000, icon: pino(m.L, "#1b2130", 34) }).bindTooltip(achado.endereco).addTo(m.mapa);
     return () => { mk.remove(); };
   }, [achado, desenho]);
-  const estudarSugestao = (sg: Sugestao, i: number) => {
+  const estudarSugestao = (sg: Sugestao, i: number, endereco?: string | null) => {
     if (!atual) return;
     const agora = new Date().toISOString();
-    const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: `Sugestão ${i + 1} de ${atual.nome}`.slice(0, 60), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: sg.c, modelo: atual.modelo, m2: atual.m2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
+    const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: `Sugestão ${i + 1} de ${atual.nome}`.slice(0, 60), ...(endereco ? { regiao: enderecoCurto(endereco).slice(0, 60) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: sg.c, modelo: atual.modelo, m2: atual.m2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
     setPontos((ps) => [...ps, novo]); setAtualId(novo.id);
   };
   const estudarAchado = () => {
@@ -228,7 +229,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   useEffect(() => { setPois(null); }, [atualId]);
 
   const idx = atual ? pontos.findIndex((p) => p.id === atual.id) : -1;
-  const parec = atual ? parecidas(atual, dados.censo!, dados.unidades!) : [];
+  const compParec = useMemo(() => (atual ? compararComParecidas(atual.c, atual.modelo, dados.censo!, dados.unidades!) : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.modelo, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const fatores = atual && r && cap ? fatoresDe(atual, r, cap, dados.unidades!, dados.censo!, dados.premissas!) : [];
 
   const exportar = async () => {
@@ -279,7 +280,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           const rr = resultados.get(p.id) ?? null;
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
           return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp,
-            fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!) : [], parecidas: parecidas(p, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
+            fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!) : [], parecidas: compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
         }),
       }));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); }
@@ -444,10 +445,21 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                 {ex.vagas.situacao === "sem-dado" ? "Informe as vagas: estacionamento é critério eliminatório." : `Informadas: ${ex.vagas.informadas}, ${SITUACAO_VAGAS[ex.vagas.situacao]}${ex.vagas.situacao === "insuficiente" ? ": o ponto não é aprovado" : ""}.`}
               </Nota></div>}
             </Secao>
-            {parec.length > 0 && (
-              <Secao icone={Store} titulo="Unidades parecidas na rede">
-                {parec.map((u) => <Linha key={u.nome} rotulo={`${u.nome}, ${u.m2?.toLocaleString("pt-BR")} m²`} valor={u.vendas ? reais(u.vendas) : "—"} />)}
-                <div className="mt-3"><Nota>Mesma quantidade de moradores e renda a até 2 km.</Nota></div>
+            {compParec && compParec.itens.length > 0 && (
+              <Secao icone={Store} titulo="Unidades parecidas na rede" className="lg:col-span-2">
+                <Nota>{leituraParecidas(compParec)}</Nota>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {compParec.itens.map((it) => (
+                    <div key={it.u.nome} className={`rounded-xl border p-3 ${it.parecida ? "" : "border-dashed opacity-80"}`}>
+                      <div className="flex items-center justify-between gap-2"><b className="text-sm">{it.u.nome}</b><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${it.parecida ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{it.parecida ? "parecida" : "só referência"}</span></div>
+                      <Linha rotulo="Vendas por mês" valor={it.u.vendas ? reais(it.u.vendas) : "—"} />
+                      <Linha rotulo="Moradores a até 2 km" valor={`${Math.round(it.moradores / 1000).toLocaleString("pt-BR")} mil`} />
+                      <Linha rotulo="Renda média" valor={it.renda ? `R$ ${Math.round(it.renda).toLocaleString("pt-BR")}` : "—"} />
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">{it.leitura}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">Unidades maduras do mesmo modelo, comparadas pelos moradores e pela renda média a até 2 km (Censo 2022). O ponto tem {Math.round(compParec.alvo.pop / 1000).toLocaleString("pt-BR")} mil moradores{compParec.alvo.renda ? ` e renda média de R$ ${Math.round(compParec.alvo.renda).toLocaleString("pt-BR")}` : ""} a até 2 km.</p>
               </Secao>
             )}
           </div>
@@ -460,7 +472,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   );
 }
 
-type Visao = { tela: "lista" } | { tela: "unidade"; nome: string } | { tela: "mapa"; atualId: string | null; novo: boolean; comparando: Set<string> | null };
+type Visao = { tela: "lista" } | { tela: "rede" } | { tela: "unidade"; nome: string } | { tela: "mapa"; atualId: string | null; novo: boolean; comparando: Set<string> | null };
 
 /** Estudos de ponto: abre na lista (carteira de estudos); o mapa abre num estudo, num estudo novo ou na comparação. */
 export function EstudosPontoTab() {
@@ -507,17 +519,20 @@ export function EstudosPontoTab() {
   if (visao.tela === "unidade") {
     const emOperacao = (dados.unidades ?? []).filter((u) => u.c);
     // Posição sugerida para nova unidade: vira um estudo de ponto (modelo e tamanho padrão da unidade de origem) e abre no mapa dos estudos
-    const estudarPosicao = editavel ? (c: [number, number], nome: string, u: (typeof emOperacao)[number]) => {
+    const estudarPosicao = editavel ? (c: [number, number], nome: string, u: (typeof emOperacao)[number], endereco?: string | null) => {
       const agora = new Date().toISOString();
-      const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: nome.slice(0, 60), regiao: `perto da WG ${u.nome}`.slice(0, 60), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c, modelo: u.modelo, m2: dados.premissas!.modelos[u.modelo].padraoM2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
+      const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: nome.slice(0, 60), regiao: (endereco ? enderecoCurto(endereco) : `perto da WG ${u.nome}`).slice(0, 60), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c, modelo: u.modelo, m2: dados.premissas!.modelos[u.modelo].padraoM2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
       setPontos((ps) => [...ps, novo]);
       setVisao({ tela: "mapa", atualId: novo.id, novo: false, comparando: null });
     } : undefined;
-    return <MapaUnidade dados={dados} unidades={emOperacao} inicial={visao.nome} voltar={() => setVisao({ tela: "lista" })} estudarPosicao={estudarPosicao} />;
+    return <MapaUnidade dados={dados} unidades={emOperacao} inicial={visao.nome} voltar={() => setVisao({ tela: "lista" })} estudarPosicao={estudarPosicao} verRede={() => setVisao({ tela: "rede" })} />;
+  }
+  if (visao.tela === "rede") {
+    return <MapaRede unidades={dados.unidades ?? []} abrir={(nome) => setVisao({ tela: "unidade", nome })} voltar={() => setVisao({ tela: "lista" })} />;
   }
   if (visao.tela === "lista")
     return (
-      <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })}
+      <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })} verRede={() => setVisao({ tela: "rede" })}
         apagar={editavel ? (id: string) => setPontos((ps) => ps.filter((x) => x.id !== id)) : undefined}
         abrir={(id) => setVisao({ tela: "mapa", atualId: id, novo: false, comparando: null })}
         novo={() => setVisao({ tela: "mapa", atualId: null, novo: true, comparando: null })}

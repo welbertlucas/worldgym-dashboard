@@ -1,7 +1,9 @@
 // Recomendação de localização nos estudos: posições melhores perto de um ponto estudado ou, para uma unidade em operação, onde abrir
 // outra unidade na região. A nota é o "público alcançável" (moradores ponderados pela distância, descontado o que outras World Gym
 // dividem). O texto sempre diz o que a recomendação não enxerga: imóvel disponível, aluguel, visibilidade, acesso e fluxo.
+import { useEffect, useState } from "react";
 import { MapPinned } from "lucide-react";
+import { API_BASE, authFetch } from "@/lib/auth";
 import type { Leaflet } from "@/components/estudos/mapaComum";
 import { pino } from "@/components/estudos/mapaComum";
 import { Linha, Nota, Secao } from "@/components/estudos/blocos";
@@ -44,7 +46,8 @@ export const linhasSugestoes = (res: ResultadoSugestoes) => res.sugestoes.map((s
 ]);
 
 /** Seção da tela com a recomendação e, nos pontos novos, o botão para estudar a posição sugerida. */
-export function SecaoSugestoes({ res, tipo, nome, aoEstudar, aoVerNoMapa }: { res: ResultadoSugestoes | null; tipo: TipoSugestao; nome: string; aoEstudar?: (s: Sugestao, i: number) => void; aoVerNoMapa?: () => void }) {
+export function SecaoSugestoes({ res, tipo, nome, aoEstudar, aoVerNoMapa }: { res: ResultadoSugestoes | null; tipo: TipoSugestao; nome: string; aoEstudar?: (s: Sugestao, i: number, endereco?: string | null) => void; aoVerNoMapa?: () => void }) {
+  const ends = useEnderecos(res);
   if (!res) return null;
   return (
     <Secao icone={MapPinned} titulo={tipo === "ponto" ? "Posições melhores por perto" : "Onde abrir outra unidade na região"} className="lg:col-span-2">
@@ -57,13 +60,14 @@ export function SecaoSugestoes({ res, tipo, nome, aoEstudar, aoVerNoMapa }: { re
                 <span className="grid h-6 w-6 flex-none place-items-center rounded-full text-xs font-semibold text-white" style={{ background: COR_SUGESTAO }}>{i + 1}</span>
                 <span className="text-sm font-semibold">{pct(s.ganho)} de público</span>
               </div>
+              <p className="mt-1.5 text-[12px] text-foreground">{ends[i] ?? "Buscando o endereço…"}</p>
               <div className="mt-2">
                 <Linha rotulo="Distância" valor={km1(s.distanciaKm)} />
                 <Linha rotulo="Renda média" valor={reaisRenda(s.renda)} />
                 {s.renda != null && s.renda > 6000 && <p className="mt-1 text-[11px] text-warning">Renda alta: na rede, o Low Cost vende menos em áreas de renda muito alta. Combina mais com o Pro.</p>}
                 <Linha rotulo="Divide com a rede" valor={s.divideCom.length ? s.divideCom.map((d) => `${Math.round(d.parte * 100)}%`).join(" + ") : "nada"} />
               </div>
-              {aoEstudar && <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => aoEstudar(s, i)}>Estudar esta posição</Button>}
+              {aoEstudar && <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => aoEstudar(s, i, ends[i])}>Estudar esta posição</Button>}
             </div>
           ))}
         </div>
@@ -73,3 +77,28 @@ export function SecaoSugestoes({ res, tipo, nome, aoEstudar, aoVerNoMapa }: { re
     </Secao>
   );
 }
+
+const cacheEnderecos = new Map<string, Promise<string | null>>();
+/** Endereço aproximado de uma posição (pelo servidor; guardado na memória da página). */
+export function enderecoDaPosicao(c: [number, number]): Promise<string | null> {
+  const k = `${c[0].toFixed(5)},${c[1].toFixed(5)}`;
+  if (!cacheEnderecos.has(k)) cacheEnderecos.set(k, authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "endereco-posicao", c }) })
+    .then(async (r) => (r.ok ? ((await r.json()).endereco as string | null) ?? null : null)).catch(() => null));
+  return cacheEnderecos.get(k)!;
+}
+/** Endereços das posições sugeridas, na ordem delas (null enquanto carrega ou quando não acha). */
+export function useEnderecos(res: ResultadoSugestoes | null): (string | null)[] {
+  const [ends, setEnds] = useState<(string | null)[]>([]);
+  const chave = res?.sugestoes.map((s) => s.c.join(",")).join(";") ?? "";
+  useEffect(() => {
+    setEnds([]);
+    if (!res?.sugestoes.length) return;
+    let vivo = true;
+    Promise.all(res.sugestoes.map((s) => enderecoDaPosicao(s.c))).then((e) => vivo && setEnds(e));
+    return () => { vivo = false; };
+  }, [chave]); // eslint-disable-line react-hooks/exhaustive-deps
+  return ends;
+}
+
+/** Endereço curto para usar como região do estudo (sem CEP nem "Brasil"). */
+export const enderecoCurto = (e: string | null | undefined) => (e ? e.replace(/,\s*\d{5}(-\d{3})?/, "").replace(/,\s*Brasil$/, "").trim() : "");
