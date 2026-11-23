@@ -106,6 +106,24 @@ export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = true): Pro
 export const pausa = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 type MapaBase = { mapa: import("leaflet").Map; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer };
 
+/** Fundos do mapa (como no Mapfry): padrão (ruas coloridas), cinza (o do estudo e do PDF), relevo e satélite. */
+export type Fundo = "padrao" | "cinza" | "relevo" | "satelite";
+export const URL_OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+export const URL_RELEVO = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
+export const URL_SAT = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const urlDe = (c: import("leaflet").TileLayer) => (c as unknown as { _url: string })._url;
+/** Troca o fundo: satélite usa a camada `sat`; os outros, a camada `ruas` com o endereço certo (cinza = filtro por cima). */
+export function aplicarFundo(m: MapaBase, fundo: Fundo) {
+  if (fundo === "satelite") { m.mapa.removeLayer(m.ruas); if (!m.mapa.hasLayer(m.sat)) m.sat.addTo(m.mapa); }
+  else {
+    m.mapa.removeLayer(m.sat);
+    const url = fundo === "relevo" ? URL_RELEVO : URL_OSM;
+    if (urlDe(m.ruas) !== url) m.ruas.setUrl(url);
+    if (!m.mapa.hasLayer(m.ruas)) m.ruas.addTo(m.mapa);
+  }
+  m.mapa.getContainer().classList.toggle("mapa-cinza", fundo === "cinza");
+}
+
 /** Espera os azulejos do fundo carregarem (no máximo `ms`). */
 async function esperarAzulejos(m: MapaBase, ms = 5000) {
   await pausa(160);
@@ -122,6 +140,9 @@ async function esperarAzulejos(m: MapaBase, ms = 5000) {
 export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, number]; zoom: number } | { limites: import("leaflet").LatLngBounds }, satelite = false): Promise<string | null> {
   const centro = m.mapa.getCenter(), zoom = m.mapa.getZoom();
   const tinhaSat = m.mapa.hasLayer(m.sat), tinhaRuas = m.mapa.hasLayer(m.ruas);
+  // o PDF sai sempre com as ruas do mapa padrão (em cinza), qualquer que seja o fundo escolhido na tela
+  const urlAntes = urlDe(m.ruas);
+  if (!satelite && urlAntes !== URL_OSM) m.ruas.setUrl(URL_OSM);
   try {
     if (satelite) { if (tinhaRuas) m.mapa.removeLayer(m.ruas); if (!tinhaSat) m.sat.addTo(m.mapa); }
     else { if (tinhaSat) m.mapa.removeLayer(m.sat); if (!tinhaRuas) m.ruas.addTo(m.mapa); }
@@ -136,6 +157,7 @@ export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, numbe
   } finally {
     if (m.mapa.hasLayer(m.sat) !== tinhaSat) { if (tinhaSat) m.sat.addTo(m.mapa); else m.mapa.removeLayer(m.sat); }
     if (m.mapa.hasLayer(m.ruas) !== tinhaRuas) { if (tinhaRuas) m.ruas.addTo(m.mapa); else m.mapa.removeLayer(m.ruas); }
+    if (urlDe(m.ruas) !== urlAntes) m.ruas.setUrl(urlAntes);
     m.mapa.setView(centro, zoom, { animate: false });
   }
 }

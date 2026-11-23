@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Eye, EyeOff, Layers, Ruler, Search, X } from "lucide-react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { IconeBoneco } from "@/components/estudos/StreetView";
+import { URL_OSM, URL_RELEVO, URL_SAT, type Fundo } from "@/components/estudos/mapaComum";
 
 export interface ItemCamada { id: string; rotulo: string }
 /** Camada que fica por cima da escolhida (ex.: academias concorrentes depois de buscar): liga e desliga sozinha. */
@@ -87,9 +88,10 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
 const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km` : `${Math.round(m)} m`);
 
 /** Barra horizontal embaixo à direita: miniatura que troca mapa/satélite e barra com Street View, + zoom −. */
-export function BarraMapa({ mapa, satelite, setSatelite, verRua, setVerRua }: {
-  mapa: import("leaflet").Map | null; satelite: boolean; setSatelite: (f: (s: boolean) => boolean) => void; verRua: boolean; setVerRua: (f: (v: boolean) => boolean) => void;
+export function BarraMapa({ mapa, fundo, setFundo, verRua, setVerRua }: {
+  mapa: import("leaflet").Map | null; fundo: Fundo; setFundo: (f: Fundo) => void; verRua: boolean; setVerRua: (f: (v: boolean) => boolean) => void;
 }) {
+  const [escolhendo, setEscolhendo] = useState(false);
   const [zoom, setZoom] = useState(() => Math.round(mapa?.getZoom() ?? 13));
   const [centro, setCentro] = useState<[number, number]>(() => { const c = mapa?.getCenter(); return c ? [c.lat, c.lng] : [-15.8, -47.9]; });
   useEffect(() => {
@@ -138,7 +140,12 @@ export function BarraMapa({ mapa, satelite, setSatelite, verRua, setVerRua }: {
   // miniatura: o pedaço do lugar atual na outra vista (satélite quando está no mapa, mapa quando está no satélite), borrado
   const z = Math.max(3, Math.min(16, zoom - 2)), n = 2 ** z, rad = (centro[0] * Math.PI) / 180;
   const tx = Math.floor(((centro[1] + 180) / 360) * n), ty = Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n);
-  const mini = satelite ? `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png` : `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${ty}/${tx}`;
+  const azulejo = (url: string) => url.replace("{z}", String(z)).replace("{x}", String(tx)).replace("{y}", String(ty));
+  const FUNDOS: { id: Fundo; rotulo: string; url: string; cinza?: boolean }[] = [
+    { id: "padrao", rotulo: "Padrão", url: URL_OSM }, { id: "cinza", rotulo: "Cinza", url: URL_OSM, cinza: true },
+    { id: "relevo", rotulo: "Relevo", url: URL_RELEVO }, { id: "satelite", rotulo: "Satélite", url: URL_SAT },
+  ];
+  const atual = FUNDOS.find((f) => f.id === fundo) ?? FUNDOS[1];
   return (
     <div className="absolute bottom-7 right-3 z-[455] flex items-end gap-2">
       {medindo && (
@@ -146,10 +153,20 @@ export function BarraMapa({ mapa, satelite, setSatelite, verRua, setVerRua }: {
           {distancia > 0 ? <>Distância: <b className="tabular-nums">{fmtDist(distancia)}</b> · clique para continuar</> : "Clique no mapa para começar a medir"}
         </div>
       )}
-      <button type="button" onClick={() => setSatelite((s) => !s)} title={satelite ? "Ver mapa" : "Ver satélite"} aria-label={satelite ? "Ver mapa" : "Ver satélite"}
-        className="relative h-12 w-16 overflow-hidden rounded-xl border-[3px] border-white bg-muted shadow-lg">
-        <img src={mini} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-125 object-cover blur-[1.5px]" />
-      </button>
+      <div className="relative flex items-end gap-1.5" onMouseLeave={() => setEscolhendo(false)}>
+        {escolhendo && FUNDOS.filter((f) => f.id !== fundo).map((f) => (
+          <button key={f.id} type="button" onClick={() => { setFundo(f.id); setEscolhendo(false); }} title={`Fundo: ${f.rotulo}`}
+            className="relative h-12 w-16 overflow-hidden rounded-xl border-[3px] border-white bg-muted shadow-lg">
+            <img src={azulejo(f.url)} alt="" aria-hidden className={`absolute inset-0 h-full w-full scale-125 object-cover ${f.cinza ? "grayscale" : ""}`} />
+            <span className="absolute inset-x-0 bottom-0 bg-black/55 text-center text-[10px] font-medium leading-4 text-white">{f.rotulo}</span>
+          </button>
+        ))}
+        <button type="button" onClick={() => setEscolhendo((e) => !e)} onMouseEnter={() => setEscolhendo(true)} aria-expanded={escolhendo} title="Trocar o fundo do mapa" aria-label={`Fundo do mapa: ${atual.rotulo}. Trocar`}
+          className="relative h-12 w-16 overflow-hidden rounded-xl border-[3px] border-white bg-muted shadow-lg ring-2 ring-foreground/70">
+          <img src={azulejo(atual.url)} alt="" aria-hidden className={`absolute inset-0 h-full w-full scale-125 object-cover ${atual.cinza ? "grayscale" : ""}`} />
+          <span className="absolute inset-x-0 bottom-0 bg-black/55 text-center text-[10px] font-medium leading-4 text-white">{atual.rotulo}</span>
+        </button>
+      </div>
       <div className="flex h-12 items-center rounded-xl bg-white px-1 shadow-lg">
         <button type="button" aria-pressed={medindo} onClick={() => { setMedindo((m) => !m); setVerRua(() => false); }} title={medindo ? "Desligar a régua (apaga a medida)" : "Régua: clique no mapa para medir a distância"}
           className="grid h-10 w-10 place-items-center rounded-lg aria-pressed:bg-foreground aria-pressed:text-background">

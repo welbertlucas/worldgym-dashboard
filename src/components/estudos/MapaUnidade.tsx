@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Leaflet } from "@/components/estudos/mapaComum";
+import { aplicarFundo, bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento } from "@/components/estudos/deslocamento";
@@ -32,7 +32,8 @@ const fmtKm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("pt
 export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, verRede }: { dados: DadosEstudos; unidades: UnidadeEstudo[]; inicial: string; voltar?: () => void; estudarPosicao?: (c: [number, number], nome: string, u: UnidadeEstudo, endereco?: string | null) => void; verRede?: () => void }) {
   const [nome, setNome] = useState(inicial);
   const [lente, setLente] = useState<Lente>("alunos");
-  const [satelite, setSatelite] = useState(false);
+  const [fundo, setFundo] = useState<Fundo>("cinza");
+  const satelite = fundo === "satelite";
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -107,9 +108,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   useEffect(() => {
     const m = ref.current;
     if (!m) return;
-    if (satelite) { m.mapa.removeLayer(m.ruas); m.sat.addTo(m.mapa); } else { m.mapa.removeLayer(m.sat); m.ruas.addTo(m.mapa); }
-    m.mapa.getContainer().classList.toggle("mapa-cinza", !satelite);
-  }, [satelite, pronto]);
+    aplicarFundo(m, fundo);
+  }, [fundo, pronto]);
   // "Ver a rua": o próximo clique no mapa abre o Street View daquele lugar
   useEffect(() => {
     const m = ref.current;
@@ -308,7 +308,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
                 <p className="mt-1">{textoSugestoes(novaUnidade, "nova", u.nome)}</p><p className="mt-1 text-[11px]">{LIMITES_SUGESTAO}</p></details>
             </> }] : []),
           ]} />
-        <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} satelite={satelite} setSatelite={setSatelite} verRua={verRua} setVerRua={setVerRua} />
+        <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />
         <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={u.c} aviso={false} area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>

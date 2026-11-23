@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
-import { fotoDoMapa, fotoEnquadrada, gradienteRampa, pausa, pino } from "@/components/estudos/mapaComum";
+import { aplicarFundo, fotoDoMapa, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
@@ -63,7 +63,8 @@ interface PropsMapa {
 function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo, editavel }: PropsMapa) {
   const [lente, setLente] = useState<Lente>("captacao");
   const [adicionando, setAdicionando] = useState(iniciarAdicionando);
-  const [satelite, setSatelite] = useState(false);
+  const [fundo, setFundo] = useState<Fundo>("cinza");
+  const satelite = fundo === "satelite";
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -157,9 +158,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   useEffect(() => {
     const m = mapaRef.current;
     if (!m) return;
-    if (satelite) { m.mapa.removeLayer(m.ruas); m.sat.addTo(m.mapa); } else { m.mapa.removeLayer(m.sat); m.ruas.addTo(m.mapa); }
-    m.mapa.getContainer().classList.toggle("mapa-cinza", !satelite);
-  }, [satelite, desenho]);
+    aplicarFundo(m, fundo);
+  }, [fundo, desenho]);
 
   // "Ver a rua": o próximo clique no mapa abre o Street View daquele lugar
   useEffect(() => {
@@ -323,7 +323,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
           </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} /> : lente === "rede" ? "Bolinhas vermelhas: World Gym. Círculos: área de cada unidade." : null}
           sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />
-        <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} satelite={satelite} setSatelite={setSatelite} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
+        <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
         <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
