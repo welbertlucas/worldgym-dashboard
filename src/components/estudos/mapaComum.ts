@@ -54,6 +54,24 @@ export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = true): Pro
     for (const cv of Array.from(el.querySelectorAll<HTMLCanvasElement>(".leaflet-overlay-pane canvas"))) { const p = pos(cv); ctx.drawImage(cv, p.x, p.y, p.w, p.h); }
     for (const mk of Array.from(el.querySelectorAll<HTMLElement>(".leaflet-marker-pane .leaflet-marker-icon"))) {
       const alvo = (mk.firstElementChild as HTMLElement | null) ?? mk, p = pos(alvo);
+      // pontos de interesse: número na bolinha, ou ponto + nome (só os nomes que estão visíveis na tela)
+      if (alvo.dataset.poiNum) {
+        const r = Math.max(9, p.w / 2), cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = getComputedStyle(alvo).backgroundColor || "#1f5f8b"; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.font = "700 10px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(alvo.dataset.poiNum, cx, cy + 0.5);
+        continue;
+      }
+      if (alvo.dataset.poiNome) {
+        const ponto = alvo.querySelector<HTMLElement>(".poi-ponto"), nome = alvo.querySelector<HTMLElement>(".poi-nome");
+        if (ponto) { const q = pos(ponto); ctx.beginPath(); ctx.arc(q.x + q.w / 2, q.y + q.h / 2, q.w / 2, 0, Math.PI * 2); ctx.fillStyle = getComputedStyle(ponto).backgroundColor; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke(); }
+        if (nome && nome.style.visibility !== "hidden") {
+          const q = pos(nome), est = getComputedStyle(nome);
+          ctx.fillStyle = est.backgroundColor; ctx.fillRect(q.x, q.y, q.w, q.h);
+          ctx.fillStyle = est.color; ctx.font = `${est.fontWeight} ${est.fontSize} Inter, sans-serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(nome.textContent ?? "", q.x + 5, q.y + q.h / 2 + 0.5);
+        }
+        continue;
+      }
       const cor = getComputedStyle(alvo).backgroundColor || "#c41230";
       ctx.beginPath(); ctx.arc(p.x + p.w / 2, p.y + p.h / 2, Math.max(4, Math.min(p.w, p.h) / 2), 0, Math.PI * 2);
       ctx.fillStyle = cor; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();

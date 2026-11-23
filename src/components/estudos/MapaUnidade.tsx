@@ -2,6 +2,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bolinha, carregarLeaflet, fotoDoMapa, gradienteRampa, hexagono, rampa, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
+import { CSS_POIS, ControlePois, SecaoPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { MapPin, Scale, TrendingUp, Users } from "lucide-react";
 import { gerarPdfDoEstudo, nomeDoArquivo } from "@/lib/estudoPdf";
@@ -26,6 +27,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [pois, setPois] = useState<ResultadoPois | null>(null);
+  const [modoPois, setModoPois] = useState<ModoPois>("nomes");
   const el = useRef<HTMLDivElement>(null);
   const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; camadas: import("leaflet").LayerGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
   const [pronto, setPronto] = useState(false);
@@ -59,7 +62,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     });
     return () => { vivo = false; ref.current?.mapa.remove(); ref.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (ref.current && u?.c) ref.current.mapa.setView(u.c, 13); setRua(null); }, [nome, pronto]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (ref.current && u?.c) ref.current.mapa.setView(u.c, 13); setRua(null); setPois(null); }, [nome, pronto]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const m = ref.current;
     if (!m) return;
@@ -119,6 +122,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     if (rua) L.marker(rua, { icon: bolinha(L, "#f59e0b", 14) }).addTo(camadas);
   }, [lente, u, cap, pronto, rua]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  usePoisNoMapa(pronto ? ref.current : null, pois, modoPois);
+
   if (!u) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">Nenhuma unidade para mostrar.</p>;
 
   const numeros = [
@@ -153,6 +158,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
             ...(leituraModelo ? [{ titulo: "O modelo e a realidade", linhas: [], nota: leituraModelo }] : []),
             { titulo: "De onde vêm os alunos", linhas: [{ texto: "Moradores na área onde moram 80% dos alunos (Censo 2022)", valor: moradores80 != null ? `${Math.round(moradores80 / 1000).toLocaleString("pt-BR")} mil` : "—" }] },
             { titulo: "Bairros que mais trazem alunos", linhas: topBairros.map(([b, , , n]) => ({ texto: b, valor: `${n.toLocaleString("pt-BR")} (${Math.round((n / Math.max(1, alunosBairro)) * 100)}%)` })) },
+            ...(pois ? [{ titulo: `${pois.rotulo} a até ${pois.raioKm.toLocaleString("pt-BR")} km: ${pois.total}`, linhas: pois.lugares.map((l, i) => ({ texto: `${i + 1}. ${l.nome}${l.rede ? ` (${l.rede})` : ""}`, valor: `${l.km.toLocaleString("pt-BR")} km` })), paragrafo: "Fonte: Google. Os números seguem a ordem de distância." }] : []),
             { titulo: "Divisão da captação", linhas: cap?.divideCom.length ? cap.divideCom.map((d) => ({ texto: d.nome, valor: `${Math.round(d.parte * 100)}%` })) : [{ texto: "Nenhuma World Gym divide a área desta unidade." }] },
           ],
         }],
@@ -162,7 +168,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
 
   return (
     <div className="space-y-4">
-      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
+      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
 
       {/* topo: voltar, unidade, exportar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -205,6 +211,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="5" r="2.5" /><path d="M12 8v7M8 12h8M10 21l2-6 2 6" /></svg><span className="sr-only">Ver a rua</span>
           </button>
         </div>
+        <div className="absolute left-3 top-[64px] z-[460]"><ControlePois centro={u.c} aviso={false} aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
 
@@ -243,6 +250,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
           <div className="mt-3"><Nota>Compare as lentes "Onde moram os alunos" e "Onde o modelo diria": onde o modelo espera alunos e eles não aparecem é onde vale fazer marketing.</Nota></div>
         </Secao>
       </div>
+      {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
     </div>
   );
 }

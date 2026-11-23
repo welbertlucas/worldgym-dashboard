@@ -4,6 +4,7 @@ import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 import { fotoDoMapa, gradienteRampa } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
+import { CSS_POIS, ControlePois, SecaoPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Faixa, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { Building2, Calculator, Gavel, ListChecks, Store, TrendingUp } from "lucide-react";
 import { gerarPdfDoEstudo, nomeDoArquivo } from "@/lib/estudoPdf";
@@ -62,6 +63,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [pois, setPois] = useState<ResultadoPois | null>(null);
+  const [modoPois, setModoPois] = useState<ModoPois>("nomes");
   const mapaEl = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<{ L: typeof import("leaflet"); mapa: import("leaflet").Map; camadas: import("leaflet").LayerGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
   const [desenho, setDesenho] = useState(0);
@@ -185,6 +188,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (rua) L.marker(rua, { icon: L.divIcon({ className: "", iconSize: [14, 14], iconAnchor: [7, 7], html: '<div style="width:14px;height:14px;border-radius:50%;background:#f59e0b;border:2px solid #fff"></div>' }) }).addTo(camadas);
   }, [lente, cap, pontos, atualId, desenho, rua]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  usePoisNoMapa(desenho ? mapaRef.current : null, pois, modoPois);
+  useEffect(() => { setPois(null); }, [atualId]);
+
   const idx = atual ? pontos.findIndex((p) => p.id === atual.id) : -1;
   const parec = atual ? parecidas(atual, dados.censo!, dados.unidades!) : [];
   const fatores = atual && r && cap ? fatoresDe(atual, r, cap, dados.unidades!, dados.censo!, dados.premissas!) : [];
@@ -212,6 +218,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           secoes: [
             { titulo: "O que pesa", linhas: fs.map((f) => ({ texto: `${f.positivo ? "+" : "−"} ${f.texto}`, tom: (f.positivo ? "bom" : "ruim") as "bom" | "ruim" })) },
             { titulo: "Decisão", linhas: [{ texto: DECISAO_ROTULO[p.decisao?.status ?? "analise"] + (p.decisao?.unidade ? `: ${p.decisao.unidade}` : ""), valor: p.decisao?.em ? new Date(p.decisao.em).toLocaleDateString("pt-BR") : undefined }], paragrafo: p.decisao?.comentario || undefined },
+            ...(pois && p.id === atual?.id ? [{ titulo: `${pois.rotulo} a até ${pois.raioKm.toLocaleString("pt-BR")} km: ${pois.total}`, linhas: pois.lugares.map((l, k) => ({ texto: `${k + 1}. ${l.nome}${l.rede ? ` (${l.rede})` : ""}`, valor: `${l.km.toLocaleString("pt-BR")} km` })), paragrafo: "Fonte: Google. Os números seguem a ordem de distância." }] : []),
             { titulo: "O imóvel", linhas: ITENS.map((it) => ({ texto: it.rotulo, valor: p.imovel[it.k] ? "sim" : "não" })) },
             ...(pr.length ? [{ titulo: "Unidades parecidas na rede", linhas: pr.map((u) => ({ texto: `${u.nome}, ${u.m2?.toLocaleString("pt-BR")} m²`, valor: u.vendas ? reais(u.vendas) : "—" })), paragrafo: "Mesma quantidade de moradores e renda a até 2 km." }] : []),
           ],
@@ -232,7 +239,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
 
   return (
     <div className="space-y-4">
-      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
+      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
 
       {/* topo */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -275,6 +282,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="5" r="2.5" /><path d="M12 8v7M8 12h8M10 21l2-6 2 6" /></svg><span className="sr-only">Ver a rua</span>
           </button>
         </div>
+        <div className="absolute left-3 top-[64px] z-[460]"><ControlePois centro={atual?.c ?? null} aviso aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
 
@@ -297,6 +305,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       ) : (
         <p className="rounded-2xl border bg-white p-5 text-sm text-muted-foreground">{editavel ? "Clique em \u201c+ Adicionar ponto\u201d e depois no mapa onde fica o imóvel. A conta aparece aqui." : "Nenhum ponto neste estudo."}</p>
       )}
+
+      {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
 
       {/* estudo do ponto escolhido, no padrão do estudo de geomarketing */}
       {atual && r && (

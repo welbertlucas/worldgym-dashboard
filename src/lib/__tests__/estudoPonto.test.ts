@@ -225,3 +225,28 @@ describe("PDF do estudo", () => {
     expect(nomeDoArquivo("estudo-unidade-Águas Claras Pro")).toBe("estudo-unidade-aguas-claras-pro.pdf");
   });
 });
+
+describe("pontos de interesse (server/pois.js)", () => {
+  it("confere o pedido, reconhece as grandes redes, busca e guarda o resultado", async () => {
+    // @ts-expect-error módulo JS do servidor
+    const { pedidoValido, redeDe, buscarPois, ErroPois } = await import("../../../server/pois.js");
+    expect(() => pedidoValido({ c: [-15.8, -47.9], raioKm: 9 })).toThrow(ErroPois);
+    expect(() => pedidoValido({ c: [-15.8, -47.9], raioKm: 2, categoria: "bares" })).toThrow(ErroPois);
+    expect(redeDe("SMART FIT - Ceilândia")).toBe("Smart Fit"); expect(redeDe("Academia do Zé")).toBeNull();
+    const m = new Map<string, unknown>();
+    definirArmazem({ async ler(c: string) { return (m.get(c) as unknown) ?? null; }, async gravar(c: string, d: unknown) { m.set(c, structuredClone(d)); } });
+    let chamadas = 0;
+    const fetcher = async (url: string) => {
+      chamadas++;
+      if (url.includes("computeInsights")) return { json: async () => ({ placeInsights: [{ place: "places/a" }, { place: "places/b" }] }) };
+      const perto = url.endsWith("/a");
+      return { json: async () => ({ displayName: { text: perto ? "Smart Fit Centro" : "Academia Longe" }, formattedAddress: "Rua X", location: perto ? { latitude: -15.801, longitude: -47.9 } : { latitude: -15.9, longitude: -47.9 } }) };
+    };
+    const r = await buscarPois({ c: [-15.8, -47.9], raioKm: 2, categoria: "academias" }, { chave: "k", fetcher });
+    expect(r.total).toBe(1); expect(r.lugares[0]).toMatchObject({ nome: "Smart Fit Centro", rede: "Smart Fit" }); expect(r.doCache).toBe(false);
+    const antes = chamadas;
+    const r2 = await buscarPois({ c: [-15.8, -47.9], raioKm: 2, categoria: "academias" }, { chave: "k", fetcher });
+    expect(r2.doCache).toBe(true); expect(chamadas).toBe(antes);
+    definirArmazem(null);
+  });
+});
