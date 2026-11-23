@@ -18,7 +18,7 @@ import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamada
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -107,7 +107,6 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const refsPop = useReferenciaPopulacao(dados.unidades!, dados.censo, atual?.modelo ?? null);
   const ex = atual ? extras.get(atual.id) ?? null : null;
   const pop = r && refsPop ? populacaoRecomendada(r.meta, moradores10, refsPop) : null;
-  const vf = ex?.veredito ?? r?.veredito ?? null;
   // Totais da área para a legenda (rosca das classes de renda e valor do potencial de consumo)
   const resumoCenso = useMemo(() => (atual && dados.censo ? {
     renda: area10 ? classesNaArea(dados.censo, area10) : classesNoRaio(atual.c, dados.censo, 5),
@@ -119,6 +118,11 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     moradores: area10 ? moradoresNaArea(dados.censo, area10) : dados.censo.celulas.reduce((a, [la, ln, p]) => a + (km([la, ln], atual.c) < 5 ? p : 0), 0),
     onde: area10 ? `em ${MINUTOS_PADRAO} min de carro` : "num raio de 5 km",
   } : undefined), [atual?.id, atual?.c[0], atual?.c[1], area10, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
+  // fatia do potencial de consumo que o ponto precisaria (vendas previstas ÷ gasto com esportes na área de 10 min), contra a faixa da rede
+  const faixaFatia = faixaDaFatia(refsPop);
+  const potencial10 = resumoCenso?.potencial?.total ?? null;
+  const fatiaPonto = r && potencial10 ? r.provavel / potencial10 : null;
+  const vf = vereditoComFatia(ex?.veredito ?? r?.veredito ?? null, fatiaPonto, faixaFatia);
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
   const sugestoes = useMemo(() => (atual && dados.censo && dados.premissas
     ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva)
@@ -287,6 +291,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
         populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
         ticket: ex?.ticket ?? null, alunos: ex?.alunos ?? null, vagas: ex?.vagas ?? null,
+        faixaFatia,
         pontos: pontos.map((p, i) => {
           const rr = resultados.get(p.id) ?? null;
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
@@ -351,7 +356,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <div className="flex gap-2.5 overflow-x-auto pb-1" role="tablist" aria-label="Pontos em estudo">
           {pontos.map((p, i) => {
             const rr = resultados.get(p.id);
-            const vv = extras.get(p.id)?.veredito ?? rr?.veredito;
+            const vv = p.id === atual?.id ? vf ?? rr?.veredito : extras.get(p.id)?.veredito ?? rr?.veredito; // o ponto aberto já com a fatia do potencial
             return (
               <button key={p.id} type="button" role="tab" aria-selected={p.id === atualId} onClick={() => setAtualId(p.id)}
                 className="flex min-w-[230px] items-center gap-2.5 rounded-xl border bg-white px-3 py-2.5 text-left hover:bg-muted/40 aria-selected:border-foreground aria-selected:ring-1 aria-selected:ring-foreground">
@@ -434,7 +439,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             <Secao icone={Gavel} titulo="Parecer do Atlas">
               {(() => {
                 const pr = parecerDoPonto({ veredito: vf ?? r.veredito, provavel: r.provavel, meta: r.meta, payback: r.payback, mesesAprovado: dados.premissas!.regua.mesesAprovado, mesesAtencao: dados.premissas!.regua.mesesAtencao,
-                  vagas: ex?.vagas ?? null, populacao: pop ? { situacao: pop.situacao, recomendada: pop.recomendada } : null, divideCom: cap?.divideCom });
+                  vagas: ex?.vagas ?? null, populacao: pop ? { situacao: pop.situacao, recomendada: pop.recomendada } : null, divideCom: cap?.divideCom,
+                  fatia: fatiaPonto != null && faixaFatia && potencial10 ? { valor: fatiaPonto, potencial: potencial10, comum: faixaFatia.comum, maxima: faixaFatia.maxima } : null });
                 const tom = (vf ?? r.veredito) === "aprovado" ? "text-success" : (vf ?? r.veredito) === "atencao" ? "text-warning" : "text-destructive";
                 return <>
                   <p className={`font-display text-2xl font-semibold ${tom}`}>{pr.rotulo}</p>

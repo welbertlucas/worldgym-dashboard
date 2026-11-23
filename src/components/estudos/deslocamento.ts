@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import type { Leaflet } from "@/components/estudos/mapaComum";
-import { MINUTOS_PADRAO, moradoresNaArea, type Censo, type Deslocamento, type Geometria, type Modelo, type RefPopulacao, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { MINUTOS_PADRAO, moradoresNaArea, potencialNaArea, type Censo, type Deslocamento, type Geometria, type Modelo, type RefPopulacao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 export const COR_DESLOCAMENTO = "#0f8a8a";
 const guardados = new Map<string, Promise<Deslocamento>>();
@@ -95,7 +95,7 @@ export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo |
         const lote = await Promise.all(alvo.slice(i, i + 4).map(async (u) => {
           try {
             const g = (await buscarDeslocamento(u.c as [number, number], "carro")).contornos[String(MINUTOS_PADRAO)];
-            return g ? { nome: u.nome, vendas: u.vendas as number, moradores: moradoresNaArea(censo, g) } : null;
+            return g ? ({ nome: u.nome, vendas: u.vendas as number, moradores: moradoresNaArea(censo, g), potencial: potencialNaArea(censo, g)?.total } as RefPopulacao) : null;
           } catch { return null; }
         }));
         out.push(...lote.filter((x): x is RefPopulacao => !!x));

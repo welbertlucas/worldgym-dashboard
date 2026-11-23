@@ -475,3 +475,20 @@ describe("parecer do Atlas", () => {
     expect(parecerDoPonto({ ...base, provavel: 400_000, veredito: "aprovado" })).toMatchObject({ rotulo: "Aprova", condicoes: [] });
   });
 });
+
+describe("fatia do potencial de consumo", () => {
+  it("faixa tirada das unidades da rede e o parecer do ponto (números inventados)", async () => {
+    const { faixaDaFatia, vereditoComFatia, parecerDoPonto } = await import("@/lib/estudoPonto");
+    const refs = [10, 20, 30, 40, 70].map((f, i) => ({ nome: `U${i}`, vendas: f * 10_000, moradores: 100_000, potencial: 1_000_000 }));
+    const fx = faixaDaFatia(refs)!;
+    expect(fx.maxima).toBeCloseTo(0.7); expect(fx.mediana).toBeCloseTo(0.3); expect(fx.comum).toBeCloseTo(0.4); expect(fx.unidades).toBe(5);
+    expect(faixaDaFatia(refs.slice(0, 2))).toBeNull(); // poucas unidades: sem faixa
+    expect(vereditoComFatia("aprovado", 1.4, fx)).toBe("reprovado"); // acima da maior da rede
+    expect(vereditoComFatia("aprovado", 0.5, fx)).toBe("atencao"); // acima da comum
+    expect(vereditoComFatia("atencao", 0.2, fx)).toBe("atencao");
+    expect(vereditoComFatia("aprovado", 0.5, null)).toBe("aprovado");
+    const p = parecerDoPonto({ veredito: "reprovado", provavel: 264_000, meta: 288_000, payback: 43, mesesAprovado: 36, mesesAtencao: 48, fatia: { valor: 1.4, potencial: 188_000, comum: 0.38, maxima: 0.74 } });
+    expect(p.rotulo).toBe("Não aprova");
+    expect(p.porque).toContain("140%"); expect(p.porque).toContain("74%");
+  });
+});

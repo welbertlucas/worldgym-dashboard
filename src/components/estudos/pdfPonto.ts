@@ -4,7 +4,7 @@
 // Os textos são montados por regras fixas a partir dos números da tela; o que é estimativa ou premissa aparece escrito como tal.
 import type { ConteudoPdf, PaginaDoEstudo, Secao } from "@/lib/estudoPdf";
 import { nomeDoArquivo, ALT_FOTO_MAPA } from "@/lib/estudoPdf";
-import { DECISAO_ROTULO, compararComParecidas, leituraParecidas, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { DECISAO_ROTULO, PARECER_ROTULO, vereditoComFatia, compararComParecidas, leituraParecidas, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
 import { PENETRACAO_MERCADO, resumoMercado, secoesDeMercado, type DadosMercado } from "@/components/estudos/pdfUnidade";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
@@ -27,6 +27,8 @@ export interface DadosPdfPonto {
   ticket?: { preco: number; realizado: number; p25: number; p75: number; n: number; dasParecidas: boolean } | null;
   alunos?: number | null;
   vagas?: { min: number; max: number; informadas: number | null; proprias: number | null; perto: number | null; situacao: SituacaoVagas } | null;
+  /** Faixa da fatia do potencial de consumo nas unidades maduras do modelo (faixaDaFatia). */
+  faixaFatia?: { comum: number; maxima: number; mediana: number; unidades: number } | null;
   comparacao?: { foto: string | null };
   itensImovel: { k: keyof Ponto["imovel"]; rotulo: string }[];
   hoje?: Date;
@@ -160,21 +162,23 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       });
       // conclusão
       const m = merc ? resumoMercado({ perfil: merc.perfil, renda: merc.renda, pois: merc.pois, alunosNaArea: null }) : null;
-      const fatia = r && merc?.potencial?.total ? r.meta / merc.potencial.total : null;
+      // fatia do potencial que o ponto precisaria para as vendas previstas, contra a faixa das unidades da rede (decisão do dono, 23/11/2026)
+      const fatia = r && merc?.potencial?.total ? r.provavel / merc.potencial.total : null;
+      const ff = d.faixaFatia ?? null;
       const conc: string[] = [];
       if (merc?.renda || merc?.perfil) conc.push(`O território ${area} tem ${merc?.perfil ? `${mil(merc.perfil.moradores)} moradores` : "população não medida"}${merc?.perfil?.domicilios ? ` em ${mil(merc.perfil.domicilios)} domicílios` : ""}${m?.perfilRenda ? `, com perfil socioeconômico ${m.perfilRenda}${merc?.renda ? ` (${pct(merc.renda.cde)} nas classes C, D e E)` : ""}` : ""}${merc?.perfil?.parte20a49 != null ? ` e ${pct(merc.perfil.parte20a49)} da população com 20 a 49 anos` : ""}. ${merc?.renda && merc.renda.cde >= 0.75 ? "É um mercado de volume, sensível a preço, que favorece o modelo Low Cost." : merc?.renda && merc.renda.ab >= 0.4 ? "A renda mais alta abre espaço para o modelo Pro e serviços de maior valor." : "O público combina faixas de renda diferentes."}`);
       if (m?.conc && m.habPorAcademia != null) conc.push(`Sob a ótica competitiva, há ${m.conc.diretos} concorrentes diretos${m.conc.nomesRedes.length ? `, entre eles ${m.conc.nomesRedes.map((x) => x.rede).join(", ")}` : ""}, e ${num(m.habPorAcademia)} habitantes por academia: concorrência ${m.nivelConcorrencia}. Pela premissa de penetração de ${pct(PENETRACAO_MERCADO)}, a área tem cerca de ${mil(m.praticantes)} praticantes.`);
       else conc.push("A concorrência não entrou neste estudo porque as academias concorrentes não foram buscadas antes de exportar; recomenda-se gerar o PDF com a busca feita.");
-      if (fatia != null) conc.push(`Para chegar à meta, o ponto precisaria capturar ${pct(fatia)} do potencial de consumo da área em recreações e esportes, ${fatia >= 0.36 ? "acima do que os estudos da rede consideram viável (~36%)" : fatia >= 0.33 ? "na zona de atenção dos estudos da rede (33% a 35%)" : "dentro do que os estudos da rede consideram capturável (até ~32%)"}.`);
+      if (fatia != null) conc.push(`Para vender ${reais(r!.provavel)} por mês, o ponto precisaria de ${pct(fatia)} do potencial de consumo da área em recreações e esportes (${reais(merc!.potencial!.total)} por mês). ${ff ? (fatia > ff.maxima ? `Nenhuma unidade da rede tira tanto do seu mercado: a maior fica em ${pct(ff.maxima)}, a típica em ${pct(ff.mediana)}.` : fatia > ff.comum ? `É mais do que 3 em cada 4 unidades da rede conseguem (até ${pct(ff.comum)}); só as mais fortes chegam a isso.` : `Está dentro do que a rede já faz (3 em cada 4 unidades ficam até ${pct(ff.comum)}).`) : ""}`);
       if (cap.divideCom.length) conc.push(`Dentro da rede, o ponto dividiria ${pct(cap.divideCom.reduce((a, x) => a + x.parte, 0))} do público com ${cap.divideCom.map((x) => x.nome).join(" e ")}.`);
       if (pp?.situacao) conc.push(`A população da área (${mil(pp.moradores)} moradores) está ${SITUACAO_POPULACAO[pp.situacao]} para a meta: a rede recomendaria cerca de ${mil(pp.recomendada)}.`);
       if (d.ticket && d.alunos) conc.push(`Com ticket sugerido de ${preco(d.ticket.preco)}, o ponto precisa atender cerca de ${num(d.alunos)} alunos${d.vagas ? ` e de ${d.vagas.min} a ${d.vagas.max} vagas de estacionamento (${d.vagas.situacao === "sem-dado" ? "vagas ainda não informadas" : `informadas ${d.vagas.informadas}, ${SITUACAO_VAGAS[d.vagas.situacao]}`})` : ""}.`);
-      const vfin = r ? vereditoFinal(r.veredito, d.vagas ?? null) : null;
-      if (r) conc.push(`Diante desse cenário, o estudo ${vfin === "aprovado" ? "aprova" : vfin === "atencao" ? "coloca em atenção" : "não aprova"} o ponto para o ${modelo}: vendas previstas de ${reais(r.provavel)} por mês, lucro de ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} e payback de ${meses(r.payback)}${vfin !== r.veredito ? ", mas o estacionamento não atende o mínimo, critério eliminatório da rede" : ""}.${d.sugestoes?.sugestoes.length ? ` Há posições até ${pct(d.sugestoes.sugestoes[0].ganho)} melhores em público a até ${d.sugestoes.sugestoes[0].distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, que valem uma busca de imóveis antes de fechar.` : ""} A visibilidade da fachada e o acesso devem ser conferidos na visita.`);
+      const vfin = r ? vereditoComFatia(vereditoFinal(r.veredito, d.vagas ?? null), fatia, ff) : null;
+      if (r) conc.push(`Diante desse cenário, o estudo ${vfin === "aprovado" ? "aprova" : vfin === "atencao" ? "aprova com condicionantes" : "não aprova"} o ponto para o ${modelo}: vendas previstas de ${reais(r.provavel)} por mês, lucro de ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} e payback de ${meses(r.payback)}${vfin !== r.veredito ? ", mas o estacionamento não atende o mínimo, critério eliminatório da rede" : ""}.${d.sugestoes?.sugestoes.length ? ` Há posições até ${pct(d.sugestoes.sugestoes[0].ganho)} melhores em público a até ${d.sugestoes.sugestoes[0].distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, que valem uma busca de imóveis antes de fechar.` : ""} A visibilidade da fachada e o acesso devem ser conferidos na visita.`);
       conc.push(`Situação no comitê de expansão: ${DECISAO_ROTULO[p.decisao?.status ?? "analise"]}${p.decisao?.unidade ? ` (${p.decisao.unidade})` : ""}${p.decisao?.em ? `, em ${new Date(p.decisao.em).toLocaleDateString("pt-BR")}` : ""}.${p.decisao?.comentario ? ` Comentário: ${p.decisao.comentario}` : ""}`);
       secoes.push({
         titulo: "Conclusão e Recomendação Final", novaPagina: true, linhas: [],
-        faixa: vfin ? `${vfin === "aprovado" ? "Recomendado" : vfin === "atencao" ? "Atenção" : "Não recomendado"}: modelo ${modelo}${vfin !== r?.veredito ? " (estacionamento)" : ""}` : undefined,
+        faixa: vfin ? `Parecer do Atlas: ${PARECER_ROTULO[vfin]} · modelo ${modelo}${vfin !== r?.veredito ? (d.vagas?.situacao === "insuficiente" ? " (estacionamento)" : " (mercado da região)") : ""}` : undefined,
         texto: conc,
         paragrafo: `Premissas: vendas por m² das unidades maduras da rede, penetração de mercado de ${pct(PENETRACAO_MERCADO)}, população recomendada e ticket calibrados com as unidades da rede, estacionamento com 8% a 12% no pico e 20% a 30% de carro, classes de renda estimadas pela média e pela variação da renda de cada setor do Censo e gasto da POF corrigido pela inflação. Os números de mercado devem ser lidos como ordem de grandeza.`,
       });

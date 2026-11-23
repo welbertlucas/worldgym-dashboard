@@ -463,7 +463,24 @@ function percentilDe(valores: number[], p: number): number | null {
 }
 
 /** Referência de uma unidade madura da rede: vendas por mês e moradores na própria área de 10 min de carro. */
-export interface RefPopulacao { nome: string; vendas: number; moradores: number }
+export interface RefPopulacao { nome: string; vendas: number; moradores: number; /** Gasto mensal com esportes na área de 10 min (potencial de consumo). */ potencial?: number }
+/**
+ * Fatia do potencial de consumo (decisão do dono, 23/11/2026): vendas ÷ o que os moradores da área de 10 min gastam com esportes.
+ * A faixa vem das unidades maduras do mesmo modelo: `comum` = 3 em cada 4 unidades ficam até ela; `maxima` = a maior da rede.
+ * Em 23/11/2026 (Low Cost): mediana 28%, comum 38%, máxima 74%. Com menos de 3 unidades com o dado, não há faixa.
+ */
+export function faixaDaFatia(refs: RefPopulacao[] | null | undefined): { comum: number; maxima: number; mediana: number; unidades: number } | null {
+  const fs = (refs ?? []).filter((r) => (r.potencial ?? 0) > 0 && r.vendas > 0).map((r) => r.vendas / (r.potencial as number));
+  if (fs.length < 3) return null;
+  return { comum: percentilDe(fs, 0.75)!, maxima: Math.max(...fs), mediana: percentilDe(fs, 0.5)!, unidades: fs.length };
+}
+/** Veredito com a fatia: acima da maior da rede não aprova; acima da comum, no máximo "com condicionantes". */
+export function vereditoComFatia(v: Veredito | null, fatia: number | null, faixa: { comum: number; maxima: number } | null): Veredito | null {
+  if (!v || fatia == null || !faixa) return v;
+  if (fatia > faixa.maxima) return "reprovado";
+  if (fatia > faixa.comum && v === "aprovado") return "atencao";
+  return v;
+}
 export type SituacaoPopulacao = "adequada" | "limite" | "abaixo";
 /**
  * População recomendada calibrada com a rede: quanto as unidades maduras vendem por morador da própria área de 10 min de carro.
@@ -521,6 +538,8 @@ export function parecerDoPonto(o: {
   veredito: Veredito; provavel: number; meta: number; payback: number | null; mesesAprovado: number; mesesAtencao: number;
   vagas?: { situacao: SituacaoVagas; min: number; max: number } | null; populacao?: { situacao: SituacaoPopulacao | null; recomendada: number } | null;
   divideCom?: { nome: string; parte: number }[];
+  /** Fatia do potencial que o ponto precisaria, o potencial da área e a faixa da rede (faixaDaFatia). */
+  fatia?: { valor: number; potencial: number; comum: number; maxima: number } | null;
 }) {
   const r = (v: number) => `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`;
   const anos = (m: number) => `${(m / 12).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} anos`;
@@ -530,13 +549,20 @@ export function parecerDoPonto(o: {
     : o.veredito === "aprovado" ? `Deve vender cerca de ${r(o.provavel)} por mês com a unidade madura, acima dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}${pb}.`
     : o.veredito === "atencao" ? `Deve vender cerca de ${r(o.provavel)} por mês, abaixo dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}, mas dentro do limite de ${anos(o.mesesAtencao)}${pb}. A margem é apertada.`
     : `Deve vender cerca de ${r(o.provavel)} por mês, abaixo do mínimo para o investimento voltar em ${anos(o.mesesAtencao)}${pb}.`;
+  const pf = (x: number) => `${Math.round(x * 100)}%`;
+  const fatiaAlta = o.fatia && o.fatia.valor > o.fatia.maxima;
+  const porqueFinal = fatiaAlta && o.vagas?.situacao !== "insuficiente"
+    ? `Para vender ${r(o.provavel)} por mês, o ponto precisaria de ${pf(o.fatia!.valor)} de tudo o que os moradores da área de 10 min gastam com esportes (${r(o.fatia!.potencial)} por mês). Nenhuma unidade da rede tira tanto do seu mercado: a maior fica em ${pf(o.fatia!.maxima)}.`
+    : porque;
   const condicoes: string[] = [];
+  if (fatiaAlta) condicoes.push("Procurar um ponto com mais gente e mais renda em volta, ou um imóvel menor, até a fatia do mercado ficar dentro do que a rede já faz.");
+  else if (o.fatia && o.fatia.valor > o.fatia.comum) condicoes.push(`O ponto precisa tirar ${pf(o.fatia.valor)} do mercado de esportes da região, mais que 3 em cada 4 unidades da rede (até ${pf(o.fatia.comum)}): só as mais fortes conseguem.`);
   if (o.veredito === "atencao" && o.vagas?.situacao !== "insuficiente") condicoes.push("Baixar o investimento ou o aluguel (carência, imóvel menor, obra mais barata) até a conta fechar na régua.");
   if (o.vagas?.situacao === "limite") condicoes.push(`Garantir mais vagas: as informadas estão no limite (o ideal são ${o.vagas.max}).`);
   if (o.vagas?.situacao === "sem-dado") condicoes.push(`Confirmar o estacionamento: o ponto precisa de ${o.vagas.min} a ${o.vagas.max} vagas (próprias ou bem perto).`);
   if (o.populacao?.situacao === "abaixo" || o.populacao?.situacao === "limite") condicoes.push(`Conferir o público na visita: a área de 10 min tem menos moradores que os ${Math.round(o.populacao.recomendada / 1000).toLocaleString("pt-BR")} mil recomendados.`);
-  for (const d of o.divideCom ?? []) if (Math.round(d.parte * 100) >= 20) condicoes.push(`Aceitar dividir ${Math.round(d.parte * 100)}% do público com a World Gym ${d.nome}.`);
-  return { rotulo: PARECER_ROTULO[o.vagas?.situacao === "insuficiente" ? "reprovado" : o.veredito], porque, condicoes };
+  for (const d of o.divideCom ?? []) if (Math.round(d.parte * 100) >= 20) condicoes.push(`Aceitar dividir ${Math.round(d.parte * 100)}% do público com ${/^World Gym /.test(d.nome) ? `a ${d.nome}` : `o ponto "${d.nome}", também em estudo`}.`);
+  return { rotulo: PARECER_ROTULO[o.vagas?.situacao === "insuficiente" ? "reprovado" : o.veredito], porque: porqueFinal, condicoes };
 }
 /** Veredito final: o do modelo, mas estacionamento insuficiente reprova (critério eliminatório). */
 export const vereditoFinal = (v: Veredito, vagas: { situacao: SituacaoVagas } | null): Veredito => (vagas?.situacao === "insuficiente" ? "reprovado" : v);
