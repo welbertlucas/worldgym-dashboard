@@ -1,9 +1,10 @@
 import "leaflet/dist/leaflet.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
+import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 import {
-  VEREDITO_ROTULO, avaliarPonto, captacaoDe, fatoresDe, km, meses, parecidas, reais,
-  type DadosEstudos, type Modelo, type Ponto, type Resultado, type Veredito,
+  DECISAO_ROTULO, VEREDITO_ROTULO, avaliarPonto, captacaoDe, fatoresDe, km, meses, parecidas, reais,
+  type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
 const CORES = ["#c41230", "#1f5f8b", "#7a4bb5", "#0f7b6c", "#b45309", "#334155"];
@@ -42,49 +43,30 @@ function Regua({ r }: { r: Resultado }) {
   );
 }
 
-export function EstudosPontoTab() {
-  const [dados, setDados] = useState<DadosEstudos | null>(null);
-  const [erro, setErro] = useState("");
-  const [pontos, setPontos] = useState<Ponto[]>([]);
-  const [atualId, setAtualId] = useState<string | null>(null);
+interface PropsMapa {
+  dados: DadosEstudos; pontos: Ponto[]; setPontos: Dispatch<SetStateAction<Ponto[]>>; atualId: string | null; setAtualId: (id: string | null) => void;
+  iniciarAdicionando: boolean; comparando: Set<string> | null; voltar: () => void; salvo: string;
+}
+
+/** O mapa do estudo: painel com os pontos (todos, ou só os escolhidos para comparar), a conta e a decisão; lentes e ferramentas. */
+function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo }: PropsMapa) {
   const [lente, setLente] = useState<Lente>("captacao");
-  const [adicionando, setAdicionando] = useState(false);
+  const [adicionando, setAdicionando] = useState(iniciarAdicionando);
   const [satelite, setSatelite] = useState(false);
-  const [salvo, setSalvo] = useState<"" | "salvando" | "salvo" | "erro">("");
   const mapaEl = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<{ L: typeof import("leaflet"); mapa: import("leaflet").Map; camadas: import("leaflet").LayerGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
-  const primeiraCarga = useRef(true);
   const [desenho, setDesenho] = useState(0);
-
-  useEffect(() => {
-    authFetch(`${API_BASE}/estudos`).then(async (res) => {
-      if (!res.ok) throw new Error(res.status === 403 ? "Sem permissão para ver os estudos de ponto." : "Não consegui carregar os estudos agora.");
-      const d: DadosEstudos = await res.json();
-      setDados(d); setPontos(d.pontos ?? []); setAtualId(d.pontos?.[0]?.id ?? null);
-    }).catch((e) => setErro(e.message));
-  }, []);
-
-  // grava os pontos no servidor um instante depois da última mudança
-  useEffect(() => {
-    if (!dados?.disponivel) return;
-    if (primeiraCarga.current) { primeiraCarga.current = false; return; }
-    setSalvo("salvando");
-    const t = setTimeout(() => {
-      authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "pontos", pontos }) })
-        .then((r) => setSalvo(r.ok ? "salvo" : "erro")).catch(() => setSalvo("erro"));
-    }, 900);
-    return () => clearTimeout(t);
-  }, [pontos, dados?.disponivel]);
+  const pontos = comparando ? todos.filter((p) => comparando.has(p.id)) : todos;
 
   const atual = pontos.find((p) => p.id === atualId) ?? null;
-  const pronto = dados?.disponivel && dados.premissas && dados.vendasPorM2 && dados.censo && dados.unidades;
-  const avaliar = (p: Ponto) => (pronto && dados.vendasPorM2![p.modelo] ? avaliarPonto(p, dados.premissas!, dados.vendasPorM2![p.modelo]!) : null);
+  const pronto = true;
+  const avaliar = (p: Ponto) => (dados.vendasPorM2![p.modelo] ? avaliarPonto(p, dados.premissas!, dados.vendasPorM2![p.modelo]!) : null);
   const resultados = useMemo(() => new Map(pontos.map((p) => [p.id, avaliar(p)])), [pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
-  const cap = useMemo(() => (atual && pronto ? captacaoDe(atual, dados.censo!, dados.unidades!, pontos, dados.premissas!.curva) : null), [atual, pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cap = useMemo(() => (atual && pronto ? captacaoDe(atual, dados.censo!, dados.unidades!, todos, dados.premissas!.curva) : null), [atual, pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const r = atual ? resultados.get(atual.id) ?? null : null;
 
-  const mudar = (id: string, campos: Partial<Ponto>) => setPontos((ps) => ps.map((p) => (p.id === id ? { ...p, ...campos } : p)));
-  const remover = (id: string) => { setPontos((ps) => ps.filter((p) => p.id !== id)); setAtualId((a) => (a === id ? pontos.find((p) => p.id !== id)?.id ?? null : a)); };
+  const mudar = (id: string, campos: Partial<Ponto>) => setPontos((ps) => ps.map((p) => (p.id === id ? { ...p, ...campos, atualizadoEm: new Date().toISOString() } : p)));
+  const remover = (id: string) => { setPontos((ps) => ps.filter((p) => p.id !== id)); if (atualId === id) setAtualId(pontos.find((p) => p.id !== id)?.id ?? null); };
 
   // mapa: cria uma vez
   useEffect(() => {
@@ -93,7 +75,7 @@ export function EstudosPontoTab() {
     import("leaflet").then((mod) => {
       if (!vivo || !mapaEl.current) return;
       const L = (mod as unknown as { default?: typeof import("leaflet") }).default ?? (mod as typeof import("leaflet"));
-      const centro = pontos[0]?.c ?? dados.unidades!.find((u) => u.c)?.c ?? [-15.8, -47.9];
+      const centro = (todos.find((p) => p.id === atualId) ?? pontos[0])?.c ?? dados.unidades!.find((u) => u.c)?.c ?? [-15.8, -47.9];
       const mapa = L.map(mapaEl.current, { zoomControl: false }).setView(centro, 13);
       const ruas = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(mapa);
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagens © Esri" });
@@ -112,7 +94,8 @@ export function EstudosPontoTab() {
     m.mapa.getContainer().style.cursor = adicionando ? "crosshair" : "";
     if (!adicionando) return;
     const aoClicar = (e: import("leaflet").LeafletMouseEvent) => {
-      const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: `Ponto ${letra(pontos.length)}`, c: [e.latlng.lat, e.latlng.lng], modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
+      const agora = new Date().toISOString();
+      const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: `Ponto ${letra(todos.length)}`, criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: [e.latlng.lat, e.latlng.lng], modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
       setPontos((ps) => [...ps, novo]); setAtualId(novo.id); setAdicionando(false);
     };
     m.mapa.once("click", aoClicar);
@@ -178,10 +161,6 @@ export function EstudosPontoTab() {
     });
   }, [lente, cap, pontos, atualId, desenho]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (erro) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">{erro}</p>;
-  if (!dados) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">Carregando os estudos de ponto…</p>;
-  if (!dados.disponivel || !pronto) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">As premissas dos estudos de ponto ainda não foram carregadas.</p>;
-
   const idx = atual ? pontos.findIndex((p) => p.id === atual.id) : -1;
   const parec = atual ? parecidas(atual, dados.censo!, dados.unidades!) : [];
   const fatores = atual && r && cap ? fatoresDe(atual, r, cap, dados.unidades!, dados.censo!, dados.premissas!) : [];
@@ -193,6 +172,10 @@ export function EstudosPontoTab() {
 
       {/* painel */}
       <aside className="absolute bottom-3 left-3 top-3 z-[500] flex w-[380px] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-2xl bg-white shadow-xl max-md:bottom-0 max-md:left-0 max-md:top-auto max-md:max-h-[58%] max-md:w-full max-md:max-w-full max-md:rounded-b-none">
+        <div className="flex items-center justify-between border-b px-3 py-2">
+          <button type="button" onClick={voltar} className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">← Estudos</button>
+          {comparando && <span className="text-xs text-muted-foreground">Comparando {pontos.length} estudos</span>}
+        </div>
         <div className="flex-1 overflow-y-auto">
           <div className="border-b p-2">
             {pontos.map((p, i) => {
@@ -220,6 +203,8 @@ export function EstudosPontoTab() {
               <section className="px-5 pb-1 pt-4">
                 <input value={atual.nome} onChange={(e) => mudar(atual.id, { nome: e.target.value })} aria-label="Nome do ponto"
                   className="w-full rounded-md bg-transparent text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                <input value={atual.regiao ?? ""} onChange={(e) => mudar(atual.id, { regiao: e.target.value })} placeholder="Região (ex.: Taguatinga Norte)" aria-label="Região do ponto"
+                  className="mt-0.5 w-full rounded-md bg-transparent text-xs text-muted-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring" />
                 <div className="mt-2 flex items-center gap-2">
                   <div className="flex rounded-lg bg-muted p-0.5" role="group" aria-label="Modelo">
                     {(["low", "pro"] as Modelo[]).map((m) => (
@@ -252,6 +237,27 @@ export function EstudosPontoTab() {
                 <ul className="space-y-1 text-[13px]">
                   {fatores.map((f) => <li key={f.texto} className="flex gap-2.5"><span className={`w-3.5 flex-none text-center font-bold ${f.positivo ? "text-success" : "text-destructive"}`}>{f.positivo ? "+" : "−"}</span>{f.texto}</li>)}
                 </ul>
+              </section>
+
+              <section className="border-b px-5 py-3.5">
+                <h3 className="mb-2 text-[13px] font-semibold">Sua decisão</h3>
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Decisão">
+                  {(Object.keys(DECISAO_ROTULO) as StatusDecisao[]).map((st) => (
+                    <button key={st} type="button" aria-pressed={(atual.decisao?.status ?? "analise") === st}
+                      onClick={() => mudar(atual.id, { decisao: { ...atual.decisao, status: st, em: new Date().toISOString(), previsao: st === "analise" ? undefined : { provavel: Math.round(r.provavel), pessimista: Math.round(r.pessimista), otimista: Math.round(r.otimista) }, unidade: st === "unidade" ? atual.decisao?.unidade : undefined } })}
+                      className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground aria-pressed:border-foreground aria-pressed:bg-muted aria-pressed:font-medium aria-pressed:text-foreground">{DECISAO_ROTULO[st]}</button>
+                  ))}
+                </div>
+                {atual.decisao?.status === "unidade" && (
+                  <select value={atual.decisao.unidade ?? ""} onChange={(e) => mudar(atual.id, { decisao: { ...atual.decisao!, unidade: e.target.value || undefined } })} aria-label="Qual unidade"
+                    className="mt-2 w-full rounded-lg border bg-white px-2 py-1.5 text-sm">
+                    <option value="">Qual unidade?</option>
+                    {dados.unidades!.map((u) => <option key={u.nome} value={u.nome}>{u.nome}</option>)}
+                  </select>
+                )}
+                <textarea value={atual.decisao?.comentario ?? ""} placeholder="Comentário (ex.: negociar carência de 4 meses)" aria-label="Comentário da decisão" rows={2}
+                  onChange={(e) => mudar(atual.id, { decisao: { status: atual.decisao?.status ?? "analise", em: atual.decisao?.em ?? new Date().toISOString(), ...atual.decisao, comentario: e.target.value } })}
+                  className="mt-2 w-full resize-none rounded-lg border bg-white px-2.5 py-1.5 text-sm" />
               </section>
 
               <section className="border-b px-5 py-3.5">
@@ -309,5 +315,55 @@ export function EstudosPontoTab() {
         </button>
       </div>
     </div>
+  );
+}
+
+type Visao = { tela: "lista" } | { tela: "mapa"; atualId: string | null; novo: boolean; comparando: Set<string> | null };
+
+/** Estudos de ponto: abre na lista (carteira de estudos); o mapa abre num estudo, num estudo novo ou na comparação. */
+export function EstudosPontoTab() {
+  const [dados, setDados] = useState<DadosEstudos | null>(null);
+  const [erro, setErro] = useState("");
+  const [pontos, setPontos] = useState<Ponto[]>([]);
+  const [salvo, setSalvo] = useState<"" | "salvando" | "salvo" | "erro">("");
+  const [visao, setVisao] = useState<Visao>({ tela: "lista" });
+  const primeiraCarga = useRef(true);
+
+  useEffect(() => {
+    authFetch(`${API_BASE}/estudos`).then(async (res) => {
+      if (!res.ok) throw new Error(res.status === 403 ? "Sem permissão para ver os estudos de ponto." : "Não consegui carregar os estudos agora.");
+      const d: DadosEstudos = await res.json();
+      setDados(d); setPontos(d.pontos ?? []);
+    }).catch((e) => setErro(e.message));
+  }, []);
+
+  // grava os pontos no servidor um instante depois da última mudança
+  useEffect(() => {
+    if (!dados?.disponivel) return;
+    if (primeiraCarga.current) { primeiraCarga.current = false; return; }
+    setSalvo("salvando");
+    const t = setTimeout(() => {
+      authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "pontos", pontos }) })
+        .then((r) => setSalvo(r.ok ? "salvo" : "erro")).catch(() => setSalvo("erro"));
+    }, 900);
+    return () => clearTimeout(t);
+  }, [pontos, dados?.disponivel]);
+
+  if (erro) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">{erro}</p>;
+  if (!dados) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">Carregando os estudos de ponto…</p>;
+  if (!dados.disponivel || !dados.premissas || !dados.vendasPorM2 || !dados.censo || !dados.unidades)
+    return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">As premissas dos estudos de ponto ainda não foram carregadas.</p>;
+
+  if (visao.tela === "lista")
+    return (
+      <ListaEstudos dados={dados} pontos={pontos}
+        abrir={(id) => setVisao({ tela: "mapa", atualId: id, novo: false, comparando: null })}
+        novo={() => setVisao({ tela: "mapa", atualId: null, novo: true, comparando: null })}
+        comparar={(ids) => setVisao({ tela: "mapa", atualId: ids[0] ?? null, novo: false, comparando: new Set(ids) })} />
+    );
+  return (
+    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} iniciarAdicionando={visao.novo} comparando={visao.comparando}
+      atualId={visao.atualId} setAtualId={(id) => setVisao((v) => (v.tela === "mapa" ? { ...v, atualId: id, comparando: v.comparando && id && !v.comparando.has(id) ? new Set([...v.comparando, id]) : v.comparando } : v))}
+      voltar={() => setVisao({ tela: "lista" })} />
   );
 }

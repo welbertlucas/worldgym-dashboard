@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { createElement } from "react";
 import {
-  arredores, atracao, avaliarPonto, captacaoDe, fatoresDe, investimentoDe, km, m2Efetivo, paybackDe, parecidas, vendasParaPayback,
+  acertoDoModelo, arredores, atracao, avaliarPonto, regiaoDe, captacaoDe, fatoresDe, investimentoDe, km, m2Efetivo, paybackDe, parecidas, vendasParaPayback,
   type Censo, type Ponto, type Premissas, type UnidadeEstudo,
 } from "@/lib/estudoPonto";
 import { EstudosPontoTab } from "@/components/tabs/EstudosPontoTab";
+import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 // @ts-expect-error módulo JS do servidor
 import { definirArmazem } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
@@ -118,6 +119,11 @@ describe("servidor dos estudos (server/estudos.js)", () => {
     const p = pontoValido({ c: [-15.8, -47.9], m2: 1200.4, nome: "  Av.   X ", modelo: "outro", imovel: { fachada: true, extra: true }, lixo: 1 });
     expect(p).toMatchObject({ nome: "Av. X", modelo: "low", m2: 1200, imovel: { fachada: true, estacionamento: false } });
     expect(p).not.toHaveProperty("lixo");
+    expect(p.criadoEm).toMatch(/^\d{4}-/);
+    const d = pontoValido({ c: [-15.8, -47.9], m2: 1000, decisao: { status: "unidade", unidade: "Gama", comentario: " ok ", previsao: { provavel: "300000.4", pessimista: 250000, otimista: 350000 } } });
+    expect(d.decisao).toMatchObject({ status: "unidade", unidade: "Gama", comentario: "ok", previsao: { provavel: 300000 } });
+    expect(pontoValido({ c: [-15.8, -47.9], m2: 1000, decisao: { status: "unidade", unidade: "Inventada" } }).decisao.unidade).toBeUndefined();
+    expect(pontoValido({ c: [-15.8, -47.9], m2: 1000, decisao: { status: "talvez" } })).not.toHaveProperty("decisao");
   });
   it("salva e lê os pontos; sem premissas a tela fica indisponível", async () => {
     const mem = memoria(); definirArmazem(mem);
@@ -144,6 +150,33 @@ describe("servidor dos estudos (server/estudos.js)", () => {
     await salvarPontos(doBeto, DONO);
     expect(await lerPontos(ANA)).toEqual([]);
     expect((await lerPontos(BETO)).map((p: { nome: string }) => p.nome).sort()).toEqual(["Falso", "Revisado"]);
+  });
+});
+
+describe("lista de estudos", () => {
+  const unidades: UnidadeEstudo[] = [
+    { nome: "Centro", c: [-15.8, -47.9], m2: 1000, modelo: "low", abertura: "2020-01", madura: true, vendas: 210_000, alunos: 2000 },
+    { nome: "Nova", c: [-15.9, -47.9], m2: 1000, modelo: "low", abertura: "2026-10", madura: false, vendas: 40_000, alunos: 200 },
+  ];
+  const base = (id: string, extra: Partial<Ponto> = {}): Ponto => ({ ...ponto([-15.81, -47.9], 1000, id), criadoEm: "2026-11-01T12:00:00.000Z", ...extra });
+  it("região: a escrita, ou a distância até a World Gym mais próxima", () => {
+    expect(regiaoDe(base("a", { regiao: "Setor Sul" }), unidades)).toBe("Setor Sul");
+    expect(regiaoDe(base("b"), unidades)).toMatch(/^a 1(,\d)? km da WG Centro$/);
+  });
+  it("acerto do modelo: só estudos que viraram unidade madura, com a previsão do dia da decisão", () => {
+    const prev = { provavel: 200_000, pessimista: 160_000, otimista: 240_000 };
+    expect(acertoDoModelo([base("a")], unidades)).toBeNull();
+    const r = acertoDoModelo([
+      base("a", { decisao: { status: "unidade", em: "2025-01-01T00:00:00.000Z", unidade: "Centro", previsao: prev } }),
+      base("b", { decisao: { status: "unidade", em: "2025-01-01T00:00:00.000Z", unidade: "Nova", previsao: prev } }),
+    ], unidades)!;
+    expect(r.n).toBe(1); expect(r.dentro).toBe(1); expect(r.erroMedio).toBeCloseTo(10_000 / 210_000);
+  });
+  it("mostra os estudos com veredito e decisão", () => {
+    const dados = { disponivel: true, premissas: PREMISSAS, vendasPorM2: { low: FAIXA, pro: null }, unidades, censo: { rk: 0.3, celulas: [] }, pontos: [] };
+    const html = renderToString(createElement(ListaEstudos, { dados, pontos: [base("a", { nome: "Galpão Teste", decisao: { status: "recusado", em: "2026-11-02T00:00:00.000Z", comentario: "aluguel alto" } })], abrir: () => {}, novo: () => {}, comparar: () => {} }));
+    expect(html).toContain("Galpão Teste"); expect(html).toContain("Recusado"); expect(html).toContain("aprovados pelo modelo");
+    expect(renderToString(createElement(ListaEstudos, { dados, pontos: [], abrir: () => {}, novo: () => {}, comparar: () => {} }))).toContain("Nenhum estudo ainda");
   });
 });
 

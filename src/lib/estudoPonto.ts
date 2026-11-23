@@ -14,7 +14,11 @@ export interface UnidadeEstudo { nome: string; c: [number, number] | null; m2: n
 export interface Censo { rk: number; celulas: [number, number, number, number | null][] }
 export interface ImovelItens { fachada: boolean; estacionamento: boolean; polo: boolean; aPe: boolean }
 /** `autor` vem do servidor (quem criou o estudo); ponto novo vai sem e fica com quem salvou. */
-export interface Ponto { id: string; nome: string; c: [number, number]; modelo: Modelo; m2: number; imovel: ImovelItens; autor?: { id: string; nome: string } }
+export type StatusDecisao = "analise" | "aprovado" | "recusado" | "unidade";
+/** Sua decisão sobre o estudo. `previsao` guarda a conta do dia da decisão, para comparar depois com o real. */
+export interface Decisao { status: StatusDecisao; em: string; comentario?: string; unidade?: string; previsao?: { provavel: number; pessimista: number; otimista: number } }
+export interface Ponto { id: string; nome: string; regiao?: string; c: [number, number]; modelo: Modelo; m2: number; imovel: ImovelItens; autor?: { id: string; nome: string }; criadoEm?: string; atualizadoEm?: string; decisao?: Decisao }
+export const DECISAO_ROTULO: Record<StatusDecisao, string> = { analise: "Em análise", aprovado: "Aprovado", recusado: "Recusado", unidade: "Virou unidade" };
 export interface DadosEstudos { disponivel: boolean; premissas?: Premissas; vendasPorM2?: Record<Modelo, FaixaM2 | null>; unidades?: UnidadeEstudo[]; censo?: Censo | null; pontos?: Ponto[] }
 
 export type Veredito = "aprovado" | "atencao" | "reprovado";
@@ -139,3 +143,23 @@ export function fatoresDe(ponto: Ponto, r: Resultado, cap: Captacao, unidades: U
 export const VEREDITO_ROTULO: Record<Veredito, string> = { aprovado: "Aprovado", atencao: "Atenção", reprovado: "Reprovado" };
 export const reais = (v: number) => `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`;
 export const meses = (v: number) => (Number.isFinite(v) ? `${Math.round(v)} meses` : "não se paga");
+
+/** Região para mostrar na lista: a que a pessoa escreveu, ou "perto de <unidade>" pela World Gym mais próxima. */
+export function regiaoDe(p: Ponto, unidades: UnidadeEstudo[]): string {
+  if (p.regiao) return p.regiao;
+  let melhor: { nome: string; d: number } | null = null;
+  for (const u of unidades) if (u.c) { const d = km(u.c, p.c); if (!melhor || d < melhor.d) melhor = { nome: u.nome, d }; }
+  return melhor ? `a ${melhor.d.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km da WG ${melhor.nome}` : "";
+}
+
+/** O modelo está acertando? Estudos que viraram unidade madura: quantos ficaram dentro da faixa prevista e o erro médio. */
+export function acertoDoModelo(pontos: Ponto[], unidades: UnidadeEstudo[]) {
+  const casos = pontos.flatMap((p) => {
+    const d = p.decisao, u = d?.status === "unidade" ? unidades.find((x) => x.nome === d.unidade) : undefined;
+    return d?.previsao && u?.madura && u.vendas ? [{ prev: d.previsao, real: u.vendas }] : [];
+  });
+  if (!casos.length) return null;
+  const dentro = casos.filter((c) => c.real >= c.prev.pessimista && c.real <= c.prev.otimista).length;
+  const erro = casos.reduce((a, c) => a + Math.abs(c.prev.provavel - c.real) / c.real, 0) / casos.length;
+  return { n: casos.length, dentro, erroMedio: erro };
+}

@@ -88,7 +88,28 @@ export function pontoValido(p) {
   for (const k of ["fachada", "estacionamento", "polo", "aPe"]) imovel[k] = p?.imovel?.[k] === true;
   const id = String(p?.id ?? "").replace(/[^a-z0-9-]/gi, "").slice(0, 40) || `p${Date.now().toString(36)}`;
   const autor = p?.autor ? { id: idSeguro(p.autor.id), nome: String(p.autor.nome ?? "").slice(0, 80) } : null;
-  return { id, nome, c: [Number(c[0].toFixed(6)), Number(c[1].toFixed(6))], modelo, m2, imovel, ...(autor ? { autor } : {}) };
+  const agora = new Date().toISOString();
+  const regiao = String(p?.regiao ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+  const out = { id, nome, ...(regiao ? { regiao } : {}), c: [Number(c[0].toFixed(6)), Number(c[1].toFixed(6))], modelo, m2, imovel,
+    criadoEm: dataISO(p?.criadoEm) ?? agora, atualizadoEm: dataISO(p?.atualizadoEm) ?? agora, ...(autor ? { autor } : {}) };
+  const d = decisaoValida(p?.decisao);
+  if (d) out.decisao = d;
+  return out;
+}
+
+const dataISO = (v) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v) && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : null);
+export const DECISOES = ["analise", "aprovado", "recusado", "unidade"];
+const numero = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : null);
+/** Decisão do dono sobre o estudo; "unidade" = o ponto virou a unidade indicada. `previsao` congela a conta do dia da decisão. */
+function decisaoValida(d) {
+  if (!d || !DECISOES.includes(d.status)) return null;
+  const out = { status: d.status, em: dataISO(d.em) ?? new Date().toISOString() };
+  const comentario = String(d.comentario ?? "").trim().slice(0, 500);
+  if (comentario) out.comentario = comentario;
+  if (d.status === "unidade" && Object.values(UNIT_NAMES).includes(d.unidade)) out.unidade = d.unidade;
+  const pv = d.previsao;
+  if (pv && numero(pv.provavel) != null) out.previsao = { provavel: numero(pv.provavel), pessimista: numero(pv.pessimista), otimista: numero(pv.otimista) };
+  return out;
 }
 
 const ehDono = (sessao) => (sessao?.papelReal ?? sessao?.papel) === "dono";
