@@ -47,20 +47,22 @@ function somarCartaoPor(titulos, campo) {
 }
 
 /**
- * Por gateway (adquirente), no cartão (crédito e débito): [quantidade de cobranças pagas, taxas registradas pelo EVO no campo `fees`,
- * quantas dessas cobranças têm taxa registrada]. O terceiro número mostra o quanto a taxa está completa: cobrança sem taxa entra como zero.
- * Só totais: nada de aluno. O valor recebido por gateway sai de `somarGateways`.
+ * Por gateway (adquirente), no cartão (crédito e débito): [quantidade de cobranças pagas, taxa em reais, quantas cobranças têm taxa registrada,
+ * valor bruto passado no cartão]. O EVO guarda em `fees` o PERCENTUAL da taxa de cada cobrança (conferido em 23/11/2026: ammountPaid =
+ * ammount × (1 − fees/100)); a taxa em reais é ammount × fees/100. Antes desse dia somávamos os percentuais como se fossem reais (3 números);
+ * os meses gravados assim são lidos pela tela como média simples dos percentuais. Só totais: nada de aluno.
  */
 export function somarGatewaysDet(titulos) {
   const out = {};
   for (const r of titulos) {
     if (!live(r) || !(r.ammountPaid > 0) || !/card/i.test(r.paymentType?.name ?? "")) continue;
     const nome = r.cardAcquirer?.trim() || "Não informada";
-    const o = (out[nome] ??= [0, 0, 0]);
-    o[0] += 1;
-    if (Number(r.fees) > 0) { o[1] += Number(r.fees); o[2] += 1; }
+    const o = (out[nome] ??= [0, 0, 0, 0]);
+    const bruto = Number(r.ammount) > 0 ? Number(r.ammount) : r.ammountPaid;
+    o[0] += 1; o[3] += bruto;
+    if (Number(r.fees) > 0) { o[1] += (bruto * Number(r.fees)) / 100; o[2] += 1; }
   }
-  for (const k of Object.keys(out)) out[k][1] = round2(out[k][1]);
+  for (const k of Object.keys(out)) { out[k][1] = round2(out[k][1]); out[k][3] = round2(out[k][3]); }
   return out;
 }
 

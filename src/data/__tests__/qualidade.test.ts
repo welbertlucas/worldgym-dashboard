@@ -42,16 +42,20 @@ describe("checklists (modelos)", () => {
     }
   });
 
-  it("o roteiro sugerido tem 28 itens, todos válidos, com peso 3 em segurança e documentos e 2 em equipamentos e banheiros", () => {
+  it("o roteiro sugerido tem 33 itens, todos válidos, com peso 3 em segurança e documentos e 2 em equipamentos, banheiros, quadro de colaboradores e piso", () => {
     const m = q.normalizarModelo(MODELO_SUGERIDO);
-    expect(m.itens).toHaveLength(28);
+    expect(m.itens).toHaveLength(33);
+    // pedidos de 23/11/2026: EPIs no DML, quadro de colaboradores e a estrutura física (pintura, móveis, piso vinílico, comunicação interna)
+    expect(m.itens.some((i: any) => /EPIs/.test(i.texto) && /DML/.test(i.texto))).toBe(true);
+    expect(m.itens.filter((i: any) => i.grupo === "Estrutura física")).toHaveLength(4);
+    expect(m.itens.some((i: any) => i.grupo === "Equipe" && /Quadro de colaboradores/.test(i.texto))).toBe(true);
     expect(m.itens.filter((i: any) => i.peso === 3)).toHaveLength(4);
-    expect(m.itens.filter((i: any) => i.peso === 2)).toHaveLength(5);
+    expect(m.itens.filter((i: any) => i.peso === 2)).toHaveLength(7);
     expect(m.itens.some((i: any) => /Certificado de Regularidade PJ do CREF/.test(i.texto))).toBe(true);
     // foto obrigatória (se não conforme) só nos itens de peso 2 ou 3; nos demais é opcional
     expect(m.itens.every((i: any) => i.foto === (i.peso > 1 ? "nao_conforme" : "nenhuma"))).toBe(true);
-    expect(m.itens.filter((i: any) => i.foto === "nao_conforme")).toHaveLength(9);
-    expect(new Set(m.itens.map((i: any) => i.id)).size).toBe(28);
+    expect(m.itens.filter((i: any) => i.foto === "nao_conforme")).toHaveLength(11);
+    expect(new Set(m.itens.map((i: any) => i.id)).size).toBe(33);
   });
 
   it("salva, edita pelo id e apaga", async () => {

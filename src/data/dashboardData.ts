@@ -745,21 +745,26 @@ export function somarMapas(ms: (Record<string, number> | undefined)[]): Record<s
   return out;
 }
 
-export type DetGateway = [number, number, number?];
 /**
- * Soma mapas nome → [cobranças, taxas, cobranças com taxa] de várias unidades. Se alguma das partes não tem o terceiro número (mês lido antes dele),
- * a soma também não tem: não dá para dizer o quanto da taxa está completa.
+ * [cobranças, taxa, cobranças com taxa, valor bruto]. Com o 4º número (desde 23/11/2026) a taxa está em REAIS; sem ele (meses antigos),
+ * o 2º número é a soma dos percentuais registrados em cada cobrança (ver taxasCartao.ts).
+ */
+export type DetGateway = [number, number, number?, number?];
+/**
+ * Soma mapas nome → DetGateway de várias unidades. Se alguma das partes não tem o 3º número (mês lido antes dele), a soma também não tem;
+ * se alguma não tem o 4º (valor bruto), a soma fica no formato antigo.
  */
 export function somarDet(ms: (Record<string, DetGateway> | undefined)[]): Record<string, DetGateway> {
-  const out: Record<string, [number, number, number]> = {};
-  const semCobertura = new Set<string>();
+  const out: Record<string, [number, number, number, number]> = {};
+  const semCobertura = new Set<string>(), semBruto = new Set<string>();
   for (const m of ms) for (const [k, t] of Object.entries(m ?? {})) {
-    const o = (out[k] ??= [0, 0, 0]);
+    const o = (out[k] ??= [0, 0, 0, 0]);
     o[0] += t[0];
     o[1] = Math.round((o[1] + t[1]) * 100) / 100;
     if (t[2] === undefined) semCobertura.add(k); else o[2] += t[2];
+    if (t[3] === undefined) semBruto.add(k); else o[3] = Math.round((o[3] + t[3]) * 100) / 100;
   }
-  return Object.fromEntries(Object.entries(out).map(([k, o]) => [k, semCobertura.has(k) ? ([o[0], o[1]] as DetGateway) : (o as DetGateway)]));
+  return Object.fromEntries(Object.entries(out).map(([k, o]) => [k, semCobertura.has(k) ? ([o[0], o[1]] as DetGateway) : semBruto.has(k) ? ([o[0], o[1], o[2]] as DetGateway) : (o as DetGateway)]));
 }
 /** Soma os mapas dia → [valor, cobranças] de várias unidades. */
 export function somarCartaoAReceber(ms: (Record<string, [number, number]> | undefined)[]): Record<string, [number, number]> {

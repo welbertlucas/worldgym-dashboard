@@ -207,8 +207,13 @@ describe("formas de pagamento", () => {
   });
   it("conta as cobranças e soma as taxas por gateway, só no cartão e só o que foi pago", () => {
     const t = (forma: string, acq: string | null, v: number, fees?: number) => ({ paymentType: { id: 1, name: forma }, cardAcquirer: acq, ammountPaid: v, fees, idMemberPayer: 1 });
-    const det = somarGatewaysDet([t("Credit card", "Stone", 100, 1.7), t("Debit card", "Stone", 50, 0.55), t("Credit card", "Rede", 200, 0), t("Credit card", null, 10, 0.1), t("Deposit", "Stone", 99, 9), t("Credit card", "Stone", 0, 5)]);
-    expect(det).toEqual({ Stone: [2, 2.25, 2], Rede: [1, 0, 0], "Não informada": [1, 0.1, 1] }); // o terceiro número: cobranças com taxa registrada
+    const det = somarGatewaysDet([t("Credit card", "Stone", 100, 1.7), t("Debit card", "Stone", 50, 0.6), t("Credit card", "Rede", 200, 0), t("Credit card", null, 10, 0.1), t("Deposit", "Stone", 99, 9), t("Credit card", "Stone", 0, 5)]);
+    // `fees` é o percentual: taxa em reais = valor × fees/100 (1,70 + 0,30); 3º número = cobranças com taxa; 4º = valor bruto
+    expect(det).toEqual({ Stone: [2, 2, 2, 150], Rede: [1, 0, 0, 200], "Não informada": [1, 0.01, 1, 10] });
+    // com o valor bruto (ammount), a taxa sai sobre o bruto
+    expect(somarGatewaysDet([{ paymentType: { id: 1, name: "Credit card" }, cardAcquirer: "Stone", ammount: 1000, ammountPaid: 986.2, fees: 1.38, idMemberPayer: 1 }])).toEqual({ Stone: [1, 13.8, 1, 1000] });
+    expect(somarDet([{ Stone: [2, 2, 2, 150] }, { Stone: [1, 13.8, 1, 1000] }])).toEqual({ Stone: [3, 15.8, 3, 1150] });
+    expect(somarDet([{ Stone: [2, 2, 2, 150] }, { Stone: [1, 1.7, 1] }])).toEqual({ Stone: [3, 3.7, 3] }); // mistura com mês antigo: fica no formato antigo
     // o mesmo gateway escrito de jeitos diferentes e a soma entre unidades
     expect(normalizarDet({ Redecard: [2, 1], REDE: [3, 2] }, nomeGateway)).toEqual({ Rede: [5, 3] }); // meses antigos, sem o terceiro número
     expect(normalizarDet({ Redecard: [2, 1, 1], REDE: [3, 2, 3] }, nomeGateway)).toEqual({ Rede: [5, 3, 4] });
