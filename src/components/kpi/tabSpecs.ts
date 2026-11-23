@@ -1,9 +1,7 @@
 import { type KpiSpec } from "@/components/kpi/KpiGrid";
 import { sumUnits, type MonthView } from "@/data/kpiView";
 import { type MetricDetail } from "@/components/MetricCard";
-import { ltv, receitaComplementar, saldoAlunos, type UnitData } from "@/data/dashboardData";
-import { formatAbbreviatedNumber } from "@/lib/utils";
-// formatAbbreviatedNumber segue usado nos demais cartões
+import { ltv, receitaComplementar, saldoAlunos } from "@/data/dashboardData";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pct = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
@@ -37,42 +35,39 @@ export const faturamentoSpec: KpiSpec = {
   pick: (v) => v.total.faturamento, fmt: brlCurto,
 };
 
+/**
+ * Cartões do Overview: o único lugar dos números principais do mês (rede, soma das unidades da pessoa ou a unidade do filtro).
+ * As abas não repetem esses cartões; mostram o detalhe (gráficos, quebras, por unidade). Metas é o único lugar da comparação com a meta.
+ */
+export const conversaoSpec: KpiSpec = {
+  title: "Conversão de cadastros", kind: "rate", rateKey: "icv", pick: taxaDoCartao, fmt: pct,
+  extra: oportunidadesCadastradas,
+};
+export const vendasOnlineSpec: KpiSpec = {
+  title: "Vendas Online", kind: "flow", projecao: true, pick: (v) => v.total.vendasOnline, fmt: brl,
+  extra: (v) => (v.total.faturamento ? [{ text: `${((v.total.vendasOnline / v.total.faturamento) * 100).toFixed(2).replace(".", ",")}% do faturamento`, tone: "neutral" }] : []),
+};
+
+/** Comercial › Resumo: o que é só do comercial (faturamento, vendas online e conversão ficam no Overview). */
 export const comercialSpecs: KpiSpec[] = [
-  faturamentoSpec,
   {
     title: "Contratos Vendidos", kind: "flow", noDataIfZero: true, semTextoDoMesAnterior: true, projecao: true, pick: (v) => sumUnits(v, (u) => u.vendasContratos ?? 0), fmt: int,
     // Do total, quantos são contratos especiais (VIP e cortesias de valor R$ 0): explica a diferença para o EVO em algumas unidades
     extra: (v) => { const n = sumUnits(v, (u) => u.vendasContratosEspeciais ?? 0); return n > 0 ? [{ text: `${int(n)} ${n === 1 ? "é contrato especial" : "são contratos especiais"}`, tone: "neutral" }] : []; },
   },
-  { title: "Saldo de Clientes", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
-  {
-    title: "Conversão de Cadastros", kind: "rate", rateKey: "icv", pick: taxaDoCartao, fmt: pct,
-    extra: oportunidadesCadastradas,
-  },
-  {
-    title: "Vendas Online", kind: "flow", projecao: true, pick: (v) => v.total.vendasOnline, fmt: brl,
-    extra: (v) => (v.total.faturamento ? [{ text: `${((v.total.vendasOnline / v.total.faturamento) * 100).toFixed(2).replace(".", ",")}% do faturamento`, tone: "neutral" }] : []),
-  },
+  { title: "Saldo de contratos", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
 ];
 
-/** Receitas complementares: o total (com a participação no faturamento) e cada uma das sete. */
-export const complementaresSpecs: KpiSpec[] = [
-  {
-    ...complementar("Receita Complementar", (v) => receitaComplementar(v.total)),
-    extra: (v) => (v.total.faturamento ? [{ text: `${((receitaComplementar(v.total) / v.total.faturamento) * 100).toFixed(2).replace(".", ",")}% do faturamento`, tone: "neutral" }] : []),
-  },
-  complementar("Diárias", (v) => v.total.diarias),
-  complementar("Taxa de Personal", (v) => v.total.personal),
-  complementar("Brinquedoteca", (v) => v.total.kids ?? 0),
-  complementar("WG Plus", (v) => v.total.plus ?? 0),
-  complementar("Pro+", (v) => v.total.proMais ?? 0),
-  complementar("Camisetas", (v) => v.total.camisetas),
-  complementar("Coqueteleiras", (v) => v.total.coqueteleiras),
-];
+/** Receitas complementares: o total, com a participação no faturamento (cada uma das sete fica na rosca da mesma aba). */
+export const receitaComplementarSpec: KpiSpec = {
+  ...complementar("Receita Complementar", (v) => receitaComplementar(v.total)),
+  extra: (v) => (v.total.faturamento ? [{ text: `${((receitaComplementar(v.total) / v.total.faturamento) * 100).toFixed(2).replace(".", ",")}% do faturamento`, tone: "neutral" }] : []),
+};
+/** Cada receita complementar (cartão neutro: sem dado vira "—"). */
+export const complementarSpec = complementar;
 
+/** Financeiro › Resumo: o que é só do financeiro (faturamento, pagamentos e inadimplência ficam no Overview). */
 export const financeiroSpecs: KpiSpec[] = [
-  faturamentoSpec,
-  { title: "Pagamentos dos clientes", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber },
   // Ticket = pagamentos dos clientes ÷ ativos: no mês em andamento acumula como o recebimento (comparado como fluxo).
   { title: "Ticket Médio", kind: "flow", pick: (v) => v.total.ticketMedio, fmt: brl },
 ];
@@ -110,7 +105,7 @@ export const clientesSpecs: KpiSpec[] = [
       return [{ text: `${int(s)} ${s === 1 ? "suspenso" : "suspensos"} (contrato trancado) · ${pct((s / a) * 100)}`, tone: "neutral" }];
     },
   },
-  { title: "Saldo de Alunos", kind: "flow", noDataIfZero: true, pick: (v) => saldoAlunos(v.total) ?? 0, fmt: sinal },
+  { title: "Variação da base de alunos", kind: "flow", noDataIfZero: true, pick: (v) => saldoAlunos(v.total) ?? 0, fmt: sinal },
   { title: "Permanência Média", kind: "level", noDataIfZero: true, pick: (v) => v.total.permanenciaMeses ?? 0, fmt: meses },
   { title: "LTV", kind: "flow", noDataIfZero: true, pick: (v) => ltv(v.total), fmt: brl },
 ];

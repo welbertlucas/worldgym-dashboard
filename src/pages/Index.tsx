@@ -1,6 +1,5 @@
 import { Abertura, seguirComAbeturaAzul } from "@/components/Abertura";
 import { type ComponentType, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { MetricCard } from "@/components/MetricCard";
 import { RevenueChart } from "@/components/RevenueChart";
 import { MarcaDagua } from "@/components/MarcaDagua";
 import { registrarTela } from "@/lib/atividade";
@@ -39,7 +38,7 @@ import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
 import { KpiGaugeCard } from "@/components/executiva/KpiGaugeCard";
-import { comercialSpecs, complementaresSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
+import { comercialSpecs, financeiroSpecs, receitaComplementarSpec, retencaoSpecs } from "@/components/kpi/tabSpecs";
 import { viewFor } from "@/data/kpiView";
 import { computeAlerts, sameMonthLastYear } from "@/data/alerts";
 import { computeAlertasVigentes } from "@/data/alertasVigentes";
@@ -49,16 +48,13 @@ import { metasData, metasRede, syncMetasFromSheets } from "@/data/metas";
 import { formatMonthLong, getLastClosedMonth, getMonthToOpen, isPartialMonth } from "@/data/periods";
 import {
   getLatestData, getDataByMonth, getDataByMonthRede, comparePeriods, dashboardData, dashboardDataRede,
-  getLast12MonthsAverage, getUnitData, syncDashboardDataFromSheets, evoAtualizadoEm, receitaComplementar,
+  getUnitData, syncDashboardDataFromSheets, evoAtualizadoEm, receitaComplementar,
 } from "@/data/dashboardData";
 import { Button } from "@/components/ui/button";
 import { Sidebar, MobileDrawer } from "@/components/Sidebar";
 import { Notice } from "@/components/Notice";
 import { DonutList } from "@/components/DonutList";
-import {
-  TrendingUp, Users, DollarSign, AlertCircle, ShoppingCart,
-  RefreshCw, LogOut, Menu, Calendar, Dumbbell, Shirt, Coffee, Star, Smile, MessageSquare,
-} from "lucide-react";
+import { RefreshCw, LogOut, Menu } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerObras, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
@@ -210,10 +206,10 @@ const Index = () => {
   const unitData = selectedUnit ? getUnitData(fullMonthData.month, selectedUnit) : null;
 
 
-  // A Visão Executiva não tem filtro de unidade: é da rede para quem vê tudo e, no perfil de unidades, só a soma das
-  // unidades da pessoa (nada da rede). O Benchmark mostra sempre todas; a unidade do filtro só fica destacada nele.
+  // O Overview segue o filtro de unidade como as outras telas: sem filtro, a rede (ou, no perfil de unidades, a soma das unidades da pessoa);
+  // com uma unidade, só ela. É o único lugar dos números principais do mês; as abas mostram o detalhe. O Benchmark mostra sempre todas.
   const soAsProprias = unidadesProprias();
-  const semFiltroDeUnidade = activeTab === "executiva";
+  const semFiltroDeUnidade = false;
   /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
   const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "juridico" || activeTab === "qualidade" || activeTab === "estudos-de-ponto" || activeTab === "unidades-em-obra" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
@@ -228,8 +224,6 @@ const Index = () => {
     : computeAlerts(dashboardData, metasData);
   // Alertas do mês em andamento (o que fazer agora): base do Plano de ação, do Overview e do botão de alertas do topo.
   const vigentes = computeAlertasVigentes(dashboardData, soAsProprias ? metasData.filter((m) => m.unit !== "TOTAL") : metasData, { atualizadoEm: evoAtualizadoEm, incluirRede: !soAsProprias });
-  const evalIdx = evalMonth ? months.indexOf(evalMonth) : -1;
-  const unitDeltas = evalIdx > 0 ? computeUnitDeltas(dashboardData[evalIdx], dashboardData[evalIdx - 1]) : [];
   // A Visão Executiva e o Benchmark olham a rede inteira (para quem tem acesso só a algumas unidades, as outras vêm com o nome escondido).
   const monthsRede = dashboardDataRede.map((d) => d.month);
   const evalMonthRede = getLastClosedMonth(monthsRede);
@@ -256,7 +250,6 @@ const Index = () => {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 
-  const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
 
   const parseMonth = (value: string) => {
     const [y, m] = value.split("-").map(Number);
@@ -383,12 +376,12 @@ const Index = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <ComparisonCard title="Faturamento" value1={comparison.faturamento.month1} value2={comparison.faturamento.month2} diff={comparison.faturamento.diff} month1={comparison.month1} month2={comparison.month2} format="currency" />
               <ComparisonCard title="Ticket Médio" value1={comparison.ticketMedio.month1} value2={comparison.ticketMedio.month2} diff={comparison.ticketMedio.diff} month1={comparison.month1} month2={comparison.month2} format="currency" />
-              <ComparisonCard title="Clientes Ativos" value1={comparison.adimplentes.month1} value2={comparison.adimplentes.month2} diff={comparison.adimplentes.diff} month1={comparison.month1} month2={comparison.month2} format="number" />
+              <ComparisonCard title="Adimplentes" value1={comparison.adimplentes.month1} value2={comparison.adimplentes.month2} diff={comparison.adimplentes.diff} month1={comparison.month1} month2={comparison.month2} format="number" />
               <ComparisonCard title="Taxa de Churn" value1={comparison.churn.month1.toFixed(1)} value2={comparison.churn.month2.toFixed(1)} diff={comparison.churn.diff} month1={comparison.month1} month2={comparison.month2} format="percentage" invertColors />
-              <ComparisonCard title="Conversão de Cadastros" value1={comparison.icv.month1.toFixed(1)} value2={comparison.icv.month2.toFixed(1)} diff={comparison.icv.diff} month1={comparison.month1} month2={comparison.month2} format="percentage" />
+              <ComparisonCard title="Conversão de cadastros" value1={comparison.icv.month1.toFixed(1)} value2={comparison.icv.month2.toFixed(1)} diff={comparison.icv.diff} month1={comparison.month1} month2={comparison.month2} format="percentage" />
               <ComparisonCard title="Vendas Online" value1={comparison.vendasOnline.month1} value2={comparison.vendasOnline.month2} diff={comparison.vendasOnline.diff} month1={comparison.month1} month2={comparison.month2} format="currency" />
               <ComparisonCard title="Novos Contratos" value1={comparison.novosContratos.month1} value2={comparison.novosContratos.month2} diff={comparison.novosContratos.diff} month1={comparison.month1} month2={comparison.month2} format="number" />
-              <ComparisonCard title="Saldo de Clientes" value1={comparison.saldoClientes.month1} value2={comparison.saldoClientes.month2} diff={comparison.saldoClientes.diff} month1={comparison.month1} month2={comparison.month2} format="number" />
+              <ComparisonCard title="Saldo de contratos" value1={comparison.saldoClientes.month1} value2={comparison.saldoClientes.month2} diff={comparison.saldoClientes.diff} month1={comparison.month1} month2={comparison.month2} format="number" />
               <ComparisonCard title="Taxa de Inadimplência" value1={comparison.inadimplenciaPerc.month1.toFixed(1)} value2={comparison.inadimplenciaPerc.month2.toFixed(1)} diff={comparison.inadimplenciaPerc.diff} month1={comparison.month1} month2={comparison.month2} format="percentage" invertColors />
               <ComparisonCard title="Taxa de Renovação" value1={comparison.renovacoes.month1.toFixed(1)} value2={comparison.renovacoes.month2.toFixed(1)} diff={comparison.renovacoes.diff} month1={comparison.month1} month2={comparison.month2} format="percentage" />
             </div>
@@ -401,7 +394,9 @@ const Index = () => {
 
         {activeTab === "executiva" && (
           <ExecutivaTab
-            {...(soAsProprias
+            {...(kpiUnit
+              ? { month: viewFor(fullMonthData.month, kpiUnit) ?? fullMonthData, prev: viewFor(compareMonth ?? prevMonthData?.month, kpiUnit), metas: metasData, serie: dashboardData.map((m) => viewFor(m.month, kpiUnit)).filter((m): m is NonNullable<typeof m> => !!m), unidades: [kpiUnit] }
+              : soAsProprias
               ? { month: fullMonthData, prev: compareMonth ? getDataByMonth(compareMonth) ?? prevMonthData : prevMonthData, metas: metasData, serie: dashboardData, unidades: soAsProprias }
               : { month: redeMonthData, prev: compareMonth ? getDataByMonthRede(compareMonth) ?? redePrevMonthData : redePrevMonthData, metas: metasRede, serie: dashboardDataRede })}
             comparaMesEscolhido={!!compareMonth}
@@ -439,7 +434,7 @@ const Index = () => {
             </>)}
             {aba === "complementares" && (<>
               <SectionTitle hint={selectedUnit ? `Soma das receitas complementares de ${selectedUnit}` : "Soma das receitas complementares da rede; escolha uma unidade no filtro para ver só ela"}>Receitas complementares</SectionTitle>
-              <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={complementaresSpecs} columns="xl:grid-cols-4" /></div>
+              <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[receitaComplementarSpec]} columns="xl:grid-cols-4" /></div>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               <DonutList
                 title="Receitas complementares"
@@ -474,12 +469,12 @@ const Index = () => {
             <Abas tela="financeiro" titulo="Financeiro" abas={abasFinanceiro} ativa={aba} onChange={(s) => changeTab(`financeiro/${s}`)} />
             {aba === "despesas" && <EmBreve titulo="Despesas" descricao="Contas a pagar, contas pagas e gráficos de despesas, vindos da integração com o sistema financeiro." />}
             {aba === "resumo" && (<>
-              {/* Adimplentes e inadimplência ficam junto com os cards do financeiro, todos do mesmo tamanho */}
-              <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[...financeiroSpecs, ...retencaoSpecs(false).filter((s) => s.title === "Adimplentes" || s.title === "Inadimplência")]} columns={ehDono() ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-3 xl:grid-cols-5"}>
+              {/* Faturamento, pagamentos e inadimplência ficam no Overview; aqui só o que é do financeiro (ticket e adimplentes) */}
+              <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[...financeiroSpecs, ...retencaoSpecs(false).filter((s) => s.title === "Adimplentes")]} columns="lg:grid-cols-3">
                 {/* Velocímetro de despesas: só o dono vê, e só ganha número quando a integração (contas a pagar) existir */}
                 {ehDono() && <KpiGaugeCard title="Despesas" value="—" fill={0} marker={null} tone="neutral" details={[{ text: "Em breve: vem da integração de contas a pagar", tone: "neutral" }]} />}
               </KpiGrid></div>
-              <div className="mb-6"><FaturamentoProjecao total={kpiCtx.cur.total} month={fullMonthData.month} partial={partialSelected} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} metas={metasData} /></div>
+              <div className="mb-6"><FaturamentoProjecao total={kpiCtx.cur.total} month={fullMonthData.month} partial={partialSelected} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} /></div>
               <div className="grid grid-cols-1 gap-6 mb-10">
                 <RevenueChart selectedUnit={selectedUnit} />
                 <InadimplenciaChart selectedUnit={selectedUnit} />

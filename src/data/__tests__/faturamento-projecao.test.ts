@@ -5,7 +5,7 @@ import { FaturamentoProjecao } from "@/components/FaturamentoProjecao";
 import type { UnitData } from "@/data/dashboardData";
 
 const h = (p: Partial<{ partial: boolean; total: Partial<UnitData>; at: string }>) =>
-  renderToString(createElement(FaturamentoProjecao, { total: { faturamento: 600000, previsaoFaturamento: 800000, ...p.total } as UnitData, month: "2026-11", partial: p.partial ?? true, unit: "Gama", atualizadoEm: p.at ?? null, metas: [] })).replace(/<!-- -->/g, "");
+  renderToString(createElement(FaturamentoProjecao, { total: { faturamento: 600000, previsaoFaturamento: 800000, ...p.total } as UnitData, month: "2026-11", partial: p.partial ?? true, unit: "Gama", atualizadoEm: p.at ?? null})).replace(/<!-- -->/g, "");
 
 describe("FaturamentoProjecao", () => {
   it("mês em andamento: já venceu, a vencer e a explicação", () => {

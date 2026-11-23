@@ -99,7 +99,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
       subtitle={subtitle}
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
-          <HeadlineStat label="Planos vendidos (matrículas + rematrículas)" value={vendas.toLocaleString("pt-BR")} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />
+          {/* O total de contratos vendidos fica no cartão do Comercial › Resumo */}
           <HeadlineStat label="Valor médio por venda" value={moeda(valor / vendas)} swatch={<span className="h-2 w-2 rounded-full bg-foreground/50" />} />
           <HeadlineStat label={lider ? `${lider.rotulo} responde por` : `Os ${top.length} primeiros somam`} value={pct(lider ? lider.n : top.reduce((s, r) => s + r[1], 0), vendas)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
         </div>

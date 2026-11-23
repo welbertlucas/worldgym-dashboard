@@ -37,7 +37,7 @@ export function SaldoHeatmap({ selectedMonth, selectedUnit }: { selectedMonth: s
 
   return (
     <section className="card-surface p-5 sm:p-6" aria-labelledby="saldo-titulo">
-      <h3 id="saldo-titulo" className="text-base font-semibold text-foreground">Saldo de alunos por unidade</h3>
+      <h3 id="saldo-titulo" className="text-base font-semibold text-foreground">Variação da base de alunos por unidade</h3>
       <p className="mb-4 text-sm text-muted-foreground">Alunos ativos no fim do mês menos no início, nos últimos {meses.length} meses. Verde cresce, vermelho encolhe; unidades ordenadas do pior para o melhor saldo acumulado.</p>
       {!haDado ? (
         <p className="text-sm text-muted-foreground">Sem dados de alunos ativos do EVO nestes meses.</p>

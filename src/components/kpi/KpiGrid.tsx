@@ -35,16 +35,16 @@ export interface KpiSpec {
   semTextoDoMesAnterior?: boolean;
 }
 
-const EVO_TITLES = new Set(["Faturamento", "Previsão de faturamento", "Pagamentos dos clientes"]);
+const EVO_TITLES = new Set(["Faturamento", "Pagamentos dos clientes"]);
 /** Fonte do número: faturamento e recebimento vêm do EVO; inadimplência também, nos meses em que o EVO a calculou. */
 function sourceOf(title: string, v: MonthView): string {
   if (EVO_TITLES.has(title)) return "EVO";
   if (title === "Inadimplência" && v.total.inadimplenciaEvo) return "EVO";
-  if (["Contratos Vendidos", "Novos Contratos", "Saldo de Clientes", "Vendas Online", "Diárias", "Camisetas", "Coqueteleiras", "Brinquedoteca", "WG Plus", "Pro+", "Receita Complementar"].includes(title) && v.total.vendasEvo) return "EVO";
+  if (["Contratos Vendidos", "Novos Contratos", "Saldo de contratos", "Vendas Online", "Diárias", "Camisetas", "Coqueteleiras", "Brinquedoteca", "WG Plus", "Pro+", "Receita Complementar"].includes(title) && v.total.vendasEvo) return "EVO";
   if (title === "Renovação" && v.total.renovacoesEvo) return "EVO";
   if (title === "Taxa de Personal" && v.total.personalEvo) return "EVO";
-  if ((title === "Conversão de Cadastros" || title === "Conversão") && v.total.icvEvo) return "EVO";
-  if (["Alunos Ativos", "Saldo de Alunos", "Permanência Média", "LTV"].includes(title) && v.total.ativosFim !== undefined) return "EVO";
+  if ((title === "Conversão de cadastros" || title === "Conversão") && v.total.icvEvo) return "EVO";
+  if (["Alunos Ativos", "Variação da base de alunos", "Permanência Média", "LTV"].includes(title) && v.total.ativosFim !== undefined) return "EVO";
   if (title === "NPS" && v.total.npsEvo) return "WeHelp";
   if (title === "Churn" && v.total.cancelados > 0 && v.units.some((u) => u.ativosIni !== undefined)) return "EVO";
   if ((title === "Adimplentes" || title === "Ticket Médio") && v.total.ativosEvo) return "EVO";

@@ -33,19 +33,15 @@ export function RetencaoTab({ ctx, month, unit, aba: pedida = null, onAba = () =
       </div>
 
       {aba === "cancelamentos" && <Secao id="rt-cancelamentos" titulo="Cancelamentos" descricao="Quanto da base cancelou no mês (churn), a evolução nos últimos meses, quem cancela (gênero e idade), os motivos informados e quais contratos foram cancelados.">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
-          <KpiGrid ctx={ctx} specs={so(["Churn"], false)} columns="sm:grid-cols-1" />
-          <ChurnChart selectedUnit={unit} />
-        </div>
+        {/* O número do mês fica no Overview; aqui, a evolução e o detalhe */}
+        <ChurnChart selectedUnit={unit} />
         <CancelPerfilCard total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} />
         <MotivosCancelamento total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} porTipo={!unit} />
       </Secao>}
 
       {aba === "renovacao" && <Secao id="rt-renovacao" titulo="Renovação" descricao="Dos contratos de prazo fixo que venceram no mês, quantos foram renovados e quais ficaram sem renovar.">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
-          <KpiGrid ctx={ctx} specs={so(["Renovação"], false)} columns="sm:grid-cols-1" />
-          <RenovacoesChart selectedUnit={unit} />
-        </div>
+        {/* O número do mês fica no Overview; aqui, a evolução e o detalhe */}
+        <RenovacoesChart selectedUnit={unit} />
         <NaoRenovados total={total} monthLabel={monthLabel} partial={partial} unitLabel={unitLabel} porTipo={!unit} />
       </Secao>}
 

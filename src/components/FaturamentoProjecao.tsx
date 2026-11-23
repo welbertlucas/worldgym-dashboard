@@ -1,6 +1,6 @@
 import { ChartCard, HeadlineStat } from "@/components/ChartCard";
-import { getDataByMonth, type UnitData } from "@/data/dashboardData";
-import { formatMetaValue, nextTier, resolveGoal, TIERS, TIER_LABEL, tierReached, type Meta } from "@/data/metas";
+import { type UnitData } from "@/data/dashboardData";
+import { formatMetaValue } from "@/data/metas";
 import { formatMonthLong } from "@/data/periods";
 import { projecaoFaturamento } from "@/data/projecaoMes";
 
@@ -13,24 +13,17 @@ const int = (n: number) => Math.round(n).toLocaleString("pt-BR");
  *  1. o que já está lançado no EVO (já venceu + vai vencer nos dias que faltam): é a soma dos títulos do mês, não estimativa;
  *  2. a estimativa das vendas que ainda vão entrar: contratos novos que faltam (a mesma projeção de Comercial → Vendas)
  *     vezes o valor médio de um contrato novo no mês.
- * Só aparece no mês em andamento, quando o EVO trouxe a previsão.
+ * Só aparece no mês em andamento, quando o EVO trouxe a previsão. O nível da meta fica só em Metas (cada informação numa tela só).
  */
-export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm, metas }: {
-  total: UnitData; month: string; partial: boolean; unit: string | null; atualizadoEm: string | null; metas: Meta[];
+export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm }: {
+  total: UnitData; month: string; partial: boolean; unit: string | null; atualizadoEm: string | null;
 }) {
   const p = projecaoFaturamento(total, month, partial, unit, atualizadoEm);
   if (!p) return null;
   const { jaVenceu, lancado, vendasFuturas, estimativa, faltam, ticket, contratos: proj } = p;
   const aVencer = Math.max(0, lancado - jaVenceu);
 
-  const md = getDataByMonth(month);
-  // Meta da rede somada só de algumas unidades não compara com o realizado de todas: aí fica sem o nível.
-  const bruto = md ? resolveGoal(metas, md, month, unit, "faturamento") : null;
-  const goal = bruto && (!bruto.units || bruto.units === md!.units.length) ? bruto : null;
-  const nivel = goal ? tierReached("faturamento", estimativa, goal.meta) : null;
-  const prox = goal ? nextTier("faturamento", estimativa, goal.meta) : null;
-  const marcas = goal ? TIERS.filter((t) => goal.meta[t] !== undefined).map((t) => ({ t, v: goal.meta[t]! })) : [];
-  const escala = Math.max(estimativa, ...marcas.map((x) => x.v), 1) * 1.05;
+  const escala = Math.max(estimativa, 1) * 1.05;
   const w = (v: number) => `${(v / escala) * 100}%`;
 
   return (
@@ -42,7 +35,6 @@ export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm,
           <HeadlineStat label="Já lançado no EVO" value={brl(lancado)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
           {vendasFuturas !== null && <HeadlineStat label="Vendas que ainda devem entrar" value={`≈ ${brl(vendasFuturas)}`} swatch={<span className="h-2 w-2 rounded-full bg-primary/40" />} />}
           {vendasFuturas !== null && <HeadlineStat label="Estimativa de fechamento" value={`≈ ${brl(estimativa)}`} swatch={<span className="h-2 w-2 rounded-full bg-foreground" />} />}
-          {nivel && <HeadlineStat label="Com isso, a meta fecha em" value={TIER_LABEL[nivel]} swatch={<span className={`h-2 w-2 rounded-full ${nivel === "abaixo" ? "bg-destructive" : "bg-primary/60"}`} />} />}
         </div>
       }
     >
@@ -50,14 +42,10 @@ export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm,
         {vendasFuturas !== null && <span className="absolute inset-y-0 left-0 rounded-full bg-primary/15" style={{ width: w(estimativa) }} />}
         <span className="absolute inset-y-0 left-0 rounded-full bg-primary/40" style={{ width: w(lancado) }} />
         <span className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: w(jaVenceu) }} />
-        {marcas.map((x) => (
-          <span key={x.t} className="absolute -top-1 h-5 w-0.5 bg-foreground/70" style={{ left: w(x.v) }} title={`${TIER_LABEL[x.t]}: ${brl(x.v)}`} />
-        ))}
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
         Escuro: já venceu ({brl(jaVenceu)}). Médio: ainda vai vencer, já lançado ({brl(aVencer)}).{vendasFuturas !== null && " Claro: vendas que ainda devem entrar."}
-        {marcas.length > 0 && <> Traços: meta {marcas.map((x) => `${TIER_LABEL[x.t]} ${brl(x.v)}`).join(" · ")}.</>}
-        {prox && prox.value > estimativa && <> Para o {TIER_LABEL[prox.tier]} faltariam {brl(prox.value - estimativa)}.</>}
+        {" "}O nível da meta com essa estimativa está em Metas.
         {vendasFuturas === null && " A estimativa das vendas que ainda devem entrar aparece a partir do dia 10."}
       </p>
       <details className="mt-3 text-xs text-muted-foreground">

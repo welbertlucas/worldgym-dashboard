@@ -174,7 +174,7 @@ describe("DonutList", () => {
 });
 
 import { KpiTile, variation, type KpiContext } from "@/components/kpi/KpiGrid";
-import { comercialSpecs, complementaresSpecs, financeiroSpecs, retencaoSpecs } from "@/components/kpi/tabSpecs";
+import { comercialSpecs, complementarSpec, conversaoSpec, faturamentoSpec, financeiroSpecs, retencaoSpecs, vendasOnlineSpec } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard } from "@/components/executiva/MetasKpiCard";
 import { viewFor } from "@/data/kpiView";
 
@@ -195,14 +195,18 @@ describe("indicadores em meia-lua nas demais abas", () => {
 
   it("conversão de cadastros mostra quantas oportunidades foram cadastradas", () => {
     const comOport = { ...B, total: unit("TOTAL", { oportunidades: 1234, conversoes: 310, icvEvo: true, icv: 25.1 }) };
-    expect(html(find(comercialSpecs, "Conversão de Cadastros"), { cur: comOport, prev: A, partial: false })).toContain("1.234 oportunidades cadastradas");
-    expect(html(find(comercialSpecs, "Conversão de Cadastros"))).not.toContain("oportunidades cadastradas");
+    expect(html(conversaoSpec, { cur: comOport, prev: A, partial: false })).toContain("1.234 oportunidades cadastradas");
+    expect(html(conversaoSpec)).not.toContain("oportunidades cadastradas");
   });
 
-  it("o faturamento é um só (o Total de Vendas do EVO): mesmo cartão no Comercial e no Financeiro, sem texto de parcelas", () => {
-    expect(find(comercialSpecs, "Faturamento")).toBe(find(financeiroSpecs, "Faturamento")); // exatamente o mesmo cartão
-    expect(comercialSpecs.some((s) => s.title === "Total de Vendas")).toBe(false);
-    const h = html(find(comercialSpecs, "Faturamento"));
+  it("cada número principal tem uma casa só: faturamento, vendas online e conversão no Overview, não nas abas", () => {
+    for (const t of ["Faturamento", "Vendas Online", "Conversão de cadastros", "Pagamentos dos clientes", "Inadimplência"]) {
+      expect(comercialSpecs.some((s) => s.title === t)).toBe(false);
+      expect(financeiroSpecs.some((s) => s.title === t)).toBe(false);
+    }
+    expect(comercialSpecs.map((s) => s.title)).toEqual(["Contratos Vendidos", "Saldo de contratos"]);
+    expect(html(vendasOnlineSpec)).toContain("% do faturamento");
+    const h = html(faturamentoSpec);
     expect(h.replace(/\u00a0/g, " ")).toMatch(/R\$ 1\.500/); // o número do cartão é o faturamento do mês (mergeEvo já o troca pelo Total de Vendas)
     expect(h).not.toContain("Recepção"); // o texto das parcelas saiu do cartão
     expect(h).not.toContain("Cartão recorrente");
@@ -221,7 +225,7 @@ describe("indicadores em meia-lua nas demais abas", () => {
   });
 
   it("mês em andamento: fluxo mostra % do mês anterior; taxa/nível compara direto; ambos marcados", () => {
-    const f = html(find(financeiroSpecs, "Faturamento"), ctx(true));
+    const f = html(faturamentoSpec, ctx(true));
     expect(f).toContain("Em andamento");
     expect(f).toMatch(/\d+% de .+ de ago\. de 2026/); // quanto do mês anterior já foi alcançado
     const t = html(find(retencaoSpecs(false), "Churn"), ctx(true));
@@ -229,10 +233,11 @@ describe("indicadores em meia-lua nas demais abas", () => {
   });
 
   it("receita complementar: sem dado vira '—'; com dado é neutra (sem verde/vermelho)", () => {
-    const sem = html(find(complementaresSpecs, "Diárias"), { cur: A, prev: undefined, partial: false });
+    const diarias = complementarSpec("Diárias", (v) => v.total.diarias);
+    const sem = html(diarias, { cur: A, prev: undefined, partial: false });
     expect(sem).toContain("—");
     expect(sem).toContain("Sem dado neste mês");
-    const com = html(find(complementaresSpecs, "Diárias"), { cur: B, prev: B, partial: false });
+    const com = html(diarias, { cur: B, prev: B, partial: false });
     expect(com).not.toContain("bg-success/10");
     expect(com).not.toContain("bg-destructive/10");
   });

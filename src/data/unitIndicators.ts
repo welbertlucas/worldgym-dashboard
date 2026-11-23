@@ -48,7 +48,7 @@ export const INDICATORS: Indicator[] = [
   },
   { key: "adimplentes", label: "Adimplentes", category: "retencao", format: "number", direction: "higher", value: field("adimplentes") },
   { key: "cancelados", label: "Cancelados", category: "retencao", format: "number", direction: "lower", value: field("cancelados") },
-  { key: "saldo", label: "Saldo de clientes", category: "retencao", format: "number", direction: "higher", value: (u) => u.novosContratos - u.cancelados },
+  { key: "saldo", label: "Saldo de contratos", category: "retencao", format: "number", direction: "higher", value: (u) => u.novosContratos - u.cancelados },
   {
     key: "churn", label: "Churn", category: "retencao", format: "percent", direction: "lower", value: field("churn"),
     tone: (v) => (v > 8 ? "bad" : v > 5 ? "warn" : "good"), toneHint: "vermelho acima de 8%, verde até 5%", toneStops: [5, 8],
@@ -65,7 +65,7 @@ export const INDICATORS: Indicator[] = [
   { key: "nps", label: "NPS", category: "retencao", format: "decimal", direction: "higher", value: field("nps"), zeroMeansNoData: true },
   { key: "permanencia", label: "Permanência média (meses)", category: "retencao", format: "decimal", direction: "higher", value: (u) => u.permanenciaMeses ?? 0, zeroMeansNoData: true },
   { key: "ltv", label: "LTV", category: "retencao", format: "currency", direction: "higher", value: (u) => ltv(u), zeroMeansNoData: true },
-  { key: "saldoAlunos", label: "Saldo de alunos (fim − início)", category: "retencao", format: "number", direction: "higher", value: (u) => saldoAlunos(u) ?? 0, zeroMeansNoData: true },
+  { key: "saldoAlunos", label: "Variação da base de alunos", category: "retencao", format: "number", direction: "higher", value: (u) => saldoAlunos(u) ?? 0, zeroMeansNoData: true },
   { key: "receitaComplementar", label: "Receita complementar (total)", category: "complementares", format: "currency", direction: null, value: receitaComplementar },
   { key: "diarias", label: "Diárias", category: "complementares", format: "currency", direction: null, value: field("diarias") },
   { key: "personal", label: "Taxa de personal", category: "complementares", format: "currency", direction: null, value: field("personal") },

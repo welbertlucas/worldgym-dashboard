@@ -268,7 +268,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
 
 /** Glossário: o mesmo texto do botão "i" de cada card (uma fonte só). */
 const INDICADORES: ArtigoAjuda[] = Object.entries(AJUDA)
-  .filter(([nome]) => nome !== "Conversão de Cadastros")
+  .filter(([nome]) => nome !== "Conversão de cadastros")
   .map(([nome, texto]) => a("indicadores", `indicador-${nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`, nome, texto.split(". ")[0] + ".", [texto]));
 
 export const ARTIGOS: ArtigoAjuda[] = [...ARTIGOS_ESCRITOS, ...INDICADORES];

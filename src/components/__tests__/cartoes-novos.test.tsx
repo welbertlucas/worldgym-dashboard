@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { OrigemOportunidades, origensOrdenadas } from "@/components/OrigemOportunidades";
 import { CobrancasRecusa, recusaOrdenada } from "@/components/CobrancasRecusa";
-import { TreinosCard, situacaoDosTreinos } from "@/components/clientes/TreinosCard";
 import { dashboardData } from "@/data/dashboardData";
 import { unit } from "@/data/__tests__/helpers";
 
@@ -47,16 +46,3 @@ describe("cobranças com falha", () => {
   });
 });
 
-describe("treinos dos alunos", () => {
-  it("sem treino é a diferença para os alunos ativos", () => {
-    expect(situacaoDosTreinos(unit("A", { treinoAtivo: 100, treinoVencido: 300, treinoFuturo: 10, ativosFim: 1000 }))).toEqual({ ativo: 100, vencido: 300, futuro: 10, sem: 590, alunos: 1000 });
-    expect(situacaoDosTreinos(unit("A"))).toBeNull();
-  });
-  it("mostra os percentuais; sem foto de treinos, explica que só existe no mês corrente", () => {
-    const t = unit("A", { treinoAtivo: 100, treinoVencido: 300, treinoFuturo: 0, ativosFim: 1000 });
-    const html = limpo(renderToString(<TreinosCard total={t} month="2026-11" monthLabel="novembro de 2026" unit="A" />));
-    expect(html).toContain("10,0%");
-    expect(html).toContain("30,0%");
-    expect(limpo(renderToString(<TreinosCard total={unit("A")} month="2026-10" monthLabel="outubro" unit={null} />))).toContain("foto de hoje");
-  });
-});

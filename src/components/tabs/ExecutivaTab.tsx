@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
-import { faturamentoSpec, oportunidadesCadastradas } from "@/components/kpi/tabSpecs";
+import { conversaoSpec, faturamentoSpec, vendasOnlineSpec } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard, type RedeGoal } from "@/components/executiva/MetasKpiCard";
 import { SeletorPeriodo, type Periodo } from "@/components/executiva/SeletorPeriodo";
 import { agregarPeriodo, mesesDoPeriodo, periodoAnterior, rotuloPeriodo } from "@/data/periodo";
 import { type MonthData, dashboardDataRede } from "@/data/dashboardData";
-import { formatMetaValue, highestTier, isSingleGoal, progressToNext, resolveGoal, tierReached, TIER_LABEL, type Meta, type MetaKey } from "@/data/metas";
-import { formatMonthLong, isPartialMonth } from "@/data/periods";
+import { isSingleGoal, progressToNext, resolveGoal, tierReached, type Meta, type MetaKey } from "@/data/metas";
+import { isPartialMonth } from "@/data/periods";
 import { sameMonthLastYear } from "@/data/alerts";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 
@@ -63,35 +63,17 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, metas, onOpenMe
   const ctx: KpiContext = periodoAtual
     ? { cur: periodoAtual, prev: periodoPrev, ly: undefined, partial: parcialDoPeriodo, prevLabel: rotuloPeriodo(idsAnterior[0] ?? periodo!.de, idsAnterior[idsAnterior.length - 1] ?? periodo!.de) }
     : { cur: month, prev, ly, partial };
-  const parcial = periodoAtual ? parcialDoPeriodo : partial;
-  const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
-  // Ritmo do mês: em que nível da meta de faturamento a previsão fecha o mês.
-  const goal = metaDe("faturamento");
-  const ritmoDaMeta = (previsao: number): KpiSpec["extra"] => {
-    if (!goal) return undefined;
-    const top = highestTier(goal.meta);
-    const nivel = tierReached("faturamento", previsao, goal.meta);
-    return [
-      {
-        text: isSingleGoal(goal.meta) && top
-          ? `No ritmo atual: ${nivel === "abaixo" ? `abaixo da meta ${TIER_LABEL[top.tier]}` : `meta ${TIER_LABEL[top.tier]} atingida`}`
-          : `No ritmo atual: ${nivel === "abaixo" ? "abaixo do bronze" : `nível ${TIER_LABEL[nivel]}`}`,
-        tone: nivel === "abaixo" ? "bad" : "good",
-      },
-      ...(top ? [{ text: `${Math.floor((previsao / top.value) * 100)}% da meta ${TIER_LABEL[top.tier]} (${formatMetaValue("faturamento", top.value)})`, tone: "neutral" as const }] : []),
-    ];
-  };
   // Quanto do que foi cobrado (títulos) já foi pago: as duas pontas pela conta das cobranças. O Faturamento do cartão é o Total de Vendas, outra conta.
   const cobrado = t.faturamentoTitulos ?? t.faturamento;
   const recebRatio = cobrado ? (t.recebimento / cobrado) * 100 : 0;
   const specs: KpiSpec[] = [
     faturamentoSpec,
     { title: "Pagamentos dos clientes", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do que foi cobrado`, tone: "neutral" }] },
-    { title: "Vendas Online", kind: "flow", pick: (v) => v.total.vendasOnline, fmt: brl },
+    vendasOnlineSpec,
     { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pctText },
     { title: "Inadimplência", kind: "rate", rateKey: "inadimplenciaPerc", pick: (v) => v.total.inadimplenciaPerc, fmt: pctText },
     { title: "Renovação", kind: "rate", rateKey: "renovacoes", pick: (v) => v.total.renovacoes, fmt: pctText },
-    { title: "Conversão", kind: "rate", rateKey: "icv", pick: (v) => v.total.icv, fmt: pctText, extra: oportunidadesCadastradas },
+    conversaoSpec,
   ];
 
   return (

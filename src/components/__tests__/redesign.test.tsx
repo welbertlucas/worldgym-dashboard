@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { DollarSign } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
-import { TopUnits } from "@/components/executiva/TopUnits";
-import { RevenueTrend } from "@/components/executiva/RevenueTrend";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { dashboardData, dashboardDataRede } from "@/data/dashboardData";
 import { priorYearValue, splitPartial } from "@/components/chartData";
@@ -39,17 +37,6 @@ describe("MetricCard (tile)", () => {
   });
 });
 
-describe("TopUnits", () => {
-  it("lista as maiores por faturamento, numeradas, com valores reais", () => {
-    const units = ["A", "B", "C", "D"].map((n, i) => unit(n, { faturamento: (i + 1) * 100000 }));
-    const html = renderToString(<TopUnits units={units} monthLabel="setembro de 2026" partial={false} onOpen={() => {}} limit={3} />).replace(/<!-- -->/g, "");
-    expect(html.indexOf(">D<")).toBeLessThan(html.indexOf(">C<"));
-    expect(html).not.toContain(">A<"); // fora do top 3
-    expect(html.replace(/\s|&nbsp;/g, "")).toContain("R$400.000");
-    expect(html).toContain("Ver o ranking de todas as unidades");
-  });
-});
-
 describe("série do ano anterior", () => {
   it("lê o mesmo mês do ano anterior (rede e unidade) ou null", () => {
     carregar(month("2025-09", [unit("A", { churn: 5 })]), month("2026-09", [unit("A", { churn: 6 })]));
@@ -74,10 +61,6 @@ describe("Visão Executiva", () => {
     expect(html).toContain("vs. ago. de 2026"); // mês fechado: compara com o mês anterior, citando o mês
   });
 
-  it("RevenueTrend aceita séries sem o ano anterior", () => {
-    const m = month("2026-08", [unit("A")]);
-    expect(renderToString(<RevenueTrend closed={[m]} all={[m]} />)).toContain("Faturamento da rede");
-  });
 });
 
 describe("mês em andamento", () => {
