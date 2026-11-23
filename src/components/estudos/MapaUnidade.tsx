@@ -13,7 +13,7 @@ import { AZUL, LegendaCenso, LegendaRenda, desenharCenso, ehCamadaCenso } from "
 export { LegendaRenda };
 import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
-import { MINUTOS_PADRAO, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { MINUTOS_PADRAO, idadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "consumo" | "rede" | "limpa" | "oportunidade";
@@ -68,6 +68,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
   const resumoCenso = useMemo(() => (u?.c && dados.censo ? {
     renda: area10 ? classesNaArea(dados.censo, area10) : classesNoRaio(u.c, dados.censo, 5),
     potencial: area10 ? potencialNaArea(dados.censo, area10) : null,
+    idade: idadeEm(dados.censo, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5)),
+    moradores: area10 ? moradoresNaArea(dados.censo, area10) : dados.censo.celulas.reduce((a, [la, ln, p]) => a + (km([la, ln], u.c as [number, number]) < 5 ? p : 0), 0),
     onde: area10 ? `em ${MINUTOS_PADRAO} min de carro` : "num raio de 5 km",
   } : undefined), [u?.nome, area10, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
   const verNovaUnidade = () => {

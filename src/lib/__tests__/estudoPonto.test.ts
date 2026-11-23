@@ -365,3 +365,13 @@ describe("população recomendada, ticket e estacionamento", () => {
     expect(vereditoFinal("atencao", { situacao: "sem-dado" })).toBe("atencao");
   });
 });
+
+describe("faixa de idade que predomina", () => {
+  it("compara por ano de idade: a faixa 0 a 14 (15 anos) não ganha só por ser mais larga", async () => {
+    const { faixaPredominante, idadeEm } = await import("@/lib/estudoPonto");
+    // inventado: 0-14 tem 300 (20 por ano), 20-29 tem 250 (25 por ano) → predomina 20-29
+    expect(faixaPredominante([300, 90, 250, 200, 180, 100, 150])).toBe(2);
+    expect(faixaPredominante([])).toBeNull();
+    expect(idadeEm({ rk: 0.3, celulas: [[0, 0, 10, null, 3, [1, 2, 3, 4, 5, 6, 7]], [1, 1, 10, null, 3, [1, 1, 1, 1, 1, 1, 1]]] }, (la) => la < 0.5)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+});

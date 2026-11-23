@@ -48,10 +48,25 @@ export function potencialNaArea(censo: Censo, g: Geometria) {
   return domicilios ? { total, domicilios, porDomicilio: total / domicilios } : null;
 }
 
-/** Uma cor por faixa de idade (mapa: cada hexágono na cor da faixa com mais moradores), na ordem de FAIXAS_IDADE. */
+/** Uma cor por faixa de idade (mapa: cada hexágono na cor da faixa que predomina por ano de idade), na ordem de FAIXAS_IDADE. */
 export const CORES_IDADE = ["#f2c94c", "#f2994a", "#e86a92", "#27ae60", "#2bb3a3", "#2f80ed", "#8e5bd6"];
-/** Índice da faixa de idade com mais moradores no hexágono (ou null sem dado). */
-export const faixaPredominante = (ida?: number[]) => (ida?.length ? ida.indexOf(Math.max(...ida)) : null);
+/** Anos de idade em cada faixa (60+ conta como 60 a 79), para comparar faixas de tamanhos diferentes. */
+export const ANOS_FAIXA = [15, 5, 10, 10, 10, 10, 20];
+/**
+ * Faixa de idade que predomina no hexágono, comparando moradores POR ANO de idade (a faixa 0 a 14 junta 15 anos e ganharia quase
+ * sempre se comparada pelo total: em Ceilândia ela é 19% dos moradores e "vencia" em 2 de cada 3 hexágonos). Null sem dado.
+ */
+export const faixaPredominante = (ida?: number[]) => {
+  if (!ida?.length) return null;
+  const porAno = ida.map((v, i) => v / (ANOS_FAIXA[i] ?? 10));
+  return porAno.indexOf(Math.max(...porAno));
+};
+/** Moradores de cada faixa de idade somados nos hexágonos escolhidos. */
+export function idadeEm(censo: Censo, dentro: (lat: number, lng: number) => boolean): number[] | null {
+  const t = Array(FAIXAS_IDADE.length).fill(0); let tem = false;
+  for (const [la, ln, , , , ida] of censo.celulas) if (ida?.length && dentro(la, ln)) { ida.forEach((v, i) => (t[i] += v)); tem = true; }
+  return tem ? t : null;
+}
 
 /** Faixas de moradores por domicílio (mapa e legenda de densidade residencial). */
 export const CLASSES_DENSIDADE = [

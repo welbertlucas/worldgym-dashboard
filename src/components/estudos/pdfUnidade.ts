@@ -80,7 +80,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
     secoes.push({
       titulo: "População por Faixa Etária", novaPagina: true, linhas: [],
       texto: [`A população de 20 a 49 anos ${area} soma ${num(tot * p2049)} pessoas, ${pct(p2049)} do total. ${p2049 >= 0.49 ? "É uma aderência etária alta ao público de academia." : p2049 >= 0.42 ? "É uma aderência etária média, com base relevante de público economicamente ativo." : "A aderência etária é baixa: a área é mais jovem ou mais envelhecida que o público típico, o que pede oferta e comunicação ajustadas."} Na rede, 55% dos alunos ativos têm de 25 a 44 anos, faixa em que o churn e a inadimplência são menores que entre os mais jovens; na área, os moradores de 30 a 49 anos são ${pct(nucleo)}.`],
-      foto: { dados: m.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade com mais moradores (Censo 2022)." }, altFoto: 85,
+      foto: { dados: m.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade que predomina, comparando moradores por ano de idade (Censo 2022)." }, altFoto: 85,
       legenda: FAIXAS_IDADE.map((f, i) => ({ cor: CORES_IDADE[i], texto: `${f}: ${num(perfil.idade![i])} (${pct(perfil.idade![i] / tot, 0)})` })),
       destaques: [{ valor: pct(p2049), rotulo: "moradores de 20 a 49 anos" }, { valor: mil(tot * p2049), rotulo: "pessoas de 20 a 49 anos" }],
     });

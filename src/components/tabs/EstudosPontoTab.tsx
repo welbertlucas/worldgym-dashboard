@@ -17,7 +17,7 @@ import { LegendaCenso, desenharCenso, ehCamadaCenso } from "@/components/estudos
 import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
 import {
-  DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -109,6 +109,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const resumoCenso = useMemo(() => (atual && dados.censo ? {
     renda: area10 ? classesNaArea(dados.censo, area10) : classesNoRaio(atual.c, dados.censo, 5),
     potencial: area10 ? potencialNaArea(dados.censo, area10) : null,
+    idade: idadeEm(dados.censo, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5)),
+    moradores: area10 ? moradoresNaArea(dados.censo, area10) : dados.censo.celulas.reduce((a, [la, ln, p]) => a + (km([la, ln], atual.c) < 5 ? p : 0), 0),
     onde: area10 ? `em ${MINUTOS_PADRAO} min de carro` : "num raio de 5 km",
   } : undefined), [atual?.id, atual?.c[0], atual?.c[1], area10, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
