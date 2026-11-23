@@ -59,6 +59,8 @@ export function unidadesDoEstudo(meses, premissas, mesAtual, janela = 4) {
       madura: idade != null && idade >= maturidade,
       vendas: vendas.length ? Math.round(vendas.reduce((a, b) => a + b, 0) / vendas.length) : null,
       alunos: ua?.alunosAtivos ?? ua?.ativosFim ?? null,
+      // onde moram os alunos ativos hoje: [bairro, lat, lng, alunos] (só os com posição de bairro; os do centro da cidade ficam de fora)
+      bairros: (ua?.bairros ?? []).filter((x) => !x[5]).map((x) => [x[0], x[3], x[4], x[2]]),
     };
   });
 }
@@ -116,8 +118,8 @@ const ehDono = (sessao) => (sessao?.papelReal ?? sessao?.papel) === "dono";
 const autorDe = (sessao) => ({ id: idSeguro(sessao?.id), nome: String(sessao?.nome ?? "") });
 
 /** Pontos que a sessão pode ver: o dono vê os de todos os autores; os outros, só os próprios. */
-export async function lerPontos(sessao) {
-  const caminhos = ehDono(sessao) ? (await listarCaminhos(PASTA_PONTOS)).filter((c) => c.endsWith(".json")) : [arquivoDePontos(autorDe(sessao).id)];
+export async function lerPontos(sessao, todos = ehDono(sessao)) {
+  const caminhos = todos ? (await listarCaminhos(PASTA_PONTOS)).filter((c) => c.endsWith(".json")) : [arquivoDePontos(autorDe(sessao).id)];
   const arquivos = await Promise.all(caminhos.map((c) => lerJson(c)));
   return arquivos.flatMap((d) => (Array.isArray(d?.pontos) ? d.pontos : []));
 }
@@ -142,17 +144,53 @@ export async function salvarPontos(lista, sessao) {
   return pontos;
 }
 
-/** Tudo o que a tela lê de uma vez. `carregarMeses` devolve o consolidado (injetado para os testes). */
+/**
+ * Quem vê o quê no menu Estudos de ponto:
+ * - "completo": o dono e quem ele liberou a fazer estudos (cria, edita, decide);
+ * - "consulta": Master (vê tudo, inclusive os estudos de pontos novos, sem editar);
+ * - "unidade": quem tem acesso a unidades: só o estudo das próprias unidades, sem premissas, custos, estudos nem vendas de outras.
+ */
+export function modoDe(sessao) {
+  // vale o papel da sessão (no "Ver como" do dono, o papel visto), não o papel real
+  if (sessao?.papel === "dono" || sessao?.verEstudos) return "completo";
+  if (sessao?.papel === "master") return "consulta";
+  return "unidade";
+}
+export const podeEditar = (sessao) => modoDe(sessao) === "completo";
+
+/** O m² acima do limite conta só uma parte (mesma regra da tela). */
+const m2Efetivo = (m2, p) => (!p?.limiteM2 || m2 <= p.limiteM2 ? m2 : p.limiteM2 + (m2 - p.limiteM2) * (p.pesoAcima ?? 1));
+/** O que o modelo preveria para cada unidade em operação, pelo m² dela e as vendas por m² da rede. */
+export function comPrevisao(unidades, faixas, premissas) {
+  return unidades.map((u) => {
+    const f = faixas?.[u.modelo], ef = u.m2 ? m2Efetivo(u.m2, premissas?.modelos?.[u.modelo]) : null;
+    return f && ef ? { ...u, previsto: { pessimista: Math.round(f.p25 * ef), provavel: Math.round(f.mediana * ef), otimista: Math.round(f.p75 * ef) } } : u;
+  });
+}
+
+/** Tudo o que a tela lê de uma vez, já cortado pelo modo de quem pede. `carregarMeses` devolve o consolidado (injetado nos testes). */
 export async function lerEstudos(carregarMeses, mesAtual, sessao) {
-  const [premissas, censo, pontos, meses] = await Promise.all([lerJson(ARQUIVO_PREMISSAS), lerJson(ARQUIVO_CENSO), lerPontos(sessao), carregarMeses()]);
-  if (!premissas) return { disponivel: false };
-  const unidades = unidadesDoEstudo(meses, premissas, mesAtual, premissas?.regua?.janelaMeses ?? 4);
+  const modo = modoDe(sessao);
+  const [premissas, censo, meses] = await Promise.all([lerJson(ARQUIVO_PREMISSAS), lerJson(ARQUIVO_CENSO), carregarMeses()]);
+  if (!premissas) return { disponivel: false, modo };
+  const base = unidadesDoEstudo(meses, premissas, mesAtual, premissas?.regua?.janelaMeses ?? 4);
+  const vendasPorM2 = reguaPorM2(base, premissas);
+  const unidades = comPrevisao(base, vendasPorM2, premissas);
+  if (modo !== "unidade") {
+    const pontos = await lerPontos(sessao, modo === "consulta" || sessao?.papel === "dono");
+    return { disponivel: true, modo, premissas: { regua: premissas.regua, modelos: premissas.modelos, curva: premissas.curva }, vendasPorM2, unidades, censo: censo ?? null, pontos };
+  }
+  // unidade: as próprias completas; as outras só com nome, posição e m² (para a divisão da captação), sem vendas, alunos nem bairros
+  const minhas = new Set(sessao?.unidades ?? []);
+  const proprias = unidades.filter((u) => minhas.has(u.nome));
+  const outras = unidades.filter((u) => !minhas.has(u.nome)).map((u) => ({ nome: u.nome, c: u.c, m2: u.m2, modelo: u.modelo, abertura: null, madura: false, vendas: null, alunos: null, bairros: [] }));
+  const perto = (c) => proprias.some((u) => u.c && Math.hypot((u.c[0] - c[0]) * 110.6, (u.c[1] - c[1]) * 107) <= 15);
   return {
-    disponivel: true,
-    premissas: { regua: premissas.regua, modelos: premissas.modelos, curva: premissas.curva },
-    vendasPorM2: reguaPorM2(unidades, premissas),
-    unidades,
-    censo: censo ?? null,
-    pontos,
+    disponivel: true, modo, minhas: proprias.map((u) => u.nome),
+    premissas: { curva: premissas.curva },
+    vendasPorM2: Object.fromEntries(Object.entries(vendasPorM2).map(([k, v]) => [k, v ? { mediana: v.mediana, n: v.n } : null])),
+    unidades: [...proprias, ...outras],
+    censo: censo ? { ...censo, celulas: (censo.celulas ?? []).filter(([la, ln]) => perto([la, ln])) } : null,
+    pontos: [],
   };
 }

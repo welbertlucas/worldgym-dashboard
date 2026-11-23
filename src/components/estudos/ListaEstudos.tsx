@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarPonto, meses, reais, regiaoDe,
+  DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarPonto, meses, raio80Real, reais, regiaoDe,
   type DadosEstudos, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
@@ -46,7 +46,44 @@ function MiniMapa({ linhas, abrir }: { linhas: Linha[]; abrir: (id: string) => v
   return <div ref={el} className="mapa-cinza h-[300px]" aria-label="Mapa dos estudos" />;
 }
 
-export function ListaEstudos({ dados, pontos, abrir, novo, comparar }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void }) {
+/** As unidades que já funcionam: vendas reais contra a mediana da rede e contra o que o modelo preveria pelo tamanho. */
+function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nome: string) => void }) {
+  const linhas = (dados.unidades ?? []).filter((u) => u.c && u.vendas).map((u) => {
+    const med = dados.vendasPorM2?.[u.modelo]?.mediana ?? null, porM2 = u.m2 ? (u.vendas as number) / u.m2 : null;
+    return { u, porM2, med, dif: u.previsto ? (u.vendas as number) / u.previsto.provavel - 1 : null, r80: raio80Real(u) };
+  }).sort((a, b) => Number(b.u.madura) - Number(a.u.madura) || (b.porM2 ?? 0) - (a.porM2 ?? 0));
+  if (!linhas.length) return null;
+  return (
+    <section className="space-y-2">
+      <div><h3 className="text-base font-semibold">Unidades em operação</h3><p className="text-[13px] text-muted-foreground">Como cada unidade vende para o tamanho dela e de onde vêm os alunos. Clique para abrir o estudo.</p></div>
+      <div className="overflow-x-auto rounded-2xl border bg-white">
+        <table className="w-full text-[13px]">
+          <thead className="bg-muted/40 text-xs text-muted-foreground"><tr>
+            <th className="px-3 py-2.5 text-left font-medium">Unidade</th><th className="px-2 py-2.5 text-right font-medium">m²</th>
+            <th className="px-2 py-2.5 text-right font-medium">Vendas por mês</th><th className="px-2 py-2.5 text-right font-medium">Vendas por m²</th>
+            <th className="px-2 py-2.5 text-right font-medium">80% dos alunos a até</th><th className="px-2 py-2.5 text-right font-medium">Contra o modelo</th><th className="px-3 py-2.5 text-left font-medium">Situação</th>
+          </tr></thead>
+          <tbody>
+            {linhas.map(({ u, porM2, med, dif, r80 }) => (
+              <tr key={u.nome} tabIndex={0} onClick={() => abrir(u.nome)} onKeyDown={(e) => e.key === "Enter" && abrir(u.nome)}
+                className="cursor-pointer border-t hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <td className="whitespace-nowrap px-3 py-2.5 font-semibold">{u.nome}<span className="ml-1.5 text-xs font-normal text-muted-foreground">{NOME_MODELO[u.modelo]}</span></td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{u.m2?.toLocaleString("pt-BR") ?? "—"}</td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{reais(u.vendas as number)}</td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{porM2 ? <span className={med ? (porM2 >= med ? "text-success" : "text-destructive") : ""}>R$ {Math.round(porM2).toLocaleString("pt-BR")}</span> : "—"}{med && <span className="ml-1 text-[11px] text-muted-foreground">rede {med}</span>}</td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{r80 != null ? `${r80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km` : "—"}</td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{dif != null && u.madura ? <span className={dif >= 0 ? "text-success" : "text-destructive"}>{dif >= 0 ? "+" : "−"}{Math.abs(Math.round(dif * 100))}%</span> : "—"}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{u.madura ? "madura" : "amadurecendo"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void }) {
   const [busca, setBusca] = useState("");
   const [veredito, setVeredito] = useState<Veredito | "">("");
   const [decisao, setDecisao] = useState<StatusDecisao | "">("");
@@ -76,9 +113,13 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar }: { dados: 
     <div className="space-y-4 pb-20">
       <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h2 className="font-display text-2xl font-medium">Estudos de ponto</h2><p className="text-sm text-muted-foreground">Cada imóvel avaliado, com a previsão do modelo e a sua decisão.</p></div>
-        <button type="button" onClick={novo} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Novo estudo</button>
+        <div><h2 className="font-display text-2xl font-medium">Estudos de ponto</h2><p className="text-sm text-muted-foreground">As unidades em operação e cada imóvel avaliado, com a previsão do modelo e a decisão.</p></div>
+        {editavel && <button type="button" onClick={novo} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Novo estudo</button>}
       </div>
+
+      {abrirUnidade && <UnidadesEmOperacao dados={dados} abrir={abrirUnidade} />}
+
+      <div className="pt-2"><h3 className="text-base font-semibold">Pontos estudados</h3></div>
 
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
         {([["", linhas.length, "estudos"], ["aprovado", conta("aprovado"), "aprovados pelo modelo"], ["atencao", conta("atencao"), "em atenção"], ["reprovado", conta("reprovado"), "reprovados pelo modelo"]] as [Veredito | "", number, string][]).map(([v, n, t]) => (
@@ -106,7 +147,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar }: { dados: 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="overflow-hidden rounded-2xl border bg-white">
           {!pontos.length ? (
-            <div className="p-10 text-center text-sm text-muted-foreground">Nenhum estudo ainda. Clique em <strong>Novo estudo</strong> e marque o imóvel no mapa.</div>
+            <div className="p-10 text-center text-sm text-muted-foreground">{editavel ? <>Nenhum estudo ainda. Clique em <strong>Novo estudo</strong> e marque o imóvel no mapa.</> : "Nenhum ponto estudado ainda."}</div>
           ) : !filtradas.length ? (
             <div className="p-10 text-center text-sm text-muted-foreground">Nenhum estudo com esses filtros.</div>
           ) : (

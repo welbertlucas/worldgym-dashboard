@@ -10,7 +10,7 @@ import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 // @ts-expect-error módulo JS do servidor
 import { definirArmazem } from "../../../server/armazem.js";
 // @ts-expect-error módulo JS do servidor
-import { ErroEstudos, lerEstudos, lerPontos, pontoValido, reguaPorM2, salvarPontos, unidadesDoEstudo, arquivoDePontos, ARQUIVO_PREMISSAS } from "../../../server/estudos.js";
+import { ErroEstudos, lerEstudos, lerPontos, modoDe, podeEditar, pontoValido, reguaPorM2, salvarPontos, unidadesDoEstudo, arquivoDePontos, ARQUIVO_PREMISSAS } from "../../../server/estudos.js";
 
 // Números INVENTADOS: as premissas reais ficam só no Blob privado (o repositório é público).
 const PREMISSAS: Premissas = {
@@ -127,13 +127,34 @@ describe("servidor dos estudos (server/estudos.js)", () => {
   });
   it("salva e lê os pontos; sem premissas a tela fica indisponível", async () => {
     const mem = memoria(); definirArmazem(mem);
-    expect(await lerEstudos(async () => meses, "2026-11", DONO)).toEqual({ disponivel: false });
+    expect(await lerEstudos(async () => meses, "2026-11", DONO)).toEqual({ disponivel: false, modo: "completo" });
     await salvarPontos([{ c: [-15.8, -47.9], m2: 1200, nome: "A" }], DONO);
     expect((mem.m.get(arquivoDePontos("dono1")) as { pontos: { autor: { id: string } }[] }).pontos[0].autor.id).toBe("dono1");
     mem.m.set(ARQUIVO_PREMISSAS, premissas);
     const d = await lerEstudos(async () => meses, "2026-11", DONO);
     expect(d.disponivel).toBe(true); expect(d.pontos).toHaveLength(1); expect(d.premissas.curva.meiaDistanciaKm).toBe(1.5);
     expect(d.premissas).not.toHaveProperty("unidades");
+  });
+  it("modo por perfil: dono e liberados editam, Master consulta, unidade vê só a própria", () => {
+    expect(modoDe(DONO)).toBe("completo"); expect(modoDe({ ...BETO, verEstudos: true })).toBe("completo");
+    expect(modoDe(ANA)).toBe("consulta"); expect(modoDe(BETO)).toBe("unidade");
+    expect(modoDe({ ...DONO, papel: "unidades", papelReal: "dono" })).toBe("unidade"); // "Ver como" do dono
+    expect(podeEditar(ANA)).toBe(false); expect(podeEditar(DONO)).toBe(true);
+  });
+  it("a unidade recebe só a própria unidade, sem premissas, estudos nem vendas de outras; o Master vê os estudos de todos", async () => {
+    const mem = memoria(); definirArmazem(mem);
+    mem.m.set(ARQUIVO_PREMISSAS, premissas);
+    await salvarPontos([{ c: [-15.8, -47.9], m2: 1000, nome: "Do dono" }], DONO);
+    const comBairros = [...meses.slice(0, 2), { month: "2026-11", units: [{ name: "Asa Norte", alunosAtivos: 1700, bairros: [["Centro", "Brasília", 40, -15.76, -47.89], ["Longe", "Brasília", 5, -15.7, -47.8, 1]] }, { name: "Gama", alunosAtivos: 900 }] }];
+    const u = await lerEstudos(async () => comBairros, "2026-11", { ...BETO, unidades: ["Asa Norte"] });
+    expect(u.modo).toBe("unidade"); expect(u.minhas).toEqual(["Asa Norte"]); expect(u.pontos).toEqual([]);
+    expect(u.premissas).toEqual({ curva: premissas.curva });
+    const asa = u.unidades.find((x: { nome: string }) => x.nome === "Asa Norte"), gama = u.unidades.find((x: { nome: string }) => x.nome === "Gama");
+    expect(asa.vendas).toBe(240_000); expect(asa.bairros).toEqual([["Centro", -15.76, -47.89, 40]]);
+    expect(gama.vendas).toBeNull(); expect(gama.alunos).toBeNull(); expect(gama.bairros).toEqual([]);
+    expect(u.vendasPorM2.low).toBeNull();
+    const m = await lerEstudos(async () => comBairros, "2026-11", ANA);
+    expect(m.modo).toBe("consulta"); expect(m.pontos.map((p: { nome: string }) => p.nome)).toEqual(["Do dono"]);
   });
   it("cada autor vê só os próprios estudos; o dono vê todos e pode editar os de qualquer um", async () => {
     const mem = memoria(); definirArmazem(mem);

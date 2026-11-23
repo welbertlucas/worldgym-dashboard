@@ -5,7 +5,8 @@
 //   GET /api/qualidade -> { modo, unidades, modelos, visitas, envios }; GET ?foto=<id> -> a foto (JPEG).
 //     modo "completo" (dono e liberados): tudo; modo "unidade" (quem foi liberado a preencher): só os checklists da unidade e os próprios envios.
 //   POST /api/qualidade { acao: "modelo" | "modelo-apagar" | "foto" | "visita" | "visita-apagar" | "envio" | "envio-apagar" | "pedido" | "pedido-decidir" | "plano-feito" | "plano-validar", ... }.
-//   GET /api/estudos -> { disponivel, premissas, vendasPorM2, unidades, censo, pontos }; POST { acao: "pontos", pontos }. Só o dono e quem ele liberou.
+//   GET /api/estudos -> { disponivel, modo, premissas, vendasPorM2, unidades, censo, pontos }, cortado pelo modo (server/estudos.js modoDe):
+//     o dono e os liberados veem tudo e salvam (POST { acao: "pontos", pontos }); Master consulta tudo; unidades veem só a própria.
 // Dado sensível: sem cache no navegador e permissão conferida a cada pedido.
 import { lerRoyalties } from "../server/royalties.js";
 import { lerJuridico } from "../server/juridico.js";
@@ -13,7 +14,7 @@ import { ErroQualidade, apagarAgenda, lerAgenda, salvarAgenda, comNotasPorGrupo,
 import { UNIDADES_DA_REDE } from "../server/acesso.js";
 import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
-import { ErroEstudos, lerEstudos, salvarPontos } from "../server/estudos.js";
+import { ErroEstudos, lerEstudos, podeEditar, salvarPontos } from "../server/estudos.js";
 import { loadAll } from "../server/store.js";
 
 /** "AAAA-MM" de hoje em Brasília. */
@@ -21,6 +22,7 @@ const mesDeHoje = () => new Date().toLocaleString("sv-SE", { timeZone: "America/
 
 async function estudos(req, res, sessao) {
   if (req.method === "GET") return res.status(200).json(await lerEstudos(loadAll, mesDeHoje(), sessao));
+  if (!podeEditar(sessao)) return res.status(403).json({ error: "só quem faz estudos de ponto pode salvar" });
   const c = doCorpo(req);
   if (c.acao === "pontos") return res.status(200).json({ ok: true, pontos: await salvarPontos(c.pontos, sessao) });
   return res.status(400).json({ error: "ação inválida" });
@@ -121,7 +123,7 @@ export default async function handler(req, res) {
   if (modulo !== "qualidade" && modulo !== "estudos" && req.method !== "GET") return res.status(405).json({ error: "método não permitido" });
   const sessao = await exigirLogin(req, res);
   if (!sessao) return;
-  const permitido = modulo === "estudos" ? sessao.verEstudos : modulo === "juridico" ? sessao.verJuridico : modulo === "qualidade" ? sessao.verQualidade || sessao.preencheChecklist : sessao.verRoyalties;
+  const permitido = modulo === "estudos" ? true : modulo === "juridico" ? sessao.verJuridico : modulo === "qualidade" ? sessao.verQualidade || sessao.preencheChecklist : sessao.verRoyalties;
   if (!permitido) return res.status(403).json({ error: "sem permissão" });
   try {
     if (modulo === "qualidade") return await qualidade(req, res, sessao);

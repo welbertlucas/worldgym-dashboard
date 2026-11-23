@@ -97,7 +97,7 @@ function conferirAtor(ator, alvo, campos = {}) {
   if (campos.verRoyalties !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de ver royalties.", 403);
   if (campos.verJuridico !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de ver o jurídico.", 403);
   if (campos.verQualidade !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de usar a qualidade.", 403);
-  if (campos.verEstudos !== undefined || campos.verObras !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de ver Estudos de ponto e Unidades em obra.", 403);
+  if (campos.verEstudos !== undefined || campos.verObras !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de fazer Estudos de ponto e de ver Unidades em obra.", 403);
   if (campos.preencheChecklist !== undefined) throw new ErroAcesso("Só o dono dá ou tira a permissão de preencher o checklist da unidade.", 403);
   if (alvo?.id === ator.id && ((campos.papel !== undefined && campos.papel !== alvo.papel) || campos.ativo === false)) {
     throw new ErroAcesso("Você não pode mudar o seu próprio nível nem se desativar.", 403);

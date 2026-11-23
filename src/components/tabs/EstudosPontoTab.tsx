@@ -2,6 +2,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
+import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import {
   DECISAO_ROTULO, VEREDITO_ROTULO, avaliarPonto, captacaoDe, fatoresDe, km, meses, parecidas, reais,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
@@ -45,11 +46,11 @@ function Regua({ r }: { r: Resultado }) {
 
 interface PropsMapa {
   dados: DadosEstudos; pontos: Ponto[]; setPontos: Dispatch<SetStateAction<Ponto[]>>; atualId: string | null; setAtualId: (id: string | null) => void;
-  iniciarAdicionando: boolean; comparando: Set<string> | null; voltar: () => void; salvo: string;
+  iniciarAdicionando: boolean; comparando: Set<string> | null; voltar: () => void; salvo: string; editavel: boolean;
 }
 
 /** O mapa do estudo: painel com os pontos (todos, ou só os escolhidos para comparar), a conta e a decisão; lentes e ferramentas. */
-function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo }: PropsMapa) {
+function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo, editavel }: PropsMapa) {
   const [lente, setLente] = useState<Lente>("captacao");
   const [adicionando, setAdicionando] = useState(iniciarAdicionando);
   const [satelite, setSatelite] = useState(false);
@@ -65,7 +66,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const cap = useMemo(() => (atual && pronto ? captacaoDe(atual, dados.censo!, dados.unidades!, todos, dados.premissas!.curva) : null), [atual, pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const r = atual ? resultados.get(atual.id) ?? null : null;
 
-  const mudar = (id: string, campos: Partial<Ponto>) => setPontos((ps) => ps.map((p) => (p.id === id ? { ...p, ...campos, atualizadoEm: new Date().toISOString() } : p)));
+  const mudar = (id: string, campos: Partial<Ponto>) => editavel && setPontos((ps) => ps.map((p) => (p.id === id ? { ...p, ...campos, atualizadoEm: new Date().toISOString() } : p)));
   const remover = (id: string) => { setPontos((ps) => ps.filter((p) => p.id !== id)); if (atualId === id) setAtualId(pontos.find((p) => p.id !== id)?.id ?? null); };
 
   // mapa: cria uma vez
@@ -153,7 +154,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     pontos.forEach((p, i) => {
       const sel = p.id === atualId, tam = sel ? 34 : 26;
       const mk = L.marker(p.c, {
-        draggable: true, zIndexOffset: sel ? 2000 : 1000, title: p.nome,
+        draggable: editavel, zIndexOffset: sel ? 2000 : 1000, title: p.nome,
         icon: L.divIcon({ className: "", iconSize: [tam, tam], iconAnchor: [tam / 2, tam], html: `<div style="width:${tam}px;height:${tam}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${CORES[i % CORES.length]};border:3px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.35);display:grid;place-items:center;cursor:grab"><span style="transform:rotate(45deg);color:#fff;font:600 ${sel ? 14 : 12}px Inter,sans-serif">${letra(i)}</span></div>` }),
       }).addTo(camadas);
       mk.on("click", () => setAtualId(p.id));
@@ -190,16 +191,18 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                 </button>
               );
             })}
-            <button type="button" onClick={() => setAdicionando((a) => !a)} aria-pressed={adicionando}
+            {editavel && (
+              <button type="button" onClick={() => setAdicionando((a) => !a)} aria-pressed={adicionando}
               className="mt-1 w-full rounded-xl border border-dashed px-3 py-2 text-left text-sm text-muted-foreground aria-pressed:border-primary aria-pressed:bg-primary/5 aria-pressed:text-primary">
               {adicionando ? "Clique no mapa onde fica o imóvel" : "+ Adicionar ponto"}
             </button>
+            )}
           </div>
 
           {!atual && <p className="p-5 text-sm text-muted-foreground">Adicione um ponto e clique no mapa onde fica o imóvel. A conta aparece aqui.</p>}
 
           {atual && r && (
-            <>
+            <fieldset disabled={!editavel} className="contents">
               <section className="px-5 pb-1 pt-4">
                 <input value={atual.nome} onChange={(e) => mudar(atual.id, { nome: e.target.value })} aria-label="Nome do ponto"
                   className="w-full rounded-md bg-transparent text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
@@ -281,9 +284,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
 
               <div className="flex items-center justify-between px-5 py-3 text-xs text-muted-foreground">
                 <span>{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
-                <button type="button" onClick={() => { if (window.confirm(`Remover o ${atual.nome}?`)) remover(atual.id); }} className="text-destructive hover:underline">Remover ponto {letra(idx)}</button>
+                {editavel ? <button type="button" onClick={() => { if (window.confirm(`Remover o ${atual.nome}?`)) remover(atual.id); }} className="text-destructive hover:underline">Remover ponto {letra(idx)}</button> : <span>Só consulta</span>}
               </div>
-            </>
+            </fieldset>
           )}
         </div>
       </aside>
@@ -318,7 +321,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   );
 }
 
-type Visao = { tela: "lista" } | { tela: "mapa"; atualId: string | null; novo: boolean; comparando: Set<string> | null };
+type Visao = { tela: "lista" } | { tela: "unidade"; nome: string } | { tela: "mapa"; atualId: string | null; novo: boolean; comparando: Set<string> | null };
 
 /** Estudos de ponto: abre na lista (carteira de estudos); o mapa abre num estudo, num estudo novo ou na comparação. */
 export function EstudosPontoTab() {
@@ -339,7 +342,7 @@ export function EstudosPontoTab() {
 
   // grava os pontos no servidor um instante depois da última mudança
   useEffect(() => {
-    if (!dados?.disponivel) return;
+    if (!dados?.disponivel || (dados.modo ?? "completo") !== "completo") return;
     if (primeiraCarga.current) { primeiraCarga.current = false; return; }
     setSalvo("salvando");
     const t = setTimeout(() => {
@@ -354,15 +357,27 @@ export function EstudosPontoTab() {
   if (!dados.disponivel || !dados.premissas || !dados.vendasPorM2 || !dados.censo || !dados.unidades)
     return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">As premissas dos estudos de ponto ainda não foram carregadas.</p>;
 
+  const editavel = (dados.modo ?? "completo") === "completo";
+  // quem tem acesso a unidades vê só o estudo da(s) própria(s) unidade(s)
+  if (dados.modo === "unidade") {
+    const minhas = (dados.unidades ?? []).filter((u) => dados.minhas?.includes(u.nome));
+    return minhas.length
+      ? <MapaUnidade dados={dados} unidades={minhas} inicial={minhas[0].nome} />
+      : <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">Nenhuma unidade ligada ao seu acesso.</p>;
+  }
+  if (visao.tela === "unidade") {
+    const emOperacao = (dados.unidades ?? []).filter((u) => u.c);
+    return <MapaUnidade dados={dados} unidades={emOperacao} inicial={visao.nome} voltar={() => setVisao({ tela: "lista" })} />;
+  }
   if (visao.tela === "lista")
     return (
-      <ListaEstudos dados={dados} pontos={pontos}
+      <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })}
         abrir={(id) => setVisao({ tela: "mapa", atualId: id, novo: false, comparando: null })}
         novo={() => setVisao({ tela: "mapa", atualId: null, novo: true, comparando: null })}
         comparar={(ids) => setVisao({ tela: "mapa", atualId: ids[0] ?? null, novo: false, comparando: new Set(ids) })} />
     );
   return (
-    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} iniciarAdicionando={visao.novo} comparando={visao.comparando}
+    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={editavel} iniciarAdicionando={visao.novo} comparando={visao.comparando}
       atualId={visao.atualId} setAtualId={(id) => setVisao((v) => (v.tela === "mapa" ? { ...v, atualId: id, comparando: v.comparando && id && !v.comparando.has(id) ? new Set([...v.comparando, id]) : v.comparando } : v))}
       voltar={() => setVisao({ tela: "lista" })} />
   );

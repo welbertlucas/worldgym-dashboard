@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { buscarNoMenu, itensDeBusca, itensDoMenu, MENUS_EM_BREVE, NAV_RODAPE, type NavItem } from "@/components/nav";
-import { ehDono, podeVerEstudos, podeVerObras, podeGerarRelatorios, podeGerirAcessos, podeVerJuridico, podePreencherChecklist, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
+import { buscarNoMenu, itensDeBusca, itensDoMenu, MENUS_EM_BREVE, MENUS_NOVIDADE, NAV_RODAPE, type NavItem } from "@/components/nav";
+import { ehDono, podeVerObras, podeGerarRelatorios, podeGerirAcessos, podeVerJuridico, podePreencherChecklist, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
 import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import wgLogo from "@/assets/wg-logo.png";
 
@@ -64,8 +64,8 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   );
 }
 
-/** Estudos de ponto e Unidades em obra (ainda "Em breve"): o dono vê os dois; os outros, o que ele liberou. */
-const emBreveLiberado = () => (ehDono() ? true : { estudos: podeVerEstudos(), obras: podeVerObras() });
+/** Estudos de ponto: todos veem (a unidade, só o estudo dela). Unidades em obra (ainda "Em breve"): o dono e quem ele liberou. */
+const emBreveLiberado = () => (ehDono() ? true : { estudos: true, obras: podeVerObras() });
 
 function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: NavItem; active: string; onChange: (id: string) => void; collapsed: boolean; numero?: number }) {
   const Icon = item.icon;
@@ -88,6 +88,9 @@ function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: N
         <span className={cn("flex-1 text-left", collapsed && "sr-only")}>{item.label}</span>
         {MENUS_EM_BREVE.has(item.id) && !collapsed && (
           <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-muted-foreground">Em breve</span>
+        )}
+        {MENUS_NOVIDADE.has(item.id) && !collapsed && (
+          <span className="text-[10px] font-semibold leading-none text-primary-ink">Novidade</span>
         )}
         {numero > 0 && (
           <span

@@ -9,7 +9,11 @@ export interface Premissas {
   curva: { meiaDistanciaKm: number; raioKm: number };
 }
 export interface FaixaM2 { p25: number; mediana: number; p75: number; n: number }
-export interface UnidadeEstudo { nome: string; c: [number, number] | null; m2: number | null; modelo: Modelo; abertura: string | null; madura: boolean; vendas: number | null; alunos: number | null }
+/** `bairros`: onde moram os alunos ativos [bairro, lat, lng, alunos]; `previsto`: o que o modelo preveria pelo m² da unidade. */
+export interface UnidadeEstudo {
+  nome: string; c: [number, number] | null; m2: number | null; modelo: Modelo; abertura: string | null; madura: boolean; vendas: number | null; alunos: number | null;
+  bairros?: [string, number, number, number][]; previsto?: { pessimista: number; provavel: number; otimista: number };
+}
 /** Hexágonos do Censo 2022: [lat, lng, população, renda média do responsável]. */
 export interface Censo { rk: number; celulas: [number, number, number, number | null][] }
 export interface ImovelItens { fachada: boolean; estacionamento: boolean; polo: boolean; aPe: boolean }
@@ -19,7 +23,9 @@ export type StatusDecisao = "analise" | "aprovado" | "recusado" | "unidade";
 export interface Decisao { status: StatusDecisao; em: string; comentario?: string; unidade?: string; previsao?: { provavel: number; pessimista: number; otimista: number } }
 export interface Ponto { id: string; nome: string; regiao?: string; c: [number, number]; modelo: Modelo; m2: number; imovel: ImovelItens; autor?: { id: string; nome: string }; criadoEm?: string; atualizadoEm?: string; decisao?: Decisao }
 export const DECISAO_ROTULO: Record<StatusDecisao, string> = { analise: "Em análise", aprovado: "Aprovado", recusado: "Recusado", unidade: "Virou unidade" };
-export interface DadosEstudos { disponivel: boolean; premissas?: Premissas; vendasPorM2?: Record<Modelo, FaixaM2 | null>; unidades?: UnidadeEstudo[]; censo?: Censo | null; pontos?: Ponto[] }
+/** completo: dono e liberados (criam e decidem); consulta: Master (vê tudo, não edita); unidade: só a própria unidade, sem premissas. */
+export type ModoEstudos = "completo" | "consulta" | "unidade";
+export interface DadosEstudos { disponivel: boolean; modo?: ModoEstudos; /** No modo unidade: as unidades da pessoa. */ minhas?: string[]; premissas?: Premissas; vendasPorM2?: Record<Modelo, FaixaM2 | null>; unidades?: UnidadeEstudo[]; censo?: Censo | null; pontos?: Ponto[] }
 
 export type Veredito = "aprovado" | "atencao" | "reprovado";
 export interface Resultado {
@@ -163,3 +169,19 @@ export function acertoDoModelo(pontos: Ponto[], unidades: UnidadeEstudo[]) {
   const erro = casos.reduce((a, c) => a + Math.abs(c.prev.provavel - c.real) / c.real, 0) / casos.length;
   return { n: casos.length, dentro, erroMedio: erro };
 }
+
+/** Até onde moram 80% dos alunos de verdade (pelos bairros), em km. */
+export function raio80Real(u: UnidadeEstudo): number | null {
+  if (!u.c || !u.bairros?.length) return null;
+  const d = u.bairros.map(([, lat, lng, n]) => [km(u.c as [number, number], [lat, lng]), n] as const).sort((a, b) => a[0] - b[0]);
+  const total = d.reduce((a, x) => a + x[1], 0);
+  let acum = 0;
+  for (const [dist, n] of d) { acum += n; if (acum >= total * 0.8) return dist; }
+  return d[d.length - 1][0];
+}
+
+/** Unidade em operação vista como um ponto, para reaproveitar o mapa de calor (as outras unidades dividem a captação). */
+export const unidadeComoPonto = (u: UnidadeEstudo): Ponto => ({
+  id: `unidade-${u.nome}`, nome: u.nome, c: u.c as [number, number], modelo: u.modelo, m2: u.m2 ?? 1000,
+  imovel: { fachada: false, estacionamento: false, polo: false, aPe: false },
+});

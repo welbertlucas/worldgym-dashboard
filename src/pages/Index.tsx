@@ -61,7 +61,7 @@ import {
 } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerEstudos, podeVerObras, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
+import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerObras, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -566,7 +566,7 @@ const Index = () => {
 
         {activeTab === "qualidade" && (podeVerQualidade() || podePreencherChecklist()) && <QualidadeTab />}
 
-        {activeTab === "estudos-de-ponto" && (ehDono() || podeVerEstudos()) && <EstudosPontoTab />}
+        {activeTab === "estudos-de-ponto" && <EstudosPontoTab />}
 
         {activeTab === "unidades-em-obra" && (ehDono() || podeVerObras()) && <EmBreve titulo="Unidades em obra" descricao="Acompanhamento das unidades que estão em construção." />}
 
