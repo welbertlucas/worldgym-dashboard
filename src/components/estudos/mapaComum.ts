@@ -24,6 +24,18 @@ export async function carregarLeaflet(): Promise<Leaflet> {
 export const bolinha = (L: Leaflet, cor: string, tam: number, opacidade = 1) =>
   L.divIcon({ className: "", iconSize: [tam, tam], iconAnchor: [tam / 2, tam / 2], html: `<div style="width:${tam}px;height:${tam}px;border-radius:50%;background:${cor};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);opacity:${opacidade}"></div>` });
 
+/** Formato do pino de localização (viewBox 24×32, ponta embaixo no meio). */
+export const PINO_D = "M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z";
+/** Pino de localização (unidade estudada, ponto novo com a letra). `data-pino` deixa a foto do PDF desenhar o mesmo pino. */
+export function pino(L: Leaflet, cor: string, alto = 34, letra = "") {
+  const w = Math.round(alto * 0.75);
+  const miolo = letra
+    ? `<text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Inter,sans-serif">${letra}</text>`
+    : `<circle cx="12" cy="12" r="4.4" fill="#fff"/>`;
+  return L.divIcon({ className: "", iconSize: [w, alto], iconAnchor: [w / 2, alto],
+    html: `<div data-pino="${cor}" data-pino-letra="${letra}" style="width:${w}px;height:${alto}px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"><svg viewBox="0 0 24 32" width="${w}" height="${alto}" style="display:block"><path d="${PINO_D}" fill="${cor}" stroke="#fff" stroke-width="1.6"/>${miolo}</svg></div>` });
+}
+
 /** Chave do Street View embutido (Maps Embed API). Sem ela, "Ver a rua" abre o Google Maps em outra aba. */
 export const CHAVE_STREET_VIEW: string = (import.meta.env.VITE_GOOGLE_EMBED_KEY as string | undefined) ?? "";
 export const urlStreetView = (c: [number, number]) =>
@@ -72,10 +84,54 @@ export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = true): Pro
         }
         continue;
       }
+      // pino de localização: o mesmo desenho, um pouco menor na foto (ponta no mesmo lugar)
+      if (alvo.dataset.pino) {
+        const esc2 = 0.78, w = p.w * esc2, h = p.h * esc2, x = p.x + (p.w - w) / 2, yy = p.y + p.h - h;
+        ctx.save(); ctx.translate(x, yy); ctx.scale(w / 24, h / 32);
+        const forma = new Path2D(PINO_D);
+        ctx.fillStyle = alvo.dataset.pino; ctx.fill(forma); ctx.lineWidth = 1.6; ctx.strokeStyle = "#fff"; ctx.stroke(forma);
+        if (alvo.dataset.pinoLetra) { ctx.fillStyle = "#fff"; ctx.font = "700 11px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(alvo.dataset.pinoLetra, 12, 12.5); }
+        else { ctx.beginPath(); ctx.arc(12, 12, 4.4, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill(); }
+        ctx.restore();
+        continue;
+      }
       const cor = getComputedStyle(alvo).backgroundColor || "#c41230";
       ctx.beginPath(); ctx.arc(p.x + p.w / 2, p.y + p.h / 2, Math.max(4, Math.min(p.w, p.h) / 2), 0, Math.PI * 2);
       ctx.fillStyle = cor; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
     }
     return c.toDataURL("image/jpeg", 0.85);
   } catch { return null; }
+}
+
+export const pausa = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
+type MapaBase = { mapa: import("leaflet").Map; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer };
+
+/** Espera os azulejos do fundo carregarem (no máximo `ms`). */
+async function esperarAzulejos(m: MapaBase, ms = 5000) {
+  await pausa(160);
+  const camada = m.mapa.hasLayer(m.sat) ? m.sat : m.ruas;
+  if (!(camada as unknown as { isLoading?: () => boolean }).isLoading?.()) return pausa(80);
+  await new Promise<void>((ok) => { const t = setTimeout(ok, ms); camada.once("load", () => { clearTimeout(t); ok(); }); });
+  await pausa(120);
+}
+
+/**
+ * Foto do mapa para o PDF num enquadramento fixo (o mesmo para todo mundo, não importa o zoom da tela): leva o mapa até `alvo`,
+ * troca o fundo (ruas cinza ou satélite), espera carregar, fotografa e devolve tudo como estava.
+ */
+export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, number]; zoom: number } | { limites: import("leaflet").LatLngBounds }, satelite = false): Promise<string | null> {
+  const centro = m.mapa.getCenter(), zoom = m.mapa.getZoom();
+  const tinhaSat = m.mapa.hasLayer(m.sat), tinhaRuas = m.mapa.hasLayer(m.ruas);
+  try {
+    if (satelite) { if (tinhaRuas) m.mapa.removeLayer(m.ruas); if (!tinhaSat) m.sat.addTo(m.mapa); }
+    else { if (tinhaSat) m.mapa.removeLayer(m.sat); if (!tinhaRuas) m.ruas.addTo(m.mapa); }
+    if ("limites" in alvo) m.mapa.fitBounds(alvo.limites, { animate: false, padding: [12, 12] });
+    else m.mapa.setView(alvo.centro, alvo.zoom, { animate: false });
+    await esperarAzulejos(m);
+    return await fotoDoMapa(m.mapa, !satelite);
+  } finally {
+    if (m.mapa.hasLayer(m.sat) !== tinhaSat) { if (tinhaSat) m.sat.addTo(m.mapa); else m.mapa.removeLayer(m.sat); }
+    if (m.mapa.hasLayer(m.ruas) !== tinhaRuas) { if (tinhaRuas) m.ruas.addTo(m.mapa); else m.mapa.removeLayer(m.ruas); }
+    m.mapa.setView(centro, zoom, { animate: false });
+  }
 }

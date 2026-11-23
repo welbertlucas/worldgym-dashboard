@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error módulo JS da função serverless
-import { aplicarVerComo, sessaoComoPessoa } from "../../../api/_auth.js";
+import { aplicarVerComo, ehSoConsulta, sessaoComoPessoa } from "../../../api/_auth.js";
 import { cabecalhoVerComo } from "@/lib/auth";
 
 const dono = { id: "1", nome: "Dono", email: "d@x", papel: "dono", unidades: [], legado: false };
@@ -58,5 +58,12 @@ describe("ver como (dono simulando outro nível)", () => {
     expect(sessaoComoPessoa({ ...dono, papel: "master" }, "pessoa:g1", lista)).toBeNull(); // só o dono simula
     expect(sessaoComoPessoa({ ...dono }, "master", lista)).toBeNull();
     expect(cabecalhoVerComo({ papel: "pessoa", id: "g1", nome: "Gerente Gama" })).toEqual({ "X-Atlas-Ver-Como": "pessoa:g1" });
+  });
+  it("no Ver como, só a busca de academias concorrentes passa como consulta; salvar estudos continua bloqueado", () => {
+    expect(ehSoConsulta({ query: { modulo: "estudos" }, body: { acao: "pois" } })).toBe(true);
+    expect(ehSoConsulta({ query: { modulo: "estudos" }, body: JSON.stringify({ acao: "pois" }) })).toBe(true);
+    expect(ehSoConsulta({ query: { modulo: "estudos" }, body: { acao: "pontos" } })).toBe(false);
+    expect(ehSoConsulta({ query: { modulo: "qualidade" }, body: { acao: "pois" } })).toBe(false);
+    expect(ehSoConsulta({ query: {}, body: "{" })).toBe(false);
   });
 });

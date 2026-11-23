@@ -250,3 +250,21 @@ describe("pontos de interesse (server/pois.js)", () => {
     definirArmazem(null);
   });
 });
+
+describe("classes de renda", () => {
+  it("classifica pela faixa e divide os moradores do raio por classe", async () => {
+    const { classeDaRenda, classesNoRaio } = await import("@/lib/estudoPonto");
+    expect(classeDaRenda(1000)?.id).toBe("E");
+    expect(classeDaRenda(5000)?.id).toBe("C");
+    expect(classeDaRenda(30000)?.id).toBe("AA");
+    expect(classeDaRenda(null)).toBeNull();
+    const censo = { rk: 0.3, celulas: [[-15.8, -47.9, 300, 2000], [-15.801, -47.9, 100, 9000], [-15.9, -47.9, 999, 50000]] as [number, number, number, number | null][] };
+    const r = classesNoRaio([-15.8, -47.9], censo, 2);
+    expect(r.moradores).toBe(400);
+    expect(r.classes.find((c) => c.id === "D")?.parte).toBeCloseTo(0.75);
+    expect(r.ab).toBeCloseTo(0.25);
+    expect(r.cde).toBeCloseTo(0.75);
+    expect(r.media).toBeCloseTo((300 * 2000 + 100 * 9000) / 400);
+  });
+});
+

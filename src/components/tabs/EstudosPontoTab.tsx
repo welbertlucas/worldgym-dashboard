@@ -2,15 +2,15 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
-import { fotoDoMapa, gradienteRampa } from "@/components/estudos/mapaComum";
-import { StreetView } from "@/components/estudos/StreetView";
-import { CSS_POIS, ControlePois, SecaoPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { fotoDoMapa, fotoEnquadrada, gradienteRampa, pausa, pino } from "@/components/estudos/mapaComum";
+import { IconeBoneco, StreetView } from "@/components/estudos/StreetView";
+import { CSS_POIS, ControlePois, SecaoPois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Faixa, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { Building2, Calculator, Gavel, ListChecks, Store, TrendingUp } from "lucide-react";
 import { gerarPdfDoEstudo, nomeDoArquivo } from "@/lib/estudoPdf";
-import { MapaUnidade } from "@/components/estudos/MapaUnidade";
+import { LegendaRenda, MapaUnidade } from "@/components/estudos/MapaUnidade";
 import {
-  DECISAO_ROTULO, VEREDITO_ROTULO, avaliarPonto, captacaoDe, fatoresDe, km, meses, parecidas, reais, regiaoDe,
+  DECISAO_ROTULO, VEREDITO_ROTULO, avaliarPonto, captacaoDe, classeDaRenda, fatoresDe, km, meses, parecidas, reais, regiaoDe,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
@@ -20,7 +20,8 @@ const ITENS: { k: keyof Ponto["imovel"]; rotulo: string }[] = [
   { k: "fachada", rotulo: "Fachada na avenida" }, { k: "estacionamento", rotulo: "Estacionamento" },
   { k: "polo", rotulo: "Polo comercial" }, { k: "aPe", rotulo: "Bom acesso a pé" },
 ];
-type Lente = "captacao" | "pessoas" | "renda" | "rede";
+// "limpa": só os pinos (usada nas fotos de satélite do PDF)
+type Lente = "captacao" | "pessoas" | "renda" | "rede" | "limpa";
 const LENTES: { id: Lente; rotulo: string }[] = [
   { id: "captacao", rotulo: "De onde vêm os alunos" }, { id: "pessoas", rotulo: "Pessoas" }, { id: "renda", rotulo: "Renda" }, { id: "rede", rotulo: "Nossa rede" },
 ];
@@ -88,10 +89,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       if (!vivo || !mapaEl.current) return;
       const L = (mod as unknown as { default?: typeof import("leaflet") }).default ?? (mod as typeof import("leaflet"));
       const centro = (todos.find((p) => p.id === atualId) ?? pontos[0])?.c ?? dados.unidades!.find((u) => u.c)?.c ?? [-15.8, -47.9];
-      // a rolagem do mouse só dá zoom depois de um clique no mapa (a página rola por cima dele); azulejos com crossOrigin para a foto do PDF
-      const mapa = L.map(mapaEl.current, { zoomControl: false, preferCanvas: true, scrollWheelZoom: false }).setView(centro, 13);
-      mapa.on("click", () => mapa.scrollWheelZoom.enable());
-      mapa.on("mouseout", () => mapa.scrollWheelZoom.disable());
+      // a rolagem do mouse aproxima o mapa direto; azulejos com crossOrigin para a foto do PDF
+      const mapa = L.map(mapaEl.current, { zoomControl: false, preferCanvas: true, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView(centro, 13);
       const ruas = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
       L.control.zoom({ position: "bottomright" }).addTo(mapa);
@@ -160,11 +159,13 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       const vis = censo.celulas.filter(([lat, lng]) => km([lat, lng], atual.c) < 5);
       const v = (c: (typeof vis)[number]) => (lente === "pessoas" ? c[2] : c[3] ?? 0);
       const xs = vis.map(v).filter((x) => x > 0).sort((a, b) => a - b), mx = xs[Math.floor(xs.length * 0.95)] ?? 1;
-      const cor = lente === "pessoas" ? "#c41230" : "#1f5f8b";
       for (const c of vis) {
-        const t = Math.min(1, v(c) / mx);
-        L.polygon(hex(c[0], c[1]), { color: "#fff", weight: 1, opacity: 0.6, fillColor: cor, fillOpacity: 0.04 + t * t * 0.42 })
-          .bindTooltip(lente === "pessoas" ? `${c[2].toLocaleString("pt-BR")} moradores` : c[3] ? `Renda média do responsável: R$ ${c[3].toLocaleString("pt-BR")}` : "Sem dado de renda", { sticky: true }).addTo(camadas);
+        const t = Math.min(1, v(c) / mx), classe = lente === "renda" ? classeDaRenda(c[3]) : null;
+        if (lente === "renda" && !classe) continue;
+        L.polygon(hex(c[0], c[1]), lente === "renda"
+          ? { color: "#fff", weight: 1, opacity: 0.6, fillColor: classe!.cor, fillOpacity: 0.45 }
+          : { color: "#fff", weight: 1, opacity: 0.6, fillColor: "#c41230", fillOpacity: 0.04 + t * t * 0.42 })
+          .bindTooltip(lente === "pessoas" ? `${c[2].toLocaleString("pt-BR")} moradores` : c[3] ? `${classeDaRenda(c[3])?.rotulo ?? ""}: renda média do responsável R$ ${c[3].toLocaleString("pt-BR")}` : "Sem dado de renda", { sticky: true }).addTo(camadas);
       }
     }
     // unidades da rede (sempre, discretas; em destaque na lente "Nossa rede")
@@ -177,11 +178,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     }
     // pontos em estudo
     pontos.forEach((p, i) => {
-      const sel = p.id === atualId, tam = sel ? 34 : 26;
-      const mk = L.marker(p.c, {
-        draggable: editavel, zIndexOffset: sel ? 2000 : 1000, title: p.nome,
-        icon: L.divIcon({ className: "", iconSize: [tam, tam], iconAnchor: [tam / 2, tam], html: `<div style="width:${tam}px;height:${tam}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${CORES[i % CORES.length]};border:3px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.35);display:grid;place-items:center;cursor:grab"><span style="transform:rotate(45deg);color:#fff;font:600 ${sel ? 14 : 12}px Inter,sans-serif">${letra(i)}</span></div>` }),
-      }).addTo(camadas);
+      const sel = p.id === atualId;
+      const mk = L.marker(p.c, { draggable: editavel, zIndexOffset: sel ? 2000 : 1000, title: p.nome, icon: pino(L, CORES[i % CORES.length], sel ? 40 : 32, letra(i)) }).addTo(camadas);
       mk.on("click", () => setAtualId(p.id));
       mk.on("dragend", () => { const ll = mk.getLatLng(); mudar(p.id, { c: [ll.lat, ll.lng] }); setAtualId(p.id); });
     });
@@ -196,10 +194,21 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const fatores = atual && r && cap ? fatoresDe(atual, r, cap, dados.unidades!, dados.censo!, dados.premissas!) : [];
 
   const exportar = async () => {
-    if (!mapaRef.current) return;
+    const m = mapaRef.current;
+    if (!m) return;
     setGerando(true);
+    const lenteAntes = lente, poisAntes = pois;
+    // fotos para o PDF: o mapa como está na tela, o satélite de cada ponto e, do ponto aberto, a área de captação e as academias
+    const tirar = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
-      const foto = await fotoDoMapa(mapaRef.current.mapa, !satelite);
+      const foto = await fotoDoMapa(m.mapa, !satelite);
+      setPois(null); // as academias só aparecem na foto delas
+      const sats = new Map<string, string | null>();
+      for (const p of pontos) sats.set(p.id, await tirar("limpa", { centro: p.c, zoom: 16 }, true));
+      const fotoCap = atual && cap ? await tirar("captacao", { limites: m.L.latLng(atual.c).toBounds(Math.max(2.5, cap.raio80) * 2000) }) : null;
+      if (pois) { setPois(pois); await pausa(300); }
+      const fotoPois = atual && pois ? await tirar("limpa", { limites: m.L.latLng(pois.c).toBounds(pois.raioKm * 2000) }) : null;
+      setLente(lenteAntes);
       const reg = dados.premissas!.regua;
       const paginas = pontos.map((p, i) => {
         const rr = resultados.get(p.id);
@@ -208,6 +217,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         const pr = parecidas(p, dados.censo!, dados.unidades!);
         return {
           titulo: `${letra(i)}. ${p.nome}`, subtitulo: `${regiaoDe(p, dados.unidades!)} · ${dados.premissas!.modelos[p.modelo].nome} · ${p.m2.toLocaleString("pt-BR")} m²`,
+          foto: { dados: sats.get(p.id) ?? null, legenda: "O ponto visto de cima (imagem de satélite)." },
           faixa: rr ? { texto: `${VEREDITO_ROTULO[rr.veredito]} pelo modelo · payback ${meses(rr.payback)}`, tom: (rr.veredito === "aprovado" ? "bom" : rr.veredito === "atencao" ? "atencao" : "ruim") as "bom" | "atencao" | "ruim" } : undefined,
           destaques: rr ? [{ valor: reais(rr.provavel), rotulo: "vendas por mês previstas" }, { valor: rr.lucro > 0 ? reais(rr.lucro) : "prejuízo", rotulo: "lucro por mês" }, { valor: meses(rr.payback), rotulo: "para o investimento voltar" }] : undefined,
           frase: rr ? `Deve vender ${reais(rr.provavel)} por mês (entre ${reais(rr.pessimista)} e ${reais(rr.otimista)}). Para pagar o investimento em ${reg.mesesAprovado / 12} anos, precisa de ${reais(rr.meta)}.` : undefined,
@@ -216,25 +226,26 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             { rotulo: "80% dos alunos a até", valor: `${cp.raio80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km` },
           ] : [],
           secoes: [
+            ...(p.id === atual?.id && fotoCap ? [{ titulo: "Onde estariam os alunos", novaPagina: true, linhas: [], foto: { dados: fotoCap, legenda: "Mais escuro = onde o modelo espera mais alunos. Tracejado: área onde morariam 80% deles." } }] : []),
             { titulo: "O que pesa", linhas: fs.map((f) => ({ texto: `${f.positivo ? "+" : "−"} ${f.texto}`, tom: (f.positivo ? "bom" : "ruim") as "bom" | "ruim" })) },
             { titulo: "Decisão", linhas: [{ texto: DECISAO_ROTULO[p.decisao?.status ?? "analise"] + (p.decisao?.unidade ? `: ${p.decisao.unidade}` : ""), valor: p.decisao?.em ? new Date(p.decisao.em).toLocaleDateString("pt-BR") : undefined }], paragrafo: p.decisao?.comentario || undefined },
-            ...(pois && p.id === atual?.id ? [{ titulo: `${pois.rotulo} a até ${pois.raioKm.toLocaleString("pt-BR")} km: ${pois.total}`, linhas: pois.lugares.map((l, k) => ({ texto: `${k + 1}. ${l.nome}${l.rede ? ` (${l.rede})` : ""}`, valor: `${l.km.toLocaleString("pt-BR")} km` })), paragrafo: "Fonte: Google. Os números seguem a ordem de distância." }] : []),
+            ...(pois && p.id === atual?.id ? [{ titulo: `${rotuloPois(pois)} a até ${pois.raioKm.toLocaleString("pt-BR")} km: ${totalPois(pois)}`, novaPagina: true, foto: { dados: fotoPois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, linhas: pois.lugares.map((l, k) => ({ texto: `${k + 1}. ${l.nome}${l.rede ? ` (${l.rede})` : ""}`, valor: `${l.km.toLocaleString("pt-BR")} km` })), paragrafo: "Fonte: Google. Os números seguem a ordem de distância." }] : []),
             { titulo: "O imóvel", linhas: ITENS.map((it) => ({ texto: it.rotulo, valor: p.imovel[it.k] ? "sim" : "não" })) },
             ...(pr.length ? [{ titulo: "Unidades parecidas na rede", linhas: pr.map((u) => ({ texto: `${u.nome}, ${u.m2?.toLocaleString("pt-BR")} m²`, valor: u.vendas ? reais(u.vendas) : "—" })), paragrafo: "Mesma quantidade de moradores e renda a até 2 km." }] : []),
           ],
         };
       });
       await gerarPdfDoEstudo({
-        arquivo: nomeDoArquivo(pontos.length === 1 ? `estudo-de-ponto-${pontos[0].nome}` : "estudos-de-ponto"), cabecalho: "Estudo de ponto", foto,
+        arquivo: nomeDoArquivo(pontos.length === 1 ? `estudo-de-ponto-${pontos[0].nome}` : "estudos-de-ponto"), cabecalho: "Estudo de ponto", foto: null,
+        fotoComparacao: pontos.length > 1 ? { dados: foto, legenda: "Mapa do estudo, como estava na tela. Letras: os pontos estudados; bolinhas vermelhas: unidades World Gym." } : undefined,
         capa: { titulo: "Estudo de Geomarketing", linha: "Avaliação de Ponto", subtitulo: pontos.map((p) => `${p.nome}${p.regiao ? ` | ${p.regiao}` : ""}`).join(" · ") },
-        legendaFoto: "Mapa do estudo, como estava na tela. Letras: os pontos estudados; bolinhas vermelhas: unidades World Gym.",
         paginas,
         comparacao: pontos.length > 1 ? {
           colunas: ["Ponto", "Modelo e m²", "Vendas previstas", "Payback", "Veredito", "Decisão"],
           linhas: pontos.map((p, i) => { const rr = resultados.get(p.id); return [`${letra(i)}. ${p.nome}`, `${dados.premissas!.modelos[p.modelo].nome}, ${p.m2.toLocaleString("pt-BR")} m²`, rr ? reais(rr.provavel) : "—", rr ? meses(rr.payback) : "—", rr ? VEREDITO_ROTULO[rr.veredito] : "—", DECISAO_ROTULO[p.decisao?.status ?? "analise"]]; }),
         } : undefined,
       });
-    } finally { setGerando(false); }
+    } finally { setLente(lenteAntes); setPois(poisAntes); setGerando(false); }
   };
 
   return (
@@ -272,6 +283,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
               poucos alunos<span className="h-1.5 w-28 rounded" style={{ background: gradienteRampa }} />muitos alunos<span className="ml-2 border-l pl-2">tracejado: onde moram 80%</span>
             </div>
           )}
+          {lente === "renda" && <LegendaRenda />}
           {(adicionando || verRua) && <div className="pointer-events-auto rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">{adicionando ? "Clique no mapa onde fica o imóvel" : "Clique no mapa onde quer ver a rua"}</div>}
         </div>
         <div className="absolute bottom-24 right-3 z-[450] flex flex-col overflow-hidden rounded-xl bg-white shadow-lg">
@@ -279,10 +291,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z" /><path d="M9 4v13M15 7v13" /></svg><span className="sr-only">Satélite</span>
           </button>
           <button type="button" aria-pressed={verRua} onClick={() => { setAdicionando(false); setVerRua((v) => !v); }} title="Ver a rua (Street View)" className="grid h-10 w-10 place-items-center border-t aria-pressed:bg-foreground aria-pressed:text-background">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="5" r="2.5" /><path d="M12 8v7M8 12h8M10 21l2-6 2 6" /></svg><span className="sr-only">Ver a rua</span>
+            <IconeBoneco /><span className="sr-only">Ver a rua</span>
           </button>
         </div>
-        <div className="absolute left-3 top-[64px] z-[460]"><ControlePois centro={atual?.c ?? null} aviso aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
+        <div className="absolute bottom-3 left-3 z-[460]"><ControlePois centro={atual?.c ?? null} aviso aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
 

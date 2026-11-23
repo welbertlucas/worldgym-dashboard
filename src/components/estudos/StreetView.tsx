@@ -1,5 +1,15 @@
 import { CHAVE_STREET_VIEW, urlStreetView } from "@/components/estudos/mapaComum";
 
+/** Boneco do Street View (formato do Google), preenchido na cor do texto: preto no botão, branco quando ligado. */
+export function IconeBoneco() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="4.3" r="2.7" />
+      <path d="M8.6 8h6.8A1.9 1.9 0 0 1 17.3 9.9v5.2a1.1 1.1 0 0 1-1.1 1.1h-1.3V21a1.3 1.3 0 0 1-1.3 1.3h-3.2A1.3 1.3 0 0 1 9.1 21v-4.8H7.8a1.1 1.1 0 0 1-1.1-1.1V9.9A1.9 1.9 0 0 1 8.6 8Z" />
+    </svg>
+  );
+}
+
 /** Street View dentro da tela (Maps Embed API, grátis). Sem a chave configurada, oferece abrir no Google Maps. */
 export function StreetView({ ponto, fechar }: { ponto: [number, number]; fechar: () => void }) {
   return (

@@ -148,6 +148,14 @@ export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
  * Barra o pedido (401 sem login, 403 sem permissão) e devolve a sessão quando pode seguir; false quando já respondeu.
  * `papeis`: níveis aceitos (padrão: todos).
  */
+/** Pedido POST que só consulta (não grava nada): a busca de academias concorrentes dos Estudos de ponto. */
+export function ehSoConsulta(req) {
+  if (req.query?.modulo !== "estudos") return false;
+  let corpo = req.body;
+  if (typeof corpo === "string") { try { corpo = JSON.parse(corpo); } catch { return false; } }
+  return corpo?.acao === "pois";
+}
+
 export async function exigirLogin(req, res, { papeis } = {}) {
   try {
     if (!segredo()) {
@@ -171,7 +179,8 @@ export async function exigirLogin(req, res, { papeis } = {}) {
       return false;
     }
     // Vendo como outra pessoa: só consulta. Nada é gravado em nome dela.
-    if (sessao.somenteLeitura && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    // Exceção: a busca de academias concorrentes dos Estudos de ponto é POST, mas só consulta (não grava nada em nome da pessoa).
+    if (sessao.somenteLeitura && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !ehSoConsulta(req)) {
       res.setHeader("Cache-Control", "no-store");
       res.status(403).json({ error: `Você está vendo o Atlas como ${sessao.simulaNome}: só consulta. Volte a ver como dono para fazer alterações.` });
       return false;

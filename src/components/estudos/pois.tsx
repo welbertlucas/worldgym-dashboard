@@ -1,4 +1,4 @@
-// Pontos de interesse no mapa dos estudos (como no Mapfry): busca por categoria num raio em volta do ponto, com o NOME de cada
+// Academias concorrentes (e outros lugares) no mapa dos estudos, como no Mapfry: busca por categoria num raio em volta do ponto, com o NOME de cada
 // lugar sempre visível no mapa (para print e PDF), sem precisar clicar. Etiquetas que se sobrepõem somem até aproximar o zoom;
 // grandes redes têm prioridade. Modo "Números + lista" para quando há lugares demais. Longe (zoom de cidade), agrupa com o número.
 import { useEffect, useRef, useState } from "react";
@@ -12,13 +12,17 @@ export interface ResultadoPois { categoria: string; rotulo: string; c: [number, 
 export type ModoPois = "nomes" | "numeros";
 
 export const CATEGORIAS_POIS: { id: string; rotulo: string; singular: string }[] = [
-  { id: "academias", rotulo: "Academias", singular: "academia" },
+  { id: "academias", rotulo: "Academias concorrentes", singular: "academia concorrente" },
   { id: "escolas", rotulo: "Escolas e faculdades", singular: "escola ou faculdade" },
   { id: "supermercados", rotulo: "Supermercados", singular: "supermercado" },
   { id: "shoppings", rotulo: "Shoppings", singular: "shopping" },
   { id: "transporte", rotulo: "Ônibus, metrô e estações", singular: "estação ou terminal" },
   { id: "hospitais", rotulo: "Hospitais", singular: "hospital" },
 ];
+
+/** Nome da busca (o da tela, não o guardado no servidor) e o total; nas academias, as World Gym não contam como concorrentes. */
+export const rotuloPois = (res: ResultadoPois) => CATEGORIAS_POIS.find((c) => c.id === res.categoria)?.rotulo ?? res.rotulo;
+export const totalPois = (res: ResultadoPois) => (res.categoria === "academias" ? res.lugares.filter((l) => l.rede !== "World Gym").length : res.total);
 
 export async function buscarPois(c: [number, number], raioKm: number, categoria: string): Promise<ResultadoPois> {
   const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "pois", c, raioKm, categoria }) });
@@ -83,7 +87,7 @@ export function desenharPois(L: Leaflet, mapa: import("leaflet").Map, grupo: imp
   return arrumar;
 }
 
-/** Controle "Pontos de interesse": categoria, raio e buscar. `aviso`: pergunta antes de mandar a posição ao Google (pontos novos). */
+/** Controle "Academias concorrentes" (no canto de baixo do mapa): categoria, raio e buscar. `aviso`: pergunta antes de mandar a posição ao Google (pontos novos). */
 export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado }: {
   centro: [number, number] | null; aviso: boolean; aoResultado: (r: ResultadoPois | null) => void; modo: ModoPois; setModo: (m: ModoPois) => void; temResultado: boolean;
 }) {
@@ -101,13 +105,13 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
     try { aoResultado(await buscarPois(centro, raio, categoria)); setAberto(false); } catch (e) { setErro((e as Error).message); } finally { setBuscando(false); }
   };
   return (
-    <div className="pointer-events-auto relative">
+    <div className="pointer-events-auto relative flex flex-col-reverse items-start gap-2">
       <button type="button" aria-expanded={aberto} onClick={() => setAberto((a) => !a)} disabled={!centro}
         className="flex h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-[13px] font-medium shadow-lg disabled:opacity-50 aria-expanded:ring-2 aria-expanded:ring-foreground">
-        <MapPinned className="h-4 w-4 text-primary" aria-hidden />Pontos de interesse
+        <MapPinned className="h-4 w-4 text-primary" aria-hidden />Academias concorrentes
       </button>
       {aberto && (
-        <div className="absolute left-0 top-12 z-[700] w-72 space-y-3 rounded-xl border bg-white p-3 shadow-2xl">
+        <div className="absolute bottom-12 left-0 z-[700] w-72 space-y-3 rounded-xl border bg-white p-3 shadow-2xl">
           <label className="block text-xs font-medium text-muted-foreground">O que buscar
             <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="mt-1 h-9 w-full rounded-lg border bg-white px-2 text-sm text-foreground">
               {CATEGORIAS_POIS.map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
@@ -125,7 +129,7 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
         </div>
       )}
       {temResultado && (
-        <div className="mt-2 flex rounded-lg bg-white p-0.5 text-xs shadow" role="group" aria-label="Como mostrar os lugares">
+        <div className="flex rounded-lg bg-white p-0.5 text-xs shadow" role="group" aria-label="Como mostrar os lugares">
           {(["nomes", "numeros"] as ModoPois[]).map((m) => (
             <button key={m} type="button" aria-pressed={modo === m} onClick={() => setModo(m)} className="rounded-md px-2.5 py-1 text-muted-foreground aria-pressed:bg-foreground aria-pressed:font-medium aria-pressed:text-background">{m === "nomes" ? "Nomes no mapa" : "Números + lista"}</button>
           ))}
@@ -153,13 +157,15 @@ export function usePoisNoMapa(mapa: { L: Leaflet; mapa: import("leaflet").Map } 
 /** Seção do estudo com a contagem e a lista numerada (a mesma ordem dos números no mapa). */
 export function SecaoPois({ res }: { res: ResultadoPois }) {
   const cat = CATEGORIAS_POIS.find((c) => c.id === res.categoria);
+  const total = totalPois(res);
   const redes = [...new Set(res.lugares.map((l) => l.rede).filter((r): r is string => !!r && r !== "World Gym"))];
   return (
-    <Secao icone={MapPinned} titulo={`${res.rotulo} a até ${res.raioKm.toLocaleString("pt-BR")} km`} className="lg:col-span-2">
+    <Secao icone={MapPinned} titulo={`${rotuloPois(res)} a até ${res.raioKm.toLocaleString("pt-BR")} km`} className="lg:col-span-2">
       <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
         <div className="text-center">
-          <div className="font-display text-[44px] font-semibold leading-none text-primary">{res.total}</div>
-          <div className="mt-1 text-sm text-muted-foreground">{res.total === 1 ? cat?.singular ?? "lugar" : res.rotulo.toLowerCase()}</div>
+          <div className="font-display text-[44px] font-semibold leading-none text-primary">{total}</div>
+          <div className="mt-1 text-sm text-muted-foreground">{total === 1 ? cat?.singular ?? "lugar" : rotuloPois(res).toLowerCase()}</div>
+          {res.categoria === "academias" && total !== res.total && <div className="mt-1 text-xs text-muted-foreground">sem contar as World Gym</div>}
           {redes.length > 0 && <div className="mt-3 text-xs text-muted-foreground">Grandes redes: <b className="text-foreground">{redes.join(", ")}</b></div>}
           {res.cortado && <div className="mt-2 text-xs text-warning">Área com muitos lugares: a lista mostra os 220 mais perto.</div>}
         </div>

@@ -1,4 +1,4 @@
-// Pontos de interesse em volta de um ponto (academias, escolas, supermercados...), como no Mapfry: busca no Google só a área e a
+// Academias concorrentes e outros pontos de interesse em volta de um ponto (academias, escolas, supermercados...), como no Mapfry: busca no Google só a área e a
 // categoria pedidas. Places Aggregate (lista dos lugares no círculo; divide a área quando passa de 100) + Place Details (nome,
 // endereço e posição). O resultado fica guardado no Blob (estudos/pois/...) por 90 dias: a mesma busca não é cobrada de novo.
 // A chave do servidor (GOOGLE_PLACES_KEY) nunca vai para o navegador.
@@ -7,7 +7,7 @@ import { lerJson, gravarJson } from "./armazem.js";
 export class ErroPois extends Error { constructor(msg, status = 400) { super(msg); this.status = status; } }
 
 export const CATEGORIAS = {
-  academias: { rotulo: "Academias", tipos: ["gym", "fitness_center"] },
+  academias: { rotulo: "Academias concorrentes", tipos: ["gym", "fitness_center"] },
   escolas: { rotulo: "Escolas e faculdades", tipos: ["school", "university", "secondary_school", "primary_school"] },
   supermercados: { rotulo: "Supermercados", tipos: ["supermarket", "grocery_store"] },
   shoppings: { rotulo: "Shoppings", tipos: ["shopping_mall"] },

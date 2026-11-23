@@ -1,18 +1,27 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bolinha, carregarLeaflet, fotoDoMapa, gradienteRampa, hexagono, rampa, type Leaflet } from "@/components/estudos/mapaComum";
-import { StreetView } from "@/components/estudos/StreetView";
-import { CSS_POIS, ControlePois, SecaoPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, hexagono, pausa, pino, rampa, type Leaflet } from "@/components/estudos/mapaComum";
+import { IconeBoneco, StreetView } from "@/components/estudos/StreetView";
+import { CSS_POIS, ControlePois, SecaoPois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { MapPin, Scale, TrendingUp, Users } from "lucide-react";
 import { gerarPdfDoEstudo, nomeDoArquivo } from "@/lib/estudoPdf";
-import { captacaoDe, km, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { CLASSES_RENDA, captacaoDe, classeDaRenda, classesNoRaio, km, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
 
-type Lente = "alunos" | "modelo" | "pessoas" | "renda" | "rede";
+// "limpa": só a unidade (usada na foto de satélite do PDF)
+type Lente = "alunos" | "modelo" | "pessoas" | "renda" | "rede" | "limpa";
 const LENTES: { id: Lente; rotulo: string }[] = [
   { id: "alunos", rotulo: "Onde moram os alunos" }, { id: "modelo", rotulo: "Onde o modelo diria" },
   { id: "pessoas", rotulo: "Pessoas" }, { id: "renda", rotulo: "Renda" }, { id: "rede", rotulo: "Nossa rede" },
 ];
+/** Leitura do perfil de renda, no tom do estudo de geomarketing. */
+function leituraDaRenda(r: ReturnType<typeof classesNoRaio>) {
+  const p = (x: number) => `${(x * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+  const [a, b] = [...r.classes].sort((x, y) => y.parte - x.parte);
+  const perfil = r.cde >= 0.75 ? "predominantemente popular" : r.ab >= 0.4 ? "de renda mais alta" : "misto";
+  const efeito = r.cde >= 0.75 ? "o que indica sensibilidade a preço e favorece modelos focados em escala e eficiência" : r.ab >= 0.4 ? "o que abre espaço para planos de maior valor e serviços" : "o que pede uma oferta que atenda as duas faixas";
+  return `A região tem perfil ${perfil}: ${p(r.ab)} dos moradores nas classes AA, A e B e ${p(r.cde)} nas classes C, D e E. As classes que mais aparecem são a ${a.id} (${p(a.parte)}) e a ${b.id} (${p(b.parte)}), ${efeito}.`;
+}
 const fmtKm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`);
 
 /**
@@ -50,10 +59,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     let vivo = true;
     carregarLeaflet().then((L) => {
       if (!vivo || !el.current) return;
-      // A rolagem do mouse só dá zoom depois de um clique no mapa: assim a página rola normalmente por cima dele.
-      const mapa = L.map(el.current, { zoomControl: false, preferCanvas: true, scrollWheelZoom: false }).setView(u?.c ?? [-15.8, -47.9], 13);
-      mapa.on("click", () => mapa.scrollWheelZoom.enable());
-      mapa.on("mouseout", () => mapa.scrollWheelZoom.disable());
+      // A rolagem do mouse (e o gesto de pinça do trackpad) aproxima o mapa direto.
+      const mapa = L.map(el.current, { zoomControl: false, preferCanvas: true, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView(u?.c ?? [-15.8, -47.9], 13);
       const ruas = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
       L.control.zoom({ position: "bottomright" }).addTo(mapa);
@@ -105,19 +112,22 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
       const vis = censo.celulas.filter(([la, ln]) => km([la, ln], u.c as [number, number]) < 5);
       const v = (c: (typeof vis)[number]) => (lente === "pessoas" ? c[2] : c[3] ?? 0);
       const xs = vis.map(v).filter((x) => x > 0).sort((a, b) => a - b), mx = xs[Math.floor(xs.length * 0.95)] ?? 1;
-      const cor = lente === "pessoas" ? "#c41230" : "#1f5f8b";
       for (const c of vis) {
-        const t = Math.min(1, v(c) / mx);
-        L.polygon(hexagono(c[0], c[1], censo.rk), { color: "#fff", weight: 1, opacity: 0.6, fillColor: cor, fillOpacity: 0.04 + t * t * 0.42 })
-          .bindTooltip(lente === "pessoas" ? `${c[2].toLocaleString("pt-BR")} moradores` : c[3] ? `Renda média do responsável: R$ ${c[3].toLocaleString("pt-BR")}` : "Sem dado de renda", { sticky: true }).addTo(camadas);
+        const t = Math.min(1, v(c) / mx), classe = lente === "renda" ? classeDaRenda(c[3]) : null;
+        if (lente === "renda" && !classe) continue;
+        // pessoas: vermelho mais forte onde mora mais gente; renda: uma cor por classe (legenda em cima do mapa)
+        L.polygon(hexagono(c[0], c[1], censo.rk), lente === "renda"
+          ? { color: "#fff", weight: 1, opacity: 0.6, fillColor: classe!.cor, fillOpacity: 0.45 }
+          : { color: "#fff", weight: 1, opacity: 0.6, fillColor: "#c41230", fillOpacity: 0.04 + t * t * 0.42 })
+          .bindTooltip(lente === "pessoas" ? `${c[2].toLocaleString("pt-BR")} moradores` : c[3] ? `${classeDaRenda(c[3])?.rotulo ?? ""}: renda média do responsável R$ ${c[3].toLocaleString("pt-BR")}` : "Sem dado de renda", { sticky: true }).addTo(camadas);
       }
     }
     for (const o of dados.unidades ?? []) {
-      if (!o.c || o.nome === u.nome) continue;
+      if (!o.c || o.nome === u.nome || lente === "limpa") continue;
       L.marker(o.c, { icon: bolinha(L, "#c41230", lente === "rede" ? 15 : 11, lente === "rede" ? 1 : 0.7) }).bindTooltip(`World Gym ${o.nome}, a ${fmtKm(km(o.c, u.c))}`).addTo(camadas);
       if (lente === "rede") L.circle(o.c, { radius: 2400, color: "#c41230", weight: 1, dashArray: "3 4", fillOpacity: 0.05, interactive: false }).addTo(camadas);
     }
-    L.marker(u.c, { zIndexOffset: 2000, title: u.nome, icon: L.divIcon({ className: "", iconSize: [30, 30], iconAnchor: [15, 30], html: `<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#c41230;border:3px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.35)"></div>` }) })
+    L.marker(u.c, { zIndexOffset: 2000, title: u.nome, icon: pino(L, "#c41230", 34) })
       .bindTooltip(`<strong>World Gym ${u.nome}</strong>`).addTo(camadas);
     if (rua) L.marker(rua, { icon: bolinha(L, "#f59e0b", 14) }).addTo(camadas);
   }, [lente, u, cap, pronto, rua]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -136,17 +146,57 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     ? `Vende ${reais(u.vendas)} por mês${comparado != null ? `, ${Math.abs(Math.round(comparado * 100))}% ${comparado >= 0 ? "acima" : "abaixo"} da média da rede para o tamanho dela` : ""}.`
     : null;
 
+  // Conclusão do estudo, montada com os mesmos números das páginas (regras fixas, sem texto inventado)
+  const concorrentesPdf = pois && pois.categoria === "academias" ? pois.lugares.filter((l) => l.rede !== "World Gym") : null;
+  const redesPdf = concorrentesPdf ? [...new Set(concorrentesPdf.map((l) => l.rede).filter((r): r is string => !!r))] : [];
+  const conclusao = (renda: ReturnType<typeof classesNoRaio> | null) => {
+    const itens: string[] = [];
+    if (u.vendas != null && comparado != null) itens.push(`Vende ${reais(u.vendas)} por mês, ${Math.abs(Math.round(comparado * 100))}% ${comparado >= 0 ? "acima" : "abaixo"} da média da rede por m².`);
+    if (u.previsto && u.vendas != null && u.madura) itens.push(u.vendas > u.previsto.otimista ? "Vende acima do que o modelo espera para o tamanho do imóvel." : u.vendas < u.previsto.pessimista ? "Vende abaixo do que o modelo espera para o tamanho do imóvel." : "Vende dentro do que o modelo espera para o tamanho do imóvel.");
+    if (r80) itens.push(`80% dos alunos moram a até ${fmtKm(r80)}${topBairros[0] ? `; o bairro que mais traz alunos é ${topBairros[0][0]} (${Math.round((topBairros[0][3] / Math.max(1, alunosBairro)) * 100)}%)` : ""}.`);
+    if (renda) itens.push(`Perfil ${renda.cde >= 0.75 ? "popular" : renda.ab >= 0.4 ? "de renda mais alta" : "misto"}: ${Math.round(renda.cde * 100)}% dos moradores nas classes C, D e E.`);
+    if (concorrentesPdf && pois) itens.push(`${concorrentesPdf.length} academias concorrentes a até ${pois.raioKm.toLocaleString("pt-BR")} km${redesPdf.length ? `, entre elas ${redesPdf.join(", ")}` : ""}.`);
+    itens.push(cap?.divideCom.length ? `Divide a área com ${cap.divideCom.map((d) => `${d.nome} (${Math.round(d.parte * 100)}%)`).join(", ")}.` : "Nenhuma World Gym divide a área desta unidade.");
+    return itens;
+  };
+  const recomendacao = () => {
+    if (!u.madura) return "A unidade ainda está amadurecendo (menos de 12 meses): a leitura de resultado vale a partir do 12º mês.";
+    if (comparado != null && comparado < -0.1) return "A unidade vende abaixo do que o tamanho dela permite. Compare os mapas \"Onde moram os alunos\" e \"Onde o modelo diria\": os bairros onde o modelo espera alunos e eles não aparecem são onde concentrar marketing e parcerias. Veja também a pressão das academias concorrentes mais próximas.";
+    if (comparado != null && comparado > 0.1) return "A unidade vende acima da média da rede para o tamanho dela: o ponto e a gestão funcionam. Vale proteger a base (renovação e atendimento) e acompanhar a entrada de novas academias concorrentes na área.";
+    return "A unidade vende perto da média da rede para o tamanho dela. Os bairros onde o modelo espera alunos e eles não aparecem são a principal oportunidade de crescimento.";
+  };
+
   const exportar = async () => {
-    if (!ref.current) return;
+    const m = ref.current;
+    if (!m || !u.c) return;
     setGerando(true);
+    const lenteAntes = lente, poisAntes = pois;
+    setPois(null); // as academias só aparecem na foto delas
+    // Fotos do mapa num enquadramento fixo: satélite do imóvel e uma foto por lente, todas na área onde moram 80% dos alunos.
+    const foto = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
-      const foto = await fotoDoMapa(ref.current.mapa, !satelite);
+      const area = m.L.latLng(u.c).toBounds(Math.max(2.5, r80 ?? 2.5) * 2000);
+      // alunos: a área dos 80% com folga e os bairros com pelo menos 2% dos alunos que ficam perto (até 2× esse raio)
+      const raioAlunos = Math.max(3, (r80 ?? 3) * 1.25);
+      const areaAlunos = m.L.latLng(u.c).toBounds(raioAlunos * 2000);
+      for (const [, la, ln, n] of u.bairros ?? []) if (n >= alunosBairro * 0.02 && km([la, ln], u.c) <= raioAlunos * 2) areaAlunos.extend([la, ln]);
+      const fotoSat = await foto("limpa", { centro: u.c, zoom: 16 }, true);
+      const fotoAlunos = await foto("alunos", { limites: areaAlunos });
+      const fotoModelo = cap ? await foto("modelo", { limites: area }) : null;
+      const fotoPessoas = dados.censo ? await foto("pessoas", { limites: m.L.latLng(u.c).toBounds(8000) }) : null;
+      const fotoRenda = dados.censo ? await foto("renda", { limites: m.L.latLng(u.c).toBounds(8000) }) : null;
+      const fotoRede = await foto("rede", { limites: m.L.latLng(u.c).toBounds(14000) });
+      if (pois) { setPois(pois); await pausa(300); }
+      const fotoPois = pois ? await foto("limpa", { limites: m.L.latLng(pois.c).toBounds(pois.raioKm * 2000) }) : null;
+      setLente(lenteAntes);
+      const renda = dados.censo ? classesNoRaio(u.c, dados.censo, r80 ?? 3) : null;
+      const pct = (x: number) => `${(x * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
       await gerarPdfDoEstudo({
-        arquivo: nomeDoArquivo(`estudo-unidade-${u.nome}`), cabecalho: "Estudo da unidade", foto,
-        capa: { titulo: "Estudo da Unidade", linha: "Unidade em operação", subtitulo: `World Gym ${u.nome}${u.m2 ? ` | ${u.m2.toLocaleString("pt-BR")} m²` : ""}` },
-        legendaFoto: `Mapa: ${LENTES.find((l) => l.id === lente)?.rotulo.toLowerCase()}. Tracejado: área onde moram 80% dos alunos.`,
+        arquivo: nomeDoArquivo(`estudo-unidade-${u.nome}`), cabecalho: "Estudo da unidade", foto: null,
+        capa: { titulo: "Estudo de Geomarketing", linha: "Estudo da Unidade", subtitulo: `World Gym ${u.nome}${u.m2 ? ` | ${u.m2.toLocaleString("pt-BR")} m²` : ""}` },
         paginas: [{
           titulo: `World Gym ${u.nome}`, subtitulo: `Estudo da unidade${u.m2 ? ` · ${u.m2.toLocaleString("pt-BR")} m²` : ""}${u.madura ? "" : " · ainda amadurecendo (menos de 12 meses)"}`,
+          foto: { dados: fotoSat, legenda: "A unidade vista de cima (imagem de satélite)." },
           destaques: [
             { valor: porM2 ? `R$ ${Math.round(porM2).toLocaleString("pt-BR")}` : "—", rotulo: `vendas por m² por mês${mediana ? ` (rede: R$ ${mediana.toLocaleString("pt-BR")})` : ""}` },
             { valor: fmtKm(r80), rotulo: "raio onde moram 80% dos alunos" },
@@ -156,14 +206,31 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
           numeros: [],
           secoes: [
             ...(leituraModelo ? [{ titulo: "O modelo e a realidade", linhas: [], nota: leituraModelo }] : []),
-            { titulo: "De onde vêm os alunos", linhas: [{ texto: "Moradores na área onde moram 80% dos alunos (Censo 2022)", valor: moradores80 != null ? `${Math.round(moradores80 / 1000).toLocaleString("pt-BR")} mil` : "—" }] },
-            { titulo: "Bairros que mais trazem alunos", linhas: topBairros.map(([b, , , n]) => ({ texto: b, valor: `${n.toLocaleString("pt-BR")} (${Math.round((n / Math.max(1, alunosBairro)) * 100)}%)` })) },
-            ...(pois ? [{ titulo: `${pois.rotulo} a até ${pois.raioKm.toLocaleString("pt-BR")} km: ${pois.total}`, linhas: pois.lugares.map((l, i) => ({ texto: `${i + 1}. ${l.nome}${l.rede ? ` (${l.rede})` : ""}`, valor: `${l.km.toLocaleString("pt-BR")} km` })), paragrafo: "Fonte: Google. Os números seguem a ordem de distância." }] : []),
-            { titulo: "Divisão da captação", linhas: cap?.divideCom.length ? cap.divideCom.map((d) => ({ texto: d.nome, valor: `${Math.round(d.parte * 100)}%` })) : [{ texto: "Nenhuma World Gym divide a área desta unidade." }] },
+            { titulo: "Onde moram os alunos", novaPagina: true, foto: { dados: fotoAlunos, legenda: "Bolha maior = mais alunos no bairro. Tracejado: área onde moram 80% dos alunos." },
+              linhas: [{ texto: "Moradores na área onde moram 80% dos alunos (Censo 2022)", valor: moradores80 != null ? `${Math.round(moradores80 / 1000).toLocaleString("pt-BR")} mil` : "—" },
+                ...topBairros.map(([b, , , n]) => ({ texto: b, valor: `${n.toLocaleString("pt-BR")} alunos (${Math.round((n / Math.max(1, alunosBairro)) * 100)}%)` }))] },
+            ...(fotoModelo ? [{ titulo: "Onde o modelo diria", novaPagina: true, foto: { dados: fotoModelo, legenda: "Mais escuro = onde o modelo espera mais alunos (moradores, distância e outras World Gym por perto)." }, linhas: [],
+              nota: "Compare com o mapa anterior: onde o modelo espera alunos e eles não aparecem é onde vale fazer marketing." }] : []),
+            ...(fotoPessoas ? [{ titulo: "Onde mora a população", novaPagina: true, foto: { dados: fotoPessoas, legenda: "Mais forte = mais moradores (Censo 2022), num raio de 4 km." },
+              linhas: [{ texto: "Moradores na área onde moram 80% dos alunos", valor: moradores80 != null ? `${Math.round(moradores80 / 1000).toLocaleString("pt-BR")} mil` : "—" },
+                ...(moradores80 && u.alunos ? [{ texto: "Alunos para cada mil moradores dessa área", valor: (u.alunos / (moradores80 / 1000)).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) }] : [])] }] : []),
+            ...(fotoRenda && renda ? [{ titulo: "Perfil socioeconômico", novaPagina: true, altFoto: 92, foto: { dados: fotoRenda, legenda: "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022)." },
+              legenda: CLASSES_RENDA.map((c) => ({ cor: c.cor, texto: `${c.rotulo} (${c.faixa})` })),
+              destaques: [{ valor: pct(renda.ab), rotulo: "moradores nas classes AA + A + B" }, { valor: pct(renda.cde), rotulo: "moradores nas classes C + D + E" },
+                ...(renda.media ? [{ valor: `R$ ${(Math.round(renda.media / 10) * 10).toLocaleString("pt-BR")}`, rotulo: "renda média do responsável" }] : [])],
+              linhas: renda.classes.filter((c) => c.parte >= 0.0005).map((c) => ({ texto: `${c.rotulo} (${c.faixa})`, valor: pct(c.parte) })),
+              nota: leituraDaRenda(renda), paragrafo: `Moradores da área onde moram 80% dos alunos (${fmtKm(r80 ?? 3)} da unidade), pela renda média do responsável pelo domicílio em cada hexágono do Censo 2022.` }] : []),
+            ...(pois ? [{ titulo: `${rotuloPois(pois)} a até ${pois.raioKm.toLocaleString("pt-BR")} km: ${totalPois(pois)}`, novaPagina: true,
+              foto: { dados: fotoPois, legenda: "Fonte: Google. Grandes redes em destaque escuro." },
+              linhas: pois.lugares.map((l, i) => ({ texto: `${i + 1}. ${l.nome}${l.rede ? ` (${l.rede})` : ""}`, valor: `${l.km.toLocaleString("pt-BR")} km` })), paragrafo: "Os números seguem a ordem de distância." }] : []),
+            { titulo: "Nossa rede e a divisão da captação", novaPagina: true, foto: { dados: fotoRede, legenda: "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." },
+              linhas: cap?.divideCom.length ? cap.divideCom.map((d) => ({ texto: d.nome, valor: `${Math.round(d.parte * 100)}%` })) : [{ texto: "Nenhuma World Gym divide a área desta unidade." }] },
+            { titulo: "Conclusão", novaPagina: true, linhas: conclusao(renda).map((texto) => ({ texto: `• ${texto}` })),
+              nota: recomendacao() },
           ],
         }],
       });
-    } finally { setGerando(false); }
+    } finally { setLente(lenteAntes); setPois(poisAntes); setGerando(false); }
   };
 
   return (
@@ -200,6 +267,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
             ))}
           </nav>
           {lente === "modelo" && <div className="pointer-events-auto flex items-center gap-2 rounded-lg bg-white/95 px-3 py-1.5 text-xs text-muted-foreground shadow">poucos alunos<span className="h-1.5 w-28 rounded" style={{ background: gradienteRampa }} />muitos alunos<span className="ml-2 border-l pl-2">tracejado: onde moram 80%</span></div>}
+          {lente === "renda" && <LegendaRenda />}
           {lente === "alunos" && <div className="pointer-events-auto rounded-lg bg-white/95 px-3 py-1.5 text-xs text-muted-foreground shadow">bolha maior = mais alunos no bairro · tracejado: onde moram 80%</div>}
           {verRua && <div className="pointer-events-auto rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
         </div>
@@ -208,10 +276,10 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z" /><path d="M9 4v13M15 7v13" /></svg><span className="sr-only">Satélite</span>
           </button>
           <button type="button" aria-pressed={verRua} onClick={() => setVerRua((v) => !v)} title="Ver a rua (Street View)" className="grid h-10 w-10 place-items-center border-t aria-pressed:bg-foreground aria-pressed:text-background">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="5" r="2.5" /><path d="M12 8v7M8 12h8M10 21l2-6 2 6" /></svg><span className="sr-only">Ver a rua</span>
+            <IconeBoneco /><span className="sr-only">Ver a rua</span>
           </button>
         </div>
-        <div className="absolute left-3 top-[64px] z-[460]"><ControlePois centro={u.c} aviso={false} aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
+        <div className="absolute bottom-3 left-3 z-[460]"><ControlePois centro={u.c} aviso={false} aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
 
@@ -251,6 +319,16 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
         </Secao>
       </div>
       {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
+    </div>
+  );
+}
+
+/** Legenda da lente Renda: uma cor por classe (renda média do responsável, Censo 2022). */
+export function LegendaRenda() {
+  return (
+    <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 rounded-lg bg-white/95 px-3 py-1.5 text-xs text-muted-foreground shadow" title="Classe pela renda média do responsável pelo domicílio (Censo 2022)">
+      {CLASSES_RENDA.map((c) => <span key={c.id} className="flex items-center gap-1" title={c.faixa}><span className="h-2.5 w-2.5 rounded-sm" style={{ background: c.cor }} />{c.id}</span>)}
+      <span className="border-l pl-2">renda média do responsável</span>
     </div>
   );
 }

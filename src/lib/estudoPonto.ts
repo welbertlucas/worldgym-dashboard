@@ -117,6 +117,36 @@ export function arredores(c: [number, number], censo: Censo, raio = 2): { pop: n
   return { pop, renda: peso ? soma / peso : null };
 }
 
+/**
+ * Classes de renda (as faixas do estudo de geomarketing, em reais) pela renda média do responsável pelo domicílio em cada
+ * hexágono do Censo 2022. É uma aproximação: o Censo dá a média do hexágono, não a renda de cada casa.
+ */
+export const CLASSES_RENDA = [
+  { id: "AA", rotulo: "Classe AA", faixa: "acima de R$ 22.770", min: 22770, cor: "#1e3a8a" },
+  { id: "A", rotulo: "Classe A", faixa: "R$ 15.180 a 22.770", min: 15180, cor: "#0284c7" },
+  { id: "B", rotulo: "Classe B", faixa: "R$ 7.590 a 15.180", min: 7590, cor: "#16a34a" },
+  { id: "C", rotulo: "Classe C", faixa: "R$ 3.036 a 7.590", min: 3036, cor: "#8b5cf6" },
+  { id: "D", rotulo: "Classe D", faixa: "R$ 1.518 a 3.036", min: 1518, cor: "#f59e0b" },
+  { id: "E", rotulo: "Classe E", faixa: "até R$ 1.518", min: 0, cor: "#ef6f6c" },
+] as const;
+export type ClasseRenda = (typeof CLASSES_RENDA)[number];
+export const classeDaRenda = (r: number | null): ClasseRenda | null => (r == null || r <= 0 ? null : CLASSES_RENDA.find((c) => r >= c.min) ?? null);
+
+/** Divisão dos moradores por classe de renda num raio (peso = moradores do hexágono), a renda média e os blocos A/B e C/D/E. */
+export function classesNoRaio(c: [number, number], censo: Censo, raio: number) {
+  const conta = new Map<string, number>();
+  let total = 0, soma = 0;
+  for (const [lat, lng, p, r] of censo.celulas) {
+    if (km([lat, lng], c) > raio) continue;
+    const cl = classeDaRenda(r);
+    if (!cl || !p) continue;
+    conta.set(cl.id, (conta.get(cl.id) ?? 0) + p); total += p; soma += (r ?? 0) * p;
+  }
+  const parte = (id: string) => (total ? (conta.get(id) ?? 0) / total : 0);
+  const classes = CLASSES_RENDA.map((cl) => ({ ...cl, parte: parte(cl.id) }));
+  return { classes, moradores: total, media: total ? soma / total : null, ab: parte("AA") + parte("A") + parte("B"), cde: parte("C") + parte("D") + parte("E") };
+}
+
 /** As unidades maduras do mesmo modelo mais parecidas com o ponto (gente e renda a até 2 km). */
 export function parecidas(ponto: Ponto, censo: Censo, unidades: UnidadeEstudo[], n = 3) {
   const alvo = arredores(ponto.c, censo);
