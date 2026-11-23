@@ -28,9 +28,9 @@ describe("MetasTab", () => {
     expect(html).toContain("Exemplo ilustrativo. Os valores apresentados não representam a meta desta unidade.");
     for (const t of ["Bronze", "Prata", "Ouro", "1º nível", "2º nível", "Maior nível"]) expect(html).toContain(t);
     // premiação = faturamento × percentual
-    expect(html).toMatch(/0,33%\s*→\s*<span[^>]*>R\$\s?1\.254/);
-    expect(html).toMatch(/0,41%\s*→\s*<span[^>]*>R\$\s?1\.722/);
-    expect(html).toMatch(/0,58%\s*→\s*<span[^>]*>R\$\s?2\.668/);
+    expect(html).toMatch(/0,33%:\s*<span[^>]*>R\$\s?1\.254/);
+    expect(html).toMatch(/0,41%:\s*<span[^>]*>R\$\s?1\.722/);
+    expect(html).toMatch(/0,58%:\s*<span[^>]*>R\$\s?2\.668/);
     // meta coletiva: o total é dividido pelo número de recepcionistas (4 no exemplo)
     expect(html).toContain("<b>coletiva</b>");
     expect(html).toContain("dividido pelo número de recepcionistas");

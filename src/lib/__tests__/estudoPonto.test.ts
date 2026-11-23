@@ -251,6 +251,68 @@ describe("pontos de interesse (server/pois.js)", () => {
   });
 });
 
+describe("área de deslocamento (server/deslocamento.js e contas no front)", () => {
+  it("confere o pedido, busca no Mapbox uma vez e guarda; as contas usam a área", async () => {
+    // @ts-expect-error módulo JS do servidor
+    const { pedidoValido, buscarDeslocamento, ErroDeslocamento } = await import("../../../server/deslocamento.js");
+    expect(() => pedidoValido({ c: [10, 10] })).toThrow(ErroDeslocamento);
+    expect(() => pedidoValido({ c: [-15.8, -47.9], modo: "bicicleta" })).toThrow(ErroDeslocamento);
+    const m = new Map<string, unknown>();
+    definirArmazem({ async ler(c: string) { return (m.get(c) as unknown) ?? null; }, async gravar(c: string, d: unknown) { m.set(c, structuredClone(d)); } });
+    const quadrado = (r: number) => ({ type: "Polygon", coordinates: [[[-47.9 - r, -15.8 - r], [-47.9 + r, -15.8 - r], [-47.9 + r, -15.8 + r], [-47.9 - r, -15.8 + r], [-47.9 - r, -15.8 - r]]] });
+    let chamadas = 0, url = "";
+    const fetcher = async (u: string) => { chamadas++; url = u; return { json: async () => ({ features: [5, 10, 15, 20].map((mi) => ({ properties: { contour: mi }, geometry: quadrado(mi / 1000) })) }) }; };
+    const d = await buscarDeslocamento({ c: [-15.8, -47.9], modo: "carro" }, { chave: "k", fetcher });
+    expect(url).toContain("/driving/-47.9,-15.8"); expect(url).toContain("contours_minutes=5,10,15,20");
+    expect(Object.keys(d.contornos)).toEqual(["5", "10", "15", "20"]); expect(d.doCache).toBe(false);
+    const d2 = await buscarDeslocamento({ c: [-15.8, -47.9], modo: "carro" }, { chave: "k", fetcher });
+    expect(d2.doCache).toBe(true); expect(chamadas).toBe(1);
+    await expect(buscarDeslocamento({ c: [-15.7, -47.9] }, { chave: "", fetcher })).rejects.toThrow(ErroDeslocamento);
+    definirArmazem(null);
+
+    const { dentroDaArea, moradoresNaArea, parteDosAlunos, minutosPara80 } = await import("@/lib/estudoPonto");
+    const g10 = d.contornos["10"];
+    expect(dentroDaArea(-15.8, -47.9, g10)).toBe(true); expect(dentroDaArea(-15.9, -47.9, g10)).toBe(false);
+    const censo = { rk: 0.3, celulas: [[-15.8, -47.9, 500, 2000], [-15.9, -47.9, 999, 2000]] as [number, number, number, number | null][] };
+    expect(moradoresNaArea(censo, g10)).toBe(500);
+    // 70 alunos a 0,003° (dentro de 5 min), 20 a 0,008° (dentro de 10) e 10 a 0,018° (dentro de 20)
+    const bairros: [string, number, number, number][] = [["Perto", -15.803, -47.9, 70], ["Meio", -15.808, -47.9, 20], ["Longe", -15.818, -47.9, 10]];
+    expect(parteDosAlunos(bairros, g10)).toBeCloseTo(0.9);
+    expect(minutosPara80(bairros, d)).toBe(7.5);
+  });
+});
+
+describe("busca de endereço (server/deslocamento.js)", () => {
+  it("usa o Google quando tem a chave, cai no Mapbox sem ela e recusa texto curto", async () => {
+    // @ts-expect-error módulo JS do servidor
+    const { buscarEndereco, ErroDeslocamento } = await import("../../../server/deslocamento.js");
+    await expect(buscarEndereco({ q: "ab" }, { chave: "m", chaveGoogle: "g", fetcher: async () => ({ json: async () => ({}) }) })).rejects.toThrow(ErroDeslocamento);
+    const g = await buscarEndereco({ q: "Rua Exemplo 10", perto: [-15.8, -47.9] }, { chave: "m", chaveGoogle: "g", fetcher: async (url: string) => ({ json: async () => (url.includes("searchText") ? { places: [{ displayName: { text: "Rua Exemplo" }, formattedAddress: "Rua Exemplo, 10", location: { latitude: -15.81, longitude: -47.91 } }] } : {}) }) });
+    expect(g.lugares).toEqual([{ nome: "Rua Exemplo", endereco: "Rua Exemplo, 10", c: [-15.81, -47.91] }]);
+    const m = await buscarEndereco({ q: "Rua Exemplo 10" }, { chave: "m", chaveGoogle: "", fetcher: async () => ({ json: async () => ({ features: [{ geometry: { coordinates: [-47.91, -15.81] }, properties: { name: "Rua Exemplo", full_address: "Rua Exemplo, 10" } }] }) }) });
+    expect(m.lugares[0].c).toEqual([-15.81, -47.91]);
+  });
+});
+
+describe("recomendação de localização", () => {
+  it("acha a posição com mais público por perto e respeita o limite de canibalização", async () => {
+    const { posicoesMelhores } = await import("@/lib/estudoPonto");
+    const curva = { meiaDistanciaKm: 1.4, raioKm: 6 };
+    // gente concentrada 2 km ao norte do ponto; pouca gente no ponto
+    const celulas: [number, number, number, number | null][] = [[-15.8, -47.9, 400, 2000]];
+    for (let i = 0; i < 6; i++) celulas.push([-15.782 + i * 0.002, -47.9, 5000, 3000]);
+    const censo = { rk: 0.3, celulas };
+    const r = posicoesMelhores({ c: [-15.8, -47.9], m2: 1200 }, censo, [], [], curva, { raioKm: 3 });
+    expect(r.sugestoes.length).toBeGreaterThan(0);
+    expect(r.sugestoes[0].ganho).toBeGreaterThan(0.1);
+    expect(r.sugestoes[0].c[0]).toBeGreaterThan(-15.79);
+    // uma World Gym em cima da multidão: com limite de 20%, nenhuma nova unidade ali
+    const wg = [{ nome: "Modelo A", c: [-15.777, -47.9] as [number, number], m2: 1200, modelo: "low" as const, abertura: null, madura: true, vendas: 1, alunos: 1 }];
+    const nova = posicoesMelhores({ c: [-15.8, -47.9], m2: 1200 }, censo, wg, [], curva, { raioKm: 3, longeDeUnidadesKm: 1, maxCanibalizacao: 0.2 });
+    expect(nova.sugestoes.every((x) => x.divideCom.every((d) => d.parte <= 0.2))).toBe(true);
+  });
+});
+
 describe("classes de renda", () => {
   it("classifica pela faixa e divide os moradores do raio por classe", async () => {
     const { classeDaRenda, classesNoRaio } = await import("@/lib/estudoPonto");

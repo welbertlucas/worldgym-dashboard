@@ -599,7 +599,7 @@ export function montarRelatorio(meses: MonthData[], mes: string, selecionados: s
         const b = antU?.faturamento ?? 0;
         if (!ant || b <= 0) continue;
         const v = ((umaSo.faturamento - b) / b) * 100;
-        rankings.push({ id: def.id, titulo: def.titulo.replace("*", ""), subtitulo: `comparado com ${antCurto}`, formato: def.formato, itens: [], cartao: { valor: (v >= 0 ? "+" : "") + v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%", variacao: null, anterior: `${fmtValor("brl", b)} em ${antCurto} → ${fmtValor("brl", umaSo.faturamento)}` } });
+        rankings.push({ id: def.id, titulo: def.titulo.replace("*", ""), subtitulo: `comparado com ${antCurto}`, formato: def.formato, itens: [], cartao: { valor: (v >= 0 ? "+" : "") + v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%", variacao: null, anterior: `de ${fmtValor("brl", b)} em ${antCurto} para ${fmtValor("brl", umaSo.faturamento)}` } });
         continue;
       }
       const v = def.campo(umaSo);

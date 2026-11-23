@@ -212,7 +212,7 @@ export function computeAlertasVigentes(
         push({
           unit: nome, kind: "pontoFraco", severity: fracos[0].gap >= V.criticoPP ? "critical" : "attention", weight, tela: "retencao/satisfacao",
           fact: `${fracos.length === 1 ? "Ponto de contato" : "Pontos de contato"} do NPS bem abaixo da rede nos últimos 2 meses: ${fracos.slice(0, 3).map(f).join("; ")}.`,
-          action: "Conversar com a equipe do setor, ler os comentários desse ponto no WeHelp e combinar uma ação para a próxima semana. O mapa de unidades × pontos está em Retenção → Satisfação.",
+          action: "Conversar com a equipe do setor, ler os comentários desse ponto no WeHelp e combinar uma ação para a próxima semana. O mapa de unidades × pontos está em Retenção, aba Satisfação.",
         });
       }
     }
@@ -270,7 +270,7 @@ export function computeAlertasVigentes(
     const pf = projecaoFaturamento(u, month, true, nome, atualizadoEm);
     if (pf) {
       const r = ritmo(nome, "faturamento", pf.estimativa, L.faturamentoSemMeta, media(hist(nome, L.mesesMedia, (x) => x.faturamento)), brl);
-      if (r) push({ unit: nome, kind: "fatRitmo", weight, tela: "financeiro/resumo", ...r, action: "Puxar vendas e cobrança nos dias que faltam: matrículas, rematrículas de quem saiu e cobrança das mensalidades vencidas. A conta da projeção está em Financeiro → Resumo." });
+      if (r) push({ unit: nome, kind: "fatRitmo", weight, tela: "financeiro/resumo", ...r, action: "Puxar vendas e cobrança nos dias que faltam: matrículas, rematrículas de quem saiu e cobrança das mensalidades vencidas. A conta da projeção está em Financeiro, aba Resumo." });
     }
     // 8. Novos contratos
     const pc = projecaoContratos(u, month, true, nome, atualizadoEm);
@@ -280,7 +280,7 @@ export function computeAlertasVigentes(
       const restam = diasNoMes(month) - dias;
       const extra = piso && piso.value > u.novosContratos && restam > 0 ? ` Para chegar lá faltam ${int(piso.value - u.novosContratos)}, cerca de ${(Math.round(((piso.value - u.novosContratos) / restam) * 10) / 10).toLocaleString("pt-BR")} por dia.` : "";
       const r = ritmo(nome, "novosContratos", pc.valor, L.contratosSemMeta, media(hist(nome, L.mesesMedia, (x) => x.novosContratos)), int, extra);
-      if (r) push({ unit: nome, kind: "contratosRitmo", weight, tela: "comercial/vendas", ...r, action: "Reforçar a venda nos dias que faltam: retomar as oportunidades em aberto, ligar para ex-alunos e usar os dias que mais vendem (Comercial → Vendas)." });
+      if (r) push({ unit: nome, kind: "contratosRitmo", weight, tela: "comercial/vendas", ...r, action: "Reforçar a venda nos dias que faltam: retomar as oportunidades em aberto, ligar para ex-alunos e usar os dias que mais vendem (Comercial, aba Vendas)." });
     }
     // 9. Cancelamentos: com o histórico de contratos, contra o mesmo dia dos 3 meses anteriores; sem ele, a regra antiga.
     const C = L.cancelamentos;
@@ -290,7 +290,7 @@ export function computeAlertasVigentes(
       if (critico || dif >= C.atencaoPP) push({
         unit: nome, kind: "cancelRitmo", severity: critico ? "critical" : "attention", weight, tela: "retencao/cancelamentos",
         fact: `${int(ra.cancelados)} cancelamentos até agora (${pct(ra.churnPct)} da base do início do mês). No dia ${ra.dia} dos ${ra.base.meses} meses anteriores a unidade costumava estar em ${pct(ra.base.churnPct)}.`,
-        action: "Ver os motivos dos cancelamentos do mês (Retenção → Cancelamentos) e oferecer alternativa antes do cancelamento: troca de plano, suspensão ou horário.",
+        action: "Ver os motivos dos cancelamentos do mês (Retenção, aba Cancelamentos) e oferecer alternativa antes do cancelamento: troca de plano, suspensão ou horário.",
       });
     } else if (u.ativosIni && typeof u.churn === "number") {
       const med = mediana(hist(nome, L.mesesBase, (x) => (x.ativosIni ? x.churn : null)));
@@ -298,7 +298,7 @@ export function computeAlertasVigentes(
       if (critico || (med !== null && u.churn > med)) push({
         unit: nome, kind: "cancelRitmo", severity: critico ? "critical" : "attention", weight, tela: "retencao/cancelamentos",
         fact: `${int(u.cancelados)} cancelamentos até agora (${pct(u.churn)} da base do início do mês)${med !== null ? `: já passou do que a unidade costuma cancelar num mês inteiro (${pct(med)})` : ""}.`,
-        action: "Ver os motivos dos cancelamentos do mês (Retenção → Cancelamentos) e oferecer alternativa antes do cancelamento: troca de plano, suspensão ou horário.",
+        action: "Ver os motivos dos cancelamentos do mês (Retenção, aba Cancelamentos) e oferecer alternativa antes do cancelamento: troca de plano, suspensão ou horário.",
       });
     }
     // 10. Conversão de visitantes (como no cartão do EVO) do mês contra o mesmo dia dos 3 meses anteriores.

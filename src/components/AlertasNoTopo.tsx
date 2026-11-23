@@ -70,7 +70,7 @@ export function AlertasNoTopo({ alertas, onVerTodos, mes = null }: { alertas: Al
           <p className="px-1 pb-2 text-sm font-semibold text-foreground">
             {criticos > 0 ? `${criticos} ${criticos === 1 ? "alerta crítico" : "alertas críticos"}` : "Nenhum alerta crítico"}{mes && ` em ${formatMonthLong(mes)}`}
           </p>
-          {mes && <p className="px-1 pb-2 -mt-1 text-xs text-muted-foreground">Do mês em andamento: o que fazer agora. O que aconteceu no mês anterior fica em Alertas → Fechamento.</p>}
+          {mes && <p className="px-1 pb-2 -mt-1 text-xs text-muted-foreground">Do mês em andamento: o que fazer agora. O que aconteceu no mês anterior fica em Alertas, aba Fechamento.</p>}
           {lista.length > 0 ? (
             <ul className="max-h-[22rem] space-y-1 overflow-y-auto">
               {lista.map((a) => (

@@ -35,7 +35,20 @@ export interface Secao {
   legenda?: { cor: string; texto: string }[];
   /** Números de destaque da seção (como na página principal). */
   destaques?: { valor: string; rotulo: string }[];
+  /** Análise escrita (texto corrido e justificado, como no estudo do Canva), logo abaixo do título. */
+  texto?: string[];
+  /** Itens com marcador, depois do texto. */
+  lista?: string[];
+  /** Faixa vermelha logo abaixo do título (ex.: a recomendação da conclusão). */
+  faixa?: string;
+  /** Gráfico da seção (rosca com legenda ou barras horizontais). */
+  grafico?: Grafico;
+  /** Tabela compacta; `blocos` divide as linhas em colunas lado a lado para economizar espaço. */
+  tabela?: { colunas: string[]; linhas: string[][]; larguras?: number[]; blocos?: number };
 }
+export type Grafico =
+  | { tipo: "rosca"; titulo?: string; fatias: { rotulo: string; valor: number; cor: string }[]; centro?: string; rotuloCentro?: string }
+  | { tipo: "barras"; titulo?: string; itens: { rotulo: string; valor: number; texto: string; destaque?: boolean }[] };
 export interface PaginaDoEstudo {
   titulo: string; subtitulo: string;
   /** Faixa colorida com o veredito (estudo de ponto novo). */
@@ -45,6 +58,8 @@ export interface PaginaDoEstudo {
   frase?: string; tomFrase?: Tom;
   /** Mapa da página (logo depois da faixa). */
   foto?: Figura;
+  /** Análise escrita, lista, destaque (caixa rosada) e gráfico logo depois dos destaques. */
+  texto?: string[]; lista?: string[]; destaque?: string; grafico?: Grafico;
   numeros: Numero[]; secoes: Secao[];
 }
 export interface ConteudoPdf {
@@ -159,6 +174,134 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
     y += metade * 5.5 + 3;
   };
 
+  const rgb = (hex: string) => { const h = hex.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number]; };
+  // análise escrita: texto corrido e justificado, sem caixa (padrão do Canva); a caixa rosada fica só para o destaque (nota)
+  const textoAnalise = (ps?: string[]) => {
+    if (!ps?.length) return;
+    const lh = 4.7;
+    ps.forEach((p, i) => {
+      fonte("corpo", 9.8);
+      const ls = doc.splitTextToSize(t(p), W) as string[];
+      ls.forEach((l, k) => {
+        if (y + lh > FIM) novaPagina();
+        fonte("corpo", 9.8); doc.setTextColor(...TEXTO);
+        doc.text(l, L, y + 3.6, k === ls.length - 1 ? undefined : { align: "justify", maxWidth: W });
+        y += lh;
+      });
+      y += i < ps.length - 1 ? 2.6 : 3.5;
+    });
+  };
+  // lista com marcador (como no Objetivo e na Metodologia do Canva)
+  const lista = (itens?: string[]) => {
+    if (!itens?.length) return;
+    for (const it of itens) {
+      fonte("corpo", 9.8);
+      const ls = doc.splitTextToSize(t(it), W - 7) as string[];
+      cabe(ls.length * 4.7 + 1);
+      doc.setFillColor(...TEXTO); doc.circle(L + 2, y + 2.4, 0.8, "F");
+      doc.setTextColor(...TEXTO); doc.text(ls, L + 6, y + 3.6); y += ls.length * 4.7 + 1;
+    }
+    y += 3;
+  };
+  // faixa vermelha com o texto em caixa alta (como a da Conclusão do Canva)
+  const faixaVermelha = (txt?: string) => {
+    if (!txt) return;
+    cabe(12);
+    doc.setFillColor(...VERMELHO); doc.rect(L, y, W, 8.5, "F");
+    fonte("negrito", 9.5); doc.setTextColor(255, 255, 255); doc.text(t(txt).toUpperCase(), L + 3, y + 5.7); y += 12;
+  };
+  // gráfico de rosca (fatias em polígonos) com a legenda e o percentual ao lado
+  const rosca = (g: Extract<Grafico, { tipo: "rosca" }>) => {
+    const total = g.fatias.reduce((a, f) => a + Math.max(0, f.valor), 0);
+    if (!total) return;
+    const alto = Math.max(56, g.fatias.length * 7 + 10);
+    cabe(alto + (g.titulo ? 7 : 0));
+    if (g.titulo) { fonte("negrito", 10); doc.setTextColor(...TEXTO); doc.text(t(g.titulo), L, y + 3.5); y += 7; }
+    const cx = L + 30, cy = y + alto / 2, ro = 26, ri = 15.5;
+    let a0 = -Math.PI / 2;
+    for (const f of g.fatias) {
+      if (f.valor <= 0) continue;
+      const a1 = a0 + (f.valor / total) * Math.PI * 2, n = Math.max(4, Math.ceil(((a1 - a0) / (Math.PI * 2)) * 90));
+      const pts: [number, number][] = [];
+      for (let k = 0; k <= n; k++) { const a = a0 + ((a1 - a0) * k) / n; pts.push([cx + ro * Math.cos(a), cy + ro * Math.sin(a)]); }
+      for (let k = n; k >= 0; k--) { const a = a0 + ((a1 - a0) * k) / n; pts.push([cx + ri * Math.cos(a), cy + ri * Math.sin(a)]); }
+      const rel = pts.slice(1).map((p, k) => [p[0] - pts[k][0], p[1] - pts[k][1]]);
+      doc.setFillColor(...rgb(f.cor)); doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.5);
+      doc.lines(rel, pts[0][0], pts[0][1], [1, 1], "FD", true);
+      a0 = a1;
+    }
+    doc.setLineWidth(0.2);
+    if (g.centro) { fonte("tit", 15); doc.setTextColor(...TEXTO); doc.text(t(g.centro), cx, cy + 1.5, { align: "center" }); }
+    if (g.rotuloCentro) { fonte("corpo", 7); doc.setTextColor(...CINZA); doc.text(t(g.rotuloCentro), cx, cy + 6, { align: "center" }); }
+    // legenda
+    const lx = L + 66, passo = 7, ly0 = cy - ((g.fatias.length - 1) * passo) / 2;
+    g.fatias.forEach((f, k) => {
+      const yy = ly0 + k * passo;
+      doc.setFillColor(...rgb(f.cor)); doc.circle(lx + 1.8, yy - 1.2, 1.8, "F");
+      fonte("corpo", 9.5); doc.setTextColor(...TEXTO); doc.text(t(f.rotulo), lx + 6, yy);
+      fonte("negrito", 9.5); doc.text(`${((f.valor / total) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`, R, yy, { align: "right" });
+    });
+    y += alto + 3;
+  };
+  // barras horizontais com o valor escrito na ponta
+  const barras = (g0: Extract<Grafico, { tipo: "barras" }>) => {
+    const g = { ...g0, itens: g0.itens.filter((i) => Number.isFinite(i.valor) && i.valor >= 0) };
+    if (!g.itens.length) return;
+    const mx = Math.max(...g.itens.map((i) => i.valor), 1e-9), h = 6.2, gap = 2.4;
+    cabe(g.itens.length * (h + gap) + (g.titulo ? 9 : 3));
+    if (g.titulo) { fonte("negrito", 10); doc.setTextColor(...TEXTO); doc.text(t(g.titulo), L, y + 3.5); y += 8; }
+    const lx = L + 42, lw = W - 42 - 30;
+    for (const it of g.itens) {
+      fonte("corpo", 9); doc.setTextColor(...TEXTO); doc.text(t(it.rotulo), L, y + h - 1.6);
+      doc.setFillColor(...(it.destaque ? VERMELHO : ([214, 217, 224] as [number, number, number]))); doc.rect(lx, y, Math.max(0.6, (it.valor / mx) * lw), h, "F");
+      fonte(it.destaque ? "negrito" : "corpo", 9); doc.text(t(it.texto), lx + (it.valor / mx) * lw + 2, y + h - 1.6);
+      y += h + gap;
+    }
+    y += 2;
+  };
+  // tabela compacta (em blocos lado a lado)
+  const tabela = (tb: NonNullable<Secao["tabela"]>) => {
+    const blocos = Math.max(1, tb.blocos ?? 1), gapB = 6, bw = (W - gapB * (blocos - 1)) / blocos;
+    const fr = tb.larguras ?? tb.colunas.map(() => 1), soma = fr.reduce((a, b) => a + b, 0), cw = fr.map((x) => (x / soma) * bw);
+    const porBloco = Math.ceil(tb.linhas.length / blocos), hl = 5.2;
+    // a última coluna vai à direita só quando é número (km, %, contagem)
+    const numerica = tb.linhas.length > 0 && tb.linhas.every((l) => /^[\d.,%\s\u2212-]*$/.test(l[l.length - 1] ?? ""));
+    const cab = () => {
+      for (let b = 0; b < blocos; b++) {
+        const x0 = L + b * (bw + gapB);
+        doc.setFillColor(...VERMELHO); doc.rect(x0, y, bw, 6.4, "F");
+        fonte("negrito", 8); doc.setTextColor(255, 255, 255);
+        let x = x0; tb.colunas.forEach((c, j) => { const dir = numerica && j === tb.colunas.length - 1 && j > 0; doc.text(t(c), dir ? x + cw[j] - 1.5 : x + 1.5, y + 4.4, dir ? { align: "right" } : undefined); x += cw[j]; });
+      }
+      y += 7.4;
+    };
+    let i = 0;
+    while (i < porBloco) {
+      const cabem = Math.max(1, Math.floor((FIM - y - 8) / hl));
+      if (cabem < 3) { novaPagina(); continue; }
+      cab();
+      const fim = Math.min(porBloco, i + cabem);
+      for (let r = i; r < fim; r++) {
+        for (let b = 0; b < blocos; b++) {
+          const linha = tb.linhas[b * porBloco + r];
+          if (!linha) continue;
+          const x0 = L + b * (bw + gapB);
+          if (r % 2) { doc.setFillColor(248, 249, 251); doc.rect(x0, y - 0.2, bw, hl, "F"); }
+          fonte("corpo", 8); doc.setTextColor(...TEXTO);
+          let x = x0;
+          linha.forEach((c, j) => {
+            const dir = numerica && j === linha.length - 1 && j > 0, txt = doc.splitTextToSize(t(c), cw[j] - 2)[0] as string;
+            doc.text(txt, dir ? x + cw[j] - 1.5 : x + 1.5, y + 3.5, dir ? { align: "right" } : undefined); x += cw[j];
+          });
+        }
+        y += hl;
+      }
+      i = fim;
+      if (i < porBloco) novaPagina();
+    }
+    y += 3;
+  };
+
   // capa: a imagem da capa do Canva e, por cima, o pino + tipo do estudo e o subtítulo em vermelho
   const temCapa = Boolean(c.capa);
   if (c.capa) {
@@ -179,15 +322,19 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
     const p = c.paginas[i];
     if (i > 0) novaPagina();
     titulo(p.titulo, 26);
-    fonte("corpo", 10); doc.setTextColor(...CINZA); doc.text(t(p.subtitulo), L, y); y += 7;
+    if (p.subtitulo) { fonte("corpo", 10); doc.setTextColor(...CINZA); doc.text(t(p.subtitulo), L, y); y += 7; } else y += 2;
     if (p.faixa) {
       const fundo = p.faixa.tom === "bom" ? VERDE : p.faixa.tom === "atencao" ? LARANJA : VERMELHO;
       doc.setFillColor(...fundo); doc.rect(L, y, W, 9, "F");
       fonte("negrito", 10); doc.setTextColor(255, 255, 255); doc.text(t(p.faixa.texto).toUpperCase(), L + 3, y + 6); y += 13;
     }
-    figura(p.foto ?? (i === 0 && c.foto ? { dados: c.foto, legenda: c.legendaFoto } : undefined), 118);
+    figura(p.foto ?? (i === 0 && c.foto ? { dados: c.foto, legenda: c.legendaFoto } : undefined), p.grafico || p.texto?.length ? 78 : 118);
     destaques(p.destaques);
     if (p.frase) nota(p.frase);
+    textoAnalise(p.texto);
+    lista(p.lista);
+    if (p.destaque) nota(p.destaque);
+    if (p.grafico?.tipo === "rosca") rosca(p.grafico); else if (p.grafico?.tipo === "barras") barras(p.grafico);
     const n = p.numeros, larg = (W - 3 * 3) / 4;
     for (let k = 0; k < n.length; k += 4) {
       cabe(20);
@@ -204,10 +351,15 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       if (s.novaPagina) novaPagina(); else y += 3;
       // título não fica sozinho no pé da página: precisa caber junto com o mapa (ou com a primeira linha)
       cabe(14 + (s.foto?.dados ? medida(s.foto, s.altFoto ?? 120).h + 9 : 10));
-      titulo(s.titulo);
+      if (s.titulo) titulo(s.titulo);
+      faixaVermelha(s.faixa);
+      textoAnalise(s.texto);
+      lista(s.lista);
       figura(s.foto, s.altFoto ?? 120);
       legenda(s.legenda);
       destaques(s.destaques);
+      if (s.grafico?.tipo === "rosca") rosca(s.grafico); else if (s.grafico?.tipo === "barras") barras(s.grafico);
+      if (s.tabela) tabela(s.tabela);
       fonte("corpo", 9.5);
       for (const l of s.linhas) {
         const ls = doc.splitTextToSize(t(l.texto), l.valor ? W - 45 : W);

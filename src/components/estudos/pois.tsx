@@ -2,13 +2,17 @@
 // lugar sempre visível no mapa (para print e PDF), sem precisar clicar. Etiquetas que se sobrepõem somem até aproximar o zoom;
 // grandes redes têm prioridade. Modo "Números + lista" para quando há lugares demais. Longe (zoom de cidade), agrupa com o número.
 import { useEffect, useRef, useState } from "react";
+import { Pilula } from "@/components/ui/pilula";
+import { Button } from "@/components/ui/button";
 import { API_BASE, authFetch } from "@/lib/auth";
 import type { Leaflet } from "@/components/estudos/mapaComum";
 import { Linha, Secao } from "@/components/estudos/blocos";
 import { MapPinned } from "lucide-react";
+import { dentroDaArea, type Geometria } from "@/lib/estudoPonto";
+import { raioQueCobre } from "@/components/estudos/deslocamento";
 
 export interface Lugar { nome: string; endereco: string; c: [number, number]; km: number; rede: string | null }
-export interface ResultadoPois { categoria: string; rotulo: string; c: [number, number]; raioKm: number; total: number; cortado?: boolean; lugares: Lugar[] }
+export interface ResultadoPois { categoria: string; rotulo: string; c: [number, number]; raioKm: number; total: number; cortado?: boolean; lugares: Lugar[]; areaRotulo?: string }
 export type ModoPois = "nomes" | "numeros";
 
 export const CATEGORIAS_POIS: { id: string; rotulo: string; singular: string }[] = [
@@ -22,6 +26,8 @@ export const CATEGORIAS_POIS: { id: string; rotulo: string; singular: string }[]
 
 /** Nome da busca (o da tela, não o guardado no servidor) e o total; nas academias, as World Gym não contam como concorrentes. */
 export const rotuloPois = (res: ResultadoPois) => CATEGORIAS_POIS.find((c) => c.id === res.categoria)?.rotulo ?? res.rotulo;
+/** Onde foi a busca: "em 10 min de carro" (área de deslocamento) ou "a até 2 km" (raio). */
+export const ondePois = (res: ResultadoPois) => (res.areaRotulo ? `em ${res.areaRotulo}` : `a até ${res.raioKm.toLocaleString("pt-BR")} km`);
 export const totalPois = (res: ResultadoPois) => (res.categoria === "academias" ? res.lugares.filter((l) => l.rede !== "World Gym").length : res.total);
 
 export async function buscarPois(c: [number, number], raioKm: number, categoria: string): Promise<ResultadoPois> {
@@ -48,11 +54,12 @@ export const CSS_POIS = `
 /** Desenha os lugares no grupo de camadas. Devolve a função que esconde etiquetas sobrepostas (chamar depois de mover/zoom). */
 export function desenharPois(L: Leaflet, mapa: import("leaflet").Map, grupo: import("leaflet").LayerGroup, res: ResultadoPois, modo: ModoPois) {
   grupo.clearLayers();
-  L.circle(res.c, { radius: res.raioKm * 1000, color: "#1f5f8b", weight: 1.5, dashArray: "6 5", fill: false, interactive: false }).addTo(grupo);
+  // na área de deslocamento o contorno já está no mapa; no raio, o círculo mostra até onde foi a busca
+  if (!res.areaRotulo) L.circle(res.c, { radius: res.raioKm * 1000, color: "#1f5f8b", weight: 1.5, dashArray: "6 5", fill: false, interactive: false }).addTo(grupo);
   const zoom = mapa.getZoom();
   const itens = res.lugares.map((l, i) => ({ l, i }));
-  // longe (zoom < 13): junta os lugares próximos em bolinhas com o número
-  if (zoom < 13) {
+  // longe (zoom < 12): junta os lugares próximos em bolinhas com o número
+  if (zoom < 12) {
     const celulas = new Map<string, typeof itens>();
     for (const it of itens) { const p = mapa.latLngToLayerPoint(it.l.c); const k = `${Math.floor(p.x / 56)}_${Math.floor(p.y / 56)}`; (celulas.get(k) ?? celulas.set(k, []).get(k)!).push(it); }
     for (const g of celulas.values()) {
@@ -88,8 +95,10 @@ export function desenharPois(L: Leaflet, mapa: import("leaflet").Map, grupo: imp
 }
 
 /** Controle "Academias concorrentes" (no canto de baixo do mapa): categoria, raio e buscar. `aviso`: pergunta antes de mandar a posição ao Google (pontos novos). */
-export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado }: {
+export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado, area }: {
   centro: [number, number] | null; aviso: boolean; aoResultado: (r: ResultadoPois | null) => void; modo: ModoPois; setModo: (m: ModoPois) => void; temResultado: boolean;
+  /** Área de deslocamento: a busca cobre a área e só ficam os lugares de dentro (sem escolher raio). */
+  area?: { geometria: Geometria; rotulo: string } | null;
 }) {
   const [aberto, setAberto] = useState(false);
   const [categoria, setCategoria] = useState("academias");
@@ -102,14 +111,20 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
     if (aviso && !avisou.current && !window.confirm("Para buscar, a posição deste ponto será enviada ao Google. Continuar?")) return;
     avisou.current = true;
     setBuscando(true); setErro("");
-    try { aoResultado(await buscarPois(centro, raio, categoria)); setAberto(false); } catch (e) { setErro((e as Error).message); } finally { setBuscando(false); }
+    try {
+      if (area) {
+        const r = await buscarPois(centro, raioQueCobre(centro, area.geometria), categoria);
+        const lugares = r.lugares.filter((l) => dentroDaArea(l.c[0], l.c[1], area.geometria));
+        aoResultado({ ...r, lugares, total: lugares.length, areaRotulo: area.rotulo });
+      } else aoResultado(await buscarPois(centro, raio, categoria));
+      setAberto(false);
+    } catch (e) { setErro((e as Error).message); } finally { setBuscando(false); }
   };
   return (
     <div className="pointer-events-auto relative flex flex-col-reverse items-start gap-2">
-      <button type="button" aria-expanded={aberto} onClick={() => setAberto((a) => !a)} disabled={!centro}
-        className="flex h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-[13px] font-medium shadow-lg disabled:opacity-50 aria-expanded:ring-2 aria-expanded:ring-foreground">
+      <Button variant="outline" aria-expanded={aberto} onClick={() => setAberto((a) => !a)} disabled={!centro} className="bg-white shadow-lg aria-expanded:ring-2 aria-expanded:ring-foreground">
         <MapPinned className="h-4 w-4 text-primary" aria-hidden />Academias concorrentes
-      </button>
+      </Button>
       {aberto && (
         <div className="absolute bottom-12 left-0 z-[700] w-72 space-y-3 rounded-xl border bg-white p-3 shadow-2xl">
           <label className="block text-xs font-medium text-muted-foreground">O que buscar
@@ -117,21 +132,23 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
               {CATEGORIAS_POIS.map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
             </select>
           </label>
-          <label className="block text-xs font-medium text-muted-foreground">Raio: <b className="text-foreground">{raio.toLocaleString("pt-BR")} km</b>
-            <input type="range" min={0.5} max={5} step={0.5} value={raio} onChange={(e) => setRaio(Number(e.target.value))} className="mt-1 w-full accent-primary" />
-          </label>
+          {area ? <p className="text-xs text-muted-foreground">Onde: <b className="text-foreground">área de {area.rotulo}</b> (a linha verde do mapa)</p> : (
+            <label className="block text-xs font-medium text-muted-foreground">Raio: <b className="text-foreground">{raio.toLocaleString("pt-BR")} km</b>
+              <input type="range" min={0.5} max={5} step={0.5} value={raio} onChange={(e) => setRaio(Number(e.target.value))} className="mt-1 w-full accent-primary" />
+            </label>
+          )}
           {erro && <p className="text-xs text-destructive">{erro}</p>}
           <div className="flex gap-2">
-            <button type="button" onClick={buscar} disabled={buscando} className="h-9 flex-1 rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60">{buscando ? "Buscando…" : "Buscar"}</button>
-            {temResultado && <button type="button" onClick={() => { aoResultado(null); setAberto(false); }} className="h-9 rounded-lg border px-3 text-sm">Limpar</button>}
+            <Button onClick={buscar} disabled={buscando} className="flex-1">{buscando ? "Buscando…" : "Buscar"}</Button>
+            {temResultado && <Button variant="outline" onClick={() => { aoResultado(null); setAberto(false); }}>Limpar</Button>}
           </div>
           <p className="text-[11px] text-muted-foreground">Dados do Google. A mesma busca fica guardada por 90 dias.</p>
         </div>
       )}
       {temResultado && (
-        <div className="flex rounded-lg bg-white p-0.5 text-xs shadow" role="group" aria-label="Como mostrar os lugares">
+        <div className="flex gap-1.5" role="group" aria-label="Como mostrar os lugares">
           {(["nomes", "numeros"] as ModoPois[]).map((m) => (
-            <button key={m} type="button" aria-pressed={modo === m} onClick={() => setModo(m)} className="rounded-md px-2.5 py-1 text-muted-foreground aria-pressed:bg-foreground aria-pressed:font-medium aria-pressed:text-background">{m === "nomes" ? "Nomes no mapa" : "Números + lista"}</button>
+            <Pilula key={m} ativo={modo === m} onClick={() => setModo(m)} className="bg-white shadow">{m === "nomes" ? "Nomes no mapa" : "Números + lista"}</Pilula>
           ))}
         </div>
       )}
@@ -160,7 +177,7 @@ export function SecaoPois({ res }: { res: ResultadoPois }) {
   const total = totalPois(res);
   const redes = [...new Set(res.lugares.map((l) => l.rede).filter((r): r is string => !!r && r !== "World Gym"))];
   return (
-    <Secao icone={MapPinned} titulo={`${rotuloPois(res)} a até ${res.raioKm.toLocaleString("pt-BR")} km`} className="lg:col-span-2">
+    <Secao icone={MapPinned} titulo={`${rotuloPois(res)} ${ondePois(res)}`} className="lg:col-span-2">
       <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
         <div className="text-center">
           <div className="font-display text-[44px] font-semibold leading-none text-primary">{total}</div>

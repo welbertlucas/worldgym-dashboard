@@ -18,7 +18,7 @@ describe("evidências a partir da planilha", () => {
   it("encontra o sinal certo (novos contratos), lista o que está sem sinal e compara com a rede", () => {
     const ev = buildEvidence(alert(), data);
     expect(ev.signals.map((s) => s.key)).toEqual(["novos"]);
-    expect(ev.signals[0].text).toContain("Novos contratos -31,3% vs. o mês anterior (80 → 55)");
+    expect(ev.signals[0].text).toContain("Novos contratos -31,3% vs. o mês anterior (de 80 para 55)");
     expect(ev.quiet).toEqual(expect.arrayContaining(["Cancelamentos", "Ticket médio", "Inadimplência"]));
     expect(ev.context.join(" ")).toContain("causa local");
   });
@@ -36,7 +36,7 @@ describe("evidências a partir da planilha", () => {
   it("comparativo anual usa o mesmo mês do ano anterior", () => {
     const d = [month("2025-09", [unit("Gama", { novosContratos: 200 })]), month("2026-08", [unit("Gama", { novosContratos: 100 })]), month("2026-09", [unit("Gama", { novosContratos: 100 })])];
     const ev = buildEvidence(alert({ kind: "yoyFaturamento" }), d);
-    expect(ev.signals[0].text).toContain("vs. o mesmo mês do ano anterior (200 → 100)");
+    expect(ev.signals[0].text).toContain("vs. o mesmo mês do ano anterior (de 200 para 100)");
   });
 
   it("sem mês anterior, sem unidade ou sem dados: não quebra e não inventa evidência", () => {

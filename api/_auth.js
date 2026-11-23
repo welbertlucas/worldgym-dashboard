@@ -148,12 +148,12 @@ export async function sessaoDaRequisicao(req, res = null, agora = Date.now()) {
  * Barra o pedido (401 sem login, 403 sem permissão) e devolve a sessão quando pode seguir; false quando já respondeu.
  * `papeis`: níveis aceitos (padrão: todos).
  */
-/** Pedido POST que só consulta (não grava nada): a busca de academias concorrentes dos Estudos de ponto. */
+/** Pedido POST que só consulta (não grava nada em nome da pessoa): academias concorrentes e área de deslocamento dos Estudos de ponto. */
 export function ehSoConsulta(req) {
   if (req.query?.modulo !== "estudos") return false;
   let corpo = req.body;
   if (typeof corpo === "string") { try { corpo = JSON.parse(corpo); } catch { return false; } }
-  return corpo?.acao === "pois";
+  return corpo?.acao === "pois" || corpo?.acao === "deslocamento" || corpo?.acao === "endereco";
 }
 
 export async function exigirLogin(req, res, { papeis } = {}) {

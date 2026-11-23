@@ -1,0 +1,264 @@
+// Conteúdo do PDF do estudo de uma unidade em operação, no roteiro do estudo de geomarketing da rede (Canva): resumo, metodologia,
+// base de clientes, oportunidades, perfil etário, domicílios, perfil socioeconômico, concorrência, canibalização e conclusão.
+// Cada seção traz a leitura escrita (o "porquê" do número), não só o mapa. Os textos são montados por regras fixas a partir dos
+// números da própria tela: nada inventado; o que é estimativa ou premissa de mercado aparece escrito como tal.
+import type { ConteudoPdf, Secao } from "@/lib/estudoPdf";
+import { nomeDoArquivo } from "@/lib/estudoPdf";
+import { CLASSES_RENDA, CORES_IDADE, CORRECAO_POF, FAIXAS_IDADE, reais, type densidadeNaArea, type UnidadeEstudo, type classesNoRaio, type perfilNaArea, type potencialNaArea, type FaixaM2 } from "@/lib/estudoPonto";
+import type { ResultadoPois } from "@/components/estudos/pois";
+import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
+
+/** Penetração de academias na população (premissa de mercado do estudo da rede: média nacional de ~7%). */
+export const PENETRACAO_MERCADO = 0.07;
+/** Média de moradores por domicílio no Brasil (Censo 2022). */
+const MEDIA_BRASIL_DOMICILIO = 2.79;
+
+export interface DadosPdfUnidade {
+  u: UnidadeEstudo;
+  faixa: FaixaM2 | null;
+  porM2: number | null; comparado: number | null;
+  minutos: number; temArea: boolean;
+  parteNaArea: number | null; min80: number | null; onde80: string;
+  topBairros: [string, number, number, number][]; alunosBairro: number;
+  esperadoNaArea: number | null;
+  perfil: ReturnType<typeof perfilNaArea> | null;
+  renda: ReturnType<typeof classesNoRaio> | null;
+  potencial: ReturnType<typeof potencialNaArea> | null;
+  densidade?: ReturnType<typeof densidadeNaArea> | null;
+  /** Onde abrir outra unidade na região (só para quem vê a estratégia de expansão). */
+  novaUnidade?: ResultadoSugestoes | null;
+  pois: ResultadoPois | null;
+  divideCom: { nome: string; parte: number }[];
+  fotos: { sat: string | null; alunos: string | null; oportunidade: string | null; idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; nova?: string | null; pois: string | null; rede: string | null };
+  hoje?: Date;
+}
+
+const pct = (x: number | null | undefined, casas = 1) => (x == null ? "—" : `${(x * 100).toLocaleString("pt-BR", { maximumFractionDigits: casas })}%`);
+const mil = (x: number | null | undefined) => (x == null ? "—" : x >= 10000 ? `${Math.round(x / 1000).toLocaleString("pt-BR")} mil` : Math.round(x).toLocaleString("pt-BR"));
+const num = (x: number) => Math.round(x).toLocaleString("pt-BR");
+const dec = (x: number, c = 2) => x.toLocaleString("pt-BR", { minimumFractionDigits: c, maximumFractionDigits: c });
+
+/** Separa os lugares do Google em grandes redes, academias independentes e studios/modalidades (lutas, dança, pilates...). */
+const MODALIDADE = /capoeira|associa|pilates|dan[çc]a|jiu|jitsu|luta|krav|muay|boxe|box\b|karat|jud[oô]|taekwon|crossfit|cross fit|escola|studio|est[úu]dio|personal|fisio|cl[íi]nic|nata[çc][ãa]o|yoga|ioga|funcional|calistenia|equipamentos|ol[íi]mpico|centro de treinamento|ct\b/i;
+export function classificarConcorrentes(pois: ResultadoPois | null) {
+  if (!pois || pois.categoria !== "academias") return null;
+  const lugares = pois.lugares.filter((l) => l.rede !== "World Gym");
+  const redes = lugares.filter((l) => l.rede), resto = lugares.filter((l) => !l.rede);
+  const modalidades = resto.filter((l) => MODALIDADE.test(l.nome)), independentes = resto.filter((l) => !MODALIDADE.test(l.nome));
+  const nomesRedes = [...new Set(redes.map((l) => l.rede as string))].map((r) => ({ rede: r, n: redes.filter((l) => l.rede === r).length }));
+  return { total: lugares.length, redes, independentes, modalidades, diretos: redes.length + independentes.length, nomesRedes };
+}
+
+export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
+  const { u, faixa, perfil, renda } = d;
+  const area = d.temArea ? `na área de até ${d.minutos} minutos de carro` : "na área onde moram 80% dos alunos";
+  const mes = (d.hoje ?? new Date()).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const conc = classificarConcorrentes(d.pois);
+  const moradores = perfil?.moradores ?? null;
+  const alunosNaArea = u.alunos != null && d.parteNaArea != null ? u.alunos * d.parteNaArea : null;
+  const praticantes = moradores != null ? moradores * PENETRACAO_MERCADO : null;
+  const share = alunosNaArea != null && praticantes ? alunosNaArea / praticantes : null;
+  const habPorAcademia = moradores != null && conc ? moradores / (conc.diretos + 1) : null;
+  const pratPorAcademia = praticantes != null && conc ? praticantes / (conc.diretos + 1) : null;
+  const nivelConcorrencia = habPorAcademia == null ? null : habPorAcademia <= 1950 ? "saturada" : habPorAcademia <= 3000 ? "alta" : habPorAcademia <= 6600 ? "moderada" : "baixa";
+  const perfilRenda = renda ? (renda.cde >= 0.75 ? "predominantemente popular" : renda.ab >= 0.4 ? "de renda mais alta" : "misto") : null;
+  const secoes: Secao[] = [];
+
+  // ---------- Resumo (página principal) ----------
+  const resumo: string[] = [];
+  if (u.vendas != null) {
+    resumo.push(`A World Gym ${u.nome} vende em média ${reais(u.vendas)} por mês${u.m2 ? ` em ${num(u.m2)} m²` : ""}, o equivalente a ${d.porM2 ? `R$ ${num(d.porM2)}` : "—"} por m²${faixa ? `, contra R$ ${num(faixa.mediana)} da mediana das unidades maduras da rede${Number.isFinite(faixa.p25) && Number.isFinite(faixa.p75) ? ` (metade das unidades fica entre R$ ${num(faixa.p25)} e R$ ${num(faixa.p75)})` : ""}` : ""}. ${d.comparado == null ? "" : d.comparado >= 0.1 ? `É um resultado ${Math.round(d.comparado * 100)}% acima da rede para o tamanho do imóvel, o que coloca a unidade entre as que mais extraem resultado de cada metro quadrado.` : d.comparado <= -0.1 ? `É um resultado ${Math.abs(Math.round(d.comparado * 100))}% abaixo da rede para o tamanho do imóvel: o espaço está subaproveitado e há margem para crescer sem ampliar a área.` : "O resultado está em linha com a rede para o tamanho do imóvel."}`);
+  }
+  if (u.previsto && u.vendas != null && u.madura) {
+    resumo.push(`Pelo tamanho do imóvel, o modelo da rede esperaria ${reais(u.previsto.provavel)} por mês (faixa de ${reais(u.previsto.pessimista)} a ${reais(u.previsto.otimista)}). ${u.vendas > u.previsto.otimista ? "A unidade supera a faixa, sinal de que o ponto e a gestão rendem mais do que o tamanho explica." : u.vendas < u.previsto.pessimista ? "A unidade fica abaixo da faixa: o tamanho comportaria mais vendas, e as páginas a seguir mostram onde estão os entraves." : "A unidade está dentro da faixa esperada."}`);
+  } else if (!u.madura) resumo.push("A unidade tem menos de 12 meses de operação: a comparação com a rede vale a partir da maturidade.");
+  if (alunosNaArea != null && moradores) resumo.push(`${pct(d.parteNaArea, 0)} dos ${num(u.alunos!)} alunos ativos moram ${area}, onde vivem ${mil(moradores)} pessoas.`);
+  const barrasM2 = faixa && d.porM2 && Number.isFinite(faixa.mediana) ? {
+    tipo: "barras" as const, titulo: "Vendas por m² por mês: unidade x rede",
+    itens: [
+      { rotulo: `World Gym ${u.nome}`, valor: d.porM2, texto: `R$ ${num(d.porM2)}`, destaque: true },
+      ...(Number.isFinite(faixa.p75) ? [{ rotulo: "Rede: quartil superior", valor: faixa.p75, texto: `R$ ${num(faixa.p75)}` }] : []),
+      { rotulo: "Rede: mediana", valor: faixa.mediana, texto: `R$ ${num(faixa.mediana)}` },
+      ...(Number.isFinite(faixa.p25) ? [{ rotulo: "Rede: quartil inferior", valor: faixa.p25, texto: `R$ ${num(faixa.p25)}` }] : []),
+    ],
+  } : undefined;
+
+  // ---------- Metodologia (página própria, antes da unidade) ----------
+  const metodologia: Secao = {
+    titulo: "", linhas: [],
+    texto: ["A análise foi realizada considerando os seguintes critérios e fontes de dados:"],
+    lista: [
+      d.temArea ? `Área de influência de até ${d.minutos} minutos de deslocamento de carro, calculada pelas ruas (Mapbox)` : "Área onde moram 80% dos alunos",
+      "População total, faixa etária e domicílios (Censo 2022, IBGE, por setor censitário)",
+      "Renda média do responsável e classes de renda (Censo 2022)",
+      "Potencial de consumo em recreações e esportes (POF 2017-2018, IBGE)",
+      `Base de clientes ativos por bairro e vendas da unidade (EVO, ${mes})`,
+      "Mapeamento das academias concorrentes (Google)",
+      `Premissas da rede: régua de vendas por m² das unidades maduras e penetração de mercado de ${pct(PENETRACAO_MERCADO, 0)}`,
+    ],
+    paragrafo: "Os dados do Censo são agregados em hexágonos de cerca de 300 m e contados quando o centro do hexágono cai dentro da área. Contagens de alunos são totais por bairro, sem dado pessoal.",
+  };
+
+  // ---------- Base de clientes ativos ----------
+  if (d.topBairros.length) {
+    const top3 = d.topBairros.slice(0, 3).reduce((a, b) => a + b[3], 0) / Math.max(1, d.alunosBairro);
+    const texto: string[] = [];
+    texto.push(`Os ${num(d.alunosBairro)} alunos com bairro identificado se concentram em ${d.topBairros[0][0]} (${pct(d.topBairros[0][3] / Math.max(1, d.alunosBairro), 0)}), ${d.topBairros.slice(1, 3).map((b) => b[0]).join(" e ")}: os três primeiros bairros somam ${pct(top3, 0)} da base. ${top3 >= 0.7 ? "É uma base muito concentrada, típica de unidade de bairro, que depende da força local da marca." : top3 >= 0.45 ? "A concentração é moderada: há um núcleo forte e captação complementar nos bairros vizinhos." : "A base é espalhada, sinal de que a unidade atrai de longe (avenida de passagem, polo comercial ou pouca oferta na região)."}`);
+    if (d.parteNaArea != null) texto.push(`${pct(d.parteNaArea, 0)} da base mora ${area} e 80% dos alunos moram a até ${d.onde80}. ${d.parteNaArea >= 0.8 ? "A área de 10 minutos explica quase toda a base: é nela que se concentram as ações de marketing e as parcerias." : "Uma parte relevante da base vem de fora da área de 10 minutos: vale entender o que atrai esses alunos (trabalho, estudo ou trajeto) e reforçar esse canal."}`);
+    secoes.push({
+      titulo: "Base de Clientes Ativos", novaPagina: true, linhas: [], texto,
+      foto: { dados: d.fotos.alunos, legenda: `Bolha maior = mais alunos no bairro.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: 78,
+      grafico: d.parteNaArea != null ? { tipo: "rosca", fatias: [{ rotulo: `Moram ${area}`, valor: d.parteNaArea, cor: "#0f8a8a" }, { rotulo: "Moram fora da área", valor: 1 - d.parteNaArea, cor: "#d6d9e0" }], centro: pct(d.parteNaArea, 0), rotuloCentro: "na área" } : undefined,
+      tabela: { colunas: ["Bairro", "Alunos", "%"], larguras: [2.4, 0.8, 0.6], blocos: 2, linhas: d.topBairros.map(([b, , , n]) => [b, num(n), pct(n / Math.max(1, d.alunosBairro), 0)]) },
+    });
+  }
+
+  // ---------- Oportunidades de captação ----------
+  if (d.fotos.oportunidade) {
+    const texto = [`O mapa cruza duas informações. Em azul, a demanda esperada: onde o modelo da rede espera alunos, pela quantidade de moradores, pela distância até a unidade e pelas outras World Gym por perto. Em vermelho, os alunos reais de cada bairro. Onde o azul é forte e a bolha vermelha é pequena (ou não existe), há demanda ainda não capturada: são as prioridades para panfletagem, parcerias com empresas e mídia geolocalizada.`];
+    if (d.esperadoNaArea != null && d.parteNaArea != null) texto.push(`Pelo modelo, ${pct(d.esperadoNaArea, 0)} dos alunos deveriam morar ${area}; na prática são ${pct(d.parteNaArea, 0)}. ${d.parteNaArea < d.esperadoNaArea - 0.05 ? "A unidade capta abaixo do esperado no entorno imediato: o maior potencial de crescimento está perto da porta, e não em bairros distantes." : d.parteNaArea > d.esperadoNaArea + 0.05 ? "A unidade já domina o entorno imediato: o crescimento passa por atrair público de fora da área (trajeto casa-trabalho, empresas e faculdades)." : "A captação no entorno está em linha com o esperado; o ganho vem de aumentar a participação nos bairros com mais moradores."}`);
+    secoes.push({ titulo: "Oportunidades de Captação", novaPagina: true, linhas: [], texto, foto: { dados: d.fotos.oportunidade, legenda: "Azul: demanda esperada pelo modelo (mais escuro = mais alunos esperados). Bolhas vermelhas: alunos reais por bairro (maior = mais alunos)." } });
+  }
+
+  // ---------- Perfil etário ----------
+  if (perfil?.idade && perfil.parte20a49 != null) {
+    const tot = perfil.idade.reduce((a, b) => a + b, 0);
+    const p2049 = perfil.parte20a49, nucleo = (perfil.idade[3] + perfil.idade[4]) / tot;
+    secoes.push({
+      titulo: "População por Faixa Etária", novaPagina: true, linhas: [],
+      texto: [`A população de 20 a 49 anos ${area} soma ${num(tot * p2049)} pessoas, ${pct(p2049)} do total. ${p2049 >= 0.49 ? "É uma aderência etária alta ao público de academia." : p2049 >= 0.42 ? "É uma aderência etária média, com base relevante de público economicamente ativo." : "A aderência etária é baixa: a área é mais jovem ou mais envelhecida que o público típico, o que pede oferta e comunicação ajustadas."} Na rede, 55% dos alunos ativos têm de 25 a 44 anos, faixa em que o churn e a inadimplência são menores que entre os mais jovens; na área, os moradores de 30 a 49 anos são ${pct(nucleo)}.`],
+      foto: { dados: d.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade com mais moradores (Censo 2022)." }, altFoto: 85,
+      legenda: FAIXAS_IDADE.map((f, i) => ({ cor: CORES_IDADE[i], texto: `${f}: ${num(perfil.idade![i])} (${pct(perfil.idade![i] / tot, 0)})` })),
+      destaques: [{ valor: pct(p2049), rotulo: "moradores de 20 a 49 anos" }, { valor: mil(tot * p2049), rotulo: "pessoas de 20 a 49 anos" }],
+    });
+  }
+
+  // ---------- Domicílios e densidade ----------
+  if (perfil?.domicilios && perfil.porDomicilio) {
+    const pd = perfil.porDomicilio;
+    secoes.push({
+      titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
+      destaques: [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }, { valor: dec(pd), rotulo: "moradores por domicílio" }, { valor: mil(perfil.moradores), rotulo: "moradores" }],
+      texto: [`A área conta com ${num(perfil.domicilios)} domicílios ocupados, com média de ${dec(pd)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)}). ${pd >= 2.95 ? "Famílias maiores dividem a renda entre mais pessoas: o consumo é compartilhado e a sensibilidade a preço é maior, o que reforça ticket acessível, planos familiares e alto volume de alunos." : pd <= 2.55 ? "Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor." : "O tamanho das famílias está perto da média nacional: o público combina famílias e adultos que moram sozinhos, sem pressão extra sobre o preço."}`],
+      foto: { dados: d.fotos.domicilios, legenda: "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)." }, altFoto: 85,
+      ...(d.densidade ? { grafico: { tipo: "rosca" as const, titulo: "Domicílios por faixa de moradores por domicílio", fatias: d.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
+    });
+  }
+
+  // ---------- Perfil socioeconômico ----------
+  if (renda && d.fotos.renda) {
+    const [a, b] = [...renda.classes].sort((x, y) => y.parte - x.parte);
+    secoes.push({
+      titulo: "Perfil Socioeconômico", novaPagina: true, linhas: [],
+      texto: [`A região tem perfil ${perfilRenda}: ${pct(renda.ab)} dos moradores estão nas classes AA, A e B e ${pct(renda.cde)} nas classes C, D e E. As classes que mais aparecem são a ${a.id} (${pct(a.parte)}) e a ${b.id} (${pct(b.parte)}), ${renda.cde >= 0.75 ? "o que indica sensibilidade a preço e favorece modelos focados em escala e eficiência, como o Low Cost." : renda.ab >= 0.4 ? "o que abre espaço para planos de maior valor, serviços adicionais e o modelo Pro." : "o que pede uma oferta que atenda as duas faixas, com plano de entrada e opções de maior valor."}${renda.media ? ` A renda média do responsável pelo domicílio na área é de R$ ${num(Math.round(renda.media / 10) * 10)}.` : ""}`],
+      foto: { dados: d.fotos.renda, legenda: "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022, estimativa por hexágono)." }, altFoto: 88,
+      grafico: { tipo: "rosca", titulo: "Distribuição dos moradores por classe de renda", fatias: CLASSES_RENDA.map((c) => ({ rotulo: `${c.rotulo} (${c.faixa})`, valor: renda.classes.find((x) => x.id === c.id)?.parte ?? 0, cor: c.cor })), centro: mil(renda.moradores), rotuloCentro: "moradores" },
+    });
+  }
+
+  // ---------- Potencial de consumo ----------
+  if (d.potencial) {
+    const pot = d.potencial, fatia = u.vendas != null && pot.total ? u.vendas / pot.total : null;
+    secoes.push({
+      titulo: "Potencial de Consumo", novaPagina: true, linhas: [],
+      destaques: [{ valor: `R$ ${pot.total >= 1e6 ? `${(pot.total / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `${Math.round(pot.total / 1000).toLocaleString("pt-BR")} mil`}`, rotulo: "potencial de consumo por mês" }, { valor: `R$ ${dec(pot.porDomicilio)}`, rotulo: "por domicílio por mês" }, ...(fatia != null ? [{ valor: pct(fatia, 0), rotulo: "do potencial é o que a unidade vende" }] : [])],
+      texto: [
+        `Os ${num(pot.domicilios)} domicílios ${area} gastam, juntos, cerca de R$ ${num(pot.total)} por mês com recreações e esportes (academias, clubes, aulas e eventos esportivos), pela renda de cada região. ${renda && renda.cde >= 0.75 ? "Apesar da renda predominantemente popular, a escala de domicílios forma uma base de mercado que sustenta operações de volume." : "A renda da área sustenta gasto acima da média com atividade física, o que favorece ticket maior e serviços adicionais."}`,
+        ...(fatia != null ? [`A World Gym ${u.nome} vende ${reais(u.vendas!)} por mês, o equivalente a ${pct(fatia, 0)} desse potencial. ${fatia >= 0.36 ? "É uma fatia alta: parte das vendas vem de alunos de fora da área e o espaço para crescer dentro dela é mais estreito (nos estudos da rede, pontos novos que precisariam de mais de ~36% do potencial foram reprovados)." : fatia >= 0.33 ? "É uma fatia na zona de atenção usada nos estudos da rede (33% a 35%)." : "É uma fatia confortável (nos estudos da rede, até ~32% do potencial é considerado capturável), o que indica espaço para crescer."}`] : []),
+        `Estimativa: gasto médio mensal das famílias com recreações e esportes por faixa de renda (IBGE, POF 2017-2018), corrigido pela inflação (×${dec(CORRECAO_POF)}) e aplicado à renda média do responsável de cada hexágono do Censo 2022. Como a família costuma ter mais de uma renda, o número tende a ser conservador.`,
+      ],
+      foto: { dados: d.fotos.consumo, legenda: "Mais escuro = maior gasto estimado com recreações e esportes." }, altFoto: 95,
+    });
+  }
+
+  // ---------- Concorrência e mercado ----------
+  if (d.pois && conc) {
+    const texto: string[] = [];
+    texto.push(`Foram identificados ${conc.total} lugares cadastrados como academia no Google ${d.pois.areaRotulo ? `na área de ${d.pois.areaRotulo}` : `a até ${d.pois.raioKm.toLocaleString("pt-BR")} km`}. Separando por tipo: ${conc.redes.length} unidades de grandes redes${conc.nomesRedes.length ? ` (${conc.nomesRedes.map((r) => `${r.rede}${r.n > 1 ? ` ${r.n}` : ""}`).join(", ")})` : ""}, ${conc.independentes.length} academias independentes e ${conc.modalidades.length} studios e modalidades (lutas, pilates, dança, crossfit), que disputam só parte do mesmo aluno. A classificação é automática pelo nome e vale conferir.`);
+    if (habPorAcademia != null && pratPorAcademia != null && praticantes != null) texto.push(`Com ${mil(moradores)} moradores e ${conc.diretos} concorrentes diretos mais a própria unidade, a área tem ${num(habPorAcademia)} habitantes por academia: concorrência ${nivelConcorrencia}${nivelConcorrencia === "saturada" ? " (nos estudos da rede, áreas abaixo de ~1.950 habitantes por academia foram reprovadas por saturação)" : ""}. Pela premissa de ${pct(PENETRACAO_MERCADO, 0)} de penetração, são cerca de ${mil(praticantes)} praticantes, ou ${num(pratPorAcademia)} por academia${share != null ? `; a World Gym ${u.nome} tem cerca de ${pct(share, 0)} desse mercado com os alunos que moram na área` : ""}.`);
+    secoes.push({
+      titulo: "Análise de Concorrência", novaPagina: true, linhas: [], texto,
+      destaques: [{ valor: num(conc.diretos), rotulo: "concorrentes diretos" }, ...(habPorAcademia != null ? [{ valor: num(habPorAcademia), rotulo: "habitantes por academia" }] : []), ...(share != null ? [{ valor: pct(share, 0), rotulo: "participação no mercado da área" }] : [])],
+      foto: { dados: d.fotos.pois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, altFoto: 92,
+    });
+    secoes.push({
+      titulo: "Composição da Concorrência", novaPagina: true, linhas: [],
+      texto: [`Dos ${conc.total} lugares, ${conc.diretos} disputam diretamente o aluno da World Gym (grandes redes e academias independentes). Os studios e modalidades atendem nichos e entram só em parte na disputa.`],
+      grafico: { tipo: "rosca", fatias: [{ rotulo: "Grandes redes", valor: conc.redes.length, cor: "#1b2130" }, { rotulo: "Academias independentes", valor: conc.independentes.length, cor: "#1f5f8b" }, { rotulo: "Studios e modalidades", valor: conc.modalidades.length, cor: "#b9c3d0" }], centro: String(conc.total), rotuloCentro: "lugares" },
+      tabela: { colunas: ["Nº", "Academia", "km"], larguras: [0.35, 3, 0.55], blocos: 2, linhas: d.pois.lugares.map((l, i) => [String(i + 1), l.rede ? `${l.nome} (${l.rede})` : l.nome, l.km.toLocaleString("pt-BR")]) },
+    });
+  }
+
+  // ---------- Canibalização ----------
+  const perda = d.divideCom.reduce((a, x) => a + x.parte, 0);
+  secoes.push({
+    titulo: "Canibalização com a Rede", novaPagina: true, linhas: [],
+    texto: [d.divideCom.length
+      ? `A área da unidade se sobrepõe à de outras World Gym. Pelo modelo de captação, ${d.divideCom.map((x) => `${pct(x.parte, 0)} do potencial é disputado com a ${x.nome}`).join(", ")}. ${perda >= 0.25 ? "É uma sobreposição alta: ações comerciais devem ser coordenadas entre as unidades para não disputar o mesmo aluno com desconto, e novas aberturas nessa direção pedem cuidado." : "É uma sobreposição moderada, comum em redes adensadas; vale combinar campanhas entre as unidades para cobrir os bairros de fronteira."}`
+      : "Nenhuma outra World Gym divide de forma relevante a área desta unidade: não há canibalização dentro da rede, e o crescimento depende só da disputa com a concorrência externa."],
+    foto: { dados: d.fotos.rede, legenda: "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." }, altFoto: 100,
+    grafico: d.divideCom.length ? { tipo: "rosca", titulo: "Potencial de captação da unidade", fatias: [{ rotulo: `Só da World Gym ${u.nome}`, valor: Math.max(0, 1 - perda), cor: "#c41230" }, ...d.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } : undefined,
+  });
+
+  // ---------- Nova unidade na região ----------
+  if (d.novaUnidade) {
+    secoes.push({
+      titulo: "Oportunidade de Nova Unidade", novaPagina: true, linhas: [],
+      texto: [textoSugestoes(d.novaUnidade, "nova", u.nome), LIMITES_SUGESTAO],
+      foto: d.fotos.nova ? { dados: d.fotos.nova, legenda: "Pinos cinza numerados: regiões sugeridas. Bolinhas vermelhas: World Gym em operação." } : undefined, altFoto: 100,
+      ...(d.novaUnidade.sugestoes.length ? { tabela: { colunas: ["Região", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.novaUnidade) } } : {}),
+    });
+  }
+
+  // ---------- Conclusão ----------
+  const conclusao: string[] = [];
+  conclusao.push(`A World Gym ${u.nome} ${u.vendas != null ? `vende ${reais(u.vendas)} por mês` : "está em operação"}${d.comparado != null ? `, ${Math.abs(Math.round(d.comparado * 100))}% ${d.comparado >= 0 ? "acima" : "abaixo"} da média da rede por m²` : ""}${u.alunos != null ? `, com ${num(u.alunos)} alunos ativos` : ""}. ${!u.madura ? "Como ainda não completou 12 meses, a leitura de resultado é preliminar." : d.comparado != null && d.comparado >= 0.1 ? "O ponto e a operação mostram força: o desafio é proteger a base e defender a posição contra a entrada de novos concorrentes." : d.comparado != null && d.comparado <= -0.1 ? "O imóvel comporta mais vendas do que entrega hoje, e o diagnóstico abaixo indica onde agir." : "O desempenho está em linha com a rede, com espaço para ganhos pontuais."}`);
+  const demanda: string[] = [];
+  if (moradores) demanda.push(`${area} vivem ${mil(moradores)} pessoas${perfil?.domicilios ? ` em ${mil(perfil.domicilios)} domicílios` : ""}`);
+  if (perfil?.parte20a49 != null) demanda.push(`${pct(perfil.parte20a49, 0)} delas com 20 a 49 anos`);
+  if (renda) demanda.push(`perfil ${perfilRenda} (${pct(renda.cde, 0)} nas classes C, D e E)`);
+  const base: string[] = [];
+  if (d.parteNaArea != null) base.push(`${pct(d.parteNaArea, 0)} dos alunos moram ${area} e 80% deles a até ${d.onde80}`);
+  if (d.topBairros.length >= 3) base.push(`os três bairros com mais alunos (${d.topBairros.slice(0, 3).map((b) => b[0]).join(", ")}) somam ${pct(d.topBairros.slice(0, 3).reduce((a, b) => a + b[3], 0) / Math.max(1, d.alunosBairro), 0)} da base`);
+  if (d.esperadoNaArea != null && d.parteNaArea != null) base.push(`o modelo esperaria ${pct(d.esperadoNaArea, 0)} dos alunos dentro da área, ${d.parteNaArea < d.esperadoNaArea - 0.05 ? "o que mostra demanda ainda não capturada perto da unidade" : d.parteNaArea > d.esperadoNaArea + 0.05 ? "o que mostra que a unidade já domina o entorno e passa a crescer atraindo público de fora" : "em linha com o que a unidade capta hoje"}`);
+  if (base.length) conclusao.push(`Na base de clientes, ${base.join("; ")}.`);
+  if (d.potencial) demanda.push(`potencial de consumo de cerca de R$ ${num(d.potencial.total)} por mês em recreações e esportes`);
+  if (perfil?.porDomicilio) demanda.push(`${dec(perfil.porDomicilio)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)})`);
+  if (demanda.length) conclusao.push(`Do lado da demanda, ${demanda.join(", ")}. ${renda && renda.cde >= 0.75 ? "É um mercado de volume, em que preço de entrada competitivo, régua de cobrança eficiente e retenção pesam mais que serviços adicionais." : "O público comporta oferta em mais de uma faixa de preço, o que abre espaço para planos de maior valor e receitas complementares."}`);
+  if (conc && habPorAcademia != null) conclusao.push(`A concorrência é ${nivelConcorrencia}: ${conc.diretos} concorrentes diretos${conc.nomesRedes.length ? `, entre eles ${conc.nomesRedes.map((r) => r.rede).join(", ")}` : ""}, e ${num(habPorAcademia)} habitantes por academia.${share != null ? ` A unidade detém cerca de ${pct(share, 0)} do mercado estimado da área${share >= 0.25 ? ", uma participação de liderança" : share >= 0.15 ? ", uma participação relevante" : ", o que mostra espaço para ganhar participação"}.` : ""}`);
+  else conclusao.push("A leitura de concorrência não entrou neste estudo porque as academias concorrentes não foram buscadas antes de exportar; recomenda-se gerar o PDF com a busca feita.");
+  conclusao.push(d.divideCom.length ? `Dentro da rede, a unidade divide ${pct(perda, 0)} do potencial com ${d.divideCom.map((x) => x.nome).join(" e ")}, o que pede coordenação comercial entre as unidades.` : "Dentro da rede não há canibalização relevante.");
+  const acoes: string[] = [];
+  if (d.parteNaArea != null && d.esperadoNaArea != null && d.parteNaArea < d.esperadoNaArea - 0.05) acoes.push("concentrar marketing e parcerias nos bairros da área de 10 minutos onde a demanda potencial é alta e a base é pequena");
+  if (d.topBairros[0]) acoes.push(`defender a base em ${d.topBairros[0][0]}, que sozinho responde por ${pct(d.topBairros[0][3] / Math.max(1, d.alunosBairro), 0)} dos alunos`);
+  if (nivelConcorrencia === "alta" || nivelConcorrencia === "saturada") acoes.push("monitorar preço e lançamentos das redes vizinhas e reforçar retenção (onboarding, avaliação e acompanhamento dos primeiros 90 dias)");
+  if (renda && renda.cde >= 0.75) acoes.push("manter plano de entrada competitivo e usar o recorrente para reduzir inadimplência");
+  if (d.comparado != null && d.comparado <= -0.1) acoes.push("revisar ocupação do espaço e horários de pico para converter a área ociosa em vendas");
+  conclusao.push(`Recomendação: ${acoes.length ? acoes.join("; ") : "manter a estratégia atual e acompanhar os indicadores mês a mês"}.`);
+  const faixaConclusao = !u.madura ? "Unidade em maturação: acompanhar até 12 meses" : d.comparado != null && d.comparado >= 0.1 ? "Unidade forte: proteger a base e crescer no entorno" : d.comparado != null && d.comparado <= -0.1 ? "Unidade abaixo do potencial: plano de captação" : "Unidade em linha com a rede: ganhos pontuais";
+  secoes.push({ titulo: "Conclusão e Recomendação", novaPagina: true, linhas: [], faixa: faixaConclusao, texto: conclusao,
+    paragrafo: `Os números de mercado usam premissas (penetração de ${pct(PENETRACAO_MERCADO, 0)}, classes estimadas pela renda média do Censo e gasto da POF corrigido pela inflação) e devem ser lidos como ordem de grandeza.` });
+
+  return {
+    arquivo: nomeDoArquivo(`estudo-unidade-${u.nome}`), cabecalho: "Estudo da unidade", foto: null,
+    capa: { titulo: "Estudo de Geomarketing", linha: "Estudo da Unidade", subtitulo: `World Gym ${u.nome}${u.m2 ? ` | ${num(u.m2)} m²` : ""}` },
+    paginas: [{
+      titulo: "Objetivo do Estudo", subtitulo: "", numeros: [], secoes: [],
+      texto: [`O presente estudo de geomarketing tem como objetivo avaliar o desempenho da World Gym ${u.nome} e o mercado em volta dela, considerando critérios demográficos, socioeconômicos, concorrenciais e de rede, por meio da análise de:`],
+      lista: ["Base de clientes ativos e oportunidades de captação", "Dados demográficos e domiciliares", "Indicadores socioeconômicos e potencial de consumo", "Análise concorrencial", "Sobreposição com a rede World Gym e oportunidade de nova unidade"],
+      destaque: "O material foi desenvolvido para subsidiar decisões do comitê de expansão e da gestão da unidade, alinhado ao modelo de negócio da World Gym.",
+    }, {
+      titulo: "Metodologia de Análise", subtitulo: "", numeros: [], secoes: [metodologia],
+    }, {
+      titulo: `World Gym ${u.nome}`, subtitulo: `Estudo da unidade${u.m2 ? ` · ${num(u.m2)} m²` : ""}${u.madura ? "" : " · ainda amadurecendo (menos de 12 meses)"}`,
+      foto: { dados: d.fotos.sat, legenda: "A unidade vista de cima (imagem de satélite)." },
+      destaques: [
+        { valor: d.porM2 ? `R$ ${num(d.porM2)}` : "—", rotulo: `vendas por m² por mês${faixa ? ` (rede: R$ ${num(faixa.mediana)})` : ""}` },
+        d.parteNaArea != null ? { valor: pct(d.parteNaArea, 0), rotulo: `dos alunos moram a até ${d.minutos} min de carro` } : { valor: d.onde80, rotulo: "onde moram 80% dos alunos" },
+        { valor: u.alunos != null ? num(u.alunos) : "—", rotulo: "alunos ativos" },
+      ],
+      texto: resumo, grafico: barrasM2,
+      numeros: [], secoes,
+    }],
+  };
+}

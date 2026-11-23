@@ -123,7 +123,7 @@ export function buildEvidence(alert: Pick<Alert, "unit" | "kind" | "month">, dat
       out.checked.add(key);
       if (p.bad(d)) {
         out.supported.add(key);
-        out.signals.push({ key, supported: true, text: `${p.label} ${fmtChange(p, d)} vs. ${ref} (${p.fmt(p.pick(base))} → ${p.fmt(p.pick(cur))})` });
+        out.signals.push({ key, supported: true, text: `${p.label} ${fmtChange(p, d)} vs. ${ref} (de ${p.fmt(p.pick(base))} para ${p.fmt(p.pick(cur))})` });
       } else out.quiet.push(p.label);
     }
   }

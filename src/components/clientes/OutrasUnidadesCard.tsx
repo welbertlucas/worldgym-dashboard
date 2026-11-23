@@ -70,11 +70,11 @@ export function OutrasUnidadesCard({ total, month, monthLabel, partial, unit }: 
       >
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
           <div>
-            <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Maiores fluxos (de onde → para onde)</h4>
+            <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Maiores fluxos (de onde para onde)</h4>
             <ol className="space-y-2" aria-label="Maiores fluxos de alunos entre unidades">
               {fluxos.map(([de, para, p]) => (
                 <li key={`${de}>${para}`} className="grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-3 text-sm sm:grid-cols-[minmax(0,1fr)_6rem_5rem]">
-                  <span className="min-w-0 sm:truncate"><UnitLink name={de} /> <span className="text-muted-foreground">→</span> <UnitLink name={para} /></span>
+                  <span className="min-w-0 sm:truncate"><UnitLink name={de} /> <span className="text-muted-foreground">para</span> <UnitLink name={para} /></span>
                   <span className="hidden h-2.5 overflow-hidden rounded-full bg-secondary sm:block" aria-hidden>
                     <span className="block h-full rounded-full bg-primary/80" style={{ width: `${(p / maior) * 100}%` }} />
                   </span>

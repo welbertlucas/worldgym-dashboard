@@ -1,27 +1,27 @@
 import "leaflet/dist/leaflet.css";
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, hexagono, pausa, pino, rampa, type Leaflet } from "@/components/estudos/mapaComum";
-import { IconeBoneco, StreetView } from "@/components/estudos/StreetView";
-import { CSS_POIS, ControlePois, SecaoPois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { StreetView } from "@/components/estudos/StreetView";
+import { BarraMapa, PainelCamadas } from "@/components/estudos/controlesMapa";
+import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento } from "@/components/estudos/deslocamento";
+import { CSS_POIS, ControlePois, SecaoPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { MapPin, Scale, TrendingUp, Users } from "lucide-react";
-import { gerarPdfDoEstudo, nomeDoArquivo } from "@/lib/estudoPdf";
-import { CLASSES_RENDA, captacaoDe, classeDaRenda, classesNoRaio, km, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
+import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
+import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
+import { CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, MINUTOS_PADRAO, classeDensidade, densidadeNaArea, faixaPredominante, posicoesMelhores, captacaoDe, classeDaRenda, classesNaArea, classesNoRaio, dentroDaArea, gastoDoDomicilio, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
 
-// "limpa": só a unidade (usada na foto de satélite do PDF)
-type Lente = "alunos" | "modelo" | "pessoas" | "renda" | "rede" | "limpa";
+// "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + alunos (foto do PDF)
+type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "consumo" | "rede" | "limpa" | "oportunidade";
 const LENTES: { id: Lente; rotulo: string }[] = [
-  { id: "alunos", rotulo: "Onde moram os alunos" }, { id: "modelo", rotulo: "Onde o modelo diria" },
-  { id: "pessoas", rotulo: "Pessoas" }, { id: "renda", rotulo: "Renda" }, { id: "rede", rotulo: "Nossa rede" },
+  { id: "alunos", rotulo: "Base de clientes" }, { id: "modelo", rotulo: "Demanda potencial" },
+  { id: "pessoas", rotulo: "População" }, { id: "idade", rotulo: "Idade" }, { id: "domicilios", rotulo: "Domicílios" },
+  { id: "renda", rotulo: "Renda" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "rede", rotulo: "Canibalização" },
 ];
-/** Leitura do perfil de renda, no tom do estudo de geomarketing. */
-function leituraDaRenda(r: ReturnType<typeof classesNoRaio>) {
-  const p = (x: number) => `${(x * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
-  const [a, b] = [...r.classes].sort((x, y) => y.parte - x.parte);
-  const perfil = r.cde >= 0.75 ? "predominantemente popular" : r.ab >= 0.4 ? "de renda mais alta" : "misto";
-  const efeito = r.cde >= 0.75 ? "o que indica sensibilidade a preço e favorece modelos focados em escala e eficiência" : r.ab >= 0.4 ? "o que abre espaço para planos de maior valor e serviços" : "o que pede uma oferta que atenda as duas faixas";
-  return `A região tem perfil ${perfil}: ${p(r.ab)} dos moradores nas classes AA, A e B e ${p(r.cde)} nas classes C, D e E. As classes que mais aparecem são a ${a.id} (${p(a.parte)}) e a ${b.id} (${p(b.parte)}), ${efeito}.`;
-}
+/** Escala azul da demanda e do potencial de consumo. */
+const AZUL = (t: number) => `rgb(${Math.round(222 - 190 * t)},${Math.round(235 - 160 * t)},${Math.round(252 - 60 * t)})`;
 const fmtKm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`);
 
 /**
@@ -51,6 +51,19 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
   const topBairros = [...(u?.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 5);
   const moradores80 = u?.c && r80 && dados.censo ? dados.censo.celulas.reduce((a, [la, ln, p]) => a + (km([la, ln], u.c as [number, number]) <= r80 ? p : 0), 0) : null;
   const comparado = porM2 && mediana ? porM2 / mediana - 1 : null;
+  // Área de deslocamento (10 min de carro, Mapbox): quando existe, substitui o raio em linha reta nos números e nos mapas
+  const areas = useDeslocamento(u?.c, false);
+  const area10 = areaOficial(areas);
+  const min80 = areas?.carro && u?.bairros?.length ? minutosPara80(u.bairros, areas.carro) : null;
+  const parte10 = area10 && u?.bairros?.length ? parteDosAlunos(u.bairros, area10) : null;
+  const moradoresArea = area10 && dados.censo ? moradoresNaArea(dados.censo, area10) : moradores80;
+  const onde80 = min80 != null ? `${min80.toLocaleString("pt-BR")} min de carro` : areas?.carro ? `mais de 20 min de carro` : fmtKm(r80);
+  // onde abrir outra unidade na região (estratégia de expansão: não aparece para quem só tem acesso à própria unidade)
+  const novaUnidade = useMemo(() => (u?.c && dados.censo && dados.premissas && dados.modo !== "unidade"
+    ? posicoesMelhores({ c: u.c, m2: dados.premissas.modelos[u.modelo]?.padraoM2 ?? u.m2 ?? 1200 }, dados.censo, dados.unidades ?? [], [], dados.premissas.curva,
+      { raioKm: 10, longeDeUnidadesKm: 3, separacaoKm: 2.5, maxCanibalizacao: 0.2, ganhoMinimo: -0.3 })
+    : null), [u?.nome, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pct0 = (x: number | null) => (x == null ? "—" : `${Math.round(x * 100)}%`);
   const leituraModelo = u?.previsto && u.vendas != null
     ? `Pelo tamanho do imóvel, o modelo preveria ${reais(u.previsto.provavel)} por mês (entre ${reais(u.previsto.pessimista)} e ${reais(u.previsto.otimista)}).${u.vendas > u.previsto.otimista ? " A unidade vende acima da faixa: o ponto ou a gestão rendem mais que o tamanho explica." : u.vendas < u.previsto.pessimista ? " A unidade vende abaixo da faixa: vale entender o que segura as vendas." : " A unidade vende dentro da faixa."}`
     : null;
@@ -63,7 +76,6 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
       const mapa = L.map(el.current, { zoomControl: false, preferCanvas: true, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView(u?.c ?? [-15.8, -47.9], 13);
       const ruas = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
-      L.control.zoom({ position: "bottomright" }).addTo(mapa);
       ref.current = { L, mapa, camadas: L.layerGroup().addTo(mapa), ruas, sat };
       setPronto(true);
     });
@@ -93,12 +105,23 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     const { L, camadas } = m;
     camadas.clearLayers();
     const censo = dados.censo;
-    if (lente === "alunos") {
+    if (lente === "alunos" || lente === "oportunidade") {
+      if (lente === "oportunidade" && cap && censo) {
+        const mx = Math.max(...cap.pesos, 1e-9);
+        cap.indices.forEach((i, k) => {
+          const t = cap.pesos[k] / mx;
+          if (t < 0.03) return;
+          const [lat, lng] = censo.celulas[i];
+          L.polygon(hexagono(lat, lng, censo.rk), { color: "#fff", weight: 1, opacity: 0.5, fillColor: AZUL(t ** 0.6), fillOpacity: 0.7, interactive: false }).addTo(camadas);
+        });
+      }
       const mx = Math.max(1, ...(u.bairros ?? []).map((b) => b[3]));
       for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]))
-        L.circleMarker([lat, lng], { radius: 5 + 24 * Math.sqrt(n / mx), color: "#c41230", weight: 1, fillColor: "#c41230", fillOpacity: 0.32 })
+        L.circleMarker([lat, lng], lente === "oportunidade"
+          ? { radius: 4 + 20 * Math.sqrt(n / mx), color: "#fff", weight: 1, fillColor: "#c41230", fillOpacity: 0.75 }
+          : { radius: 5 + 24 * Math.sqrt(n / mx), color: "#c41230", weight: 1, fillColor: "#c41230", fillOpacity: 0.32 })
           .bindTooltip(`<strong>${bairro}</strong><br/>${n.toLocaleString("pt-BR")} ${n === 1 ? "aluno" : "alunos"}`).addTo(camadas);
-      if (r80) L.circle(u.c, { radius: r80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
+      if (r80 && !area10) L.circle(u.c, { radius: r80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
     } else if (lente === "modelo" && cap && censo) {
       const mx = Math.max(...cap.pesos, 1e-9);
       cap.indices.forEach((i, k) => {
@@ -107,9 +130,35 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
         const [lat, lng] = censo.celulas[i];
         L.polygon(hexagono(lat, lng, censo.rk), { stroke: false, fillColor: rampa(t ** 0.6), fillOpacity: 0.22 + 0.5 * Math.sqrt(t), interactive: false }).addTo(camadas);
       });
-      if (cap.raio80) L.circle(u.c, { radius: cap.raio80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
+      if (cap.raio80 && !area10) L.circle(u.c, { radius: cap.raio80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
+    } else if (lente === "consumo" && censo) {
+      // gasto estimado com recreações e esportes por hexágono (domicílios × gasto pela renda, POF/IBGE)
+      const vis = censo.celulas.filter(([la, ln, , , d]) => d && (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5));
+      const val = (c: (typeof vis)[number]) => (c[4] ?? 0) * (gastoDoDomicilio(c[3]) ?? 0);
+      const xs = vis.map(val).filter((x) => x > 0).sort((a, b) => a - b), mx = xs[Math.floor(xs.length * 0.95)] ?? 1;
+      for (const c of vis) {
+        const v = val(c), t = Math.min(1, v / mx);
+        L.polygon(hexagono(c[0], c[1], censo.rk), { color: "#fff", weight: 1, opacity: 0.6, fillColor: AZUL(t), fillOpacity: 0.72 })
+          .bindTooltip(`R$ ${Math.round(v).toLocaleString("pt-BR")} por mês em recreações e esportes (estimativa)`, { sticky: true }).addTo(camadas);
+      }
+    } else if ((lente === "idade" || lente === "domicilios") && censo) {
+      // idade: cada hexágono na cor da faixa com mais moradores; domicílios: na cor da faixa de moradores por domicílio (Censo 2022)
+      const vis = censo.celulas.filter(([la, ln, , , d, ida]) => (lente === "idade" ? ida?.length : d) && (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5));
+      for (const c of vis) {
+        if (lente === "idade") {
+          const i = faixaPredominante(c[5]);
+          if (i == null) continue;
+          L.polygon(hexagono(c[0], c[1], censo.rk), { color: "#fff", weight: 1, opacity: 0.6, fillColor: CORES_IDADE[i], fillOpacity: 0.62 })
+            .bindTooltip(`Predomina: ${FAIXAS_IDADE[i]}`, { sticky: true }).addTo(camadas);
+        } else {
+          const pd = c[2] / (c[4] as number), k = classeDensidade(pd);
+          L.polygon(hexagono(c[0], c[1], censo.rk), { color: "#fff", weight: 1, opacity: 0.6, fillColor: CLASSES_DENSIDADE[k].cor, fillOpacity: 0.65 })
+            .bindTooltip(`${pd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio`, { sticky: true }).addTo(camadas);
+        }
+      }
     } else if ((lente === "pessoas" || lente === "renda") && censo) {
-      const vis = censo.celulas.filter(([la, ln]) => km([la, ln], u.c as [number, number]) < 5);
+      // como no Mapfry: só os hexágonos de dentro da área de deslocamento (sem ela, num raio de 5 km)
+      const vis = censo.celulas.filter(([la, ln]) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5));
       const v = (c: (typeof vis)[number]) => (lente === "pessoas" ? c[2] : c[3] ?? 0);
       const xs = vis.map(v).filter((x) => x > 0).sort((a, b) => a - b), mx = xs[Math.floor(xs.length * 0.95)] ?? 1;
       for (const c of vis) {
@@ -130,41 +179,17 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     L.marker(u.c, { zIndexOffset: 2000, title: u.nome, icon: pino(L, "#c41230", 34) })
       .bindTooltip(`<strong>World Gym ${u.nome}</strong>`).addTo(camadas);
     if (rua) L.marker(rua, { icon: bolinha(L, "#f59e0b", 14) }).addTo(camadas);
-  }, [lente, u, cap, pronto, rua]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
+    if (lente === "rede") desenharSugestoes(L, camadas, novaUnidade);
+  }, [lente, u, cap, pronto, rua, areas, novaUnidade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(pronto ? ref.current : null, pois, modoPois);
 
   if (!u) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">Nenhuma unidade para mostrar.</p>;
 
-  const numeros = [
-    { rotulo: "Vendas por m²", valor: porM2 ? `R$ ${Math.round(porM2).toLocaleString("pt-BR")}` : "—", nota: mediana ? `rede: R$ ${mediana.toLocaleString("pt-BR")}` : "" },
-    { rotulo: "Alunos ativos", valor: u.alunos != null ? u.alunos.toLocaleString("pt-BR") : "—", nota: "" },
-    { rotulo: "80% dos alunos a até", valor: fmtKm(r80), nota: alunosBairro ? `${alunosBairro.toLocaleString("pt-BR")} com bairro` : "" },
-    { rotulo: "Moradores nessa área", valor: moradores80 != null ? `${Math.round(moradores80 / 1000).toLocaleString("pt-BR")} mil` : "—", nota: "Censo 2022" },
-  ];
   const frase = u.vendas != null
     ? `Vende ${reais(u.vendas)} por mês${comparado != null ? `, ${Math.abs(Math.round(comparado * 100))}% ${comparado >= 0 ? "acima" : "abaixo"} da média da rede para o tamanho dela` : ""}.`
     : null;
-
-  // Conclusão do estudo, montada com os mesmos números das páginas (regras fixas, sem texto inventado)
-  const concorrentesPdf = pois && pois.categoria === "academias" ? pois.lugares.filter((l) => l.rede !== "World Gym") : null;
-  const redesPdf = concorrentesPdf ? [...new Set(concorrentesPdf.map((l) => l.rede).filter((r): r is string => !!r))] : [];
-  const conclusao = (renda: ReturnType<typeof classesNoRaio> | null) => {
-    const itens: string[] = [];
-    if (u.vendas != null && comparado != null) itens.push(`Vende ${reais(u.vendas)} por mês, ${Math.abs(Math.round(comparado * 100))}% ${comparado >= 0 ? "acima" : "abaixo"} da média da rede por m².`);
-    if (u.previsto && u.vendas != null && u.madura) itens.push(u.vendas > u.previsto.otimista ? "Vende acima do que o modelo espera para o tamanho do imóvel." : u.vendas < u.previsto.pessimista ? "Vende abaixo do que o modelo espera para o tamanho do imóvel." : "Vende dentro do que o modelo espera para o tamanho do imóvel.");
-    if (r80) itens.push(`80% dos alunos moram a até ${fmtKm(r80)}${topBairros[0] ? `; o bairro que mais traz alunos é ${topBairros[0][0]} (${Math.round((topBairros[0][3] / Math.max(1, alunosBairro)) * 100)}%)` : ""}.`);
-    if (renda) itens.push(`Perfil ${renda.cde >= 0.75 ? "popular" : renda.ab >= 0.4 ? "de renda mais alta" : "misto"}: ${Math.round(renda.cde * 100)}% dos moradores nas classes C, D e E.`);
-    if (concorrentesPdf && pois) itens.push(`${concorrentesPdf.length} academias concorrentes a até ${pois.raioKm.toLocaleString("pt-BR")} km${redesPdf.length ? `, entre elas ${redesPdf.join(", ")}` : ""}.`);
-    itens.push(cap?.divideCom.length ? `Divide a área com ${cap.divideCom.map((d) => `${d.nome} (${Math.round(d.parte * 100)}%)`).join(", ")}.` : "Nenhuma World Gym divide a área desta unidade.");
-    return itens;
-  };
-  const recomendacao = () => {
-    if (!u.madura) return "A unidade ainda está amadurecendo (menos de 12 meses): a leitura de resultado vale a partir do 12º mês.";
-    if (comparado != null && comparado < -0.1) return "A unidade vende abaixo do que o tamanho dela permite. Compare os mapas \"Onde moram os alunos\" e \"Onde o modelo diria\": os bairros onde o modelo espera alunos e eles não aparecem são onde concentrar marketing e parcerias. Veja também a pressão das academias concorrentes mais próximas.";
-    if (comparado != null && comparado > 0.1) return "A unidade vende acima da média da rede para o tamanho dela: o ponto e a gestão funcionam. Vale proteger a base (renovação e atendimento) e acompanhar a entrada de novas academias concorrentes na área.";
-    return "A unidade vende perto da média da rede para o tamanho dela. Os bairros onde o modelo espera alunos e eles não aparecem são a principal oportunidade de crescimento.";
-  };
 
   const exportar = async () => {
     const m = ref.current;
@@ -172,64 +197,45 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     setGerando(true);
     const lenteAntes = lente, poisAntes = pois;
     setPois(null); // as academias só aparecem na foto delas
-    // Fotos do mapa num enquadramento fixo: satélite do imóvel e uma foto por lente, todas na área onde moram 80% dos alunos.
+    // Fotos do mapa num enquadramento fixo (o mesmo para todo mundo): satélite do imóvel e uma foto por tema, na área de 10 min de carro.
     const foto = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
-      const area = m.L.latLng(u.c).toBounds(Math.max(2.5, r80 ?? 2.5) * 2000);
-      // alunos: a área dos 80% com folga e os bairros com pelo menos 2% dos alunos que ficam perto (até 2× esse raio)
+      const areaLim = area10 ? limitesDaArea(m.L, area10).pad(0.08) : m.L.latLng(u.c).toBounds(Math.max(3, r80 ?? 3) * 2000);
+      // alunos: a área com folga e os bairros com pelo menos 2% dos alunos que ficam perto (nada cortado nas bordas)
       const raioAlunos = Math.max(3, (r80 ?? 3) * 1.25);
-      const areaAlunos = m.L.latLng(u.c).toBounds(raioAlunos * 2000);
+      const areaAlunos = area10 ? limitesDaArea(m.L, area10).pad(0.12) : m.L.latLng(u.c).toBounds(raioAlunos * 2000);
       for (const [, la, ln, n] of u.bairros ?? []) if (n >= alunosBairro * 0.02 && km([la, ln], u.c) <= raioAlunos * 2) areaAlunos.extend([la, ln]);
-      const fotoSat = await foto("limpa", { centro: u.c, zoom: 16 }, true);
-      const fotoAlunos = await foto("alunos", { limites: areaAlunos });
-      const fotoModelo = cap ? await foto("modelo", { limites: area }) : null;
-      const fotoPessoas = dados.censo ? await foto("pessoas", { limites: m.L.latLng(u.c).toBounds(8000) }) : null;
-      const fotoRenda = dados.censo ? await foto("renda", { limites: m.L.latLng(u.c).toBounds(8000) }) : null;
-      const fotoRede = await foto("rede", { limites: m.L.latLng(u.c).toBounds(14000) });
-      if (pois) { setPois(pois); await pausa(300); }
-      const fotoPois = pois ? await foto("limpa", { limites: m.L.latLng(pois.c).toBounds(pois.raioKm * 2000) }) : null;
+      const temIdade = !!dados.censo?.celulas.some((c) => c[5]?.length), temDom = !!dados.censo?.celulas.some((c) => c[4]);
+      const fotos = {
+        sat: await foto("limpa", { centro: u.c, zoom: 16 }, true),
+        alunos: await foto("alunos", { limites: areaAlunos }),
+        oportunidade: cap ? await foto("oportunidade", { limites: areaAlunos }) : null,
+        idade: temIdade ? await foto("idade", { limites: areaLim }) : null,
+        domicilios: temDom ? await foto("domicilios", { limites: areaLim }) : null,
+        renda: dados.censo ? await foto("renda", { limites: areaLim }) : null,
+        consumo: temDom ? await foto("consumo", { limites: areaLim }) : null,
+        rede: await foto("rede", { limites: m.L.latLng(u.c).toBounds(14000) }),
+        nova: novaUnidade?.sugestoes.length ? await foto("rede", { limites: m.L.latLngBounds([u.c, ...novaUnidade.sugestoes.map((x) => x.c)]).pad(0.25) }) : null,
+        pois: null as string | null,
+      };
+      if (poisAntes) {
+        setPois(poisAntes); await pausa(300);
+        fotos.pois = await foto("limpa", { limites: poisAntes.areaRotulo && area10 ? areaLim : m.L.latLng(poisAntes.c).toBounds(poisAntes.raioKm * 2000) });
+      }
       setLente(lenteAntes);
-      const renda = dados.censo ? classesNoRaio(u.c, dados.censo, r80 ?? 3) : null;
-      const pct = (x: number) => `${(x * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
-      await gerarPdfDoEstudo({
-        arquivo: nomeDoArquivo(`estudo-unidade-${u.nome}`), cabecalho: "Estudo da unidade", foto: null,
-        capa: { titulo: "Estudo de Geomarketing", linha: "Estudo da Unidade", subtitulo: `World Gym ${u.nome}${u.m2 ? ` | ${u.m2.toLocaleString("pt-BR")} m²` : ""}` },
-        paginas: [{
-          titulo: `World Gym ${u.nome}`, subtitulo: `Estudo da unidade${u.m2 ? ` · ${u.m2.toLocaleString("pt-BR")} m²` : ""}${u.madura ? "" : " · ainda amadurecendo (menos de 12 meses)"}`,
-          foto: { dados: fotoSat, legenda: "A unidade vista de cima (imagem de satélite)." },
-          destaques: [
-            { valor: porM2 ? `R$ ${Math.round(porM2).toLocaleString("pt-BR")}` : "—", rotulo: `vendas por m² por mês${mediana ? ` (rede: R$ ${mediana.toLocaleString("pt-BR")})` : ""}` },
-            { valor: fmtKm(r80), rotulo: "raio onde moram 80% dos alunos" },
-            { valor: u.alunos != null ? u.alunos.toLocaleString("pt-BR") : "—", rotulo: "alunos ativos" },
-          ],
-          frase: frase ?? undefined,
-          numeros: [],
-          secoes: [
-            ...(leituraModelo ? [{ titulo: "O modelo e a realidade", linhas: [], nota: leituraModelo }] : []),
-            { titulo: "Onde moram os alunos", novaPagina: true, foto: { dados: fotoAlunos, legenda: "Bolha maior = mais alunos no bairro. Tracejado: área onde moram 80% dos alunos." },
-              linhas: [{ texto: "Moradores na área onde moram 80% dos alunos (Censo 2022)", valor: moradores80 != null ? `${Math.round(moradores80 / 1000).toLocaleString("pt-BR")} mil` : "—" },
-                ...topBairros.map(([b, , , n]) => ({ texto: b, valor: `${n.toLocaleString("pt-BR")} alunos (${Math.round((n / Math.max(1, alunosBairro)) * 100)}%)` }))] },
-            ...(fotoModelo ? [{ titulo: "Onde o modelo diria", novaPagina: true, foto: { dados: fotoModelo, legenda: "Mais escuro = onde o modelo espera mais alunos (moradores, distância e outras World Gym por perto)." }, linhas: [],
-              nota: "Compare com o mapa anterior: onde o modelo espera alunos e eles não aparecem é onde vale fazer marketing." }] : []),
-            ...(fotoPessoas ? [{ titulo: "Onde mora a população", novaPagina: true, foto: { dados: fotoPessoas, legenda: "Mais forte = mais moradores (Censo 2022), num raio de 4 km." },
-              linhas: [{ texto: "Moradores na área onde moram 80% dos alunos", valor: moradores80 != null ? `${Math.round(moradores80 / 1000).toLocaleString("pt-BR")} mil` : "—" },
-                ...(moradores80 && u.alunos ? [{ texto: "Alunos para cada mil moradores dessa área", valor: (u.alunos / (moradores80 / 1000)).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) }] : [])] }] : []),
-            ...(fotoRenda && renda ? [{ titulo: "Perfil socioeconômico", novaPagina: true, altFoto: 92, foto: { dados: fotoRenda, legenda: "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022)." },
-              legenda: CLASSES_RENDA.map((c) => ({ cor: c.cor, texto: `${c.rotulo} (${c.faixa})` })),
-              destaques: [{ valor: pct(renda.ab), rotulo: "moradores nas classes AA + A + B" }, { valor: pct(renda.cde), rotulo: "moradores nas classes C + D + E" },
-                ...(renda.media ? [{ valor: `R$ ${(Math.round(renda.media / 10) * 10).toLocaleString("pt-BR")}`, rotulo: "renda média do responsável" }] : [])],
-              linhas: renda.classes.filter((c) => c.parte >= 0.0005).map((c) => ({ texto: `${c.rotulo} (${c.faixa})`, valor: pct(c.parte) })),
-              nota: leituraDaRenda(renda), paragrafo: `Moradores da área onde moram 80% dos alunos (${fmtKm(r80 ?? 3)} da unidade), pela renda média do responsável pelo domicílio em cada hexágono do Censo 2022.` }] : []),
-            ...(pois ? [{ titulo: `${rotuloPois(pois)} a até ${pois.raioKm.toLocaleString("pt-BR")} km: ${totalPois(pois)}`, novaPagina: true,
-              foto: { dados: fotoPois, legenda: "Fonte: Google. Grandes redes em destaque escuro." },
-              linhas: pois.lugares.map((l, i) => ({ texto: `${i + 1}. ${l.nome}${l.rede ? ` (${l.rede})` : ""}`, valor: `${l.km.toLocaleString("pt-BR")} km` })), paragrafo: "Os números seguem a ordem de distância." }] : []),
-            { titulo: "Nossa rede e a divisão da captação", novaPagina: true, foto: { dados: fotoRede, legenda: "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." },
-              linhas: cap?.divideCom.length ? cap.divideCom.map((d) => ({ texto: d.nome, valor: `${Math.round(d.parte * 100)}%` })) : [{ texto: "Nenhuma World Gym divide a área desta unidade." }] },
-            { titulo: "Conclusão", novaPagina: true, linhas: conclusao(renda).map((texto) => ({ texto: `• ${texto}` })),
-              nota: recomendacao() },
-          ],
-        }],
-      });
+      const censo = dados.censo;
+      const perfil = area10 && censo ? perfilNaArea(censo, area10) : null;
+      const renda = censo ? (area10 ? classesNaArea(censo, area10) : classesNoRaio(u.c, censo, r80 ?? 3)) : null;
+      let esperadoNaArea: number | null = null;
+      if (cap && area10 && censo) {
+        const tot = cap.pesos.reduce((a, b) => a + b, 0);
+        esperadoNaArea = tot ? cap.indices.reduce((a, i, k) => a + (dentroDaArea(censo.celulas[i][0], censo.celulas[i][1], area10) ? cap.pesos[k] : 0), 0) / tot : null;
+      }
+      await gerarPdfDoEstudo(montarPdfUnidade({
+        u, faixa: dados.vendasPorM2?.[u.modelo] ?? null, porM2, comparado, minutos: MINUTOS_PADRAO, temArea: !!area10,
+        parteNaArea: parte10, min80, onde80, topBairros: [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8), alunosBairro,
+        esperadoNaArea, perfil, renda, novaUnidade, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
+      }));
     } finally { setLente(lenteAntes); setPois(poisAntes); setGerando(false); }
   };
 
@@ -240,7 +246,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
       {/* topo: voltar, unidade, exportar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          {voltar && <button type="button" onClick={voltar} className="rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">← Estudos</button>}
+          {voltar && <Button variant="outline" size="sm" onClick={voltar}>Todos os estudos</Button>}
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Estudo da unidade{u.m2 ? `, ${u.m2.toLocaleString("pt-BR")} m²` : ""}</p>
             <h2 className="truncate font-display text-2xl font-medium">World Gym {u.nome}</h2>
@@ -252,34 +258,31 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
               {unidades.map((x) => <option key={x.nome} value={x.nome}>{x.nome}</option>)}
             </select>
           )}
-          <button type="button" onClick={exportar} disabled={gerando} className="h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{gerando ? "Gerando…" : "Exportar PDF"}</button>
+          <Button onClick={exportar} disabled={gerando}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
         </div>
       </div>
 
-      {/* mapa */}
-      <div className="relative h-[52vh] min-h-[380px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
+      {/* mapa: camadas à direita e barra de mapa/Street View/zoom embaixo (arranjo do Mapfry) */}
+      <div className="relative h-[58vh] min-h-[420px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
         <div ref={el} className="absolute inset-0" aria-label={`Mapa da unidade ${u.nome}`} />
-        <div className="pointer-events-none absolute inset-x-3 top-3 z-[450] flex flex-col items-center gap-2">
-          <nav className="pointer-events-auto flex max-w-full overflow-x-auto rounded-xl bg-white p-1 shadow-lg" aria-label="O que o mapa mostra">
-            {LENTES.map((l) => (
-              <button key={l.id} type="button" aria-pressed={lente === l.id} onClick={() => setLente(l.id)}
-                className="whitespace-nowrap rounded-lg px-3 py-2 text-[13px] text-muted-foreground aria-pressed:bg-foreground aria-pressed:font-medium aria-pressed:text-background">{l.rotulo}</button>
-            ))}
-          </nav>
-          {lente === "modelo" && <div className="pointer-events-auto flex items-center gap-2 rounded-lg bg-white/95 px-3 py-1.5 text-xs text-muted-foreground shadow">poucos alunos<span className="h-1.5 w-28 rounded" style={{ background: gradienteRampa }} />muitos alunos<span className="ml-2 border-l pl-2">tracejado: onde moram 80%</span></div>}
-          {lente === "renda" && <LegendaRenda />}
-          {lente === "alunos" && <div className="pointer-events-auto rounded-lg bg-white/95 px-3 py-1.5 text-xs text-muted-foreground shadow">bolha maior = mais alunos no bairro · tracejado: onde moram 80%</div>}
-          {verRua && <div className="pointer-events-auto rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
-        </div>
-        <div className="absolute bottom-24 right-3 z-[450] flex flex-col overflow-hidden rounded-xl bg-white shadow-lg">
-          <button type="button" aria-pressed={satelite} onClick={() => setSatelite((s) => !s)} title="Satélite" className="grid h-10 w-10 place-items-center aria-pressed:bg-foreground aria-pressed:text-background">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z" /><path d="M9 4v13M15 7v13" /></svg><span className="sr-only">Satélite</span>
-          </button>
-          <button type="button" aria-pressed={verRua} onClick={() => setVerRua((v) => !v)} title="Ver a rua (Street View)" className="grid h-10 w-10 place-items-center border-t aria-pressed:bg-foreground aria-pressed:text-background">
-            <IconeBoneco /><span className="sr-only">Ver a rua</span>
-          </button>
-        </div>
-        <div className="absolute bottom-3 left-3 z-[460]"><ControlePois centro={u.c} aviso={false} aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
+        {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
+        <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)}
+          legenda={lente === "modelo" ? <>
+            <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
+            <p className="mt-1">Onde o modelo espera alunos, pela gente que mora perto e pelas outras World Gym. {area10 ? LEGENDA_DESLOCAMENTO : ""}</p>
+          </> : lente === "renda" ? <LegendaRenda /> : lente === "idade" || lente === "domicilios" ? (
+            <div className="space-y-1">
+              {lente === "idade" && <p>Cor da faixa com mais moradores:</p>}
+              {(lente === "idade" ? FAIXAS_IDADE.map((f, i) => ({ rotulo: f, cor: CORES_IDADE[i] })) : CLASSES_DENSIDADE).map((x) => (
+                <div key={x.rotulo} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: x.cor }} />{x.rotulo}</div>
+              ))}
+            </div>
+          ) : lente === "consumo" ? (
+            <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: `linear-gradient(90deg,${AZUL(0)},${AZUL(1)})` }} />mais gasto com esporte</div>
+          ) : lente === "alunos" ? <>Bolha maior = mais alunos no bairro. {area10 ? LEGENDA_DESLOCAMENTO : "Tracejado: onde moram 80%."}</>
+            : lente === "pessoas" ? "Vermelho mais forte = mais moradores (Censo 2022)." : lente === "rede" ? "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." : null} />
+        <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} satelite={satelite} setSatelite={setSatelite} verRua={verRua} setVerRua={setVerRua} />
+        <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={u.c} aviso={false} area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
 
@@ -304,8 +307,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
         </Secao>
         <Secao icone={MapPin} titulo="De onde vêm os alunos">
           <div className="grid grid-cols-2 gap-3">
-            <Destaque valor={fmtKm(r80)} rotulo="raio onde moram 80% dos alunos" />
-            <Destaque valor={moradores80 != null ? `${Math.round(moradores80 / 1000).toLocaleString("pt-BR")} mil` : "—"} rotulo="moradores nessa área (Censo 2022)" />
+            {area10 ? <Destaque valor={pct0(parte10)} rotulo={`dos alunos moram a até ${MINUTOS_PADRAO} min de carro`} /> : <Destaque valor={fmtKm(r80)} rotulo="raio onde moram 80% dos alunos" />}
+            <Destaque valor={moradoresArea != null ? `${Math.round(moradoresArea / 1000).toLocaleString("pt-BR")} mil` : "—"} rotulo={`moradores ${area10 ? `a até ${MINUTOS_PADRAO} min de carro` : "nessa área"} (Censo 2022)`} />
           </div>
           <div className="mt-4">
             {topBairros.length ? topBairros.map(([b, , , n]) => <Linha key={b} rotulo={b} valor={`${n.toLocaleString("pt-BR")} (${Math.round((n / Math.max(1, alunosBairro)) * 100)}%)`} />)
@@ -319,6 +322,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
         </Secao>
       </div>
       {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
+      {novaUnidade && <div className="grid gap-4 lg:grid-cols-2"><SecaoSugestoes res={novaUnidade} tipo="nova" nome={u.nome} /></div>}
     </div>
   );
 }

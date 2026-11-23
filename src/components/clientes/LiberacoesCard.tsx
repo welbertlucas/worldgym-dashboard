@@ -121,7 +121,7 @@ export function LiberacoesCard({ total, month, monthLabel, partial, unit }: { to
         Sem pagamento registrado (em vermelho) = aluno que não estava em dia (saldo devedor, inativo ou plano que não dá acesso àquela catraca) mais visitante (sem cadastro de aluno) liberado sem nenhuma venda no mesmo dia, que pode ser aula experimental ou acesso sem pagar.
         Num mês fechado, entra no alerta “Liberações sem pagamento registrado” a unidade com {LL.minNivel} ou mais dessas liberações, ou com o dobro da média dos {LL.baseMeses} meses anteriores (mínimo de {LL.minAlta}).
         {!grupos && " Este mês ainda não separa os visitantes: conta só os alunos que não estavam em dia. "}
-        Quem liberou não sai pela API do EVO; para ver o colaborador, use no EVO Gerencial → Controle de entradas → Entradas e saídas, com a ação “Entrada manual”.
+        Quem liberou não sai pela API do EVO; para ver o colaborador, use no EVO Gerencial, em Controle de entradas, Entradas e saídas, com a ação “Entrada manual”.
       </p>
     </ChartCard>
   );

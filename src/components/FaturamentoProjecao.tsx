@@ -57,7 +57,7 @@ export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm 
           </p>
           {vendasFuturas !== null && proj && (
             <p>
-              <b className="text-foreground">Vendas que ainda devem entrar (≈ {brl(vendasFuturas)}):</b> pela projeção de Comercial → Vendas, o mês deve fechar com ≈ {int(proj.valor)} novos contratos e já saíram {int(total.novosContratos ?? proj.realizado)};
+              <b className="text-foreground">Vendas que ainda devem entrar (≈ {brl(vendasFuturas)}):</b> pela projeção de Comercial, aba Vendas, o mês deve fechar com ≈ {int(proj.valor)} novos contratos e já saíram {int(total.novosContratos ?? proj.realizado)};
               faltam ≈ {int(faltam)}. Cada contrato novo vendido neste mês rendeu em média {brl(ticket)}, então {int(faltam)} × {brl(ticket)} ≈ {brl(vendasFuturas)}.
             </p>
           )}

@@ -81,11 +81,11 @@ export function computeAlerts(data: MonthData[], metas: Meta[] = [], now: Date =
       const zLimit = z > 0 ? mean(series) - C.faturamento.zScore * z : -Infinity;
       if (d <= C.faturamento.criticalPct) {
         push({ unit: u.name, kind: "faturamento", severity: "critical", weight, rule: `queda ≤ ${C.faturamento.criticalPct}% vs. mês anterior`,
-          fact: `Faturamento ${chg(d)} (${fmtBRL(p.faturamento)} → ${fmtBRL(u.faturamento)}).` });
+          fact: `Faturamento ${chg(d)} (de ${fmtBRL(p.faturamento)} para ${fmtBRL(u.faturamento)}).` });
       } else if (d <= C.faturamento.attentionPct || (d <= C.faturamento.zMinDropPct && d < zLimit)) {
         push({ unit: u.name, kind: "faturamento", severity: "attention",
           rule: d <= C.faturamento.attentionPct ? `queda ≤ ${C.faturamento.attentionPct}% vs. mês anterior` : `queda abaixo de ${C.faturamento.zScore} desvios da variação típica da unidade`,
-          weight, fact: `Faturamento ${chg(d)} (${fmtBRL(p.faturamento)} → ${fmtBRL(u.faturamento)}).` });
+          weight, fact: `Faturamento ${chg(d)} (de ${fmtBRL(p.faturamento)} para ${fmtBRL(u.faturamento)}).` });
       }
 
       // Vendas online: base = média dos N meses anteriores
@@ -98,7 +98,7 @@ export function computeAlerts(data: MonthData[], metas: Meta[] = [], now: Date =
           if (dv <= C.vendasOnline.dropPct) {
             push({ unit: u.name, kind: "vendasOnline", severity: "attention", weight,
               rule: `queda ≤ ${C.vendasOnline.dropPct}% vs. média de ${C.vendasOnline.baselineMonths} meses`,
-              fact: `Vendas online ${chg(dv)} vs. média dos ${C.vendasOnline.baselineMonths} meses anteriores (${fmtBRL(avg)} → ${fmtBRL(u.vendasOnline)}).` });
+              fact: `Vendas online ${chg(dv)} vs. média dos ${C.vendasOnline.baselineMonths} meses anteriores (de ${fmtBRL(avg)} para ${fmtBRL(u.vendasOnline)}).` });
           }
         }
       }
@@ -230,7 +230,7 @@ function applyYearOverYear(data: MonthData[], idx: number, cur: MonthData, alert
       { mom: "faturamento" as const, own: "yoyFaturamento" as const, label: "Faturamento",
         delta: pctChange(u.faturamento, b.faturamento), better: u.faturamento >= b.faturamento, highLevel: false,
         sev: (d: number): Severity | null => (d <= Y.faturamento.criticalPct ? "critical" : d <= Y.faturamento.attentionPct ? "attention" : null),
-        text: (d: number) => `Faturamento ${chg(d)} vs. ${label} (${fmtBRL(b.faturamento)} → ${fmtBRL(u.faturamento)})`,
+        text: (d: number) => `Faturamento ${chg(d)} vs. ${label} (de ${fmtBRL(b.faturamento)} para ${fmtBRL(u.faturamento)})`,
         rule: `faturamento ≤ ${Y.faturamento.attentionPct}% vs. mesmo mês do ano anterior` },
       { mom: "churn" as const, own: "yoyChurn" as const, label: "Churn",
         delta: u.churn - b.churn, better: u.churn <= b.churn, highLevel: u.churn > C.churn.criticalLevel,
@@ -287,7 +287,7 @@ function applyYearOverYear(data: MonthData[], idx: number, cur: MonthData, alert
     if (net <= V.networkAttentionPct) {
       push({ unit: "Rede", kind: spec.kind, severity: net <= V.networkCriticalPct ? "critical" : "attention", weight: 1,
         rule: `rede (unidades comparáveis) ≤ ${V.networkAttentionPct}% vs. mesmo mês do ano anterior`,
-        fact: `${spec.name} da rede ${chg(net)} vs. ${label} (${fmtV(sumB)} → ${fmtV(sumU)}, ${rows.length} unidades comparáveis).` });
+        fact: `${spec.name} da rede ${chg(net)} vs. ${label} (de ${fmtV(sumB)} para ${fmtV(sumU)}, ${rows.length} unidades comparáveis).` });
     }
     for (const { u, b } of rows) {
       const d = pctChange(u[spec.key], b[spec.key]);
@@ -295,12 +295,12 @@ function applyYearOverYear(data: MonthData[], idx: number, cur: MonthData, alert
         const mom = spec.key === "vendasOnline" ? alerts.find((a) => a.unit === u.name && a.kind === "vendasOnline") : undefined;
         if (mom) {
           mom.severity = higher[mom.severity];
-          mom.yoy = { reading: "confirmed", fact: `Vendas online ${chg(d)} vs. ${label} (${fmtV(b[spec.key])} → ${fmtV(u[spec.key])}), pior que a rede (${chg(net)}) — também pior que no ano anterior.` };
+          mom.yoy = { reading: "confirmed", fact: `Vendas online ${chg(d)} vs. ${label} (de ${fmtV(b[spec.key])} para ${fmtV(u[spec.key])}), pior que a rede (${chg(net)}) — também pior que no ano anterior.` };
           continue;
         }
         push({ unit: u.name, kind: spec.kind, severity: "attention", weight: u.faturamento / totalFat,
           rule: `queda ≤ ${V.unitMinDropPct}% e ${V.belowNetworkPp} p.p. pior que a rede vs. mesmo mês do ano anterior`,
-          fact: `${spec.name} ${chg(d)} vs. ${label} (${fmtV(b[spec.key])} → ${fmtV(u[spec.key])}), pior que a rede (${chg(net)}).` });
+          fact: `${spec.name} ${chg(d)} vs. ${label} (de ${fmtV(b[spec.key])} para ${fmtV(u[spec.key])}), pior que a rede (${chg(net)}).` });
       }
     }
   }

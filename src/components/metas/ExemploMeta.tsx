@@ -42,7 +42,7 @@ export function ExemploMeta() {
             <p className="text-lg font-bold tabular-nums text-foreground">{formatMetaValue("faturamento", n.faturamento)}</p>
             <p className="mt-2 text-xs text-muted-foreground">Premiação total da unidade</p>
             <p className="text-sm tabular-nums text-foreground">
-              {pctBR(n.pct)} → <span className="font-semibold">{reais(premiacao(n))}</span>
+              {pctBR(n.pct)}: <span className="font-semibold">{reais(premiacao(n))}</span>
             </p>
             <p className="mt-2 text-xs text-muted-foreground">Para cada recepcionista (com {RECEPCIONISTAS})</p>
             <p className="text-sm font-semibold tabular-nums text-foreground">{reais(premiacao(n) / RECEPCIONISTAS, 2)}</p>

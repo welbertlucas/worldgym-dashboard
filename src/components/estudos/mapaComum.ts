@@ -125,8 +125,12 @@ export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, numbe
   try {
     if (satelite) { if (tinhaRuas) m.mapa.removeLayer(m.ruas); if (!tinhaSat) m.sat.addTo(m.mapa); }
     else { if (tinhaSat) m.mapa.removeLayer(m.sat); if (!tinhaRuas) m.ruas.addTo(m.mapa); }
-    if ("limites" in alvo) m.mapa.fitBounds(alvo.limites, { animate: false, padding: [12, 12] });
+    // zoom fracionado só para a foto: com zoom inteiro o enquadramento sobra muito em volta da área
+    const snap = m.mapa.options.zoomSnap;
+    m.mapa.options.zoomSnap = 0.1;
+    if ("limites" in alvo) m.mapa.fitBounds(alvo.limites, { animate: false, padding: [10, 10] });
     else m.mapa.setView(alvo.centro, alvo.zoom, { animate: false });
+    m.mapa.options.zoomSnap = snap;
     await esperarAzulejos(m);
     return await fotoDoMapa(m.mapa, !satelite);
   } finally {

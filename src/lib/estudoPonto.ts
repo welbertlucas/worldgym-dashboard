@@ -14,8 +14,82 @@ export interface UnidadeEstudo {
   nome: string; c: [number, number] | null; m2: number | null; modelo: Modelo; abertura: string | null; madura: boolean; vendas: number | null; alunos: number | null;
   bairros?: [string, number, number, number][]; previsto?: { pessimista: number; provavel: number; otimista: number };
 }
-/** Hexágonos do Censo 2022: [lat, lng, população, renda média do responsável]. */
-export interface Censo { rk: number; celulas: [number, number, number, number | null][] }
+/**
+ * Hexágonos do Censo 2022: [lat, lng, população, renda média do responsável, domicílios ocupados, moradores por faixa de idade].
+ * Faixas (FAIXAS_IDADE): 0–14, 15–19, 20–29, 30–39, 40–49, 50–59, 60+. Os dois últimos campos podem faltar em dados antigos.
+ */
+export type CelulaCenso = [number, number, number, number | null, number?, number[]?];
+export interface Censo { rk: number; celulas: CelulaCenso[] }
+export const FAIXAS_IDADE = ["0 a 14 anos", "15 a 19 anos", "20 a 29 anos", "30 a 39 anos", "40 a 49 anos", "50 a 59 anos", "60 anos ou mais"];
+
+/**
+ * Potencial de consumo em academia: gasto médio mensal das famílias com "Recreações e esportes" (IBGE, POF 2017-2018, tabela 1.1.1),
+ * por faixa de rendimento familiar em salários mínimos de 2018 (R$ 954): até 2, 2–3, 3–6, 6–10, 10–15, 15–25 e mais de 25 SM.
+ * A renda do hexágono é a renda média do responsável (Censo 2022, SM de R$ 1.212), usada como aproximação da renda da família
+ * (fica conservador: a família costuma ter mais de uma renda). Valores de 2018 corrigidos pelo IPCA até 2026 (CORRECAO_POF, estimativa).
+ */
+export const POF_RECREACAO_ESPORTES = [{ ateSm: 2, gasto: 3.94 }, { ateSm: 3, gasto: 6.43 }, { ateSm: 6, gasto: 14.41 }, { ateSm: 10, gasto: 34.11 }, { ateSm: 15, gasto: 49.75 }, { ateSm: 25, gasto: 87.96 }, { ateSm: Infinity, gasto: 155.75 }];
+export const CORRECAO_POF = 1.56;
+const SM_CENSO = 1212;
+/** Gasto mensal estimado de um domicílio com recreações e esportes (R$ de hoje) pela renda média do responsável. */
+export const gastoDoDomicilio = (renda: number | null | undefined) =>
+  renda == null || renda <= 0 ? null : POF_RECREACAO_ESPORTES.find((f) => renda / SM_CENSO <= f.ateSm)!.gasto * CORRECAO_POF;
+/** Potencial mensal de consumo em recreações e esportes dentro da área (domicílios × gasto pela renda). */
+export function potencialNaArea(censo: Censo, g: Geometria) {
+  let total = 0, domicilios = 0;
+  for (const [lat, lng, , r, d] of censo.celulas) {
+    if (!d || !dentroDaArea(lat, lng, g)) continue;
+    const gasto = gastoDoDomicilio(r);
+    if (gasto == null) continue;
+    total += d * gasto; domicilios += d;
+  }
+  return domicilios ? { total, domicilios, porDomicilio: total / domicilios } : null;
+}
+
+/** Uma cor por faixa de idade (mapa: cada hexágono na cor da faixa com mais moradores), na ordem de FAIXAS_IDADE. */
+export const CORES_IDADE = ["#f2c94c", "#f2994a", "#e86a92", "#27ae60", "#2bb3a3", "#2f80ed", "#8e5bd6"];
+/** Índice da faixa de idade com mais moradores no hexágono (ou null sem dado). */
+export const faixaPredominante = (ida?: number[]) => (ida?.length ? ida.indexOf(Math.max(...ida)) : null);
+
+/** Faixas de moradores por domicílio (mapa e legenda de densidade residencial). */
+export const CLASSES_DENSIDADE = [
+  { rotulo: "até 2,4 moradores por domicílio", ate: 2.4, cor: "#c8e6f5" },
+  { rotulo: "2,4 a 2,8", ate: 2.8, cor: "#7fc4e8" },
+  { rotulo: "2,8 a 3,2", ate: 3.2, cor: "#3d93cc" },
+  { rotulo: "3,2 a 3,6", ate: 3.6, cor: "#9b6bd6" },
+  { rotulo: "acima de 3,6", ate: Infinity, cor: "#5b2a9e" },
+];
+export const classeDensidade = (porDom: number) => CLASSES_DENSIDADE.findIndex((c) => porDom <= c.ate);
+/** Domicílios da área por faixa de moradores por domicílio (média de cada hexágono). */
+export function densidadeNaArea(censo: Censo, g: Geometria) {
+  const dom = CLASSES_DENSIDADE.map(() => 0);
+  for (const [lat, lng, p, , d] of censo.celulas) {
+    if (!d || !dentroDaArea(lat, lng, g)) continue;
+    dom[classeDensidade(p / d)] += d;
+  }
+  const total = dom.reduce((a, b) => a + b, 0);
+  return CLASSES_DENSIDADE.map((c, i) => ({ ...c, domicilios: dom[i], parte: total ? dom[i] / total : 0 }));
+}
+
+/** Gente, domicílios e idade dentro da área (hexágonos cujo centro cai nela). `null` nos campos que o Censo carregado não tem. */
+export function perfilNaArea(censo: Censo, g: Geometria) {
+  let moradores = 0, domicilios = 0, comDom = 0, comIdade = 0;
+  const idade = FAIXAS_IDADE.map(() => 0);
+  for (const [lat, lng, p, , d, ida] of censo.celulas) {
+    if (!dentroDaArea(lat, lng, g)) continue;
+    moradores += p;
+    if (d != null) { domicilios += d; comDom += p; }
+    if (ida?.length === FAIXAS_IDADE.length) { ida.forEach((x, i) => (idade[i] += x)); comIdade += p; }
+  }
+  const totalIdade = idade.reduce((a, b) => a + b, 0);
+  return {
+    moradores,
+    domicilios: comDom ? domicilios : null,
+    porDomicilio: comDom && domicilios ? comDom / domicilios : null,
+    idade: comIdade ? idade : null,
+    parte20a49: totalIdade ? (idade[2] + idade[3] + idade[4]) / totalIdade : null,
+  };
+}
 export interface ImovelItens { fachada: boolean; estacionamento: boolean; polo: boolean; aPe: boolean }
 /** `autor` vem do servidor (quem criou o estudo); ponto novo vai sem e fica com quem salvou. */
 export type StatusDecisao = "analise" | "aprovado" | "recusado" | "unidade";
@@ -106,6 +180,46 @@ export function captacaoDe(ponto: Ponto, censo: Censo, unidades: UnidadeEstudo[]
   return { pesos, indices, raio80, populacao2km, divideCom };
 }
 
+/**
+ * Público alcançável de uma posição: moradores ponderados pela distância (a mesma curva da captação), já descontado o que as
+ * World Gym e os outros pontos em volta dividem. É a "nota" para comparar posições na mesma região; não é previsão de vendas.
+ */
+export function publicoAlcancavel(c: [number, number], m2: number, censo: Censo, unidades: UnidadeEstudo[], outros: Ponto[], curva: Premissas["curva"]) {
+  const cap = captacaoDe({ id: "__teste", nome: "", c, modelo: "low", m2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } } as Ponto, censo, unidades, outros, curva);
+  const publico = cap.pesos.reduce((a, b) => a + b, 0);
+  return { publico, divideCom: cap.divideCom, renda: arredores(c, censo, 2).renda, populacao2km: cap.populacao2km };
+}
+export interface Sugestao { c: [number, number]; publico: number; ganho: number; distanciaKm: number; renda: number | null; populacao2km: number; divideCom: { nome: string; parte: number }[] }
+
+/**
+ * Posições melhores por perto: testa os centros dos hexágonos do Censo com moradores num raio em volta do ponto e devolve as
+ * melhores (público alcançável maior que o do ponto), afastadas entre si. `longeDeUnidadesKm` > 0 exclui posições perto de
+ * World Gym existentes (para sugerir uma NOVA unidade na região de uma unidade em operação).
+ */
+export function posicoesMelhores(base: { c: [number, number]; m2: number }, censo: Censo, unidades: UnidadeEstudo[], outros: Ponto[], curva: Premissas["curva"],
+  { raioKm = 3, n = 3, separacaoKm = 1, ganhoMinimo = 0.1, longeDeUnidadesKm = 0, minimoMoradores = 300, maxCanibalizacao = 1 }: { raioKm?: number; n?: number; separacaoKm?: number; ganhoMinimo?: number; longeDeUnidadesKm?: number; minimoMoradores?: number; maxCanibalizacao?: number } = {}) {
+  const ref = publicoAlcancavel(base.c, base.m2, censo, unidades, outros, curva);
+  const cand: Sugestao[] = [];
+  for (const [lat, lng, pop] of censo.celulas) {
+    if (pop < minimoMoradores) continue;
+    const c: [number, number] = [lat, lng], d = km(c, base.c);
+    if (d > raioKm || d < 0.4) continue;
+    if (longeDeUnidadesKm && unidades.some((u) => u.c && km(u.c, c) < longeDeUnidadesKm)) continue;
+    const r = publicoAlcancavel(c, base.m2, censo, unidades, outros, curva);
+    if (r.divideCom.some((x) => x.parte > maxCanibalizacao)) continue;
+    cand.push({ c, publico: r.publico, ganho: ref.publico ? r.publico / ref.publico - 1 : 0, distanciaKm: d, renda: r.renda, populacao2km: r.populacao2km, divideCom: r.divideCom });
+  }
+  cand.sort((a, b) => b.publico - a.publico);
+  const escolhidas: Sugestao[] = [];
+  for (const x of cand) {
+    if (escolhidas.length >= n) break;
+    if (x.ganho < ganhoMinimo) break;
+    if (escolhidas.some((e) => km(e.c, x.c) < separacaoKm)) continue;
+    escolhidas.push(x);
+  }
+  return { referencia: ref, sugestoes: escolhidas, testadas: cand.length };
+}
+
 /** População e renda média num raio, somando os hexágonos. */
 export function arredores(c: [number, number], censo: Censo, raio = 2): { pop: number; renda: number | null } {
   let pop = 0, soma = 0, peso = 0;
@@ -133,11 +247,56 @@ export type ClasseRenda = (typeof CLASSES_RENDA)[number];
 export const classeDaRenda = (r: number | null): ClasseRenda | null => (r == null || r <= 0 ? null : CLASSES_RENDA.find((c) => r >= c.min) ?? null);
 
 /** Divisão dos moradores por classe de renda num raio (peso = moradores do hexágono), a renda média e os blocos A/B e C/D/E. */
-export function classesNoRaio(c: [number, number], censo: Censo, raio: number) {
+export const classesNoRaio = (c: [number, number], censo: Censo, raio: number) => classesEm(censo, (lat, lng) => km([lat, lng], c) <= raio);
+
+/** Geometria GeoJSON (Polygon/MultiPolygon, coordenadas [lng, lat]) da área de deslocamento. */
+export type Geometria = { type: "Polygon"; coordinates: number[][][] } | { type: "MultiPolygon"; coordinates: number[][][][] };
+/** Áreas de deslocamento de um lugar: minutos → geometria (carro: 5, 10, 15, 20; a pé: 10). */
+export interface Deslocamento { c: [number, number]; modo: "carro" | "pe"; contornos: Record<string, Geometria> }
+export const MINUTOS_PADRAO = 10;
+
+const noAnel = (x: number, y: number, anel: number[][]) => {
+  let d = false;
+  for (let i = 0, j = anel.length - 1; i < anel.length; j = i++) {
+    const [xi, yi] = anel[i], [xj, yj] = anel[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) d = !d;
+  }
+  return d;
+};
+/** O ponto (lat, lng) está dentro da área? (respeita buracos do polígono) */
+export function dentroDaArea(lat: number, lng: number, g: Geometria | null | undefined) {
+  if (!g) return false;
+  const pols = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  return pols.some((pol) => noAnel(lng, lat, pol[0]) && !pol.slice(1).some((b) => noAnel(lng, lat, b)));
+}
+/** Moradores (Censo) dos hexágonos cujo centro cai na área. */
+export const moradoresNaArea = (censo: Censo, g: Geometria) => censo.celulas.reduce((a, [lat, lng, p]) => a + (dentroDaArea(lat, lng, g) ? p : 0), 0);
+/** Classes de renda dos moradores dentro da área. */
+export const classesNaArea = (censo: Censo, g: Geometria) => classesEm(censo, (lat, lng) => dentroDaArea(lat, lng, g));
+/** Parte dos alunos (pelos bairros [nome, lat, lng, n]) que mora dentro da área. */
+export function parteDosAlunos(bairros: [string, number, number, number][], g: Geometria) {
+  const total = bairros.reduce((a, b) => a + b[3], 0);
+  return total ? bairros.reduce((a, [, lat, lng, n]) => a + (dentroDaArea(lat, lng, g) ? n : 0), 0) / total : null;
+}
+/** Em quantos minutos de carro moram 80% dos alunos (interpola entre os contornos; null se passa do maior). */
+export function minutosPara80(bairros: [string, number, number, number][], d: Deslocamento) {
+  const mins = Object.keys(d.contornos).map(Number).sort((a, b) => a - b);
+  let antes: [number, number] = [0, 0];
+  for (const m of mins) {
+    const p = parteDosAlunos(bairros, d.contornos[m]);
+    if (p == null) return null;
+    if (p >= 0.8) return antes[1] >= 0.8 ? antes[0] : Math.round((antes[0] + ((m - antes[0]) * (0.8 - antes[1])) / Math.max(1e-9, p - antes[1])) * 2) / 2;
+    antes = [m, p];
+  }
+  return null;
+}
+
+/** Classes de renda dos hexágonos que passam no filtro. */
+function classesEm(censo: Censo, dentro: (lat: number, lng: number) => boolean) {
   const conta = new Map<string, number>();
   let total = 0, soma = 0;
   for (const [lat, lng, p, r] of censo.celulas) {
-    if (km([lat, lng], c) > raio) continue;
+    if (!dentro(lat, lng)) continue;
     const cl = classeDaRenda(r);
     if (!cl || !p) continue;
     conta.set(cl.id, (conta.get(cl.id) ?? 0) + p); total += p; soma += (r ?? 0) * p;

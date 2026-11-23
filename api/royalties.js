@@ -8,6 +8,8 @@
 //   GET /api/estudos -> { disponivel, modo, premissas, vendasPorM2, unidades, censo, pontos }, cortado pelo modo (server/estudos.js modoDe):
 //     o dono e os liberados veem tudo e salvam (POST { acao: "pontos", pontos }); Master consulta tudo; unidades veem só a própria.
 //     POST { acao: "pois", c, raioKm, categoria } -> pontos de interesse do Google (todos; unidade só em volta da própria).
+//     POST { acao: "deslocamento", c, modo: "carro" | "pe" } -> áreas de deslocamento do Mapbox (mesma regra de acesso dos pois).
+//     POST { acao: "endereco", q, perto } -> busca de endereço (Mapbox), para quem vê estudos de pontos novos (não para unidades).
 // Dado sensível: sem cache no navegador e permissão conferida a cada pedido.
 import { lerRoyalties } from "../server/royalties.js";
 import { lerJuridico } from "../server/juridico.js";
@@ -17,6 +19,7 @@ import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
 import { ErroEstudos, lerEstudos, modoDe, podeEditar, salvarPontos } from "../server/estudos.js";
 import { ErroPois, buscarPois } from "../server/pois.js";
+import { ErroDeslocamento, buscarDeslocamento, buscarEndereco } from "../server/deslocamento.js";
 import { COORDENADAS_UNIDADES, UNIT_NAMES } from "../server/units.js";
 const COORDENADAS_POR_NOME = Object.fromEntries(Object.entries(UNIT_NAMES).map(([id, n]) => [n, COORDENADAS_UNIDADES[id]]));
 import { loadAll } from "../server/store.js";
@@ -27,14 +30,18 @@ const mesDeHoje = () => new Date().toLocaleString("sv-SE", { timeZone: "America/
 async function estudos(req, res, sessao) {
   if (req.method === "GET") return res.status(200).json(await lerEstudos(loadAll, mesDeHoje(), sessao));
   const c = doCorpo(req);
-  // Pontos de interesse: todos os perfis buscam; quem tem acesso a unidades, só em volta das próprias unidades.
-  if (c.acao === "pois") {
+  // Pontos de interesse e áreas de deslocamento: todos os perfis buscam; quem tem acesso a unidades, só em volta das próprias unidades.
+  if (c.acao === "endereco") {
+    if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "busca de endereço só nos estudos de pontos novos" });
+    return res.status(200).json(await buscarEndereco(c));
+  }
+  if (c.acao === "pois" || c.acao === "deslocamento") {
     if (modoDe(sessao) === "unidade") {
       const p = Array.isArray(c.c) ? c.c.map(Number) : [];
       const perto = (sessao.unidades ?? []).some((n) => { const u = COORDENADAS_POR_NOME[n]; return u && Math.hypot((u[0] - p[0]) * 110.6, (u[1] - p[1]) * 107) <= 1; });
       if (!perto) return res.status(403).json({ error: "busca só em volta da sua unidade" });
     }
-    return res.status(200).json(await buscarPois(c));
+    return res.status(200).json(c.acao === "pois" ? await buscarPois(c) : await buscarDeslocamento(c));
   }
   if (!podeEditar(sessao)) return res.status(403).json({ error: "só quem faz estudos de ponto pode salvar" });
   if (c.acao === "pontos") return res.status(200).json({ ok: true, pontos: await salvarPontos(c.pontos, sessao) });
@@ -146,7 +153,7 @@ export default async function handler(req, res) {
     if (!dados) return res.status(200).json({ disponivel: false });
     return res.status(200).json({ disponivel: true, ...dados });
   } catch (e) {
-    if (e instanceof ErroQualidade || e instanceof ErroEstudos || e instanceof ErroPois) return res.status(e.status).json({ error: e.message });
+    if (e instanceof ErroQualidade || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroDeslocamento) return res.status(e.status).json({ error: e.message });
     return res.status(503).json({ error: `não consegui ler ${modulo === "juridico" ? "o jurídico" : modulo === "qualidade" ? "a qualidade" : modulo === "estudos" ? "os estudos de ponto" : "os royalties"} agora` });
   }
 }

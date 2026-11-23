@@ -1,4 +1,5 @@
 import "leaflet/dist/leaflet.css";
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarPonto, meses, raio80Real, reais, regiaoDe,
@@ -114,7 +115,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
       <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h2 className="font-display text-2xl font-medium">Estudos de ponto</h2><p className="text-sm text-muted-foreground">As unidades em operação e cada imóvel avaliado, com a previsão do modelo e a decisão.</p></div>
-        {editavel && <button type="button" onClick={novo} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Novo estudo</button>}
+        {editavel && <Button onClick={novo}>Novo estudo</Button>}
       </div>
 
       {abrirUnidade && <UnidadesEmOperacao dados={dados} abrir={abrirUnidade} />}
@@ -141,7 +142,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
           <option value={0}>Qualquer data</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 3 meses</option><option value={365}>Último ano</option>
         </select>
         {autores.length > 1 && <select value={autor} onChange={(e) => setAutor(e.target.value)} aria-label="Autor" className={selecionar}><option value="">Todos os autores</option>{autores.map((a) => <option key={a}>{a}</option>)}</select>}
-        <button type="button" onClick={limpar} className="text-[13px] text-muted-foreground underline">Limpar filtros</button>
+        <Button variant="ghost" size="sm" onClick={limpar}>Limpar filtros</Button>
       </div>
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -207,8 +208,8 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
       {sel.size >= 2 && (
         <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-2xl bg-foreground py-2.5 pl-5 pr-2.5 text-sm text-background shadow-2xl">
           <span>{sel.size} estudos selecionados</span>
-          <button type="button" onClick={() => comparar([...sel])} className="rounded-xl bg-white px-3.5 py-2 font-semibold text-foreground">Comparar no mapa</button>
-          <button type="button" onClick={() => setSel(new Set())} className="rounded-xl px-3 py-2 text-background/70 hover:text-background">Desmarcar</button>
+          <Button variant="secondary" onClick={() => comparar([...sel])}>Comparar no mapa</Button>
+          <Button variant="ghost" className="text-background hover:bg-background/15 hover:text-background" onClick={() => setSel(new Set())}>Desmarcar</Button>
         </div>
       )}
     </div>
