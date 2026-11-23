@@ -26,7 +26,7 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
       hex(c, { fillColor: CORES_IDADE[i], fillOpacity: 0.62 }, `<strong>Predomina: ${FAIXAS_IDADE[i]}</strong> (por ano de idade)<br/>${c[5]!.map((v, k) => `${FAIXAS_IDADE[k]}: ${Math.round(v).toLocaleString("pt-BR")} (${Math.round((v / tot) * 100)}%)`).join("<br/>")}`);
     }
   } else if (camada === "domicilios") {
-    for (const c of vis) { const pd = c[2] / (c[4] as number); hex(c, { fillColor: CLASSES_DENSIDADE[classeDensidade(pd)].cor, fillOpacity: 0.65 }, `${pd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio`); }
+    for (const c of vis) { const pd = c[2] / (c[4] as number); hex(c, { fillColor: CLASSES_DENSIDADE[classeDensidade(pd)].cor, fillOpacity: 0.65 }, `${Math.round(c[4] as number).toLocaleString("pt-BR")} domicílios, ${c[2].toLocaleString("pt-BR")} moradores<br/>${pd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio`); }
   } else {
     const val = (c: (typeof vis)[number]) => (c[4] ?? 0) * (gastoDoDomicilio(c[3]) ?? 0), mx = escala(val);
     for (const c of vis) { const v = val(c); hex(c, { fillColor: AZUL(Math.min(1, v / mx)), fillOpacity: 0.72 }, `R$ ${Math.round(v).toLocaleString("pt-BR")} por mês em recreações e esportes (estimativa)`); }
@@ -41,6 +41,8 @@ export interface ResumoCenso {
   idade?: number[] | null;
   /** Moradores na área. */
   moradores?: number;
+  /** Domicílios por faixa de moradores por domicílio, com o total e a média. */
+  domicilios?: { classes: { rotulo: string; cor: string; domicilios: number; parte: number }[]; total: number; porDomicilio: number | null } | null;
   onde?: string;
 }
 const reaisCurto = (v: number) => (v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`);
@@ -57,6 +59,25 @@ function RoscaRenda({ classes }: { classes: { id: string; cor: string; parte: nu
         acum += x.parte; return el;
       })}
     </svg>
+  );
+}
+
+/** Lista no estilo do Mapfry: total em cima (com a faixa de cores) e cada item com o número e uma barra fina na cor dele. */
+function ListaTotais({ total, rotuloTotal, itens }: { total: number; rotuloTotal: string; itens: { rotulo: string; n: number; cor: string }[] }) {
+  const mx = Math.max(1, ...itens.map((i) => i.n));
+  return (
+    <div className="space-y-2 text-foreground">
+      <div className="rounded-lg bg-muted px-2.5 py-1.5">
+        <div className="flex items-center justify-between text-[12px]"><span>{rotuloTotal}</span><b className="tabular-nums">{Math.round(total).toLocaleString("pt-BR")}</b></div>
+        <div className="mt-1 h-1 rounded-full" style={{ background: `linear-gradient(90deg,${itens.map((i) => i.cor).join(",")})` }} />
+      </div>
+      {itens.map((i) => (
+        <div key={i.rotulo}>
+          <div className="flex items-baseline justify-between gap-2 text-[12px]"><span className="min-w-0">{i.rotulo}</span><span className="whitespace-nowrap tabular-nums"><b>{Math.round(i.n).toLocaleString("pt-BR")}</b> <span className="text-muted-foreground">{total ? Math.round((i.n / total) * 100) : 0}%</span></span></div>
+          <div className="mt-1 h-1 rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${(i.n / mx) * 100}%`, background: i.cor }} /></div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -96,18 +117,21 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
   if (camada === "idade") {
     const t = resumo?.idade, soma = t ? t.reduce((a, b) => a + b, 0) : 0;
     return (
-      <div className="space-y-1">
-        <p>Cor da faixa que predomina em cada hexágono, comparando moradores por ano de idade (as faixas têm tamanhos diferentes).</p>
-        {FAIXAS_IDADE.map((f, i) => (
-          <div key={f} className="flex items-center gap-1.5 text-foreground">
-            <span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: CORES_IDADE[i] }} /><span className="flex-1 text-muted-foreground">{f}</span>
-            {t && soma > 0 && <span className="tabular-nums"><b>{Math.round((t[i] / soma) * 100)}%</b> <span className="text-muted-foreground">{Math.round(t[i]).toLocaleString("pt-BR")}</span></span>}
-          </div>
-        ))}
-        {t && soma > 0 && <p className="pt-1 text-[11px]">{Math.round(soma).toLocaleString("pt-BR")} moradores {resumo?.onde ?? "na área"} (Censo 2022).</p>}
+      <div className="space-y-2">
+        {t && soma > 0
+          ? <ListaTotais total={soma} rotuloTotal={`Moradores ${resumo?.onde ?? "na área"}`} itens={FAIXAS_IDADE.map((f, k) => ({ rotulo: f, n: t[k], cor: CORES_IDADE[k] }))} />
+          : FAIXAS_IDADE.map((f, k) => <div key={f} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: CORES_IDADE[k] }} />{f}</div>)}
+        <p className="text-[11px]">No mapa, cada hexágono tem a cor da faixa que predomina, comparando moradores por ano de idade (as faixas do Censo têm tamanhos diferentes).</p>
       </div>
     );
   }
+  const dm = resumo?.domicilios;
+  if (dm && dm.total > 0) return (
+    <div className="space-y-2">
+      <ListaTotais total={dm.total} rotuloTotal={`Domicílios ${resumo?.onde ?? "na área"}`} itens={dm.classes.map((x) => ({ rotulo: x.rotulo, n: x.domicilios, cor: x.cor }))} />
+      <p className="text-[11px]">{dm.porDomicilio ? `Média de ${dm.porDomicilio.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio. ` : ""}Cada faixa soma os domicílios dos hexágonos com aquela média de moradores (Censo 2022).</p>
+    </div>
+  );
   const itens = CLASSES_DENSIDADE;
   return (
     <div className="space-y-1">

@@ -78,14 +78,17 @@ export const CLASSES_DENSIDADE = [
 ];
 export const classeDensidade = (porDom: number) => CLASSES_DENSIDADE.findIndex((c) => porDom <= c.ate);
 /** Domicílios da área por faixa de moradores por domicílio (média de cada hexágono). */
-export function densidadeNaArea(censo: Censo, g: Geometria) {
+export const densidadeNaArea = (censo: Censo, g: Geometria) => densidadeEm(censo, (lat, lng) => dentroDaArea(lat, lng, g)).classes;
+/** Domicílios por faixa de moradores por domicílio nos hexágonos escolhidos, com o total e a média de moradores por domicílio. */
+export function densidadeEm(censo: Censo, dentro: (lat: number, lng: number) => boolean) {
   const dom = CLASSES_DENSIDADE.map(() => 0);
+  let moradores = 0;
   for (const [lat, lng, p, , d] of censo.celulas) {
-    if (!d || !dentroDaArea(lat, lng, g)) continue;
-    dom[classeDensidade(p / d)] += d;
+    if (!d || !dentro(lat, lng)) continue;
+    dom[classeDensidade(p / d)] += d; moradores += p;
   }
   const total = dom.reduce((a, b) => a + b, 0);
-  return CLASSES_DENSIDADE.map((c, i) => ({ ...c, domicilios: dom[i], parte: total ? dom[i] / total : 0 }));
+  return { classes: CLASSES_DENSIDADE.map((c, i) => ({ ...c, domicilios: dom[i], parte: total ? dom[i] / total : 0 })), total, porDomicilio: total ? moradores / total : null };
 }
 
 /** Gente, domicílios e idade dentro da área (hexágonos cujo centro cai nela). `null` nos campos que o Censo carregado não tem. */

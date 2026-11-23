@@ -1,7 +1,7 @@
 // Controles dos mapas dos estudos, no arranjo do Mapfry: busca de endereço no alto à direita, painel de camadas no alto à esquerda
 // (com a legenda da camada aberta) e barra horizontal embaixo à direita (mapa/satélite, Street View e zoom).
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Eye, EyeOff, Layers, Search, X } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Layers, Ruler, Search, X } from "lucide-react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { IconeBoneco } from "@/components/estudos/StreetView";
 
@@ -84,6 +84,8 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
   );
 }
 
+const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km` : `${Math.round(m)} m`);
+
 /** Barra horizontal embaixo à direita: miniatura que troca mapa/satélite e barra com Street View, + zoom −. */
 export function BarraMapa({ mapa, satelite, setSatelite, verRua, setVerRua }: {
   mapa: import("leaflet").Map | null; satelite: boolean; setSatelite: (f: (s: boolean) => boolean) => void; verRua: boolean; setVerRua: (f: (v: boolean) => boolean) => void;
@@ -96,18 +98,64 @@ export function BarraMapa({ mapa, satelite, setSatelite, verRua, setVerRua }: {
     ao(); mapa.on("zoomend moveend", ao);
     return () => { mapa.off("zoomend moveend", ao); };
   }, [mapa]);
+  // Régua (como no Mapfry): cada clique no mapa marca um ponto; a distância total pelos pontos aparece no último. Desligar apaga a medida.
+  const [medindo, setMedindo] = useState(false);
+  const [distancia, setDistancia] = useState(0);
+  useEffect(() => {
+    if (!mapa || !medindo) return;
+    let vivo = true, grupo: import("leaflet").LayerGroup | null = null;
+    const pts: import("leaflet").LatLng[] = [];
+    const el = mapa.getContainer();
+    let inicio: { x: number; y: number } | null = null;
+    const aoApertar = (ev: MouseEvent) => { inicio = { x: ev.clientX, y: ev.clientY }; };
+    let aoSoltar: ((ev: MouseEvent) => void) | null = null;
+    const cursor = el.style.cursor;
+    el.style.cursor = "crosshair";
+    mapa.doubleClickZoom.disable();
+    import("leaflet").then((mod) => {
+      if (!vivo) return;
+      const L = (mod as unknown as { default?: typeof import("leaflet") }).default ?? (mod as typeof import("leaflet"));
+      grupo = L.layerGroup().addTo(mapa);
+      // Clique direto na área do mapa (o Leaflet não repassa ao mapa o clique feito em cima de hexágono ou pino); arrastar não marca ponto.
+      aoSoltar = (ev) => {
+        if (ev.button !== 0 || !inicio || Math.hypot(ev.clientX - inicio.x, ev.clientY - inicio.y) > 5) return;
+        pts.push(mapa.mouseEventToLatLng(ev));
+        grupo!.clearLayers();
+        let total = 0;
+        for (let i = 1; i < pts.length; i++) total += mapa.distance(pts[i - 1], pts[i]);
+        setDistancia(total);
+        if (pts.length > 1) L.polyline(pts, { color: "#1b2130", weight: 3, dashArray: "6 6", interactive: false }).addTo(grupo!);
+        pts.forEach((p, i) => {
+          const mk = L.circleMarker(p, { radius: 5, color: "#fff", weight: 2, fillColor: "#1b2130", fillOpacity: 1, interactive: false }).addTo(grupo!);
+          if (i === pts.length - 1 && pts.length > 1) mk.bindTooltip(fmtDist(total), { permanent: true, direction: "right", className: "font-semibold" }).openTooltip();
+        });
+      };
+      el.addEventListener("mousedown", aoApertar, true);
+      el.addEventListener("mouseup", aoSoltar, true);
+    });
+    return () => { vivo = false; el.removeEventListener("mousedown", aoApertar, true); if (aoSoltar) el.removeEventListener("mouseup", aoSoltar, true); grupo?.remove(); el.style.cursor = cursor; mapa.doubleClickZoom.enable(); setDistancia(0); };
+  }, [mapa, medindo]);
   // miniatura: o pedaço do lugar atual na outra vista (satélite quando está no mapa, mapa quando está no satélite), borrado
   const z = Math.max(3, Math.min(16, zoom - 2)), n = 2 ** z, rad = (centro[0] * Math.PI) / 180;
   const tx = Math.floor(((centro[1] + 180) / 360) * n), ty = Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n);
   const mini = satelite ? `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png` : `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${ty}/${tx}`;
   return (
     <div className="absolute bottom-7 right-3 z-[455] flex items-end gap-2">
+      {medindo && (
+        <div className="mb-1 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">
+          {distancia > 0 ? <>Distância: <b className="tabular-nums">{fmtDist(distancia)}</b> · clique para continuar</> : "Clique no mapa para começar a medir"}
+        </div>
+      )}
       <button type="button" onClick={() => setSatelite((s) => !s)} title={satelite ? "Ver mapa" : "Ver satélite"} aria-label={satelite ? "Ver mapa" : "Ver satélite"}
         className="relative h-12 w-16 overflow-hidden rounded-xl border-[3px] border-white bg-muted shadow-lg">
         <img src={mini} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-125 object-cover blur-[1.5px]" />
       </button>
       <div className="flex h-12 items-center rounded-xl bg-white px-1 shadow-lg">
-        <button type="button" aria-pressed={verRua} onClick={() => setVerRua((v) => !v)} title="Ver a rua (Street View)" className="grid h-10 w-10 place-items-center rounded-lg aria-pressed:bg-foreground aria-pressed:text-background">
+        <button type="button" aria-pressed={medindo} onClick={() => { setMedindo((m) => !m); setVerRua(() => false); }} title={medindo ? "Desligar a régua (apaga a medida)" : "Régua: clique no mapa para medir a distância"}
+          className="grid h-10 w-10 place-items-center rounded-lg aria-pressed:bg-foreground aria-pressed:text-background">
+          <Ruler className="h-5 w-5" aria-hidden /><span className="sr-only">Régua</span>
+        </button>
+        <button type="button" aria-pressed={verRua} onClick={() => { setMedindo(false); setVerRua((v) => !v); }} title="Ver a rua (Street View)" className="grid h-10 w-10 place-items-center rounded-lg aria-pressed:bg-foreground aria-pressed:text-background">
           <IconeBoneco /><span className="sr-only">Ver a rua</span>
         </button>
         <span className="mx-1 h-6 w-px bg-border" aria-hidden />

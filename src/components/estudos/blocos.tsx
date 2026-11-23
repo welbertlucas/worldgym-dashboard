@@ -49,7 +49,7 @@ export function Barras({ itens }: { itens: { rotulo: ReactNode; valor: number; t
   return (
     <div className="space-y-1.5">
       {itens.map((i, k) => (
-        <div key={k} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-2 text-[13px]">
+        <div key={k} className="grid grid-cols-[minmax(0,6.5rem)_1fr_auto] items-center gap-2 text-[13px]">
           <span className="truncate">{i.rotulo}</span>
           <span className="h-2.5 rounded-full bg-muted"><span className={`block h-full rounded-full ${i.destaque ? "bg-primary" : "bg-foreground/35"}`} style={{ width: `${Math.max(2, (i.valor / mx) * 100)}%` }} /></span>
           <span className="whitespace-nowrap tabular-nums text-muted-foreground">{i.texto}</span>
