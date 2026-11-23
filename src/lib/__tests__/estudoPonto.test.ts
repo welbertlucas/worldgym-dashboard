@@ -209,7 +209,7 @@ describe("lista de estudos", () => {
   it("mostra os estudos com veredito e decisão", () => {
     const dados = { disponivel: true, premissas: PREMISSAS, vendasPorM2: { low: FAIXA, pro: null }, unidades, censo: { rk: 0.3, celulas: [] }, pontos: [] };
     const html = renderToString(createElement(ListaEstudos, { dados, pontos: [base("a", { nome: "Galpão Teste", decisao: { status: "recusado", em: "2026-11-02T00:00:00.000Z", comentario: "aluguel alto" } })], abrir: () => {}, novo: () => {}, comparar: () => {} }));
-    expect(html).toContain("Galpão Teste"); expect(html).toContain("Recusado"); expect(html).toContain("aprovados pelo modelo");
+    expect(html).toContain("Galpão Teste"); expect(html).toContain("Recusado"); expect(html).toContain("aprovam"); expect(html).toContain("com condicionantes");
     expect(renderToString(createElement(ListaEstudos, { dados, pontos: [], abrir: () => {}, novo: () => {}, comparar: () => {} }))).toContain("Nenhum estudo ainda");
   });
 });

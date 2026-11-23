@@ -56,36 +56,39 @@ function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nom
   }).sort((a, b) => Number(b.u.madura) - Number(a.u.madura) || (b.porM2 ?? 0) - (a.porM2 ?? 0));
   const [todas, setTodas] = useState(false);
   if (!linhas.length) return null;
-  const visiveis = todas ? linhas : linhas.slice(0, 8);
+  const visiveis = todas ? linhas : linhas.slice(0, 12);
   const maxM2 = Math.max(...linhas.map((l) => Math.max(l.porM2 ?? 0, l.med ?? 0)), 1);
   return (
     <section className="space-y-3">
-      <div><h3 className="text-base font-semibold">Unidades em operação</h3><p className="text-[13px] text-muted-foreground">Quanto cada unidade vende para o tamanho dela, contra a rede e contra o modelo. Clique para abrir o estudo.</p></div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {visiveis.map(({ u, porM2, med, dif, r80 }) => {
+      <div><h3 className="text-base font-semibold">Unidades em operação</h3><p className="text-[12px] text-muted-foreground">Vendas por mês, R$/m² (o traço na barra é a média da rede) e quanto a unidade vende acima ou abaixo do modelo. Clique para abrir o estudo.</p></div>
+      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        {visiveis.map(({ u, porM2, med, dif }) => {
           const acima = porM2 != null && med != null ? porM2 >= med : null;
+          // card enxuto (pedido do dono, 23/11/2026: o Atlas é minimalista): nome, diferença para o modelo, vendas, R$/m² e uma barra com o traço da rede
           return (
-            <button key={u.nome} type="button" onClick={() => abrir(u.nome)}
-              className="card-surface group flex flex-col p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0"><p className="truncate text-[15px] font-semibold">{u.nome}</p><p className="text-xs text-muted-foreground">{NOME_MODELO[u.modelo]}{u.m2 ? ` · ${u.m2.toLocaleString("pt-BR")} m²` : ""}</p></div>
+            <button key={u.nome} type="button" onClick={() => abrir(u.nome)} title={`${NOME_MODELO[u.modelo]}${u.m2 ? ` · ${u.m2.toLocaleString("pt-BR")} m²` : ""}`}
+              className="card-surface flex flex-col gap-1.5 px-3 py-2.5 text-left transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-[13px] font-semibold">{u.nome}</p>
                 {dif != null && u.madura
-                  ? <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${dif >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{dif >= 0 ? "+" : "−"}{Math.abs(Math.round(dif * 100))}% vs. modelo</span>
-                  : <span className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">amadurecendo</span>}
+                  ? <span title="vendas reais contra o previsto pelo modelo" className={`whitespace-nowrap text-[11px] font-semibold tabular-nums ${dif >= 0 ? "text-success" : "text-destructive"}`}>{dif >= 0 ? "+" : "−"}{Math.abs(Math.round(dif * 100))}%</span>
+                  : <span className="whitespace-nowrap text-[11px] text-muted-foreground">amadurecendo</span>}
               </div>
-              <p className="mt-3 font-display text-[28px] font-semibold leading-none tabular-nums">{reais(u.vendas as number)}<span className="ml-1 font-sans text-xs font-normal text-muted-foreground">por mês</span></p>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[15px] font-semibold tabular-nums">{reais(u.vendas as number)}</span>
+                {porM2 != null && <span className="text-[11px] tabular-nums text-muted-foreground">R$ {Math.round(porM2).toLocaleString("pt-BR")}/m²</span>}
+              </div>
               {porM2 != null && (
-                <div className="mt-3 space-y-1 text-[11px] text-muted-foreground">
-                  <div className="flex items-center gap-2"><span className="w-16">esta unidade</span><span className="h-1.5 flex-1 rounded-full bg-muted"><span className={`block h-full rounded-full ${acima === false ? "bg-destructive" : "bg-success"}`} style={{ width: `${(porM2 / maxM2) * 100}%` }} /></span><b className="w-14 text-right tabular-nums text-foreground">R$ {Math.round(porM2)}/m²</b></div>
-                  {med != null && <div className="flex items-center gap-2"><span className="w-16">rede</span><span className="h-1.5 flex-1 rounded-full bg-muted"><span className="block h-full rounded-full bg-foreground/30" style={{ width: `${(med / maxM2) * 100}%` }} /></span><span className="w-14 text-right tabular-nums">R$ {med}/m²</span></div>}
-                </div>
+                <span className="relative h-1 rounded-full bg-muted" aria-hidden>
+                  <span className={`absolute inset-y-0 left-0 rounded-full ${acima === false ? "bg-destructive" : "bg-success"}`} style={{ width: `${(porM2 / maxM2) * 100}%` }} />
+                  {med != null && <span className="absolute -top-0.5 h-2 w-0.5 rounded bg-foreground/60" style={{ left: `${(med / maxM2) * 100}%` }} />}
+                </span>
               )}
-              <p className="mt-3 border-t pt-2 text-xs text-muted-foreground">{r80 != null ? `80% dos alunos a até ${r80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km` : "Sem bairros dos alunos ainda"}</p>
             </button>
           );
         })}
       </div>
-      {linhas.length > 8 && <div className="flex justify-center"><Button variant="outline" size="sm" onClick={() => setTodas((t) => !t)}>{todas ? "Mostrar menos" : `Ver todas as ${linhas.length} unidades`}</Button></div>}
+      {linhas.length > 12 && <div className="flex justify-center"><Button variant="outline" size="sm" onClick={() => setTodas((t) => !t)}>{todas ? "Mostrar menos" : `Ver todas as ${linhas.length} unidades`}</Button></div>}
     </section>
   );
 }
@@ -132,11 +135,11 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
       <div className="pt-2"><h3 className="text-base font-semibold">Pontos estudados</h3></div>
 
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-        {([["", linhas.length, "estudos"], ["aprovado", conta("aprovado"), "aprovados pelo modelo"], ["atencao", conta("atencao"), "em atenção"], ["reprovado", conta("reprovado"), "reprovados pelo modelo"]] as [Veredito | "", number, string][]).map(([v, n, t]) => (
+        {([["", linhas.length, "estudos"], ["aprovado", conta("aprovado"), "aprovam"], ["atencao", conta("atencao"), "com condicionantes"], ["reprovado", conta("reprovado"), "não aprovam"]] as [Veredito | "", number, string][]).map(([v, n, t]) => (
           <button key={t} type="button" aria-pressed={veredito === v} onClick={() => setVeredito(v)}
-            className="rounded-2xl border bg-white px-4 py-3 text-left aria-pressed:border-foreground aria-pressed:ring-1 aria-pressed:ring-foreground">
-            <b className={`block font-display text-3xl font-medium leading-tight ${v === "aprovado" ? "text-success" : v === "atencao" ? "text-warning" : v === "reprovado" ? "text-destructive" : ""}`}>{n}</b>
-            <span className="text-[13px] text-muted-foreground">{t}</span>
+            className="flex items-baseline gap-2 rounded-xl border bg-white px-3 py-2 text-left aria-pressed:border-foreground aria-pressed:ring-1 aria-pressed:ring-foreground">
+            <b className={`font-display text-xl font-medium leading-none ${v === "aprovado" ? "text-success" : v === "atencao" ? "text-warning" : v === "reprovado" ? "text-destructive" : ""}`}>{n}</b>
+            <span className="text-[12px] text-muted-foreground">{t}</span>
           </button>
         ))}
       </div>
@@ -161,32 +164,29 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
           ) : !filtradas.length ? (
             <div className="card-surface p-10 text-center text-sm text-muted-foreground">Nenhum estudo com esses filtros.</div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {filtradas.map(({ p, r, regiao, real }) => (
+                // card enxuto, no mesmo estilo dos cards das unidades (pedido do dono, 23/11/2026)
                 <div key={p.id} role="button" tabIndex={0} onClick={() => abrir(p.id)} onKeyDown={(e) => e.key === "Enter" && abrir(p.id)}
-                  className={`card-surface group relative flex cursor-pointer flex-col p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${sel.has(p.id) ? "border-primary ring-1 ring-primary" : ""}`}>
-                  <div className="flex items-start gap-3">
-                    <span className="mt-1 h-3 w-3 flex-none rounded-full" style={{ background: r ? COR_PINO[r.veredito] : "#c9ced8" }} aria-hidden />
-                    <div className="min-w-0 flex-1"><p className="truncate text-[15px] font-semibold">{p.nome}</p><p className="truncate text-xs text-muted-foreground">{regiao || "sem região"} · {NOME_MODELO[p.modelo]} · {p.m2.toLocaleString("pt-BR")} m²</p></div>
-                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground" onClick={(e) => e.stopPropagation()} title="Marcar para comparar no mapa">
-                      <input type="checkbox" checked={sel.has(p.id)} onChange={() => alternar(p.id)} aria-label={`Selecionar ${p.nome} para comparar`} className="h-4 w-4 accent-primary" />comparar
-                    </label>
+                  className={`card-surface flex cursor-pointer flex-col gap-1 px-3 py-2.5 transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${sel.has(p.id) ? "border-primary ring-1 ring-primary" : ""}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: r ? COR_PINO[r.veredito] : "#c9ced8" }} aria-hidden />
+                    <p className="min-w-0 flex-1 truncate text-[13px] font-semibold">{p.nome}</p>
+                    {r && <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${PILULA_VEREDITO[r.veredito]}`}>{VEREDITO_ROTULO[r.veredito]}</span>}
+                    <input type="checkbox" checked={sel.has(p.id)} onClick={(e) => e.stopPropagation()} onChange={() => alternar(p.id)} title="Marcar para comparar no mapa" aria-label={`Selecionar ${p.nome} para comparar`} className="h-3.5 w-3.5 accent-primary" />
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <div><p className="font-display text-2xl font-semibold leading-none tabular-nums">{r ? reais(r.provavel) : "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">vendas previstas por mês{real != null ? <span className="block text-sky-800">real: {reais(real)}</span> : null}</p></div>
-                    <div><p className="font-display text-2xl font-semibold leading-none tabular-nums">{r ? meses(r.payback) : "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">payback</p></div>
+                  <p className="truncate text-[11px] text-muted-foreground">{p.endereco ? p.endereco.replace(/,\s*\d{5}(-\d{3})?/, "").replace(/,\s*Brasil$/, "") : regiao || "sem região"} · {NOME_MODELO[p.modelo]} · {p.m2.toLocaleString("pt-BR")} m²</p>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[15px] font-semibold tabular-nums">{r ? reais(r.provavel) : "—"}<span className="ml-1 text-[11px] font-normal text-muted-foreground">por mês{real != null ? ` · real ${reais(real)}` : ""}</span></span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">{r ? `payback ${meses(r.payback)}` : ""}</span>
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    {r && <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${PILULA_VEREDITO[r.veredito]}`}>{VEREDITO_ROTULO[r.veredito]}</span>}
-                    <span title={p.decisao?.comentario} className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${PILULA_DECISAO[p.decisao?.status ?? "analise"]}`}>{DECISAO_ROTULO[p.decisao?.status ?? "analise"]}</span>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t pt-2 text-xs text-muted-foreground">
-                    <span className="truncate">{p.autor?.nome ?? "Você"} · {dataBR(p.criadoEm)}</span>
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span className="truncate">{p.autor?.nome ?? "Você"} · {dataBR(p.criadoEm)}{(p.decisao?.status ?? "analise") !== "analise" ? ` · ${DECISAO_ROTULO[p.decisao!.status]}` : ""}</span>
                     {apagar && editavel && (
                       <button type="button" title="Apagar este estudo" aria-label={`Apagar o estudo ${p.nome}`}
                         onClick={(e) => { e.stopPropagation(); if (window.confirm(`Apagar o estudo "${p.nome}"? Ele sai da lista e não dá para desfazer.`)) apagar(p.id); }}
-                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden />Apagar
+                        className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
                       </button>
                     )}
                   </div>
