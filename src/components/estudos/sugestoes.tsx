@@ -44,7 +44,7 @@ export const linhasSugestoes = (res: ResultadoSugestoes) => res.sugestoes.map((s
 ]);
 
 /** Seção da tela com a recomendação e, nos pontos novos, o botão para estudar a posição sugerida. */
-export function SecaoSugestoes({ res, tipo, nome, aoEstudar }: { res: ResultadoSugestoes | null; tipo: TipoSugestao; nome: string; aoEstudar?: (s: Sugestao, i: number) => void }) {
+export function SecaoSugestoes({ res, tipo, nome, aoEstudar, aoVerNoMapa }: { res: ResultadoSugestoes | null; tipo: TipoSugestao; nome: string; aoEstudar?: (s: Sugestao, i: number) => void; aoVerNoMapa?: () => void }) {
   if (!res) return null;
   return (
     <Secao icone={MapPinned} titulo={tipo === "ponto" ? "Posições melhores por perto" : "Onde abrir outra unidade na região"} className="lg:col-span-2">
@@ -68,6 +68,7 @@ export function SecaoSugestoes({ res, tipo, nome, aoEstudar }: { res: ResultadoS
           ))}
         </div>
       )}
+      {aoVerNoMapa && res.sugestoes.length > 0 && <Button size="sm" variant="outline" className="mt-3" onClick={aoVerNoMapa}>Ver no mapa</Button>}
       <p className="mt-3 text-[11px] text-muted-foreground">{LIMITES_SUGESTAO} Pinos cinza numerados no mapa.</p>
     </Secao>
   );

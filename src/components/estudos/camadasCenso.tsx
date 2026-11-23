@@ -29,11 +29,57 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
   }
 }
 
-/** Legenda da camada do Censo para o painel. */
-export function LegendaCenso({ camada }: { camada: CamadaCenso }) {
-  if (camada === "renda") return <LegendaRenda />;
+/** Totais da área para mostrar junto da legenda (rosca das classes de renda, valor do potencial de consumo). */
+export interface ResumoCenso {
+  renda?: { classes: { id: string; cor: string; faixa: string; parte: number }[]; media: number | null; moradores: number } | null;
+  potencial?: { total: number; domicilios: number; porDomicilio: number } | null;
+  onde?: string;
+}
+const reaisCurto = (v: number) => (v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`);
+
+/** Rosca das classes de renda (moradores por classe na área). */
+function RoscaRenda({ classes }: { classes: { id: string; cor: string; parte: number }[] }) {
+  const r = 15.9155, c = 2 * Math.PI * r;
+  let acum = 0;
+  return (
+    <svg viewBox="0 0 42 42" className="h-20 w-20 flex-none -rotate-90" aria-hidden>
+      <circle cx="21" cy="21" r={r} fill="none" stroke="#eef0f3" strokeWidth="7" />
+      {classes.filter((x) => x.parte > 0).map((x) => {
+        const el = <circle key={x.id} cx="21" cy="21" r={r} fill="none" stroke={x.cor} strokeWidth="7" strokeDasharray={`${x.parte * c} ${c}`} strokeDashoffset={-acum * c} />;
+        acum += x.parte; return el;
+      })}
+    </svg>
+  );
+}
+
+/** Legenda da camada do Censo para o painel. Com `resumo`, a Renda mostra a rosca das classes e o Potencial de consumo, o valor da área. */
+export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?: ResumoCenso }) {
+  if (camada === "renda") {
+    const rd = resumo?.renda;
+    if (!rd || !rd.moradores) return <LegendaRenda />;
+    return (
+      <div className="space-y-2 text-foreground">
+        <div className="flex items-center gap-2.5">
+          <RoscaRenda classes={rd.classes} />
+          <div className="min-w-0 flex-1 space-y-0.5 text-[11px]">
+            {rd.classes.map((x) => <div key={x.id} className="flex items-center gap-1.5" title={x.faixa}><span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: x.cor }} /><span className="flex-1 whitespace-nowrap">Classe {x.id}</span><b className="tabular-nums">{Math.round(x.parte * 100)}%</b></div>)}
+          </div>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Moradores por classe {resumo?.onde ?? "na área"}{rd.media ? `; renda média do responsável R$ ${Math.round(rd.media).toLocaleString("pt-BR")}` : ""} (Censo 2022).</p>
+      </div>
+    );
+  }
   if (camada === "pessoas") return <>Vermelho mais forte = mais moradores (Censo 2022).</>;
-  if (camada === "consumo") return <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: `linear-gradient(90deg,${AZUL(0)},${AZUL(1)})` }} />mais gasto com esporte</div>;
+  if (camada === "consumo") {
+    const pt = resumo?.potencial;
+    return (
+      <div className="space-y-2">
+        {pt && <div className="text-foreground"><div className="font-display text-2xl font-semibold leading-none text-primary">{reaisCurto(pt.total)}<span className="ml-1 text-xs font-normal text-muted-foreground">por mês</span></div>
+          <p className="mt-1 text-[11px] text-muted-foreground">gasto com recreações e esportes {resumo?.onde ?? "na área"}: {pt.domicilios.toLocaleString("pt-BR")} domicílios, R$ {Math.round(pt.porDomicilio).toLocaleString("pt-BR")} por domicílio (estimativa POF e Censo).</p></div>}
+        <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: `linear-gradient(90deg,${AZUL(0)},${AZUL(1)})` }} />mais gasto com esporte</div>
+      </div>
+    );
+  }
   const itens = camada === "idade" ? FAIXAS_IDADE.map((f, i) => ({ rotulo: f, cor: CORES_IDADE[i] })) : CLASSES_DENSIDADE;
   return (
     <div className="space-y-1">

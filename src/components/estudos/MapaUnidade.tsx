@@ -64,6 +64,18 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     ? posicoesMelhores({ c: u.c, m2: dados.premissas.modelos[u.modelo]?.padraoM2 ?? u.m2 ?? 1200 }, dados.censo, dados.unidades ?? [], [], dados.premissas.curva,
       { raioKm: 10, longeDeUnidadesKm: 3, separacaoKm: 2.5, maxCanibalizacao: 0.2, ganhoMinimo: -0.3 })
     : null), [u?.nome, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Totais da área para a legenda (rosca das classes de renda e valor do potencial de consumo), na mesma área dos hexágonos
+  const resumoCenso = useMemo(() => (u?.c && dados.censo ? {
+    renda: area10 ? classesNaArea(dados.censo, area10) : classesNoRaio(u.c, dados.censo, 5),
+    potencial: area10 ? potencialNaArea(dados.censo, area10) : null,
+    onde: area10 ? `em ${MINUTOS_PADRAO} min de carro` : "num raio de 5 km",
+  } : undefined), [u?.nome, area10, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const verNovaUnidade = () => {
+    const m = ref.current;
+    if (!m || !u?.c || !novaUnidade?.sugestoes.length) return;
+    m.mapa.fitBounds(m.L.latLngBounds([u.c, ...novaUnidade.sugestoes.map((x) => x.c)]).pad(0.25));
+    el.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
   const pct0 = (x: number | null) => (x == null ? "—" : `${Math.round(x * 100)}%`);
 
 
@@ -115,11 +127,17 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
         });
       }
       const mx = Math.max(1, ...(u.bairros ?? []).map((b) => b[3]));
-      for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]))
+      const totalB = Math.max(1, (u.bairros ?? []).reduce((t, b) => t + b[3], 0));
+      for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3])) {
+        const raio = lente === "oportunidade" ? 4 + 20 * Math.sqrt(n / mx) : 5 + 26 * Math.sqrt(n / mx);
         L.circleMarker([lat, lng], lente === "oportunidade"
-          ? { radius: 4 + 20 * Math.sqrt(n / mx), color: "#fff", weight: 1, fillColor: "#c41230", fillOpacity: 0.75 }
-          : { radius: 5 + 24 * Math.sqrt(n / mx), color: "#c41230", weight: 1, fillColor: "#c41230", fillOpacity: 0.32 })
-          .bindTooltip(`<strong>${bairro}</strong><br/>${n.toLocaleString("pt-BR")} ${n === 1 ? "aluno" : "alunos"}`).addTo(camadas);
+          ? { radius: raio, color: "#fff", weight: 1, fillColor: "#c41230", fillOpacity: 0.75 }
+          : { radius: raio, color: "#c41230", weight: 1, fillColor: "#c41230", fillOpacity: 0.32 })
+          .bindTooltip(`<strong>${bairro}</strong><br/>${n.toLocaleString("pt-BR")} ${n === 1 ? "aluno" : "alunos"} (${Math.round((n / totalB) * 100)}%)`).addTo(camadas);
+        // nos bairros que têm pelo menos 3% dos alunos, o número fica escrito na bolha
+        if (lente === "alunos" && n / totalB >= 0.03)
+          L.marker([lat, lng], { interactive: false, icon: L.divIcon({ className: "", iconSize: [44, 16], iconAnchor: [22, 8], html: `<div style="text-align:center;font:700 11px/16px Inter,sans-serif;color:#7a0a1e;text-shadow:0 0 3px #fff,0 0 3px #fff">${n.toLocaleString("pt-BR")}</div>` }) }).addTo(camadas);
+      }
       if (r80 && !area10) L.circle(u.c, { radius: r80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
     } else if (lente === "modelo" && cap && censo) {
       const mx = Math.max(...cap.pesos, 1e-9);
@@ -143,7 +161,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
       .bindTooltip(`<strong>World Gym ${u.nome}</strong>`).addTo(camadas);
     if (rua) L.marker(rua, { icon: bolinha(L, "#f59e0b", 14) }).addTo(camadas);
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
-    if (lente === "rede") desenharSugestoes(L, camadas, novaUnidade);
+    // posições sugeridas para uma nova unidade: em todas as camadas (menos a limpa das fotos)
+    if (lente !== "limpa") desenharSugestoes(L, camadas, novaUnidade);
   }, [lente, u, cap, pronto, rua, areas, novaUnidade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
@@ -232,8 +251,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">Onde o modelo espera alunos, pela gente que mora perto e pelas outras World Gym. {area10 ? LEGENDA_DESLOCAMENTO : ""}</p>
           </> : lente === "oportunidade" ? <>Azul: onde o modelo espera alunos. Bolhas vermelhas: onde eles moram hoje. Azul forte sem bolha é onde vale fazer marketing.</>
-            : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} />
-            : lente === "alunos" ? <>Bolha maior = mais alunos no bairro. {area10 ? LEGENDA_DESLOCAMENTO : "Tracejado: onde moram 80%."}</>
+            : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
+            : lente === "alunos" ? <>Bolha maior = mais alunos no bairro; o número aparece nos bairros com 3% ou mais. {alunosBairro.toLocaleString("pt-BR")} alunos com bairro localizado{u.alunos ? ` de ${u.alunos.toLocaleString("pt-BR")} ativos` : ""}. {area10 ? LEGENDA_DESLOCAMENTO : "Tracejado: onde moram 80%."}</>
             : lente === "rede" ? "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." : null}
           sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />
         <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} satelite={satelite} setSatelite={setSatelite} verRua={verRua} setVerRua={setVerRua} />
@@ -281,7 +300,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
         </Secao>
       </div>
       {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
-      {novaUnidade && <div className="grid gap-4 lg:grid-cols-2"><SecaoSugestoes res={novaUnidade} tipo="nova" nome={u.nome} /></div>}
+      {novaUnidade && <div className="grid gap-4 lg:grid-cols-2"><SecaoSugestoes res={novaUnidade} tipo="nova" nome={u.nome} aoVerNoMapa={verNovaUnidade} /></div>}
     </div>
   );
 }

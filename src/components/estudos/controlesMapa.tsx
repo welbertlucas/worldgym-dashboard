@@ -32,7 +32,7 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
     }
   };
   return (
-    <div className={`absolute left-3 ${topo} z-[455] w-60 max-w-[calc(100%-1.5rem)] overflow-hidden rounded-xl border bg-white/95 shadow-lg backdrop-blur`}>
+    <div className={`absolute left-3 ${topo} z-[455] w-64 max-w-[calc(100%-1.5rem)] overflow-hidden rounded-xl border bg-white/95 shadow-lg backdrop-blur`}>
       <div className="flex items-center">
         <button type="button" onClick={() => setAberto((a) => !a)} aria-expanded={aberto} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-sm font-semibold">
           <Layers className="h-4 w-4 text-primary" aria-hidden />Camadas

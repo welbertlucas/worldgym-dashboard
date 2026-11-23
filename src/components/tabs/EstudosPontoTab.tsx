@@ -17,7 +17,7 @@ import { LegendaCenso, desenharCenso, ehCamadaCenso } from "@/components/estudos
 import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
 import {
-  DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -105,6 +105,12 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const ex = atual ? extras.get(atual.id) ?? null : null;
   const pop = r && refsPop ? populacaoRecomendada(r.meta, moradores10, refsPop) : null;
   const vf = ex?.veredito ?? r?.veredito ?? null;
+  // Totais da área para a legenda (rosca das classes de renda e valor do potencial de consumo)
+  const resumoCenso = useMemo(() => (atual && dados.censo ? {
+    renda: area10 ? classesNaArea(dados.censo, area10) : classesNoRaio(atual.c, dados.censo, 5),
+    potencial: area10 ? potencialNaArea(dados.censo, area10) : null,
+    onde: area10 ? `em ${MINUTOS_PADRAO} min de carro` : "num raio de 5 km",
+  } : undefined), [atual?.id, atual?.c[0], atual?.c[1], area10, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
   const sugestoes = useMemo(() => (atual && dados.censo && dados.premissas
     ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva)
@@ -325,7 +331,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
-          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} /> : lente === "rede" ? "Bolinhas vermelhas: World Gym. Círculos: área de cada unidade." : null}
+          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} /> : lente === "rede" ? "Bolinhas vermelhas: World Gym. Círculos: área de cada unidade." : null}
           sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />
         <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} satelite={satelite} setSatelite={setSatelite} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
         <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /></div>
