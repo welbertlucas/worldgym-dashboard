@@ -37,6 +37,13 @@ export async function buscarPois(c: [number, number], raioKm: number, categoria:
   return j as ResultadoPois;
 }
 
+/** Cor de cada grande rede no mapa (fundo e texto, aproximada da marca), para reconhecer a concorrente de longe, como no Mapfry. */
+export const COR_REDE: Record<string, [string, string]> = {
+  "Smart Fit": ["#ffc20e", "#111111"], Bluefit: ["#0a4da2", "#ffffff"], Selfit: ["#f26522", "#ffffff"], Panobianco: ["#111111", "#ffd100"],
+  Bodytech: ["#111111", "#ffffff"], "Bio Ritmo": ["#e30613", "#ffffff"], Skyfit: ["#00a3e0", "#ffffff"], Pratique: ["#e4002b", "#ffffff"],
+  "Contorno do Corpo": ["#7b2d8e", "#ffffff"], Justfit: ["#00a651", "#ffffff"], "i9 Fit": ["#5b2c83", "#ffffff"], "World Gym": ["#c41230", "#ffffff"],
+};
+const corRede = (rede: string | null) => (rede ? COR_REDE[rede] ?? ["#1b2130", "#ffffff"] : null);
 const curto = (s: string) => (s.length > 24 ? `${s.slice(0, 23)}…` : s);
 const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]!));
 
@@ -63,16 +70,17 @@ export function desenharPois(L: Leaflet, mapa: import("leaflet").Map, grupo: imp
     const celulas = new Map<string, typeof itens>();
     for (const it of itens) { const p = mapa.latLngToLayerPoint(it.l.c); const k = `${Math.floor(p.x / 56)}_${Math.floor(p.y / 56)}`; (celulas.get(k) ?? celulas.set(k, []).get(k)!).push(it); }
     for (const g of celulas.values()) {
-      if (g.length === 1) { const { l, i } = g[0]; L.marker(l.c, { icon: L.divIcon({ className: "", iconSize: [20, 20], iconAnchor: [10, 10], html: `<div class="poi-num${l.rede ? " rede" : ""}" data-poi-num="${i + 1}">${i + 1}</div>` }) }).bindTooltip(esc(l.nome)).addTo(grupo); continue; }
+      if (g.length === 1) { const { l, i } = g[0], cr = corRede(l.rede); L.marker(l.c, { icon: L.divIcon({ className: "", iconSize: [20, 20], iconAnchor: [10, 10], html: `<div class="poi-num${l.rede ? " rede" : ""}" data-poi-num="${i + 1}"${cr ? ` style="background:${cr[0]};color:${cr[1]}"` : ""}>${i + 1}</div>` }) }).bindTooltip(esc(l.nome)).addTo(grupo); continue; }
       const lat = g.reduce((a, x) => a + x.l.c[0], 0) / g.length, lng = g.reduce((a, x) => a + x.l.c[1], 0) / g.length;
       L.marker([lat, lng], { icon: L.divIcon({ className: "", iconSize: [30, 30], iconAnchor: [15, 15], html: `<div class="poi-grupo" data-poi-num="${g.length}">${g.length}</div>` }) }).bindTooltip(`${g.length} lugares (aproxime para ver os nomes)`).addTo(grupo);
     }
     return () => {};
   }
   for (const { l, i } of itens) {
+    const cr = corRede(l.rede);
     const html = modo === "numeros"
-      ? `<div class="poi-num${l.rede ? " rede" : ""}" data-poi-num="${i + 1}">${i + 1}</div>`
-      : `<div class="poi${l.rede ? " poi-rede" : ""}" data-poi-nome="${esc(curto(l.nome))}" data-poi-prioridade="${l.rede ? 0 : 1}"><span class="poi-ponto"></span><span class="poi-nome">${esc(curto(l.nome))}</span></div>`;
+      ? `<div class="poi-num${l.rede ? " rede" : ""}" data-poi-num="${i + 1}"${cr ? ` style="background:${cr[0]};color:${cr[1]}"` : ""}>${i + 1}</div>`
+      : `<div class="poi${l.rede ? " poi-rede" : ""}" data-poi-nome="${esc(curto(l.nome))}" data-poi-prioridade="${l.rede ? 0 : 1}"><span class="poi-ponto"${cr ? ` style="background:${cr[0]}"` : ""}></span><span class="poi-nome"${cr ? ` style="background:${cr[0]};color:${cr[1]}"` : ""}>${esc(curto(l.nome))}</span></div>`;
     L.marker(l.c, { zIndexOffset: l.rede ? 600 : 500, icon: L.divIcon({ className: "", iconSize: modo === "numeros" ? [20, 20] : [10, 10], iconAnchor: modo === "numeros" ? [10, 10] : [7, 7], html }) })
       .bindTooltip(`<strong>${esc(l.nome)}</strong><br/>${esc(l.endereco)}<br/>${l.km.toLocaleString("pt-BR")} km`, { direction: "top" }).addTo(grupo);
   }
@@ -95,8 +103,10 @@ export function desenharPois(L: Leaflet, mapa: import("leaflet").Map, grupo: imp
 }
 
 /** Controle "Academias concorrentes" (no canto de baixo do mapa): categoria, raio e buscar. `aviso`: pergunta antes de mandar a posição ao Google (pontos novos). */
-export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado, area }: {
+export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado, area, res }: {
   centro: [number, number] | null; aviso: boolean; aoResultado: (r: ResultadoPois | null) => void; modo: ModoPois; setModo: (m: ModoPois) => void; temResultado: boolean;
+  /** O resultado mostrado (para o cartão com o total, como no Mapfry). */
+  res?: ResultadoPois | null;
   /** Área de deslocamento: a busca cobre a área e só ficam os lugares de dentro (sem escolher raio). */
   area?: { geometria: Geometria; rotulo: string } | null;
 }) {
@@ -143,6 +153,12 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
             {temResultado && <Button variant="outline" onClick={() => { aoResultado(null); setAberto(false); }}>Limpar</Button>}
           </div>
           <p className="text-[11px] text-muted-foreground">Dados do Google. A mesma busca fica guardada por 90 dias.</p>
+        </div>
+      )}
+      {res && (
+        <div className="rounded-xl border bg-white px-3 py-2 shadow-lg">
+          <div className="flex items-baseline gap-2"><b className="text-2xl font-semibold tabular-nums text-primary">{totalPois(res)}</b><span className="text-sm text-foreground">{totalPois(res) === 1 ? CATEGORIAS_POIS.find((c) => c.id === res.categoria)?.singular ?? "lugar" : rotuloPois(res).toLowerCase()}</span></div>
+          <p className="text-[11px] text-muted-foreground">{ondePois(res)}{res.categoria === "academias" && totalPois(res) !== res.total ? " · sem contar as World Gym" : ""}{res.lugares.some((l) => l.rede && l.rede !== "World Gym") ? ` · redes: ${[...new Set(res.lugares.map((l) => l.rede).filter((r): r is string => !!r && r !== "World Gym"))].join(", ")}` : ""}</p>
         </div>
       )}
       {temResultado && (

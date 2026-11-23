@@ -23,7 +23,27 @@ export interface UnidadeEstudo {
  * (AA, A, B, C, D, E), estimados em cada setor por uma curva lognormal com a média e a variância da renda do responsável. Os campos
  * do fim podem faltar em dados antigos.
  */
-export type CelulaCenso = [number, number, number, number | null, number?, number[]?, number[]?, number[]?];
+export type CelulaCenso = [number, number, number, number | null, number?, number[]?, number[]?, number[]?, (number | null)?, number?, number?];
+/*
+ * Malha v6 (23/11/2026, hexágonos de 200 m): depois das classes vêm a renda média do domicílio (a do responsável × o fator do estado),
+ * o gasto mensal do hexágono com recreações e esportes (POF pela distribuição estimada da renda dos domicílios) e o número de pontos de
+ * comércio e serviços do OpenStreetMap (lojas, escritórios, restaurantes, farmácias, bancos, escolas, clínicas), para a concentração comercial.
+ */
+/** A malha tem os campos da v6 (renda do domicílio, gasto e comércio). */
+export const malhaV6 = (censo: Censo) => censo.celulas.some((c) => c[9] !== undefined);
+/** Gasto mensal do hexágono com recreações e esportes: o da malha v6 ou, em malha antiga, domicílios × gasto pela renda média do responsável. */
+export const gastoDoHexagono = (c: CelulaCenso) => (c[9] !== undefined ? c[9] : (c[4] ?? 0) * (gastoDoDomicilio(c[3]) ?? 0));
+/** Renda total (soma da renda estimada dos domicílios) nos hexágonos escolhidos; null em malha antiga. */
+export function rendaTotalEm(censo: Censo, dentro: (lat: number, lng: number) => boolean) {
+  let total = 0, domicilios = 0;
+  for (const c of censo.celulas) { if (c[8] == null || !c[4] || !dentro(c[0], c[1])) continue; total += c[8] * c[4]; domicilios += c[4]; }
+  return domicilios ? { total, domicilios, porDomicilio: total / domicilios } : null;
+}
+/** Pontos de comércio e serviços (OpenStreetMap) nos hexágonos escolhidos; null em malha antiga. */
+export function comercioEm(censo: Censo, dentro: (lat: number, lng: number) => boolean) {
+  if (!censo.celulas.some((c) => c[10] !== undefined)) return null;
+  return censo.celulas.reduce((a, c) => a + (dentro(c[0], c[1]) ? c[10] ?? 0 : 0), 0);
+}
 /** Domicílios por número de moradores, como no Mapfry (cores na ordem: 1, 2, 3, 4, 5 ou mais). */
 export const TAMANHOS_DOMICILIO = [
   { rotulo: "1 morador", cor: "#e9c46a" }, { rotulo: "2 moradores", cor: "#e07a9a" }, { rotulo: "3 moradores", cor: "#3a9bd5" },
@@ -37,8 +57,9 @@ export const FAIXAS_IDADE = ["Crianças (0 a 9 anos)", "Adolescentes (10 a 19 an
 /**
  * Potencial de consumo em academia: gasto médio mensal das famílias com "Recreações e esportes" (IBGE, POF 2017-2018, tabela 1.1.1),
  * por faixa de rendimento familiar em salários mínimos de 2018 (R$ 954): até 2, 2–3, 3–6, 6–10, 10–15, 15–25 e mais de 25 SM.
- * A renda do hexágono é a renda média do responsável (Censo 2022, SM de R$ 1.212), usada como aproximação da renda da família
- * (fica conservador: a família costuma ter mais de uma renda). Valores de 2018 corrigidos pelo IPCA até 2026 (CORRECAO_POF, estimativa).
+ * Na malha v6 o gasto já vem por hexágono, calculado com a renda estimada dos domicílios (a do responsável × a relação do estado) espalhada
+ * entre as faixas; em malha antiga, a renda média do responsável (Censo 2022, SM de R$ 1.212) faz as vezes da renda da família (conservador).
+ * Valores de 2018 corrigidos pelo IPCA até 2026 (CORRECAO_POF, estimativa).
  */
 export const POF_RECREACAO_ESPORTES = [{ ateSm: 2, gasto: 3.94 }, { ateSm: 3, gasto: 6.43 }, { ateSm: 6, gasto: 14.41 }, { ateSm: 10, gasto: 34.11 }, { ateSm: 15, gasto: 49.75 }, { ateSm: 25, gasto: 87.96 }, { ateSm: Infinity, gasto: 155.75 }];
 export const CORRECAO_POF = 1.56;
@@ -49,11 +70,12 @@ export const gastoDoDomicilio = (renda: number | null | undefined) =>
 /** Potencial mensal de consumo em recreações e esportes dentro da área (domicílios × gasto pela renda). */
 export function potencialNaArea(censo: Censo, g: Geometria) {
   let total = 0, domicilios = 0;
-  for (const [lat, lng, , r, d] of censo.celulas) {
+  const v6 = malhaV6(censo);
+  for (const c of censo.celulas) {
+    const [lat, lng, , r, d] = c;
     if (!d || !dentroDaArea(lat, lng, g)) continue;
-    const gasto = gastoDoDomicilio(r);
-    if (gasto == null) continue;
-    total += d * gasto; domicilios += d;
+    if (!v6 && gastoDoDomicilio(r) == null) continue;
+    total += gastoDoHexagono(c); domicilios += d;
   }
   return domicilios ? { total, domicilios, porDomicilio: total / domicilios } : null;
 }

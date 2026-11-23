@@ -423,3 +423,21 @@ describe("unidades parecidas com comparação", () => {
     expect(leituraParecidas(r, 360000)).toContain("a mais");
   });
 });
+
+describe("malha v6: renda total, potencial e comércio", () => {
+  it("soma a renda dos domicílios, o gasto do hexágono e os pontos de comércio", async () => {
+    const { rendaTotalEm, comercioEm, potencialNaArea, malhaV6 } = await import("@/lib/estudoPonto");
+    // inventado: [lat, lng, moradores, renda resp., domicílios, idade, tamanhos, classes, renda do domicílio, gasto do hexágono, comércio]
+    const censo = { rk: 0.2, celulas: [
+      [0.001, 0.001, 30, 3000, 10, undefined, undefined, undefined, 4500, 300, 4],
+      [0.002, 0.002, 20, 2000, 8, undefined, undefined, undefined, 3000, 120, 0],
+      [5, 5, 99, 9000, 50, undefined, undefined, undefined, 13000, 9000, 70],
+    ] as never };
+    const area = { type: "Polygon" as const, coordinates: [[[0, 0], [0.01, 0], [0.01, 0.01], [0, 0.01], [0, 0]]] };
+    expect(malhaV6(censo)).toBe(true);
+    expect(rendaTotalEm(censo, (la) => la < 1)).toEqual({ total: 4500 * 10 + 3000 * 8, domicilios: 18, porDomicilio: (45000 + 24000) / 18 });
+    expect(comercioEm(censo, (la) => la < 1)).toBe(4);
+    expect(potencialNaArea(censo, area)).toEqual({ total: 420, domicilios: 18, porDomicilio: 420 / 18 });
+    expect(comercioEm({ rk: 0.3, celulas: [[0, 0, 1, null]] }, () => true)).toBeNull();
+  });
+});

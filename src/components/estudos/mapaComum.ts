@@ -14,6 +14,42 @@ export const hexagono = (lat: number, lng: number, rk: number): [number, number]
   return [lat + (rk / 110.6) * Math.sin(a), lng + (rk / (111.32 * Math.cos((lat * Math.PI) / 180))) * Math.cos(a)];
 });
 
+/**
+ * Parte do hexágono que fica dentro da área ([lat, lng] em tudo que entra e sai). Como o hexágono é convexo, recorta cada contorno externo
+ * da área pelo hexágono (Sutherland–Hodgman), como o Mapfry faz na borda da área de deslocamento. Buracos da área são ignorados.
+ */
+export function recortarNaArea(hex: [number, number][], g: { type: "Polygon"; coordinates: number[][][] } | { type: "MultiPolygon"; coordinates: number[][][][] }): [number, number][][] {
+  const clip = hex.map(([la, ln]) => [ln, la]);
+  let area2 = 0;
+  for (let i = 0; i < clip.length; i++) { const [x1, y1] = clip[i], [x2, y2] = clip[(i + 1) % clip.length]; area2 += x1 * y2 - x2 * y1; }
+  const s = Math.sign(area2) || 1;
+  const xs = clip.map((p) => p[0]), ys = clip.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const lado = (p: number[], a: number[], b: number[]) => s * ((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) >= 0;
+  const corte = (p: number[], q: number[], a: number[], b: number[]) => {
+    const d = (p[0] - q[0]) * (a[1] - b[1]) - (p[1] - q[1]) * (a[0] - b[0]);
+    if (!d) return p;
+    const t = ((p[0] - a[0]) * (a[1] - b[1]) - (p[1] - a[1]) * (a[0] - b[0])) / d;
+    return [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])];
+  };
+  const pols = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  const out: [number, number][][] = [];
+  for (const pol of pols) {
+    let sub = pol[0];
+    if (!sub?.length || sub.every((p) => p[0] < x0) || sub.every((p) => p[0] > x1) || sub.every((p) => p[1] < y0) || sub.every((p) => p[1] > y1)) continue;
+    for (let i = 0; i < clip.length && sub.length; i++) {
+      const a = clip[i], b = clip[(i + 1) % clip.length], ent = sub;
+      sub = [];
+      for (let j = 0; j < ent.length; j++) {
+        const p = ent[j], q = ent[(j + 1) % ent.length], pIn = lado(p, a, b), qIn = lado(q, a, b);
+        if (pIn) { sub.push(p); if (!qIn) sub.push(corte(p, q, a, b)); } else if (qIn) sub.push(corte(p, q, a, b));
+      }
+    }
+    if (sub.length >= 3) out.push(sub.map(([ln, la]) => [la, ln] as [number, number]));
+  }
+  return out;
+}
+
 export type Leaflet = typeof import("leaflet");
 export async function carregarLeaflet(): Promise<Leaflet> {
   const mod = await import("leaflet");
