@@ -31,7 +31,7 @@ const fmtKm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("pt
 export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, verRede }: { dados: DadosEstudos; unidades: UnidadeEstudo[]; inicial: string; voltar?: () => void; estudarPosicao?: (c: [number, number], nome: string, u: UnidadeEstudo, endereco?: string | null) => void; verRede?: () => void }) {
   const [nome, setNome] = useState(inicial);
   const [lente, setLente] = useState<Lente>("alunos");
-  const [fundo, setFundo] = useState<Fundo>("cinza");
+  const [fundo, setFundo] = useState<Fundo>("padrao");
   const satelite = fundo === "satelite";
   // o mapa ocupa do topo dele até o fim da tela, sem precisar rolar
   const caixaMapa = useRef<HTMLDivElement>(null);

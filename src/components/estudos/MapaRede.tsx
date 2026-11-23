@@ -15,7 +15,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
   const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; grupo: import("leaflet").FeatureGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
   const [pronto, setPronto] = useState(false);
   // os mesmos controles do mapa da unidade: fundo (padrão, cinza, relevo, satélite), régua, Street View e zoom
-  const [fundo, setFundo] = useState<Fundo>("cinza");
+  const [fundo, setFundo] = useState<Fundo>("padrao");
   const caixa = useRef<HTMLDivElement>(null);
   const altura = useAlturaAteOFim(caixa);
   useEffect(() => { ref.current?.mapa.invalidateSize(); }, [altura]);

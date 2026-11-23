@@ -68,7 +68,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const alturaMapa = useAlturaAteOFim(caixaMapa);
   useEffect(() => { mapaRef.current?.mapa.invalidateSize(); }, [alturaMapa]);
   const [adicionando, setAdicionando] = useState(iniciarAdicionando);
-  const [fundo, setFundo] = useState<Fundo>("cinza");
+  const [fundo, setFundo] = useState<Fundo>("padrao");
   const satelite = fundo === "satelite";
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
