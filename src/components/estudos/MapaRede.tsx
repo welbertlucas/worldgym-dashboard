@@ -2,7 +2,9 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { carregarLeaflet, pino, type Leaflet } from "@/components/estudos/mapaComum";
+import { aplicarFundo, carregarLeaflet, pino, URL_OSM, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { BarraMapa } from "@/components/estudos/controlesMapa";
+import { StreetView } from "@/components/estudos/StreetView";
 import { reais, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 const COR = { low: "#c41230", pro: "#1b2130" } as const;
@@ -10,16 +12,21 @@ const NOME = { low: "Low Cost", pro: "Pro" } as const;
 
 export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[]; abrir?: (nome: string) => void; voltar: () => void }) {
   const el = useRef<HTMLDivElement>(null);
-  const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; grupo: import("leaflet").FeatureGroup } | null>(null);
+  const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; grupo: import("leaflet").FeatureGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
   const [pronto, setPronto] = useState(false);
+  // os mesmos controles do mapa da unidade: fundo (padrão, cinza, relevo, satélite), régua, Street View e zoom
+  const [fundo, setFundo] = useState<Fundo>("cinza");
+  const [verRua, setVerRua] = useState(false);
+  const [rua, setRua] = useState<[number, number] | null>(null);
   const comPosicao = unidades.filter((u) => u.c);
   useEffect(() => {
     let vivo = true;
     carregarLeaflet().then((L) => {
       if (!vivo || !el.current) return;
-      const mapa = L.map(el.current, { zoomControl: true, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView([-15.8, -47.9], 5);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(mapa);
-      ref.current = { L, mapa, grupo: L.featureGroup().addTo(mapa) };
+      const mapa = L.map(el.current, { zoomControl: false, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView([-15.8, -47.9], 5);
+      const ruas = L.tileLayer(URL_OSM, { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
+      const sat = L.tileLayer(URL_SAT, { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
+      ref.current = { L, mapa, grupo: L.featureGroup().addTo(mapa), ruas, sat };
       setPronto(true);
     });
     return () => { vivo = false; ref.current?.mapa.remove(); ref.current = null; };
@@ -36,6 +43,17 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
     }
     if (comPosicao.length) m.mapa.fitBounds(m.grupo.getBounds(), { padding: [40, 40], maxZoom: 11 });
   }, [pronto, unidades, abrir]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (ref.current) aplicarFundo(ref.current, fundo); }, [fundo, pronto]);
+  // "Ver a rua": o próximo clique no mapa abre o Street View daquele lugar
+  useEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    m.mapa.getContainer().style.cursor = verRua ? "crosshair" : "";
+    if (!verRua) return;
+    const aoClicar = (e: import("leaflet").LeafletMouseEvent) => { setRua([e.latlng.lat, e.latlng.lng]); setVerRua(false); };
+    m.mapa.once("click", aoClicar);
+    return () => { m.mapa.off("click", aoClicar); };
+  }, [verRua, pronto]);
   const n = (mod: "low" | "pro") => comPosicao.filter((u) => u.modelo === mod).length;
   return (
     <div className="space-y-3">
@@ -51,7 +69,12 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
           <span>{comPosicao.length} unidades</span>
         </div>
       </div>
-      <div ref={el} className="mapa-cinza h-[calc(100vh-11rem)] min-h-[520px] overflow-hidden rounded-2xl border" aria-label="Mapa das unidades da rede" />
+      <div className="relative h-[calc(100vh-11rem)] min-h-[520px] overflow-hidden rounded-2xl border bg-muted">
+        <div ref={el} className="absolute inset-0" aria-label="Mapa das unidades da rede" />
+        {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
+        <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />
+        {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
+      </div>
       {abrir && <p className="text-xs text-muted-foreground">Passe o mouse numa unidade para ver os números; clique para abrir o estudo dela.</p>}
     </div>
   );

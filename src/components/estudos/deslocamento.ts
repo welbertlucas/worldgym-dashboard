@@ -59,7 +59,7 @@ const comoLeaflet = (g: Geometria): [number, number][][][] => (g.type === "Polyg
 /** Desenha o contorno da área de 10 min de carro no grupo de camadas. */
 export function desenharDeslocamento(L: Leaflet, grupo: import("leaflet").LayerGroup, areas: Areas | null) {
   const carro = areaOficial(areas);
-  if (carro) L.polygon(comoLeaflet(carro), { color: COR_DESLOCAMENTO, weight: 2.6, fill: false, interactive: false }).addTo(grupo);
+  if (carro) L.polygon(comoLeaflet(carro), { color: COR_DESLOCAMENTO, weight: 1.4, opacity: 0.95, fill: false, interactive: false }).addTo(grupo);
 }
 
 /** Limites da área (para enquadrar a foto do PDF). */

@@ -180,7 +180,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       });
     }
     paginas.push({
-      titulo: `${pt.letra}. ${p.nome}`, subtitulo: `${pt.regiao} · ${modelo} · ${num(p.m2)} m²`,
+      titulo: `${pt.letra}. ${p.nome}`, subtitulo: `${p.endereco ?? pt.regiao} · ${modelo} · ${num(p.m2)} m²`,
       foto: { dados: pt.foto, legenda: "O ponto visto de cima (imagem de satélite)." },
       destaques: r ? [{ valor: reais(r.provavel), rotulo: "vendas por mês previstas" }, { valor: r.lucro > 0 ? reais(r.lucro) : "prejuízo", rotulo: "lucro por mês" }, { valor: meses(r.payback), rotulo: `payback (${VEREDITO_ROTULO[r.veredito].toLowerCase()})` }] : undefined,
       texto, numeros: [], secoes,

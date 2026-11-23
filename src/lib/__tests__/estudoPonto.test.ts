@@ -120,6 +120,10 @@ describe("servidor dos estudos (server/estudos.js)", () => {
     expect(() => pontoValido({ c: [-15.8, -47.9], m2: 50 })).toThrow(ErroEstudos);
     const p = pontoValido({ c: [-15.8, -47.9], m2: 1200.4, nome: "  Av.   X ", modelo: "outro", imovel: { fachada: true, extra: true }, lixo: 1 });
     expect(p).toMatchObject({ nome: "Av. X", modelo: "low", m2: 1200, imovel: { fachada: true, estacionamento: false } });
+    // endereço do ponto (inventado): guardado limpo e cortado em 160 caracteres; vazio não entra
+    expect(pontoValido({ c: [-15.8, -47.9], m2: 1200, endereco: "  Rua   Inventada, 10 - Bairro   Teste " }).endereco).toBe("Rua Inventada, 10 - Bairro Teste");
+    expect(pontoValido({ c: [-15.8, -47.9], m2: 1200, endereco: "x".repeat(300) }).endereco).toHaveLength(160);
+    expect("endereco" in pontoValido({ c: [-15.8, -47.9], m2: 1200, endereco: "  " })).toBe(false);
     expect(p).not.toHaveProperty("lixo");
     const v = pontoValido({ c: [-15.8, -47.9], m2: 1000, imovel: { vagas: "42.6", vagasPerto: -3 } });
     expect(v.imovel).toMatchObject({ vagas: 43, estacionamento: true }); expect(v.imovel).not.toHaveProperty("vagasPerto");
@@ -439,5 +443,20 @@ describe("malha v6: renda total, potencial e comércio", () => {
     expect(comercioEm(censo, (la) => la < 1)).toBe(4);
     expect(potencialNaArea(censo, area)).toEqual({ total: 420, domicilios: 18, porDomicilio: 420 / 18 });
     expect(comercioEm({ rk: 0.3, celulas: [[0, 0, 1, null]] }, () => true)).toBeNull();
+  });
+});
+
+describe("parecer do Atlas", () => {
+  it("diz se aprova, por quê e o que precisa para seguir (números inventados)", async () => {
+    const { parecerDoPonto } = await import("@/lib/estudoPonto");
+    const base = { provavel: 300_000, meta: 320_000, payback: 43, mesesAprovado: 36, mesesAtencao: 48 };
+    const a = parecerDoPonto({ ...base, veredito: "atencao", vagas: { situacao: "sem-dado", min: 50, max: 80 }, populacao: { situacao: "abaixo", recomendada: 120_000 }, divideCom: [{ nome: "Gama", parte: 0.3 }] });
+    expect(a.rotulo).toBe("Aprova com condicionantes");
+    expect(a.porque).toContain("abaixo dos R$ 320 mil");
+    expect(a.condicoes).toHaveLength(4);
+    const b = parecerDoPonto({ ...base, veredito: "aprovado", vagas: { situacao: "insuficiente", min: 50, max: 80 } });
+    expect(b.rotulo).toBe("Não aprova");
+    expect(b.porque).toContain("eliminatório");
+    expect(parecerDoPonto({ ...base, provavel: 400_000, veredito: "aprovado" })).toMatchObject({ rotulo: "Aprova", condicoes: [] });
   });
 });

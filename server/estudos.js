@@ -102,7 +102,9 @@ export function pontoValido(p) {
   const autor = p?.autor ? { id: idSeguro(p.autor.id), nome: String(p.autor.nome ?? "").slice(0, 80) } : null;
   const agora = new Date().toISOString();
   const regiao = String(p?.regiao ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
-  const out = { id, nome, ...(regiao ? { regiao } : {}), c: [Number(c[0].toFixed(6)), Number(c[1].toFixed(6))], modelo, m2, imovel,
+  // endereço aproximado da posição (Mapbox, pelo servidor), para mostrar no pino e no estudo
+  const endereco = String(p?.endereco ?? "").replace(/\s+/g, " ").trim().slice(0, 160);
+  const out = { id, nome, ...(regiao ? { regiao } : {}), ...(endereco ? { endereco } : {}), c: [Number(c[0].toFixed(6)), Number(c[1].toFixed(6))], modelo, m2, imovel,
     criadoEm: dataISO(p?.criadoEm) ?? agora, atualizadoEm: dataISO(p?.atualizadoEm) ?? agora, ...(autor ? { autor } : {}) };
   const d = decisaoValida(p?.decisao);
   if (d) out.decisao = d;

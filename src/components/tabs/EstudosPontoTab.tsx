@@ -16,9 +16,9 @@ import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import { LegendaCenso, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/controlesMapa";
-import { SecaoSugestoes, desenharSugestoes, enderecoCurto } from "@/components/estudos/sugestoes";
+import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -198,9 +198,12 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     // pontos em estudo
     pontos.forEach((p, i) => {
       const sel = p.id === atualId;
-      const mk = L.marker(p.c, { draggable: editavel, zIndexOffset: sel ? 2000 : 1000, title: p.nome, icon: pino(L, CORES[i % CORES.length], sel ? 40 : 32, letra(i)) }).addTo(camadas);
-      mk.on("click", () => setAtualId(p.id));
-      mk.on("dragend", () => { const ll = mk.getLatLng(); mudar(p.id, { c: [ll.lat, ll.lng] }); setAtualId(p.id); });
+      const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]!));
+      const mk = L.marker(p.c, { draggable: editavel, zIndexOffset: sel ? 2000 : 1000, icon: pino(L, CORES[i % CORES.length], sel ? 40 : 32, letra(i)) })
+        .bindTooltip(`<strong>${esc(p.nome)}</strong><br/>${p.endereco ? esc(p.endereco) : p.regiao ? esc(p.regiao) : "<em>sem endereço: use “Buscar o endereço” no estudo</em>"}`, { direction: "top", offset: [0, -30] }).addTo(camadas);
+      mk.on("click", () => { setAtualId(p.id); mk.openTooltip(); });
+      // arrastou: o endereço guardado deixa de valer
+      mk.on("dragend", () => { const ll = mk.getLatLng(); mudar(p.id, { c: [ll.lat, ll.lng], endereco: undefined }); setAtualId(p.id); });
     });
     if (rua) L.marker(rua, { icon: L.divIcon({ className: "", iconSize: [14, 14], iconAnchor: [7, 7], html: '<div style="width:14px;height:14px;border-radius:50%;background:#f59e0b;border:2px solid #fff"></div>' }) }).addTo(camadas);
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
@@ -219,13 +222,13 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const estudarSugestao = (sg: Sugestao, i: number, endereco?: string | null) => {
     if (!atual) return;
     const agora = new Date().toISOString();
-    const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: `Sugestão ${i + 1} de ${atual.nome}`.slice(0, 60), ...(endereco ? { regiao: enderecoCurto(endereco).slice(0, 60) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: sg.c, modelo: atual.modelo, m2: atual.m2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
+    const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: `Sugestão ${i + 1} de ${atual.nome}`.slice(0, 60), ...(endereco ? { regiao: enderecoCurto(endereco).slice(0, 60), endereco: endereco.slice(0, 160) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: sg.c, modelo: atual.modelo, m2: atual.m2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
     setPontos((ps) => [...ps, novo]); setAtualId(novo.id);
   };
   const estudarAchado = () => {
     if (!achado || !editavel) return;
     const agora = new Date().toISOString();
-    const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: achado.nome.slice(0, 60) || `Ponto ${letra(todos.length)}`, criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: achado.c, modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
+    const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: achado.nome.slice(0, 60) || `Ponto ${letra(todos.length)}`, ...(achado.endereco ? { endereco: achado.endereco.slice(0, 160) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: achado.c, modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
     setPontos((ps) => [...ps, novo]); setAtualId(novo.id); setAchado(null);
   };
   useEffect(() => { setPois(null); }, [atualId]);
@@ -362,6 +365,13 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
               className="min-w-[180px] flex-1 rounded-md bg-transparent font-display text-xl font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             <input value={atual.regiao ?? ""} onChange={(e) => mudar(atual.id, { regiao: e.target.value })} placeholder="Região (ex.: Taguatinga Norte)" aria-label="Região do ponto"
               className="min-w-[180px] flex-1 rounded-md bg-transparent text-sm text-muted-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring" />
+            <EnderecoDoPonto endereco={atual.endereco} editavel={editavel} buscar={async () => {
+              // a posição vai ao Mapbox (pelo servidor) só depois de confirmar: estudo de ponto é estratégia comercial
+              if (!window.confirm("Para achar o endereço, a posição deste ponto será enviada ao Mapbox. Continuar?")) return;
+              const e = await enderecoDaPosicao(atual.c);
+              if (e) mudar(atual.id, { endereco: e.slice(0, 160), ...(atual.regiao ? {} : { regiao: enderecoCurto(e).slice(0, 60) }) });
+              else window.alert("Não achei o endereço desta posição.");
+            }} />
             <div className="flex gap-1.5" role="group" aria-label="Modelo">
               {(["low", "pro"] as Modelo[]).map((m) => (
                 <Pilula key={m} ativo={atual.modelo === m} onClick={() => mudar(atual.id, { modelo: m, m2: dados.premissas!.modelos[m].padraoM2 })}>{dados.premissas!.modelos[m].nome}</Pilula>
@@ -374,7 +384,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           </div>
 
           <Faixa tom={vf === "aprovado" ? "bom" : vf === "atencao" ? "atencao" : "ruim"}>
-            {VEREDITO_ROTULO[vf ?? r.veredito]} pelo modelo · payback {meses(r.payback)}{ex?.vagas?.situacao === "insuficiente" ? " · estacionamento insuficiente" : ""}
+            Parecer do Atlas: {PARECER_ROTULO[vf ?? r.veredito]} · payback {meses(r.payback)}{ex?.vagas?.situacao === "insuficiente" ? " · estacionamento insuficiente" : ""}
           </Faixa>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -408,7 +418,24 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                 {fatores.map((f) => <li key={f.texto} className="flex gap-2.5"><span className={`w-3.5 flex-none text-center font-bold ${f.positivo ? "text-success" : "text-destructive"}`}>{f.positivo ? "+" : "−"}</span>{f.texto}</li>)}
               </ul>
             </Secao>
-            <Secao icone={Gavel} titulo="Sua decisão">
+            <Secao icone={Gavel} titulo="Parecer do Atlas">
+              {(() => {
+                const pr = parecerDoPonto({ veredito: vf ?? r.veredito, provavel: r.provavel, meta: r.meta, payback: r.payback, mesesAprovado: dados.premissas!.regua.mesesAprovado, mesesAtencao: dados.premissas!.regua.mesesAtencao,
+                  vagas: ex?.vagas ?? null, populacao: pop ? { situacao: pop.situacao, recomendada: pop.recomendada } : null, divideCom: cap?.divideCom });
+                const tom = (vf ?? r.veredito) === "aprovado" ? "text-success" : (vf ?? r.veredito) === "atencao" ? "text-warning" : "text-destructive";
+                return <>
+                  <p className={`font-display text-2xl font-semibold ${tom}`}>{pr.rotulo}</p>
+                  <p className="mt-1 text-[13px] text-foreground">{pr.porque}</p>
+                  {pr.condicoes.length > 0 && <>
+                    <p className="mt-2 text-[12px] font-semibold text-foreground">{(vf ?? r.veredito) === "reprovado" ? "O que mudaria a conclusão" : "Condições para seguir"}</p>
+                    <ul className="mt-1 space-y-1 text-[13px]">{pr.condicoes.map((c) => <li key={c} className="flex gap-2"><span className="flex-none text-muted-foreground">•</span>{c}</li>)}</ul>
+                  </>}
+                </>;
+              })()}
+              <details className="mt-3 rounded-lg border bg-muted/40 px-2.5 py-1.5" open={(atual.decisao?.status ?? "analise") !== "analise"}>
+                <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Registrar o que foi decidido (opcional){(atual.decisao?.status ?? "analise") !== "analise" ? `: ${DECISAO_ROTULO[atual.decisao!.status]}` : ""}</summary>
+                <p className="mt-1 text-[11px] text-muted-foreground">Só para guardar o que a diretoria decidiu de fato, por exemplo quando o ponto virar unidade. O Atlas guarda a previsão do dia para comparar depois com as vendas reais.</p>
+                <div className="mt-2">
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="Decisão">
                 {(Object.keys(DECISAO_ROTULO) as StatusDecisao[]).map((st) => (
                   <Pilula key={st} ativo={(atual.decisao?.status ?? "analise") === st}
@@ -426,6 +453,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
               <textarea value={atual.decisao?.comentario ?? ""} placeholder="Comentário (ex.: negociar carência de 4 meses)" aria-label="Comentário da decisão" rows={2}
                 onChange={(e) => mudar(atual.id, { decisao: { status: atual.decisao?.status ?? "analise", em: atual.decisao?.em ?? new Date().toISOString(), ...atual.decisao, comentario: e.target.value } })}
                 className="mt-2 w-full resize-none rounded-lg border bg-white px-2.5 py-1.5 text-sm" />
+                </div>
+              </details>
             </Secao>
             <Secao icone={Building2} titulo="O imóvel">
               <div className="flex flex-wrap gap-1.5">
@@ -523,7 +552,7 @@ export function EstudosPontoTab() {
     // Posição sugerida para nova unidade: vira um estudo de ponto (modelo e tamanho padrão da unidade de origem) e abre no mapa dos estudos
     const estudarPosicao = editavel ? (c: [number, number], nome: string, u: (typeof emOperacao)[number], endereco?: string | null) => {
       const agora = new Date().toISOString();
-      const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: nome.slice(0, 60), regiao: (endereco ? enderecoCurto(endereco) : `perto da WG ${u.nome}`).slice(0, 60), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c, modelo: u.modelo, m2: dados.premissas!.modelos[u.modelo].padraoM2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
+      const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: nome.slice(0, 60), regiao: (endereco ? enderecoCurto(endereco) : `perto da WG ${u.nome}`).slice(0, 60), ...(endereco ? { endereco: endereco.slice(0, 160) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c, modelo: u.modelo, m2: dados.premissas!.modelos[u.modelo].padraoM2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
       setPontos((ps) => [...ps, novo]);
       setVisao({ tela: "mapa", atualId: novo.id, novo: false, comparando: null });
     } : undefined;
@@ -544,5 +573,18 @@ export function EstudosPontoTab() {
     <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={editavel} iniciarAdicionando={visao.novo} comparando={visao.comparando}
       atualId={visao.atualId} setAtualId={(id) => setVisao((v) => (v.tela === "mapa" ? { ...v, atualId: id, comparando: v.comparando && id && !v.comparando.has(id) ? new Set([...v.comparando, id]) : v.comparando } : v))}
       voltar={() => setVisao({ tela: "lista" })} />
+  );
+}
+
+/** Linha do endereço do ponto, embaixo do nome: o endereço guardado ou o botão para buscar (com confirmação, pois envia a posição ao Mapbox). */
+function EnderecoDoPonto({ endereco, editavel, buscar }: { endereco?: string; editavel: boolean; buscar: () => Promise<void> }) {
+  const [buscando, setBuscando] = useState(false);
+  return (
+    <div className="flex basis-full items-center gap-2 text-sm text-muted-foreground">
+      <span className="min-w-0 truncate" title={endereco}>{endereco ? <>Endereço: <span className="text-foreground">{endereco}</span></> : "Sem endereço guardado."}</span>
+      {editavel && <Button type="button" variant="outline" size="sm" className="h-7 px-2.5 text-xs" disabled={buscando} onClick={async () => { setBuscando(true); try { await buscar(); } finally { setBuscando(false); } }}>
+        {buscando ? "Buscando…" : endereco ? "Atualizar o endereço" : "Buscar o endereço"}
+      </Button>}
+    </div>
   );
 }

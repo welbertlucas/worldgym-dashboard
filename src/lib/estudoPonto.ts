@@ -154,7 +154,7 @@ export interface ImovelItens { fachada: boolean; estacionamento: boolean; polo: 
 export type StatusDecisao = "analise" | "aprovado" | "recusado" | "unidade";
 /** Sua decisão sobre o estudo. `previsao` guarda a conta do dia da decisão, para comparar depois com o real. */
 export interface Decisao { status: StatusDecisao; em: string; comentario?: string; unidade?: string; previsao?: { provavel: number; pessimista: number; otimista: number } }
-export interface Ponto { id: string; nome: string; regiao?: string; c: [number, number]; modelo: Modelo; m2: number; imovel: ImovelItens; autor?: { id: string; nome: string }; criadoEm?: string; atualizadoEm?: string; decisao?: Decisao }
+export interface Ponto { id: string; nome: string; regiao?: string; /** Endereço aproximado da posição (some quando o ponto é arrastado). */ endereco?: string; c: [number, number]; modelo: Modelo; m2: number; imovel: ImovelItens; autor?: { id: string; nome: string }; criadoEm?: string; atualizadoEm?: string; decisao?: Decisao }
 export const DECISAO_ROTULO: Record<StatusDecisao, string> = { analise: "Em análise", aprovado: "Aprovado", recusado: "Recusado", unidade: "Virou unidade" };
 /** completo: dono e liberados (criam e decidem); consulta: Master (vê tudo, não edita); unidade: só a própria unidade, sem premissas. */
 export type ModoEstudos = "completo" | "consulta" | "unidade";
@@ -404,7 +404,8 @@ export function fatoresDe(ponto: Ponto, r: Resultado, cap: Captacao, unidades: U
   return f;
 }
 
-export const VEREDITO_ROTULO: Record<Veredito, string> = { aprovado: "Aprovado", atencao: "Atenção", reprovado: "Reprovado" };
+/** Rótulo curto do parecer nas listas, no mapa e no PDF (o mesmo sentido de PARECER_ROTULO). */
+export const VEREDITO_ROTULO: Record<Veredito, string> = { aprovado: "Aprova", atencao: "Com condicionantes", reprovado: "Não aprova" };
 export const reais = (v: number) => `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`;
 export const meses = (v: number) => (Number.isFinite(v) ? `${Math.round(v)} meses` : "não se paga");
 
@@ -503,6 +504,33 @@ export function vagasDoPonto(alunos: number, imovel: ImovelItens) {
   return { min, max, informadas, proprias: imovel.vagas ?? null, perto: imovel.vagasPerto ?? null, situacao };
 }
 export const SITUACAO_VAGAS: Record<SituacaoVagas, string> = { suficiente: "suficiente", limite: "no limite", insuficiente: "insuficiente", "sem-dado": "vagas não informadas" };
+/** Parecer do Atlas em palavras (decisão do dono, 23/11/2026: o Atlas diz se aprova; o registro da diretoria é opcional). */
+export const PARECER_ROTULO: Record<Veredito, string> = { aprovado: "Aprova", atencao: "Aprova com condicionantes", reprovado: "Não aprova" };
+/**
+ * Por que o Atlas aprova ou não e o que precisa acontecer para seguir. Regras: payback dentro da régua aprova; entre a régua e o limite
+ * de atenção aprova com condicionantes; abaixo disso, ou com estacionamento insuficiente (eliminatório), não aprova.
+ */
+export function parecerDoPonto(o: {
+  veredito: Veredito; provavel: number; meta: number; payback: number | null; mesesAprovado: number; mesesAtencao: number;
+  vagas?: { situacao: SituacaoVagas; min: number; max: number } | null; populacao?: { situacao: SituacaoPopulacao | null; recomendada: number } | null;
+  divideCom?: { nome: string; parte: number }[];
+}) {
+  const r = (v: number) => `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`;
+  const anos = (m: number) => `${(m / 12).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} anos`;
+  const pb = o.payback != null && Number.isFinite(o.payback) ? ` (o investimento volta em ${Math.round(o.payback)} meses)` : "";
+  const porque = o.vagas?.situacao === "insuficiente"
+    ? `O estacionamento não comporta o movimento previsto (precisa de ${o.vagas.min} a ${o.vagas.max} vagas). Estacionamento é critério eliminatório.`
+    : o.veredito === "aprovado" ? `Deve vender cerca de ${r(o.provavel)} por mês com a unidade madura, acima dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}${pb}.`
+    : o.veredito === "atencao" ? `Deve vender cerca de ${r(o.provavel)} por mês, abaixo dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}, mas dentro do limite de ${anos(o.mesesAtencao)}${pb}. A margem é apertada.`
+    : `Deve vender cerca de ${r(o.provavel)} por mês, abaixo do mínimo para o investimento voltar em ${anos(o.mesesAtencao)}${pb}.`;
+  const condicoes: string[] = [];
+  if (o.veredito === "atencao" && o.vagas?.situacao !== "insuficiente") condicoes.push("Baixar o investimento ou o aluguel (carência, imóvel menor, obra mais barata) até a conta fechar na régua.");
+  if (o.vagas?.situacao === "limite") condicoes.push(`Garantir mais vagas: as informadas estão no limite (o ideal são ${o.vagas.max}).`);
+  if (o.vagas?.situacao === "sem-dado") condicoes.push(`Confirmar o estacionamento: o ponto precisa de ${o.vagas.min} a ${o.vagas.max} vagas (próprias ou bem perto).`);
+  if (o.populacao?.situacao === "abaixo" || o.populacao?.situacao === "limite") condicoes.push(`Conferir o público na visita: a área de 10 min tem menos moradores que os ${Math.round(o.populacao.recomendada / 1000).toLocaleString("pt-BR")} mil recomendados.`);
+  for (const d of o.divideCom ?? []) if (Math.round(d.parte * 100) >= 20) condicoes.push(`Aceitar dividir ${Math.round(d.parte * 100)}% do público com a World Gym ${d.nome}.`);
+  return { rotulo: PARECER_ROTULO[o.vagas?.situacao === "insuficiente" ? "reprovado" : o.veredito], porque, condicoes };
+}
 /** Veredito final: o do modelo, mas estacionamento insuficiente reprova (critério eliminatório). */
 export const vereditoFinal = (v: Veredito, vagas: { situacao: SituacaoVagas } | null): Veredito => (vagas?.situacao === "insuficiente" ? "reprovado" : v);
 
