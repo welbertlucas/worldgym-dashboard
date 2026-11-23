@@ -6,9 +6,8 @@ import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
-import { Barras, Partes } from "@/components/estudos/blocos";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
-import { LegendaCenso, LegendaRenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
+import { COR_OUTROS_BAIRROS, CORES_BAIRROS, LegendaCenso, LegendaRenda, RoscaBairros, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 export { LegendaRenda };
 import { LIMITES_SUGESTAO, desenharSugestoes, enderecoCurto, textoSugestoes, useEnderecos } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
@@ -132,18 +131,20 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     // a mesma área em todas as camadas: a de 10 min de carro (sem ela, 5 km em volta)
     const dentroDoEstudo = (la: number, ln: number) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5);
     if (lente === "alunos" || lente === "oportunidade") {
-      if (lente === "oportunidade" && capMapa && censo) desenharDemanda(L, camadas, censo, capMapa, dentroDoEstudo, "azul", area10);
+      if (lente === "oportunidade" && capMapa && censo) desenharDemanda(L, camadas, censo, capMapa, dentroDoEstudo, "vermelho", area10);
       const mx = Math.max(1, ...(u.bairros ?? []).map((b) => b[3]));
       const totalB = Math.max(1, (u.bairros ?? []).reduce((t, b) => t + b[3], 0));
+      // a cor de cada bolha é a do bairro na rosca do painel (os 5 maiores); os outros ficam em cinza
+      const corBairro = new Map(topBairros.map(([b], i) => [b, CORES_BAIRROS[i]] as [string, string]));
       for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3])) {
         const raio = lente === "oportunidade" ? 4 + 20 * Math.sqrt(n / mx) : 5 + 26 * Math.sqrt(n / mx);
         L.circleMarker([lat, lng], lente === "oportunidade"
-          ? { radius: raio, color: "#fff", weight: 1, fillColor: "#c41230", fillOpacity: 0.75 }
-          : { radius: raio, color: "#c41230", weight: 1, fillColor: "#c41230", fillOpacity: 0.32 })
+          ? { radius: raio, color: "#1b2130", weight: 1.6, fillColor: "#ffffff", fillOpacity: 0.35 }
+          : { radius: raio, color: "#fff", weight: 1, fillColor: corBairro.get(bairro) ?? COR_OUTROS_BAIRROS, fillOpacity: 0.72 })
           .bindTooltip(`<strong>${bairro}</strong><br/>${n.toLocaleString("pt-BR")} ${n === 1 ? "aluno" : "alunos"} (${Math.round((n / totalB) * 100)}%)`).addTo(camadas);
         // nos bairros que têm pelo menos 3% dos alunos, o número fica escrito na bolha
         if (lente === "alunos" && n / totalB >= 0.03)
-          L.marker([lat, lng], { interactive: false, icon: L.divIcon({ className: "", iconSize: [44, 16], iconAnchor: [22, 8], html: `<div style="text-align:center;font:700 11px/16px Inter,sans-serif;color:#7a0a1e;text-shadow:0 0 3px #fff,0 0 3px #fff">${n.toLocaleString("pt-BR")}</div>` }) }).addTo(camadas);
+          L.marker([lat, lng], { interactive: false, icon: L.divIcon({ className: "", iconSize: [44, 16], iconAnchor: [22, 8], html: `<div style="text-align:center;font:700 11px/16px Inter,sans-serif;color:#fff;text-shadow:0 0 3px rgba(0,0,0,.65),0 0 2px rgba(0,0,0,.65)">${n.toLocaleString("pt-BR")}</div>` }) }).addTo(camadas);
       }
       if (r80 && !area10) L.circle(u.c, { radius: r80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
     } else if (lente === "modelo" && cap && capMapa && censo) {
@@ -158,6 +159,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       L.marker(o.c, { icon: bolinha(L, "#c41230", lente === "rede" ? 15 : 11, lente === "rede" ? 1 : 0.7) }).bindTooltip(`World Gym ${o.nome}, a ${fmtKm(km(o.c, u.c))}`).addTo(camadas);
       if (lente === "rede") L.circle(o.c, { radius: 2400, color: "#c41230", weight: 1, dashArray: "3 4", fillOpacity: 0.05, interactive: false }).addTo(camadas);
     }
+    // canibalização: a área da própria unidade também, mais marcada, para ver onde ela encosta nas vizinhas
+    if (lente === "rede") L.circle(u.c, { radius: 2400, color: "#7a0a1e", weight: 1.6, fillColor: "#c41230", fillOpacity: 0.12, interactive: false }).addTo(camadas);
     L.marker(u.c, { zIndexOffset: 2000, title: u.nome, icon: pino(L, "#c41230", 34) })
       .bindTooltip(`<strong>World Gym ${u.nome}</strong>`).addTo(camadas);
     if (rua) L.marker(rua, { icon: bolinha(L, "#f59e0b", 14) }).addTo(camadas);
@@ -275,15 +278,19 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
           legenda={lente === "modelo" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">Onde o modelo espera alunos, pela gente que mora perto e pelas outras World Gym. {area10 ? LEGENDA_DESLOCAMENTO : ""}</p>
-          </> : lente === "oportunidade" ? <>Azul: onde o modelo espera alunos. Bolhas vermelhas: onde eles moram hoje. Azul forte sem bolha é onde vale fazer marketing.</>
+          </> : lente === "oportunidade" ? <>
+            <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: "linear-gradient(90deg,rgba(196,18,48,.08),#c41230)" }} />mais alunos esperados</div>
+            <p className="mt-1">Vermelho: onde o modelo espera alunos. Círculos escuros: onde eles moram hoje. Vermelho forte sem círculo é onde vale fazer marketing.</p>
+          </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
-            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><Barras itens={topBairros.map(([b, , , n]) => ({ rotulo: b.replace(/\s*\([^)]*\)/, ""), valor: n, texto: `${n.toLocaleString("pt-BR")} (${Math.round((n / Math.max(1, alunosBairro)) * 100)}%)` }))} /></div>}Bolha maior = mais alunos no bairro; o número aparece nos bairros com 3% ou mais. {alunosBairro.toLocaleString("pt-BR")} alunos com bairro localizado{u.alunos ? ` de ${u.alunos.toLocaleString("pt-BR")} ativos` : ""}. {area10 ? LEGENDA_DESLOCAMENTO : "Tracejado: onde moram 80%."}</>
+            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><RoscaBairros total={alunosBairro} nota={`${alunosBairro.toLocaleString("pt-BR")} alunos com bairro localizado${u.alunos ? `, de ${u.alunos.toLocaleString("pt-BR")} ativos` : ""} (EVO).`} bairros={topBairros.map(([b, , , n]) => ({ nome: b.replace(/\s*\([^)]*\)/, ""), n }))} /></div>}No mapa, cada bolha tem a cor do bairro na rosca (cinza: outros bairros); bolha maior = mais alunos, e o número aparece nos bairros com 3% ou mais. {area10 ? LEGENDA_DESLOCAMENTO : "Tracejado: onde moram 80%."}</>
             : lente === "rede" ? <>
-              {cap?.divideCom.length ? <Partes partes={[
-                { rotulo: "Só desta unidade", parte: Math.max(0, 1 - cap.divideCom.reduce((a, d) => a + d.parte, 0)), cor: "#c41230" },
-                ...cap.divideCom.map((d, i) => ({ rotulo: d.nome.replace("World Gym ", ""), parte: d.parte, cor: ["#f0a0ad", "#e7c3ca", "#c9ced8"][i] ?? "#c9ced8" })),
-              ]} /> : <p>Nenhuma World Gym divide a área desta unidade.</p>}
-              <p className="mt-1.5">Parte do público da área que outras World Gym também atraem. Bolinhas vermelhas: outras World Gym; círculos: área de cada uma.</p>
+              {cap?.divideCom.length ? (() => {
+                const so = Math.max(0, 1 - cap.divideCom.reduce((a, d) => a + d.parte, 0));
+                return <RoscaComLegenda soPercentual total={100} centro={{ valor: `${Math.round(so * 100)}%`, rotulo: "exclusivo" }}
+                  fatias={[{ rotulo: "Só desta unidade", n: so * 100, cor: "#8c0c22" }, ...cap.divideCom.map((d, i) => ({ rotulo: `Divide com ${d.nome.replace("World Gym ", "")}`, n: d.parte * 100, cor: ["#e0475e", "#f6bcc5", "#cfd3d9"][i] ?? "#cfd3d9" }))]} />;
+              })() : <p>Nenhuma World Gym divide a área desta unidade.</p>}
+              <p className="mt-1.5">Parte do público da área que outras World Gym também atraem. No mapa, o círculo cheio é a área desta unidade; os tracejados, a de cada vizinha.</p>
             </> : null}
           sobre={[
             ...(pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []),

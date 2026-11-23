@@ -14,7 +14,7 @@ import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { montarPdfPonto } from "@/components/estudos/pdfPonto";
 import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
-import { LegendaCenso, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
+import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao } from "@/components/estudos/sugestoes";
 import {
@@ -326,7 +326,14 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
-          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} /> : lente === "rede" ? "Bolinhas vermelhas: World Gym. Círculos: área de cada unidade." : null}
+          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} /> : lente === "rede" ? <>
+            {cap?.divideCom.length ? (() => {
+              const so = Math.max(0, 1 - cap.divideCom.reduce((x, d) => x + d.parte, 0));
+              return <RoscaComLegenda soPercentual total={100} centro={{ valor: `${Math.round(so * 100)}%`, rotulo: "exclusivo" }}
+                fatias={[{ rotulo: "Só deste ponto", n: so * 100, cor: "#8c0c22" }, ...cap.divideCom.map((d, i) => ({ rotulo: `Divide com ${d.nome.replace("World Gym ", "")}`, n: d.parte * 100, cor: ["#e0475e", "#f6bcc5", "#cfd3d9"][i] ?? "#cfd3d9" }))]} />;
+            })() : <p>Nenhuma World Gym divide a área deste ponto.</p>}
+            <p className="mt-1.5">Parte do público da área que World Gym vizinhas também atraem. Círculos: a área de cada unidade e a do ponto.</p>
+          </> : null}
           sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />
         <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
         <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /></div>

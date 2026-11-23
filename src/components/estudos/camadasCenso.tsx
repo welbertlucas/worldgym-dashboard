@@ -91,7 +91,7 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
  * outras camadas. A cor é medida pelo hexágono no topo da faixa comum (95% dos hexágonos abaixo dele), e não pelo maior, para um hexágono muito
  * forte não deixar os outros quase transparentes. `pesos`/`indices` vêm de captacaoDe (calculada com raio que cubra a área).
  */
-export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, cap: { pesos: number[]; indices: number[] }, dentro: (lat: number, lng: number) => boolean, cor: "quente" | "azul", area?: Geometria | null) {
+export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, cap: { pesos: number[]; indices: number[] }, dentro: (lat: number, lng: number) => boolean, cor: "quente" | "azul" | "vermelho", area?: Geometria | null) {
   const vis: [number, number][] = [];
   cap.indices.forEach((i, k) => { const c = censo.celulas[i]; if (cap.pesos[k] > 0 && c[2] >= MIN_MORADORES_NO_MAPA && (dentro(c[0], c[1]) || pertoDaBorda(censo, c[0], c[1], area))) vis.push([i, cap.pesos[k]]); });
   const xs = vis.map((v) => v[1]).sort((a, b) => a - b);
@@ -100,6 +100,7 @@ export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup,
     const c = censo.celulas[i], t = Math.min(1, w / ref);
     const ps = poligonos(censo, [c[0], c[1]], area);
     if (!ps.length) continue;
+    if (cor === "vermelho") { L.polygon(ps, { color: "#fff", weight: 0.6, opacity: 0.7, fillColor: "#c41230", fillOpacity: 0.06 + 0.6 * t ** 0.8, interactive: false }).addTo(grupo); continue; }
     L.polygon(ps, cor === "quente"
       // cor mínima visível: o hexágono de demanda baixa não some sobre o mapa cinza
       ? { color: "#fff", weight: 0.6, opacity: 0.6, fillColor: rampa(0.15 + 0.85 * t ** 0.7), fillOpacity: 0.5 + 0.3 * t, interactive: false }
@@ -153,6 +154,65 @@ function CaixaTotal({ rotulo, valor, onde, nota, barra }: { rotulo: string; valo
   );
 }
 
+/** Cores da rosca da Base de clientes: do vermelho forte (bairro com mais alunos) ao claro; "Outros bairros" em cinza. */
+export const CORES_BAIRROS = ["#8c0c22", "#c41230", "#e0475e", "#ee8495", "#f6bcc5"];
+/** Cor dos bairros fora dos 5 maiores (fatia "Outros bairros" e bolhas do mapa). */
+export const COR_OUTROS_BAIRROS = "#a7aeb8";
+/**
+ * Rosca da Base de clientes (pedido do dono, 23/11/2026): os bairros com mais alunos e o resto em "Outros bairros", com o total no meio
+ * e a legenda embaixo (nome inteiro, alunos e percentual), como a rosca de renda.
+ */
+export function RoscaBairros({ bairros, total, nota }: { bairros: { nome: string; n: number }[]; total: number; nota?: string }) {
+  const resto = Math.max(0, total - bairros.reduce((a, b) => a + b.n, 0));
+  const fatias = [...bairros.map((b, i) => ({ id: b.nome, cor: CORES_BAIRROS[i] ?? CORES_BAIRROS[CORES_BAIRROS.length - 1], parte: total ? b.n / total : 0 })), ...(resto > 0 ? [{ id: "Outros bairros", cor: COR_OUTROS_BAIRROS, parte: resto / total }] : [])];
+  // o mesmo arranjo da camada Renda: rosca à esquerda, lista à direita e o total embaixo
+  return (
+    <div className="space-y-2 text-foreground">
+      <div className="flex items-center gap-2.5">
+        <RoscaRenda classes={fatias} />
+        <div className="min-w-0 flex-1 space-y-0.5 text-[11px]">
+          {fatias.map((x) => <div key={x.id} className="flex items-start gap-1.5"><span className="mt-[2px] h-2.5 w-2.5 flex-none rounded-sm" style={{ background: x.cor }} /><span className="min-w-0 flex-1 break-words leading-tight">{x.id}</span><b className="tabular-nums">{Math.round(x.parte * 100)}%</b></div>)}
+        </div>
+      </div>
+      {nota && <p className="text-[11px] text-muted-foreground">{nota}</p>}
+    </div>
+  );
+}
+
+/** Rosca com o número no meio e a legenda embaixo (nome inteiro, número e percentual; `soPercentual` mostra só o percentual). */
+export function RoscaComLegenda({ fatias, total, centro, nota, soPercentual }: { fatias: { rotulo: string; n: number; cor: string }[]; total: number; centro: { valor: string; rotulo: string }; nota?: string; soPercentual?: boolean }) {
+  const r = 15.9155, c = 2 * Math.PI * r;
+  let acum = 0;
+  return (
+    <div className="space-y-2 text-foreground">
+      <div className="relative mx-auto h-32 w-32">
+        <svg viewBox="0 0 42 42" className="h-full w-full -rotate-90" aria-hidden>
+          <circle cx="21" cy="21" r={r} fill="none" stroke="#eef0f3" strokeWidth="6" />
+          {fatias.map((f) => {
+            const p = total ? f.n / total : 0;
+            const el = <circle key={f.rotulo} cx="21" cy="21" r={r} fill="none" stroke={f.cor} strokeWidth="6" strokeDasharray={`${p * c} ${c}`} strokeDashoffset={-acum * c} />;
+            acum += p; return el;
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <b className="text-[18px] leading-none tabular-nums">{centro.valor}</b>
+          <span className="mt-0.5 px-5 text-[10.5px] leading-tight text-muted-foreground">{centro.rotulo}</span>
+        </div>
+      </div>
+      {nota && <p className="text-center text-[10.5px] text-muted-foreground">{nota}</p>}
+      <div className="space-y-1">
+        {fatias.map((f) => (
+          <div key={f.rotulo} className="flex items-start gap-1.5 text-[11.5px] leading-snug">
+            <span className="mt-[3px] h-2.5 w-2.5 flex-none rounded-sm" style={{ background: f.cor }} />
+            <span className="min-w-0 flex-1 break-words">{f.rotulo}</span>
+            <span className="whitespace-nowrap tabular-nums">{soPercentual ? <b>{total ? Math.round((f.n / total) * 100) : 0}%</b> : <><b>{Math.round(f.n).toLocaleString("pt-BR")}</b> <span className="text-muted-foreground">{total ? Math.round((f.n / total) * 100) : 0}%</span></>}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Lista no estilo do Mapfry: total em cima (com a faixa de cores) e cada item com o número e uma barra fina na cor dele. */
 function ListaTotais({ total, rotuloTotal, onde, itens }: { total: number; rotuloTotal: string; onde?: string; itens: { rotulo: string; n: number; cor: string }[] }) {
   const mx = Math.max(1, ...itens.map((i) => i.n));
@@ -165,7 +225,7 @@ function ListaTotais({ total, rotuloTotal, onde, itens }: { total: number; rotul
       </div>
       {itens.map((i) => (
         <div key={i.rotulo}>
-          <div className="flex items-center justify-between gap-2 text-[11.5px] leading-tight"><span className="min-w-0 truncate" title={i.rotulo}>{i.rotulo}</span><span className="whitespace-nowrap tabular-nums"><b>{Math.round(i.n).toLocaleString("pt-BR")}</b> <span className="text-muted-foreground">{total ? Math.round((i.n / total) * 100) : 0}%</span></span></div>
+          <div className="flex items-center justify-between gap-2 text-[11.5px] leading-tight"><span className="min-w-0 break-words leading-snug">{i.rotulo}</span><span className="whitespace-nowrap tabular-nums"><b>{Math.round(i.n).toLocaleString("pt-BR")}</b> <span className="text-muted-foreground">{total ? Math.round((i.n / total) * 100) : 0}%</span></span></div>
           <div className="mt-1 h-1 rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${(i.n / mx) * 100}%`, background: i.cor }} /></div>
         </div>
       ))}
