@@ -80,9 +80,11 @@ export const editaQualidade = (u) => u?.papel === "dono" || u?.verQualidade === 
 /** Preencher o checklist da própria unidade (abertura etc.): o dono, ou quem tem acesso a unidades e o dono liberou. Só vê e envia o que é da sua unidade. */
 export const preencheChecklist = (u) => u?.papel === "dono" || (u?.papel === "unidades" && u.preencheChecklist === true);
 /** Menus ainda "Em breve" (Estudos de ponto, Unidades em obra): o dono vê; qualquer outro nível só se o dono liberou. */
-export const verEstudos = (u) => u?.papel === "dono" || u?.verEstudos === true;
+// "Faz estudos de ponto" fica gravado em `fazEstudos`. O campo antigo `verEstudos` (que só mostrava o menu "Em breve") NÃO vale mais:
+// quem o tinha não ganha a visão completa dos estudos. A sessão e a tela continuam chamando a permissão de `verEstudos`.
+export const verEstudos = (u) => u?.papel === "dono" || u?.fazEstudos === true;
 export const verObras = (u) => u?.papel === "dono" || u?.verObras === true;
-export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel === "unidades" && u.geraRelatorios === true, verRoyalties: verRoyalties(u), verJuridico: u.papel === "unidades" && u.verJuridico === true, verQualidade: u.papel !== "dono" && u.verQualidade === true, preencheChecklist: preencheChecklist(u), verEstudos: u.papel !== "dono" && u.verEstudos === true, verObras: u.papel !== "dono" && u.verObras === true, trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
+export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel === "unidades" && u.geraRelatorios === true, verRoyalties: verRoyalties(u), verJuridico: u.papel === "unidades" && u.verJuridico === true, verQualidade: u.papel !== "dono" && u.verQualidade === true, preencheChecklist: preencheChecklist(u), verEstudos: u.papel !== "dono" && u.fazEstudos === true, verObras: u.papel !== "dono" && u.verObras === true, trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
 
 /**
  * Quem não é dono, mas gerencia acessos (ator com gerenciaAcessos), não mexe na conta do dono nem na de outro que
@@ -160,7 +162,7 @@ export async function criarUsuario({ nome, email, papel, unidades, resumo = true
   const u = {
     id: randomUUID(), ...dados, papel,
     unidades: papel === "unidades" ? validarUnidades(unidades) : [],
-    ativo: true, resumo: resumo !== false, ...(papel === "master" && gerencia === true ? { gerenciaAcessos: true } : {}), ...(relatorios === true ? { geraRelatorios: true } : {}), ...(papel === "unidades" && royalties === true ? { verRoyalties: true } : {}), ...(juridico === true ? { verJuridico: true } : {}), ...(qualidade === true ? { verQualidade: true } : {}), ...(papel === "unidades" && preenche === true ? { preencheChecklist: true } : {}), ...(estudos === true ? { verEstudos: true } : {}), ...(obras === true ? { verObras: true } : {}),
+    ativo: true, resumo: resumo !== false, ...(papel === "master" && gerencia === true ? { gerenciaAcessos: true } : {}), ...(relatorios === true ? { geraRelatorios: true } : {}), ...(papel === "unidades" && royalties === true ? { verRoyalties: true } : {}), ...(juridico === true ? { verJuridico: true } : {}), ...(qualidade === true ? { verQualidade: true } : {}), ...(papel === "unidades" && preenche === true ? { preencheChecklist: true } : {}), ...(estudos === true ? { fazEstudos: true } : {}), ...(obras === true ? { verObras: true } : {}),
     hash: hashSenha(senhaProvisoria), trocarSenha: true, criadoEm: new Date().toISOString(),
   };
   await salvar([...lista, u]);
@@ -218,9 +220,9 @@ export async function atualizarUsuario(id, campos, ator = null) {
   if (u.papel !== "unidades") delete u.preencheChecklist; // a marca só vale para quem tem acesso a unidades (o dono sempre pode)
   if (campos.verQualidade !== undefined) u.verQualidade = Boolean(campos.verQualidade);
   if (u.papel === "dono") delete u.verQualidade;
-  if (campos.verEstudos !== undefined) u.verEstudos = Boolean(campos.verEstudos);
+  if (campos.verEstudos !== undefined) { u.fazEstudos = Boolean(campos.verEstudos); delete u.verEstudos; }
   if (campos.verObras !== undefined) u.verObras = Boolean(campos.verObras);
-  if (u.papel === "dono") { delete u.verEstudos; delete u.verObras; } // o dono sempre vê
+  if (u.papel === "dono") { delete u.verEstudos; delete u.fazEstudos; delete u.verObras; } // o dono sempre vê
   await salvar(lista);
   return publico(u);
 }

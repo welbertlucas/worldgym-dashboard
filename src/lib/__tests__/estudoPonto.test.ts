@@ -9,6 +9,8 @@ import { EstudosPontoTab } from "@/components/tabs/EstudosPontoTab";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 // @ts-expect-error módulo JS do servidor
 import { definirArmazem } from "../../../server/armazem.js";
+// @ts-expect-error módulo JS da função serverless
+import { sessaoDe } from "../../../api/_auth.js";
 // @ts-expect-error módulo JS do servidor
 import { ErroEstudos, lerEstudos, lerPontos, modoDe, podeEditar, pontoValido, reguaPorM2, salvarPontos, unidadesDoEstudo, arquivoDePontos, ARQUIVO_PREMISSAS } from "../../../server/estudos.js";
 
@@ -140,6 +142,11 @@ describe("servidor dos estudos (server/estudos.js)", () => {
     expect(modoDe(ANA)).toBe("consulta"); expect(modoDe(BETO)).toBe("unidade");
     expect(modoDe({ ...DONO, papel: "unidades", papelReal: "dono" })).toBe("unidade"); // "Ver como" do dono
     expect(podeEditar(ANA)).toBe(false); expect(podeEditar(DONO)).toBe(true);
+  });
+  it("a liberação antiga de só ver o menu (verEstudos gravado) NÃO dá a visão completa; só fazEstudos dá", () => {
+    expect(modoDe(sessaoDe({ id: "b", nome: "B", papel: "unidades", unidades: ["Itapoã"], verEstudos: true }))).toBe("unidade");
+    expect(modoDe(sessaoDe({ id: "m", nome: "M", papel: "master", unidades: [], verEstudos: true }))).toBe("consulta");
+    expect(modoDe(sessaoDe({ id: "f", nome: "F", papel: "unidades", unidades: ["Itapoã"], fazEstudos: true }))).toBe("completo");
   });
   it("a unidade recebe só a própria unidade, sem premissas, estudos nem vendas de outras; o Master vê os estudos de todos", async () => {
     const mem = memoria(); definirArmazem(mem);
