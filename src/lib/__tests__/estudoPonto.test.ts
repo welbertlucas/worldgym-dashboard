@@ -213,3 +213,15 @@ describe("tela dos estudos de ponto", () => {
     expect(renderToString(createElement(EstudosPontoTab))).toContain("Carregando os estudos de ponto");
   });
 });
+
+describe("PDF do estudo", () => {
+  it("gera o PDF da unidade e o de vários pontos com a página de comparação", async () => {
+    const { gerarPdfDoEstudo, nomeDoArquivo } = await import("@/lib/estudoPdf");
+    const pagina = { titulo: "World Gym Teste", subtitulo: "Estudo da unidade", frase: "Vende R$ 300 mil por mês.", numeros: [{ rotulo: "Vendas por m²", valor: "R$ 250" }], secoes: [{ titulo: "Bairros", linhas: [{ texto: "Centro", valor: "40 (50%)" }] }] };
+    const um = await gerarPdfDoEstudo({ arquivo: "a.pdf", cabecalho: "Estudo da unidade", foto: null, paginas: [pagina] }, "blob");
+    const dois = await gerarPdfDoEstudo({ arquivo: "b.pdf", cabecalho: "Estudo de ponto", foto: null, paginas: [pagina, pagina], comparacao: { colunas: ["Ponto", "Veredito"], linhas: [["A", "Aprovado"], ["B", "Atenção"]] } }, "blob");
+    expect((um as Blob).size).toBeGreaterThan(1000);
+    expect((dois as Blob).size).toBeGreaterThan((um as Blob).size);
+    expect(nomeDoArquivo("estudo-unidade-Águas Claras Pro")).toBe("estudo-unidade-aguas-claras-pro.pdf");
+  });
+});
