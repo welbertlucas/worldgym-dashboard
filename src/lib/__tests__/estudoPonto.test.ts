@@ -375,3 +375,17 @@ describe("faixa de idade que predomina", () => {
     expect(idadeEm({ rk: 0.3, celulas: [[0, 0, 10, null, 3, [1, 2, 3, 4, 5, 6, 7]], [1, 1, 10, null, 3, [1, 1, 1, 1, 1, 1, 1]]] }, (la) => la < 0.5)).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 });
+
+describe("domicílios por número de moradores", () => {
+  it("com o dado do IBGE, soma 1, 2, 3, 4 e 5 ou mais; sem ele, usa a média por hexágono", async () => {
+    const { densidadeEm, tamanhoPredominante } = await import("@/lib/estudoPonto");
+    // inventado
+    const com = densidadeEm({ rk: 0.3, celulas: [[0, 0, 30, null, 10, undefined, [2, 3, 2, 2, 1]], [0, 1, 20, null, 10, undefined, [5, 3, 1, 1, 0]]] }, () => true);
+    expect(com.porTamanho).toBe(true);
+    expect(com.classes.map((c) => c.domicilios)).toEqual([7, 6, 3, 3, 1]);
+    expect(com.total).toBe(20); expect(com.porDomicilio).toBe(2.5);
+    expect(tamanhoPredominante([2, 3, 2, 2, 1])).toBe(1);
+    const sem = densidadeEm({ rk: 0.3, celulas: [[0, 0, 30, null, 10]] }, () => true);
+    expect(sem.porTamanho).toBe(false);
+  });
+});

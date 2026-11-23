@@ -1,7 +1,7 @@
 import { type KpiSpec } from "@/components/kpi/KpiGrid";
 import { sumUnits, type MonthView } from "@/data/kpiView";
 import { type MetricDetail } from "@/components/MetricCard";
-import { contratosDaRegra, ltv, receitaComplementar, saldoAlunos } from "@/data/dashboardData";
+import { ltv, receitaComplementar, saldoAlunos } from "@/data/dashboardData";
 
 const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pct = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
@@ -51,16 +51,9 @@ export const vendasOnlineSpec: KpiSpec = {
 /** Gerencial › Vendas (antigo Comercial › Resumo): o que é só do comercial (faturamento, vendas online e conversão ficam no Overview). */
 export const comercialSpecs: KpiSpec[] = [
   {
-    // Regra única (matrícula + rematrícula + renovação de plano com vigência), sempre com o valor vendido ao lado. O EVO conta também
-    // WG Plus, Pro+, brinquedoteca e cortesias: o número dele aparece embaixo, para a conferência.
-    title: "Contratos Vendidos", kind: "flow", noDataIfZero: true, semTextoDoMesAnterior: true, projecao: true, pick: (v) => sumUnits(v, (u) => contratosDaRegra(u.tipoVenda)?.n ?? 0), fmt: int,
-    extra: (v) => {
-      const valor = sumUnits(v, (u) => contratosDaRegra(u.tipoVenda)?.v ?? 0), evo = sumUnits(v, (u) => u.vendasContratos ?? 0), n = sumUnits(v, (u) => contratosDaRegra(u.tipoVenda)?.n ?? 0);
-      return [
-        ...(valor > 0 ? [{ text: `${brl(valor)} vendidos`, tone: "neutral" as const }] : []),
-        ...(evo > 0 && evo !== n ? [{ text: `No EVO: ${int(evo)} (conta também Plus, Pro+, brinquedoteca e cortesias)`, tone: "neutral" as const }] : []),
-      ];
-    },
+    title: "Contratos Vendidos", kind: "flow", noDataIfZero: true, semTextoDoMesAnterior: true, projecao: true, pick: (v) => sumUnits(v, (u) => u.vendasContratos ?? 0), fmt: int,
+    // Do total, quantos são contratos especiais (VIP e cortesias de valor R$ 0): explica a diferença para o EVO em algumas unidades
+    extra: (v) => { const n = sumUnits(v, (u) => u.vendasContratosEspeciais ?? 0); return n > 0 ? [{ text: `${int(n)} ${n === 1 ? "é contrato especial" : "são contratos especiais"}`, tone: "neutral" }] : []; },
   },
   { title: "Saldo de contratos", kind: "flow", pick: (v) => sumUnits(v, (u) => u.novosContratos) - v.total.cancelados, fmt: int },
 ];

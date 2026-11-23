@@ -1,6 +1,6 @@
 // Relatórios: monta o MODELO da apresentação (o que vai em cada slide) a partir dos meses que o painel já leu.
 // Nada de leitura nova no EVO: só os totais mensais que o Atlas já guarda (nunca dado de aluno). O desenho dos slides fica em src/lib/relatorioPptx.ts.
-import { contratosDaRegra, evoAtualizadoEm, somarMotivos, somarRecusa, type MonthData, type UnitData } from "@/data/dashboardData";
+import { evoAtualizadoEm, somarMotivos, somarRecusa, type MonthData, type UnitData } from "@/data/dashboardData";
 import { paginasDoPlano, type PlanoDaUnidade } from "@/data/relatorioPlano";
 import { npsDoPonto, rankingDePontos, somarPontos } from "@/data/npsPontos";
 import { META_INDICATORS, actualFor, attainment, formatMetaValue, getMeta, highestTier, tierReached, type Meta, type MetaKey } from "@/data/metas";
@@ -27,7 +27,7 @@ export const RANKINGS: DefRanking[] = [
   { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", campo: (u) => u.faturamento, formato: "brl" },
   { id: "cresc", rotulo: "Crescimento do faturamento (contra o ano anterior)", titulo: "Crescimento faturamento*", campo: (u) => u.faturamento, formato: "pct", crescimento: true },
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", campo: (u) => u.novosContratos, formato: "int" },
-  { id: "cv", rotulo: "Contratos vendidos (matrícula, rematrícula e renovação)", titulo: "Contratos vendidos", campo: (u) => contratosDaRegra(u.tipoVenda)?.n, formato: "int" },
+  { id: "cv", rotulo: "Contratos vendidos (como no Gerencial do EVO)", titulo: "Contratos vendidos", campo: (u) => u.vendasContratos, formato: "int" },
   { id: "tk", rotulo: "Ticket médio", titulo: "Ticket médio", campo: (u) => u.ticketMedio, formato: "brl2" },
   { id: "ad", rotulo: "Adimplentes", titulo: "Adimplentes", campo: (u) => u.adimplentes, formato: "int" },
   { id: "inad", rotulo: "Inadimplência (%), com os principais motivos de recusa", titulo: "Inadimplência", campo: (u) => u.inadimplenciaPerc, formato: "pct", menorMelhor: true },
@@ -70,8 +70,6 @@ export const TODOS_OS_INDICADORES = [ID_BIG, ...RANKINGS.map((r) => r.id), ID_SA
 export const INDICADORES_PADRAO = [ID_BIG, "fat", "cresc", "nc", "cv", "tk", ID_PLANO];
 
 /** "dos quais 8 são especiais": o total de contratos vendidos inclui os contratos especiais. */
-/** Valor vendido ao lado da quantidade de contratos (regra única). */
-export const notaValorContratos = (v: number) => (v > 0 ? `R$ ${Math.round(v).toLocaleString("pt-BR")} vendidos` : undefined);
 export const notaContratosEspeciais = (n: number) => (n > 0 ? `dos quais ${n.toLocaleString("pt-BR")} ${n === 1 ? "é especial" : "são especiais"}` : undefined);
 
 export interface BigNumero {
@@ -403,7 +401,7 @@ function numerosGerais(atual: UnitData[], ant: UnitData[] | null, antMes: UnitDa
     comp((u) => u.faturamento, fmtBrl, "Faturamento"),
     comp((u) => u.adimplentes, fmtInt, "Adimplentes"),
     comp((u) => u.novosContratos, fmtInt, "Novos contratos"),
-    { ...comp((u) => contratosDaRegra(u.tipoVenda)?.n ?? 0, fmtInt, "Contratos vendidos"), nota: notaValorContratos(soma(atual, (u) => contratosDaRegra(u.tipoVenda)?.v ?? 0)) },
+    { ...comp((u) => u.vendasContratos ?? 0, fmtInt, "Contratos vendidos"), nota: notaContratosEspeciais(soma(atual, (u) => u.vendasContratosEspeciais ?? 0)) },
     { nome: "Ticket médio", valor: fmtBrl2(ticket(atual)), variacao: tem && ticket(ant!) > 0 ? variacao(ticket(atual), ticket(ant!)) : null, anterior: tem && ticket(ant!) > 0 ? fmtBrl2(ticket(ant!)) : null, variacaoMes: temM && ticket(antMes!) > 0 ? variacao(ticket(atual), ticket(antMes!)) : null, anteriorMes: temM && ticket(antMes!) > 0 ? fmtBrl2(ticket(antMes!)) : null },
     { nome: "Inadimplentes", valor: fmtPct(taxaInad(atual)), variacao: tem ? taxaInad(atual) - taxaInad(ant!) : null, emPontos: true, menorMelhor: true, anterior: tem ? fmtPct(taxaInad(ant!)) : null, variacaoMes: temM ? taxaInad(atual) - taxaInad(antMes!) : null, anteriorMes: temM ? fmtPct(taxaInad(antMes!)) : null },
     comp((u) => u.vendasOnline, fmtBrl, "Vendas online"),

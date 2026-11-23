@@ -93,8 +93,8 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
       destaques: [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }, { valor: dec(pd), rotulo: "moradores por domicílio" }, { valor: mil(perfil.moradores), rotulo: "moradores" }],
       texto: [`A área conta com ${num(perfil.domicilios)} domicílios ocupados, com média de ${dec(pd)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)}). ${pd >= 2.95 ? "Famílias maiores dividem a renda entre mais pessoas: o consumo é compartilhado e a sensibilidade a preço é maior, o que reforça ticket acessível, planos familiares e alto volume de alunos." : pd <= 2.55 ? "Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor." : "O tamanho das famílias está perto da média nacional: o público combina famílias e adultos que moram sozinhos, sem pressão extra sobre o preço."}`],
-      foto: { dados: m.fotos.domicilios, legenda: "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)." }, altFoto: 85,
-      ...(m.densidade ? { grafico: { tipo: "rosca" as const, titulo: "Domicílios por faixa de moradores por domicílio", fatias: m.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
+      foto: { dados: m.fotos.domicilios, legenda: m.densidade?.[0]?.rotulo === "1 morador" ? "Cada hexágono na cor do tamanho de domicílio mais comum (número de moradores, Censo 2022)." : "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)." }, altFoto: 85,
+      ...(m.densidade ? { grafico: { tipo: "rosca" as const, titulo: m.densidade[0]?.rotulo === "1 morador" ? "Domicílios por número de moradores" : "Domicílios por faixa de moradores por domicílio", fatias: m.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
     });
   }
 

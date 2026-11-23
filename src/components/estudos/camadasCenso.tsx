@@ -2,7 +2,7 @@
 // só nos hexágonos de dentro da área (`dentro`), como no Mapfry. E as legendas de cada uma, para o painel de camadas.
 import type { Leaflet } from "@/components/estudos/mapaComum";
 import { hexagono } from "@/components/estudos/mapaComum";
-import { CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, classeDaRenda, classeDensidade, faixaPredominante, gastoDoDomicilio, type Censo } from "@/lib/estudoPonto";
+import { CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, TAMANHOS_DOMICILIO, classeDaRenda, classeDensidade, faixaPredominante, gastoDoDomicilio, tamanhoPredominante, type Censo } from "@/lib/estudoPonto";
 
 export type CamadaCenso = "pessoas" | "idade" | "domicilios" | "renda" | "consumo";
 export const ehCamadaCenso = (x: string): x is CamadaCenso => ["pessoas", "idade", "domicilios", "renda", "consumo"].includes(x);
@@ -26,7 +26,9 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
       hex(c, { fillColor: CORES_IDADE[i], fillOpacity: 0.62 }, `<strong>Predomina: ${FAIXAS_IDADE[i]}</strong> (por ano de idade)<br/>${c[5]!.map((v, k) => `${FAIXAS_IDADE[k]}: ${Math.round(v).toLocaleString("pt-BR")} (${Math.round((v / tot) * 100)}%)`).join("<br/>")}`);
     }
   } else if (camada === "domicilios") {
-    for (const c of vis) { const pd = c[2] / (c[4] as number); hex(c, { fillColor: CLASSES_DENSIDADE[classeDensidade(pd)].cor, fillOpacity: 0.65 }, `${Math.round(c[4] as number).toLocaleString("pt-BR")} domicílios, ${c[2].toLocaleString("pt-BR")} moradores<br/>${pd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio`); }
+    for (const c of vis) {
+      const pd = c[2] / (c[4] as number), t = tamanhoPredominante(c[6]);
+      if (t != null) { hex(c, { fillColor: TAMANHOS_DOMICILIO[t].cor, fillOpacity: 0.62 }, `<strong>Mais comum: ${TAMANHOS_DOMICILIO[t].rotulo}</strong><br/>${c[6]!.map((v, k) => `${TAMANHOS_DOMICILIO[k].rotulo}: ${Math.round(v).toLocaleString("pt-BR")}`).join("<br/>")}<br/>${Math.round(c[4] as number).toLocaleString("pt-BR")} domicílios · ${pd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio`); continue; } hex(c, { fillColor: CLASSES_DENSIDADE[classeDensidade(pd)].cor, fillOpacity: 0.65 }, `${Math.round(c[4] as number).toLocaleString("pt-BR")} domicílios, ${c[2].toLocaleString("pt-BR")} moradores<br/>${pd.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio`); }
   } else {
     const val = (c: (typeof vis)[number]) => (c[4] ?? 0) * (gastoDoDomicilio(c[3]) ?? 0), mx = escala(val);
     for (const c of vis) { const v = val(c); hex(c, { fillColor: AZUL(Math.min(1, v / mx)), fillOpacity: 0.72 }, `R$ ${Math.round(v).toLocaleString("pt-BR")} por mês em recreações e esportes (estimativa)`); }
@@ -42,7 +44,7 @@ export interface ResumoCenso {
   /** Moradores na área. */
   moradores?: number;
   /** Domicílios por faixa de moradores por domicílio, com o total e a média. */
-  domicilios?: { classes: { rotulo: string; cor: string; domicilios: number; parte: number }[]; total: number; porDomicilio: number | null } | null;
+  domicilios?: { classes: { rotulo: string; cor: string; domicilios: number; parte: number }[]; total: number; porDomicilio: number | null; porTamanho?: boolean } | null;
   onde?: string;
 }
 const reaisCurto = (v: number) => (v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`);
@@ -129,7 +131,7 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
   if (dm && dm.total > 0) return (
     <div className="space-y-2">
       <ListaTotais total={dm.total} rotuloTotal={`Domicílios ${resumo?.onde ?? "na área"}`} itens={dm.classes.map((x) => ({ rotulo: x.rotulo, n: x.domicilios, cor: x.cor }))} />
-      <p className="text-[11px]">{dm.porDomicilio ? `Média de ${dm.porDomicilio.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio. ` : ""}Cada faixa soma os domicílios dos hexágonos com aquela média de moradores (Censo 2022).</p>
+      <p className="text-[11px]">{dm.porDomicilio ? `Média de ${dm.porDomicilio.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio. ` : ""}{dm.porTamanho ? "Domicílios ocupados por número de moradores; no mapa, a cor do tamanho mais comum em cada hexágono (Censo 2022)." : "Cada faixa soma os domicílios dos hexágonos com aquela média de moradores (Censo 2022)."}</p>
     </div>
   );
   const itens = CLASSES_DENSIDADE;

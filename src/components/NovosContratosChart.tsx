@@ -85,7 +85,7 @@ export default function NovosContratosChart({ selectedUnit }: NovosContratosChar
           <>
             <p className="mb-2 text-xs text-muted-foreground">Último mês fechado: <span className="first-letter:uppercase">{formatMonthLong(last.month)}</span></p>
             <p className="mb-3 text-xs text-muted-foreground">
-              Novos contratos são só as matrículas (aluno novo) e as rematrículas (ex-aluno que voltou). O cartão Contratos Vendidos, no Resumo, soma também as renovações feitas na recepção, por isso é maior, e mostra o mês em andamento, não o último fechado.
+              Novos contratos são só as matrículas (aluno novo) e as rematrículas (ex-aluno que voltou). O cartão Contratos Vendidos, acima, soma também as renovações feitas na recepção, por isso é maior, e mostra o mês em andamento, não o último fechado.
             </p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:flex sm:gap-x-12">
               <HeadlineStat swatch={<Swatch color={BRAND} />} label="Novos contratos" value={num(last.novosReal)} />

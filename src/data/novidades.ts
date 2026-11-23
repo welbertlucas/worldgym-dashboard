@@ -27,11 +27,6 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
-    id: "2026-11-23-contratos-regra-unica", data: "2026-11-23", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "gerencial/vendas", artigo: "diferente-do-evo",
-    titulo: "Gerencial: contratos vendidos com uma regra só e com o valor",
-    texto: "Cada tela contava contratos de um jeito, e os números não batiam entre si. Agora Contratos vendidos é sempre matrícula, rematrícula e renovação de plano com vigência, com o valor vendido ao lado; WG Plus, Pro+, brinquedoteca, diárias e personal ficam em Receitas complementares. O número do EVO, que soma também esses itens e as cortesias, aparece embaixo do cartão para a conferência. No relatório semanal, a nova contagem começa nas semanas lidas a partir de 24/11.",
-  },
-  {
     id: "2026-11-23-previsao-faturamento", data: "2026-11-23", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "gerencial/recebimento", artigo: "tela-gerencial",
     titulo: "Gerencial: previsão de faturamento em duas linhas",
     texto: "A previsão misturava o que estava lançado no EVO com o que ainda seria vendido e não batia com o cartão Faturamento. Agora são duas linhas: vendido até agora, o mesmo número do cartão, e quanto o mês deve fechar, pela curva de vendas dos 3 meses anteriores até o mesmo dia. A mesma previsão aparece em Metas.",

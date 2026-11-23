@@ -20,7 +20,15 @@ export interface UnidadeEstudo {
  * Hexágonos do Censo 2022: [lat, lng, população, renda média do responsável, domicílios ocupados, moradores por faixa de idade].
  * Faixas (FAIXAS_IDADE): 0–14, 15–19, 20–29, 30–39, 40–49, 50–59, 60+. Os dois últimos campos podem faltar em dados antigos.
  */
-export type CelulaCenso = [number, number, number, number | null, number?, number[]?];
+/** O último campo (quando existe): domicílios com 1, 2, 3, 4 e 5 ou mais moradores (IBGE, Características do Domicílio parte 1). */
+export type CelulaCenso = [number, number, number, number | null, number?, number[]?, number[]?];
+/** Domicílios por número de moradores, como no Mapfry (cores na ordem: 1, 2, 3, 4, 5 ou mais). */
+export const TAMANHOS_DOMICILIO = [
+  { rotulo: "1 morador", cor: "#e9c46a" }, { rotulo: "2 moradores", cor: "#e07a9a" }, { rotulo: "3 moradores", cor: "#3a9bd5" },
+  { rotulo: "4 moradores", cor: "#2a9d8f" }, { rotulo: "5 ou mais moradores", cor: "#6a4c93" },
+];
+/** Tamanho de domicílio que mais aparece no hexágono (índice de TAMANHOS_DOMICILIO), ou null sem o dado. */
+export const tamanhoPredominante = (t?: number[]) => (t?.length && t.some((x) => x > 0) ? t.indexOf(Math.max(...t)) : null);
 export interface Censo { rk: number; celulas: CelulaCenso[] }
 export const FAIXAS_IDADE = ["0 a 14 anos", "15 a 19 anos", "20 a 29 anos", "30 a 39 anos", "40 a 49 anos", "50 a 59 anos", "60 anos ou mais"];
 
@@ -81,14 +89,20 @@ export const classeDensidade = (porDom: number) => CLASSES_DENSIDADE.findIndex((
 export const densidadeNaArea = (censo: Censo, g: Geometria) => densidadeEm(censo, (lat, lng) => dentroDaArea(lat, lng, g)).classes;
 /** Domicílios por faixa de moradores por domicílio nos hexágonos escolhidos, com o total e a média de moradores por domicílio. */
 export function densidadeEm(censo: Censo, dentro: (lat: number, lng: number) => boolean) {
-  const dom = CLASSES_DENSIDADE.map(() => 0);
-  let moradores = 0;
-  for (const [lat, lng, p, , d] of censo.celulas) {
+  // Com o dado do IBGE de domicílios por número de moradores, as faixas são 1, 2, 3, 4 e 5 ou mais (como no Mapfry);
+  // sem ele, a média de moradores por domicílio de cada hexágono.
+  const porTamanho = censo.celulas.some((c) => c[6]?.length);
+  const faixas = porTamanho ? TAMANHOS_DOMICILIO : CLASSES_DENSIDADE;
+  const dom = faixas.map(() => 0);
+  let moradores = 0, total = 0;
+  for (const [lat, lng, p, , d, , tam] of censo.celulas) {
     if (!d || !dentro(lat, lng)) continue;
-    dom[classeDensidade(p / d)] += d; moradores += p;
+    moradores += p; total += d;
+    if (porTamanho) tam?.forEach((v, i) => (dom[i] += v));
+    else dom[classeDensidade(p / d)] += d;
   }
-  const total = dom.reduce((a, b) => a + b, 0);
-  return { classes: CLASSES_DENSIDADE.map((c, i) => ({ ...c, domicilios: dom[i], parte: total ? dom[i] / total : 0 })), total, porDomicilio: total ? moradores / total : null };
+  const soma = dom.reduce((a, b) => a + b, 0);
+  return { classes: faixas.map((c, i) => ({ rotulo: c.rotulo, cor: c.cor, domicilios: dom[i], parte: soma ? dom[i] / soma : 0 })), total, porDomicilio: total ? moradores / total : null, porTamanho };
 }
 
 /** Gente, domicílios e idade dentro da área (hexágonos cujo centro cai nela). `null` nos campos que o Censo carregado não tem. */
