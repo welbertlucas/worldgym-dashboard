@@ -1,7 +1,7 @@
 // Camadas do Censo 2022 nos mapas dos estudos (unidade e ponto novo): população, idade, domicílios, renda e potencial de consumo,
 // só nos hexágonos de dentro da área (`dentro`), como no Mapfry. E as legendas de cada uma, para o painel de camadas.
 import type { Leaflet } from "@/components/estudos/mapaComum";
-import { hexagono } from "@/components/estudos/mapaComum";
+import { hexagono, rampa } from "@/components/estudos/mapaComum";
 import { CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, TAMANHOS_DOMICILIO, classeDaRenda, classeDensidade, faixaPredominante, gastoDoDomicilio, tamanhoPredominante, type Censo } from "@/lib/estudoPonto";
 
 export type CamadaCenso = "pessoas" | "idade" | "domicilios" | "renda" | "consumo";
@@ -32,6 +32,25 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
   } else {
     const val = (c: (typeof vis)[number]) => (c[4] ?? 0) * (gastoDoDomicilio(c[3]) ?? 0), mx = escala(val);
     for (const c of vis) { const v = val(c); hex(c, { fillColor: AZUL(Math.min(1, v / mx)), fillOpacity: 0.72 }, `R$ ${Math.round(v).toLocaleString("pt-BR")} por mês em recreações e esportes (estimativa)`); }
+  }
+}
+
+/**
+ * Camadas de demanda (Demanda potencial, Oportunidades de captação, Captação estimada): todo hexágono com moradores dentro da área, como as
+ * outras camadas. A cor é medida pelo hexágono no topo da faixa comum (95% dos hexágonos abaixo dele), e não pelo maior, para um hexágono muito
+ * forte não deixar os outros quase transparentes. `pesos`/`indices` vêm de captacaoDe (calculada com raio que cubra a área).
+ */
+export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, cap: { pesos: number[]; indices: number[] }, dentro: (lat: number, lng: number) => boolean, cor: "quente" | "azul") {
+  const vis: [number, number][] = [];
+  cap.indices.forEach((i, k) => { const c = censo.celulas[i]; if (cap.pesos[k] > 0 && dentro(c[0], c[1])) vis.push([i, cap.pesos[k]]); });
+  const xs = vis.map((v) => v[1]).sort((a, b) => a - b);
+  const ref = xs[Math.floor(xs.length * 0.95)] ?? 1;
+  for (const [i, w] of vis) {
+    const c = censo.celulas[i], t = Math.min(1, w / ref);
+    L.polygon(hexagono(c[0], c[1], censo.rk), cor === "quente"
+      // cor mínima visível: o hexágono de demanda baixa não some sobre o mapa cinza
+      ? { color: "#fff", weight: 1, opacity: 0.5, fillColor: rampa(0.15 + 0.85 * t ** 0.7), fillOpacity: 0.5 + 0.3 * t, interactive: false }
+      : { color: "#fff", weight: 1, opacity: 0.5, fillColor: AZUL(0.12 + 0.88 * t ** 0.7), fillOpacity: 0.72, interactive: false }).addTo(grupo);
   }
 }
 

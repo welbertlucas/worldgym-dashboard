@@ -1,14 +1,14 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, hexagono, pausa, pino, rampa, type Leaflet } from "@/components/estudos/mapaComum";
+import { bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Barras, Partes } from "@/components/estudos/blocos";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
-import { AZUL, LegendaCenso, LegendaRenda, desenharCenso, ehCamadaCenso } from "@/components/estudos/camadasCenso";
+import { LegendaCenso, LegendaRenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 export { LegendaRenda };
 import { LIMITES_SUGESTAO, desenharSugestoes, textoSugestoes } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
@@ -28,7 +28,8 @@ const fmtKm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("pt
  * e o estudo embaixo (vendas por m² contra a rede, modelo × realidade, bairros, divisão da captação), com PDF e Street View.
  * `voltar` some quando a pessoa só tem acesso à própria unidade.
  */
-export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: DadosEstudos; unidades: UnidadeEstudo[]; inicial: string; voltar?: () => void }) {
+/** `estudarPosicao`: cria um estudo de ponto numa posição sugerida para nova unidade e abre esse estudo (só para quem cria estudos). */
+export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }: { dados: DadosEstudos; unidades: UnidadeEstudo[]; inicial: string; voltar?: () => void; estudarPosicao?: (c: [number, number], nome: string, u: UnidadeEstudo) => void }) {
   const [nome, setNome] = useState(inicial);
   const [lente, setLente] = useState<Lente>("alunos");
   const [satelite, setSatelite] = useState(false);
@@ -45,6 +46,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
   const u = unidades.find((x) => x.nome === nome) ?? unidades[0];
   const outras = (dados.unidades ?? []).filter((x) => x.nome !== u?.nome);
   const cap = useMemo(() => (u?.c && dados.censo && dados.premissas?.curva ? captacaoDe(unidadeComoPonto(u), dados.censo, outras, [], dados.premissas.curva) : null), [u, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Para o desenho das camadas de demanda: a mesma conta, num raio que cobre a área de 10 min inteira (os números do estudo usam `cap`)
+  const capMapa = useMemo(() => (u?.c && dados.censo && dados.premissas?.curva ? captacaoDe(unidadeComoPonto(u), dados.censo, outras, [], { ...dados.premissas.curva, raioKm: Math.max(dados.premissas.curva.raioKm, 15) }) : null), [u, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const r80 = u ? raio80Real(u) : null;
   const mediana = u ? dados.vendasPorM2?.[u.modelo]?.mediana ?? null : null;
   const porM2 = u?.vendas && u.m2 ? u.vendas / u.m2 : null;
@@ -119,16 +122,10 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     const { L, camadas } = m;
     camadas.clearLayers();
     const censo = dados.censo;
+    // a mesma área em todas as camadas: a de 10 min de carro (sem ela, 5 km em volta)
+    const dentroDoEstudo = (la: number, ln: number) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5);
     if (lente === "alunos" || lente === "oportunidade") {
-      if (lente === "oportunidade" && cap && censo) {
-        const mx = Math.max(...cap.pesos, 1e-9);
-        cap.indices.forEach((i, k) => {
-          const t = cap.pesos[k] / mx;
-          if (t < 0.01) return;
-          const [lat, lng] = censo.celulas[i];
-          L.polygon(hexagono(lat, lng, censo.rk), { color: "#fff", weight: 1, opacity: 0.5, fillColor: AZUL(t ** 0.6), fillOpacity: 0.7, interactive: false }).addTo(camadas);
-        });
-      }
+      if (lente === "oportunidade" && capMapa && censo) desenharDemanda(L, camadas, censo, capMapa, dentroDoEstudo, "azul");
       const mx = Math.max(1, ...(u.bairros ?? []).map((b) => b[3]));
       const totalB = Math.max(1, (u.bairros ?? []).reduce((t, b) => t + b[3], 0));
       for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3])) {
@@ -142,18 +139,12 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
           L.marker([lat, lng], { interactive: false, icon: L.divIcon({ className: "", iconSize: [44, 16], iconAnchor: [22, 8], html: `<div style="text-align:center;font:700 11px/16px Inter,sans-serif;color:#7a0a1e;text-shadow:0 0 3px #fff,0 0 3px #fff">${n.toLocaleString("pt-BR")}</div>` }) }).addTo(camadas);
       }
       if (r80 && !area10) L.circle(u.c, { radius: r80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
-    } else if (lente === "modelo" && cap && censo) {
-      const mx = Math.max(...cap.pesos, 1e-9);
-      cap.indices.forEach((i, k) => {
-        const t = cap.pesos[k] / mx;
-        if (t < 0.01) return;
-        const [lat, lng] = censo.celulas[i];
-        L.polygon(hexagono(lat, lng, censo.rk), { stroke: false, fillColor: rampa(t ** 0.6), fillOpacity: 0.22 + 0.5 * Math.sqrt(t), interactive: false }).addTo(camadas);
-      });
+    } else if (lente === "modelo" && cap && capMapa && censo) {
+      desenharDemanda(L, camadas, censo, capMapa, dentroDoEstudo, "quente");
       if (cap.raio80 && !area10) L.circle(u.c, { radius: cap.raio80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
     } else if (ehCamadaCenso(lente) && censo) {
       // como no Mapfry: só os hexágonos de dentro da área de deslocamento (sem ela, num raio de 5 km)
-      desenharCenso(L, camadas, censo, lente, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5));
+      desenharCenso(L, camadas, censo, lente, dentroDoEstudo);
     }
     for (const o of dados.unidades ?? []) {
       if (!o.c || o.nome === u.nome || lente === "limpa") continue;
@@ -166,7 +157,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
     // posições sugeridas para uma nova unidade: em todas as camadas (menos a limpa das fotos)
     if (lente !== "limpa" && verNova) desenharSugestoes(L, camadas, novaUnidade);
-  }, [lente, u, cap, pronto, rua, areas, novaUnidade, verNova]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lente, u, cap, capMapa, pronto, rua, areas, novaUnidade, verNova]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
   const aoPois = (r: ResultadoPois | null) => { setPois(r); setVerPois(true); };
@@ -284,7 +275,12 @@ export function MapaUnidade({ dados, unidades, inicial, voltar }: { dados: Dados
             ...(pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []),
             ...(novaUnidade ? [{ id: "nova", rotulo: "Onde abrir outra unidade", ativo: verNova, alternar: () => setVerNova((v) => !v), legenda: <>
               {novaUnidade.sugestoes.length
-                ? <>{novaUnidade.sugestoes.map((x, i) => <p key={i}>Posição {i + 1}: a {x.distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, público {x.ganho >= 0 ? "+" : "−"}{Math.abs(Math.round(x.ganho * 100))}% em relação ao da unidade.</p>)}
+                ? <>{novaUnidade.sugestoes.map((x, i) => (
+                    <div key={i} className="mb-1.5">
+                      <p>Posição {i + 1}: a {x.distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, público {x.ganho >= 0 ? "+" : "−"}{Math.abs(Math.round(x.ganho * 100))}% em relação ao da unidade.</p>
+                      {estudarPosicao && <Button size="sm" variant="outline" className="mt-1 h-7 bg-white px-2.5 text-xs" onClick={() => estudarPosicao(x.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u)}>Estudar esta posição</Button>}
+                    </div>
+                  ))}
                   <button type="button" onClick={verNovaUnidade} className="mt-1 font-medium text-foreground underline underline-offset-2">Ver as posições no mapa</button></>
                 : <p>Pelo que o Atlas mede, a região não comporta outra unidade hoje.</p>}
               <details className="mt-1"><summary className="cursor-pointer font-medium text-foreground">Como foi calculado</summary>

@@ -13,7 +13,7 @@ import { Building2, Calculator, Gavel, ListChecks, Store, TrendingUp } from "luc
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { montarPdfPonto } from "@/components/estudos/pdfPonto";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
-import { LegendaCenso, desenharCenso, ehCamadaCenso } from "@/components/estudos/camadasCenso";
+import { LegendaCenso, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
 import {
@@ -35,12 +35,6 @@ const LENTES: { id: Lente; rotulo: string }[] = [
   { id: "renda", rotulo: "Renda" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "rede", rotulo: "Canibalização" },
 ];
 const FUNDO_VEREDITO: Record<Veredito, string> = { aprovado: "bg-success/10 text-success", atencao: "bg-warning/10 text-warning", reprovado: "bg-destructive/10 text-destructive" };
-// rampa quente da captação: do amarelo-claro ao vinho
-const RAMPA = [[255, 236, 179], [253, 186, 116], [239, 106, 70], [196, 18, 48], [122, 10, 32]];
-function rampa(t: number) {
-  const x = Math.min(0.999, Math.max(0, t)) * (RAMPA.length - 1), i = Math.floor(x), f = x - i, a = RAMPA[i], b = RAMPA[i + 1];
-  return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(",")})`;
-}
 
 /** Régua com a faixa pessimista–otimista, o provável e a meta de payback. */
 function Regua({ r }: { r: Resultado }) {
@@ -95,6 +89,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     return [p.id, { ticket: tk, alunos, vagas, veredito: rr ? vereditoFinal(rr.veredito, vagas) : null }];
   })), [resultados, pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const cap = useMemo(() => (atual && pronto ? captacaoDe(atual, dados.censo!, dados.unidades!, todos, dados.premissas!.curva) : null), [atual, pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Para o desenho da captação: a mesma conta, num raio que cobre a área de 10 min inteira (os números usam `cap`)
+  const capMapa = useMemo(() => (atual && pronto ? captacaoDe(atual, dados.censo!, dados.unidades!, todos, { ...dados.premissas!.curva, raioKm: Math.max(dados.premissas!.curva.raioKm, 15) }) : null), [atual, pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const r = atual ? resultados.get(atual.id) ?? null : null;
   // área de 10 min de carro do ponto aberto (pergunta antes de mandar a posição ao Mapbox)
   const areas = useDeslocamento(atual?.c, true);
@@ -181,19 +177,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (!m || !pronto) return;
     const { L, camadas } = m;
     camadas.clearLayers();
-    const censo = dados.censo!, rk = censo.rk;
-    const hex = (lat: number, lng: number): [number, number][] => Array.from({ length: 6 }, (_, k) => {
-      const a = (Math.PI / 3) * k + Math.PI / 6;
-      return [lat + (rk / 110.6) * Math.sin(a), lng + (rk / (111.32 * Math.cos((lat * Math.PI) / 180))) * Math.cos(a)];
-    });
-    if (lente === "captacao" && cap && atual) {
-      const mx = Math.max(...cap.pesos, 1e-9);
-      cap.indices.forEach((i, k) => {
-        const t = cap.pesos[k] / mx;
-        if (t < 0.01) return;
-        const [lat, lng] = censo.celulas[i];
-        L.polygon(hex(lat, lng), { stroke: false, fillColor: rampa(t ** 0.6), fillOpacity: 0.22 + 0.5 * Math.sqrt(t), interactive: false }).addTo(camadas);
-      });
+    const censo = dados.censo!;
+    if (lente === "captacao" && cap && capMapa && atual) {
+      desenharDemanda(L, camadas, censo, capMapa, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5), "quente");
       if (cap.raio80 && !area10) L.circle(atual.c, { radius: cap.raio80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
     } else if (ehCamadaCenso(lente) && atual) {
       desenharCenso(L, camadas, censo, lente, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5));
@@ -216,7 +202,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (rua) L.marker(rua, { icon: L.divIcon({ className: "", iconSize: [14, 14], iconAnchor: [7, 7], html: '<div style="width:14px;height:14px;border-radius:50%;background:#f59e0b;border:2px solid #fff"></div>' }) }).addTo(camadas);
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
     if (lente !== "limpa") desenharSugestoes(L, camadas, sugestoes);
-  }, [lente, cap, pontos, atualId, desenho, rua, areas, sugestoes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lente, cap, capMapa, pontos, atualId, desenho, rua, areas, sugestoes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(desenho ? mapaRef.current : null, verPois ? pois : null, modoPois);
   const aoPois = (res: ResultadoPois | null) => { setPois(res); setVerPois(true); };
@@ -520,7 +506,14 @@ export function EstudosPontoTab() {
   }
   if (visao.tela === "unidade") {
     const emOperacao = (dados.unidades ?? []).filter((u) => u.c);
-    return <MapaUnidade dados={dados} unidades={emOperacao} inicial={visao.nome} voltar={() => setVisao({ tela: "lista" })} />;
+    // Posição sugerida para nova unidade: vira um estudo de ponto (modelo e tamanho padrão da unidade de origem) e abre no mapa dos estudos
+    const estudarPosicao = editavel ? (c: [number, number], nome: string, u: (typeof emOperacao)[number]) => {
+      const agora = new Date().toISOString();
+      const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: nome.slice(0, 60), regiao: `perto da WG ${u.nome}`.slice(0, 60), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c, modelo: u.modelo, m2: dados.premissas!.modelos[u.modelo].padraoM2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
+      setPontos((ps) => [...ps, novo]);
+      setVisao({ tela: "mapa", atualId: novo.id, novo: false, comparando: null });
+    } : undefined;
+    return <MapaUnidade dados={dados} unidades={emOperacao} inicial={visao.nome} voltar={() => setVisao({ tela: "lista" })} estudarPosicao={estudarPosicao} />;
   }
   if (visao.tela === "lista")
     return (
