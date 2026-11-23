@@ -10,14 +10,42 @@ export interface ItemCamada { id: string; rotulo: string }
 export interface Sobreposicao { id: string; rotulo: string; ativo: boolean; alternar: () => void; legenda?: ReactNode; remover?: () => void }
 
 /** Painel de camadas no alto à esquerda: uma camada por vez, com a legenda dela embaixo. Recolhe no celular. */
-export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3", sobre = [] }: { itens: ItemCamada[]; atual: string; escolher: (id: string) => void; legenda?: ReactNode; topo?: string; sobre?: Sobreposicao[] }) {
+/**
+ * `vazia`: a camada sem nada pintado (ex.: "limpa"). Com ela, o olho do topo desliga todas as camadas de uma vez (a escolhida e as de
+ * cima do mapa) e, clicado de novo, volta ao que estava ligado.
+ */
+export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3", sobre = [], vazia }: { itens: ItemCamada[]; atual: string; escolher: (id: string) => void; legenda?: ReactNode; topo?: string; sobre?: Sobreposicao[]; vazia?: string }) {
   const [aberto, setAberto] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
+  const guardado = useRef<{ camada: string; sobre: string[] } | null>(null);
+  const tudoDesligado = !!vazia && atual === vazia && sobre.every((o) => !o.ativo);
+  const alternarTudo = () => {
+    if (!vazia) return;
+    if (tudoDesligado) {
+      const g = guardado.current;
+      escolher(g?.camada ?? itens[0]?.id ?? atual);
+      for (const o of sobre) if (g?.sobre.includes(o.id) && !o.ativo) o.alternar();
+      guardado.current = null;
+    } else {
+      guardado.current = { camada: atual === vazia ? guardado.current?.camada ?? itens[0]?.id ?? atual : atual, sobre: sobre.filter((o) => o.ativo).map((o) => o.id) };
+      escolher(vazia);
+      for (const o of sobre) if (o.ativo) o.alternar();
+    }
+  };
   return (
     <div className={`absolute left-3 ${topo} z-[455] w-60 max-w-[calc(100%-1.5rem)] overflow-hidden rounded-xl border bg-white/95 shadow-lg backdrop-blur`}>
-      <button type="button" onClick={() => setAberto((a) => !a)} aria-expanded={aberto} className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-semibold">
-        <Layers className="h-4 w-4 text-primary" aria-hidden />Camadas
-        <ChevronDown className={`ml-auto h-4 w-4 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`} aria-hidden />
-      </button>
+      <div className="flex items-center">
+        <button type="button" onClick={() => setAberto((a) => !a)} aria-expanded={aberto} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-sm font-semibold">
+          <Layers className="h-4 w-4 text-primary" aria-hidden />Camadas
+          <ChevronDown className={`ml-auto h-4 w-4 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`} aria-hidden />
+        </button>
+        {vazia && (
+          <button type="button" onClick={alternarTudo} aria-pressed={tudoDesligado}
+            title={tudoDesligado ? "Mostrar as camadas de novo" : "Desligar todas as camadas"} aria-label={tudoDesligado ? "Mostrar as camadas de novo" : "Desligar todas as camadas"}
+            className="mr-1.5 grid h-8 w-8 flex-none place-items-center rounded-lg hover:bg-muted">
+            {tudoDesligado ? <EyeOff className="h-4 w-4 text-muted-foreground" aria-hidden /> : <Eye className="h-4 w-4 text-foreground" aria-hidden />}
+          </button>
+        )}
+      </div>
       {aberto && (
         <div className="max-h-[52vh] space-y-1 overflow-y-auto border-t px-2 py-2">
           {sobre.length > 0 && <p className="px-2.5 pb-1 text-[11px] font-medium text-muted-foreground">Por cima do mapa</p>}

@@ -44,6 +44,8 @@ export interface SemanaDoMes {
   vendasContratos?: number; kids?: number; plus?: number; proMais?: number;
   /** Quantos dos contratos vendidos são especiais (VIP e cortesias, valor R$ 0). */
   vendasContratosEspeciais?: number;
+  /** Regra única de contratos (matrícula + rematrícula + renovação de plano com vigência) e o valor vendido; semanas lidas a partir de 24/11/2026. */
+  contratos?: number; valorContratos?: number;
   oportunidades?: number; conversoes?: number; conversoesAntigas?: number; cancelados?: number;
   /** Visitantes (presenciais) e convertidos da semana, como no cartão do Dashboard do EVO. */
   visitantes?: number; convertidos?: number;
@@ -250,6 +252,16 @@ export interface UnitData {
 export type TempoConversao = { n: number; soma: number; f: number[] };
 
 export type TipoVenda = { novo: [number, number]; remat: [number, number]; renov: [number, number]; auto?: [number, number] };
+/**
+ * Regra única de contratos do Atlas (decisão do dono, 23/11/2026): matrícula + rematrícula + renovação de plano com vigência, com o valor vendido.
+ * Ficam de fora a recorrência automática, diárias, personal, WG Plus, Pro+ e brinquedoteca (essas estão em Receitas complementares).
+ * Meses lidos antes da separação da recorrência (`auto`) contam só matrículas e rematrículas. Null sem o tipo de venda.
+ */
+export function contratosDaRegra(tv: TipoVenda | undefined): { n: number; v: number } | null {
+  if (!tv) return null;
+  const renN = tv.auto ? Math.max(0, tv.renov[0] - tv.auto[0]) : 0, renV = tv.auto ? Math.max(0, tv.renov[1] - tv.auto[1]) : 0;
+  return { n: tv.novo[0] + tv.remat[0] + renN, v: Math.round((tv.novo[1] + tv.remat[1] + renV) * 100) / 100 };
+}
 
 export interface MonthData {
   month: string;

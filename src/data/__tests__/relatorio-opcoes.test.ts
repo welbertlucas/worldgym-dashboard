@@ -34,9 +34,9 @@ describe("opções do relatório", () => {
 
 describe("prévia do relatório semanal", () => {
   it("mostra o número da semana e, em seguida, o acumulado do mês até agora", () => {
-    const base = [month("2026-11", [unit("Itapoã", { semanas: [{ vendasContratos: 38, vendasContratosEspeciais: 1 }, { vendasContratos: 52, vendasContratosEspeciais: 1 }, { vendasContratos: 37, vendasContratosEspeciais: 6 }] } as never)])];
+    const base = [month("2026-11", [unit("Itapoã", { semanas: [{ contratos: 38, valorContratos: 3800 }, { contratos: 52, valorContratos: 5200 }, { contratos: 37, valorContratos: 3700 }] } as never)])];
     const m = montarRelatorioSemanal(base, "2026-11", 3, ["cv"], ["Itapoã"], 21)!;
-    expect(previaDoItem(m, "cv")).toBe("na semana (15-21 nov/26): 37 · no mês até aqui (1-21 nov/26): 127, dos quais 8 são especiais");
+    expect(previaDoItem(m, "cv")).toBe("na semana (15-21 nov/26): 37 · no mês até aqui (1-21 nov/26): 127, R$ 12.700 vendidos");
     expect(rotuloDaOpcao("cv", "semana")).toBe("Contratos vendidos"); // sem o "(total)" que confundia com o total do mês
   });
 });

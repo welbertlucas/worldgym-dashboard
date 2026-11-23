@@ -268,7 +268,7 @@ export function computeAlertasVigentes(
     // ---------- ritmo (a partir do dia 10) ----------
     // 7. Faturamento
     const pf = projecaoFaturamento(u, month, true, nome, atualizadoEm);
-    if (pf) {
+    if (pf?.estimativa != null) {
       const r = ritmo(nome, "faturamento", pf.estimativa, L.faturamentoSemMeta, media(hist(nome, L.mesesMedia, (x) => x.faturamento)), brl);
       if (r) push({ unit: nome, kind: "fatRitmo", weight, tela: "gerencial/recebimento", ...r, action: "Puxar vendas e cobrança nos dias que faltam: matrículas, rematrículas de quem saiu e cobrança das mensalidades vencidas. A conta da projeção está em Gerencial, aba Recebimentos." });
     }
@@ -318,7 +318,7 @@ export function computeAlertasVigentes(
     const t = cur.total;
     const pf = projecaoFaturamento(t, month, true, null, atualizadoEm);
     const mf = getMeta(metas, month, "TOTAL", "faturamento");
-    if (pf && mf) {
+    if (pf?.estimativa != null && mf) {
       const r = ritmo("TOTAL", "faturamento", pf.estimativa, L.faturamentoSemMeta, null, brl);
       if (r) push({ unit: "Rede", kind: "fatRitmo", weight: 1, tela: "gerencial/recebimento", ...r, action: "Ver quais unidades puxam a projeção para baixo (Metas, indicador Faturamento) e concentrar o esforço nelas." });
     }

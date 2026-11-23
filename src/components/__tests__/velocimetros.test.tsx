@@ -178,9 +178,13 @@ import { comercialSpecs, complementarSpec, conversaoSpec, faturamentoSpec, finan
 import { MetasKpiCard } from "@/components/executiva/MetasKpiCard";
 import { viewFor } from "@/data/kpiView";
 
+/** Tipo de venda inventado: n matrículas de R$ 100 (regra única de contratos). */
+const tv = (n: number) => ({ novo: [n, n * 100] as [number, number], remat: [0, 0] as [number, number], renov: [0, 0] as [number, number], auto: [0, 0] as [number, number] });
+
+
 describe("indicadores em meia-lua nas demais abas", () => {
-  const A = month("2026-08", [unit("A", { faturamento: 1000, novosContratos: 100, vendasContratos: 100, diarias: 0, notaGoogle: 0 }), unit("B", { faturamento: 500, novosContratos: 50, vendasContratos: 50 })]);
-  const B = month("2026-09", [unit("A", { faturamento: 1100, novosContratos: 80, vendasContratos: 80, vendasManuais: 1000, vendasRecorrentes: 9000, vendasOnlineContratos: 100, diarias: 50, notaGoogle: 4.5 }), unit("B", { faturamento: 400, novosContratos: 50, vendasContratos: 50 })]);
+  const A = month("2026-08", [unit("A", { faturamento: 1000, novosContratos: 100, vendasContratos: 100, tipoVenda: tv(100), diarias: 0, notaGoogle: 0 }), unit("B", { faturamento: 500, novosContratos: 50, vendasContratos: 50, tipoVenda: tv(50) })]);
+  const B = month("2026-09", [unit("A", { faturamento: 1100, novosContratos: 80, vendasContratos: 80, tipoVenda: tv(80), vendasManuais: 1000, vendasRecorrentes: 9000, vendasOnlineContratos: 100, diarias: 50, notaGoogle: 4.5 }), unit("B", { faturamento: 400, novosContratos: 50, vendasContratos: 50, tipoVenda: tv(50) })]);
   const ctx = (partial = false): KpiContext => ({ cur: B, prev: A, partial });
   const html = (spec: (typeof comercialSpecs)[number], c = ctx()) => renderToString(<KpiTile ctx={c} spec={spec} />).replace(/<!-- -->/g, "");
   const find = (specs: typeof comercialSpecs, t: string) => specs.find((s) => s.title === t)!;

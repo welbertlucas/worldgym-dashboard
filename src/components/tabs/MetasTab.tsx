@@ -28,7 +28,7 @@ function projetar(key: MetaKey, u: UnitData | undefined, month: string, partial:
   if (!partial || !u || !PROJETAVEIS.includes(key)) return null;
   if (key === "novosContratos") return projecaoContratos(u, month, partial, unit, atualizadoEm)?.valor ?? null;
   const p = projecaoFaturamento(u, month, partial, unit, atualizadoEm);
-  return p ? p.estimativa : null;
+  return p?.estimativa ?? null;
 }
 
 /** "Projeção de fechamento: R$ X, nível Prata" (ou "abaixo da meta"). */
@@ -199,7 +199,7 @@ export function MetasTab({ data, metas, month, unit = null, atualizadoEm = null 
           <p className="mt-2 text-xs text-muted-foreground">
             A porcentagem é o quanto já foi alcançado do próximo nível. A barra mostra as faixas Bronze, Prata e Ouro; o traço escuro é o realizado.
             {partial && PROJETAVEIS.includes(k) && (k === "faturamento"
-              ? " A projeção soma o que já está lançado no EVO ao que se estima vender até o fim do mês; a conta fica em Gerencial, aba Recebimentos."
+              ? " A projeção segue a curva de vendas dos 3 meses anteriores até o mesmo dia; a conta fica em Gerencial, aba Recebimentos."
               : " A projeção usa a curva de vendas dos 3 meses anteriores; a conta fica em Gerencial, aba Vendas.")}
           </p>
         </section>

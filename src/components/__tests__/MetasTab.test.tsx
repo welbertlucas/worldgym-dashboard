@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MetasTab } from "@/components/tabs/MetasTab";
+import { dashboardData } from "@/data/dashboardData";
 import { month, unit } from "@/data/__tests__/helpers";
 import { type Meta } from "@/data/metas";
 import { monthKey } from "@/data/periods";
@@ -101,13 +102,19 @@ describe("MetasTab", () => {
 
   it("mês em andamento: mostra a projeção de fechamento de faturamento contra a meta", () => {
     const cur = monthKey(new Date());
-    // A: já venceu 30 mil e o EVO tem 110 mil lançados no mês (prata, 120 mil, ainda não); B: 130 mil e 160 mil lançados (ouro).
-    const live = [month(cur, [unit("A", { faturamento: 30000, previsaoFaturamento: 110000 }), unit("B", { faturamento: 130000, previsaoFaturamento: 160000 })])];
+    // Meses anteriores (inventados): metade do mês vendida até o dia 14. Lido no dia 15: A vendeu 55 mil (deve fechar em 110 mil, bronze);
+    // B vendeu 80 mil (deve fechar em 160 mil, ouro).
+    const [y, mo] = cur.split("-").map(Number);
+    const antes = [3, 2, 1].map((k) => { const d = new Date(Date.UTC(y, mo - 1 - k, 1)); return d.toISOString().slice(0, 7); });
+    const sem = [250, 250, 250, 250, 0].map((totalVendas) => ({ totalVendas }));
+    dashboardData.push(...antes.map((ym) => month(ym, [unit("A", { faturamento: 1000, semanas: sem } as never), unit("B", { faturamento: 1000, semanas: sem } as never)])));
+    const live = [month(cur, [unit("A", { faturamento: 55000 }), unit("B", { faturamento: 80000 })])];
     const ms: Meta[] = [
       { month: cur, unit: "A", key: "faturamento", bronze: 100000, prata: 120000, ouro: 150000 },
       { month: cur, unit: "B", key: "faturamento", bronze: 100000, prata: 120000, ouro: 150000 },
     ];
-    const html = renderToString(<MetasTab data={live} metas={ms} month={cur} />).replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
+    const html = renderToString(<MetasTab data={live} metas={ms} month={cur} atualizadoEm={`${cur}-15T12:00:00Z`} />).replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
+    dashboardData.length = 0;
     expect(html).toContain("Projeção de fechamento");
     expect(html).toContain("nível Bronze"); // A: 110 mil
     expect(html).toContain("nível Ouro"); // B: 160 mil

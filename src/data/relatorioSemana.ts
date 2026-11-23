@@ -5,7 +5,7 @@ import type { Meta, MetaKey } from "@/data/metas";
 import type { PlanoDaUnidade } from "@/data/relatorioPlano";
 import type { AteAgora } from "@/data/relatorio";
 import { npsDoPonto, rankingDePontos, somarPontos } from "@/data/npsPontos";
-import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, ID_SATISF, NOTA_RECEBIMENTO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, notaContratosEspeciais, motivosDoRanking, type BigNumero, type PontoDoSlide, type SlideSatisfacao, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
+import { ID_BIG, ID_COMPL, ID_FREQ, ID_PLANO, ID_SATISF, NOTA_RECEBIMENTO, montarComplementares, PERIODOS_NA_EVOLUCAO, mesCurto, montarFrequencia, notaValorContratos, motivosDoRanking, type BigNumero, type PontoDoSlide, type SlideSatisfacao, type Cartao, type Formato, type ItemMesAteAqui, type MesAteAqui, type ModeloRelatorio, type SerieEvolucao, type SlideRanking } from "@/data/relatorio";
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dd = (n: number) => String(n).padStart(2, "0");
@@ -56,7 +56,8 @@ export const SEMANAIS: DefSemana[] = [
   { id: "fat", rotulo: "Faturamento", titulo: "Faturamento", formato: "brl", campo: (s) => s.totalVendas ?? s.faturamento },
   { id: "rec", rotulo: "Pagamentos dos clientes", titulo: "Pagamentos dos clientes", formato: "brl", campo: (s) => s.recebimento },
   { id: "nc", rotulo: "Novos contratos", titulo: "Novos contratos", formato: "int", campo: (s) => s.novosContratos },
-  { id: "cv", rotulo: "Contratos vendidos", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.vendasContratos },
+  // Regra única (matrícula + rematrícula + renovação de plano com vigência); só nas semanas lidas depois de 23/11/2026
+  { id: "cv", rotulo: "Contratos vendidos", titulo: "Contratos vendidos", formato: "int", campo: (s) => s.contratos },
   { id: "vo", rotulo: "Vendas online", titulo: "Vendas online", formato: "brl", campo: (s) => s.vendasOnline },
   { id: "op", rotulo: "Visitantes", titulo: "Visitantes", formato: "int", campo: (s) => s.visitantes ?? s.oportunidades },
   { id: "canc", rotulo: "Cancelamentos", titulo: "Cancelamentos", formato: "int", campo: (s) => s.cancelados, menorMelhor: true },
@@ -225,12 +226,14 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   let big: BigNumero[] | null = null, oportunidades: number | null = null, convertidas: number | null = null, conversao: number | null = null;
   if (escolheu.has(ID_BIG) || escolheu.has(ID_MES_ATE_AQUI)) {
     const kpi = (nome: string, def: DefSemana): BigNumero => {
-      const v = somaCampo(atual, def.campo), b = temAnt ? somaCampo(ant, def.campo) : 0;
-      return { nome, valor: fmt(def.formato, v), variacao: temAnt ? variacao(v, b) : null, menorMelhor: def.menorMelhor, anterior: temAnt && b > 0 ? fmt(def.formato, b) : null };
+      // só compara quando o mês anterior tem o número (campos novos, como os contratos da regra única, não existem nos meses antigos)
+      const comAnt = temAnt && ant.some((d) => typeof def.campo(d.s) === "number");
+      const v = somaCampo(atual, def.campo), b = comAnt ? somaCampo(ant, def.campo) : 0;
+      return { nome, valor: fmt(def.formato, v), variacao: comAnt ? variacao(v, b) : null, menorMelhor: def.menorMelhor, anterior: comAnt && b > 0 ? fmt(def.formato, b) : null };
     };
     // Contratos vendidos só entra se a semana tem o número (meses lidos antes dele não têm; somar como zero enganaria)
-    const temCv = atual.some((d) => typeof d.s.vendasContratos === "number");
-    big = ["fat", "rec", "nc", ...(temCv ? ["cv"] : []), "vo", "op", "canc"].map((id) => { const d = SEMANAIS.find((x) => x.id === id)!; const k = kpi(d.titulo === "Oportunidades" ? "Oportunidades" : d.titulo, d); return id === "cv" ? { ...k, nota: notaContratosEspeciais(somaCampo(atual, (s) => s.vendasContratosEspeciais)) } : k; });
+    const temCv = atual.some((d) => typeof d.s.contratos === "number");
+    big = ["fat", "rec", "nc", ...(temCv ? ["cv"] : []), "vo", "op", "canc"].map((id) => { const d = SEMANAIS.find((x) => x.id === id)!; const k = kpi(d.titulo === "Oportunidades" ? "Oportunidades" : d.titulo, d); return id === "cv" ? { ...k, nota: notaValorContratos(somaCampo(atual, (s) => s.valorContratos)) } : k; });
     oportunidades = somaCampo(atual, (s) => s.visitantes ?? s.oportunidades);
     convertidas = Math.min(somaCampo(atual, (s) => s.convertidos ?? s.conversoes), oportunidades);
     conversao = oportunidades > 0 ? (convertidas / oportunidades) * 100 : null;
@@ -247,7 +250,7 @@ export function montarRelatorioSemanal(meses: MonthData[], mes: string, semana: 
   for (const def of SEMANAIS) {
     const v = acumulado(m, semana, nomesAtual, def.campo);
     if (v === null) continue;
-    const nota = def.id === "cv" ? notaContratosEspeciais(acumulado(m, semana, nomesAtual, (s) => s.vendasContratosEspeciais) ?? 0) : undefined;
+    const nota = def.id === "cv" ? notaValorContratos(acumulado(m, semana, nomesAtual, (s) => s.valorContratos) ?? 0) : undefined;
     const chave = chaveDoId[def.id];
     const alvo = chave ? metaDoEscopo(metas, mes, chave, nomesAtual, redeAteAgora) : undefined;
     const pct = alvo ? (v / alvo.alvo) * 100 : null;

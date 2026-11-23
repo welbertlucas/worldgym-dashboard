@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { ID_BIG, ID_COMPL, ID_FREQ, ID_METAS, ID_SATISF, INDICADORES_PADRAO, RANKINGS, mesDoAnoAnterior, rotuloDoPeriodo, serieMensal, mesesParaRelatorio, montarRelatorio, resumoDosSlides } from "@/data/relatorio";
 import { month, unit } from "./helpers";
 
+/** Tipo de venda inventado: n matrículas de R$ 100 (regra única de contratos). */
+const tv = (n: number) => ({ novo: [n, n * 100] as [number, number], remat: [0, 0] as [number, number], renov: [0, 0] as [number, number], auto: [0, 0] as [number, number] });
+
+
 const dados = [
   month("2025-10", [unit("Asa Sul", { faturamento: 100000 }), unit("Gama", { faturamento: 50000 })]),
   month("2026-10", [unit("Asa Sul", { faturamento: 120000, nps: 80, notaGoogle: 4.6 }), unit("Gama", { faturamento: 40000 }), unit("Nova", { faturamento: 30000 })]),
@@ -105,10 +109,10 @@ describe("relatório", () => {
 describe("relatório: contratos vendidos, motivos e frequência", () => {
   const calor = Array.from({ length: 168 }, (_, k) => (k % 24 === 18 ? 10 : 1)); // pico às 18h
   const mk = (extra: Record<string, unknown> = {}) => [
-    month("2025-10", [unit("Asa Sul", { vendasContratos: 80 }), unit("Gama", { vendasContratos: 40 })]),
+    month("2025-10", [unit("Asa Sul", { vendasContratos: 80, tipoVenda: tv(80) }), unit("Gama", { vendasContratos: 40, tipoVenda: tv(40) })]),
     month("2026-10", [
-      unit("Asa Sul", { vendasContratos: 100, cancelados: 7, churn: 3.5, inadimplenciaPerc: 8, motivosCancel: { Mudança: 4, Financeiro: 3 }, recusaMotivos: { "Sem saldo": { n: 6, abertas: 2, valorAberto: 300 } }, calor, entradas: 1000, frequentadores: 200, ...extra }),
-      unit("Gama", { vendasContratos: 60, cancelados: 3, churn: 2, inadimplenciaPerc: 5, motivosCancel: { Mudança: 1, Saúde: 2 }, recusaMotivos: { "Sem saldo": { n: 2, abertas: 0, valorAberto: 0 }, "Cartão vencido": { n: 3, abertas: 1, valorAberto: 99.5 } }, calor, entradas: 500, frequentadores: 100 }),
+      unit("Asa Sul", { vendasContratos: 100, tipoVenda: tv(100), cancelados: 7, churn: 3.5, inadimplenciaPerc: 8, motivosCancel: { Mudança: 4, Financeiro: 3 }, recusaMotivos: { "Sem saldo": { n: 6, abertas: 2, valorAberto: 300 } }, calor, entradas: 1000, frequentadores: 200, ...extra }),
+      unit("Gama", { vendasContratos: 60, tipoVenda: tv(60), cancelados: 3, churn: 2, inadimplenciaPerc: 5, motivosCancel: { Mudança: 1, Saúde: 2 }, recusaMotivos: { "Sem saldo": { n: 2, abertas: 0, valorAberto: 0 }, "Cartão vencido": { n: 3, abertas: 1, valorAberto: 99.5 } }, calor, entradas: 500, frequentadores: 100 }),
     ]),
   ];
 
@@ -230,12 +234,12 @@ describe("relatório do mês: receitas complementares num slide só", () => {
     expect(resumoDosSlides({ ...m, observacoes: "   " })).not.toContain("Observações");
   });
 
-  it("o Overview diz quantos dos contratos vendidos são especiais", () => {
-    const base = [month("2026-10", [unit("Asa Sul", { vendasContratos: 50, vendasContratosEspeciais: 3 } as never), unit("Gama", { vendasContratos: 10, vendasContratosEspeciais: 0 } as never)])];
+  it("o Overview mostra os contratos da regra única com o valor vendido", () => {
+    const base = [month("2026-10", [unit("Asa Sul", { vendasContratos: 50, tipoVenda: tv(50), vendasContratosEspeciais: 3 } as never), unit("Gama", { vendasContratos: 10, tipoVenda: tv(10), vendasContratosEspeciais: 0 } as never)])];
     const cv = montarRelatorio(base, "2026-10", [ID_BIG], null)!.big!.find((k) => k.nome === "Contratos vendidos")!;
     expect(cv.valor).toBe("60");
-    expect(cv.nota).toBe("dos quais 3 são especiais");
-    expect(montarRelatorio([month("2026-10", [unit("Gama", { vendasContratos: 10 } as never)])], "2026-10", [ID_BIG], null)!.big!.find((k) => k.nome === "Contratos vendidos")!.nota).toBeUndefined();
+    expect(cv.nota).toBe("R$ 6.000 vendidos");
+    expect(montarRelatorio([month("2026-10", [unit("Gama", { vendasContratos: 10 } as never)])], "2026-10", [ID_BIG], null)!.big!.find((k) => k.nome === "Contratos vendidos")!.nota).toBeUndefined(); // mês sem o tipo de venda
   });
 
   it("mês fechado compara com o mesmo mês do ano anterior (se a unidade existia) e com o mês anterior; sem o ano anterior, só com o mês anterior", () => {

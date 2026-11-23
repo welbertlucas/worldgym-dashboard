@@ -158,7 +158,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasContratos: 0, vendasContratosEspeciais: 0, vendasManuais: 0, vendasRecorrentes: 0, vendasOnlineContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _vendedores: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0), semanas: Array.from({ length: dias > 28 ? 5 : 4 }, () => ({ novosContratos: 0, vendasContratos: 0, vendasContratosEspeciais: 0, totalVendas: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0 })) });
+    const u = (por[nome] ??= { novosContratos: 0, vendasContratos: 0, vendasContratosEspeciais: 0, vendasManuais: 0, vendasRecorrentes: 0, vendasOnlineContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _vendedores: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0), semanas: Array.from({ length: dias > 28 ? 5 : 4 }, () => ({ novosContratos: 0, vendasContratos: 0, vendasContratosEspeciais: 0, contratos: 0, valorContratos: 0, totalVendas: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0 })) });
     const dia = Number(String(s.saleDate ?? "").slice(8, 10));
     const sem = dia >= 1 && dia <= dias ? u.semanas[semanaDoDia(dia) - 1] : null; // semana do mês (relatórios semanais)
     for (const i of s.saleItens || []) {
@@ -180,6 +180,8 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
         u.tipoVenda[tipo][1] += v;
         // Renovação de plano de recorrência mensal (o item vem com valueNextMonth): o EVO renova sozinho todo mês. `auto` é parte de `renov`.
         if (tipo === "renov" && i.valueNextMonth != null) { u.tipoVenda.auto[0] += 1; u.tipoVenda.auto[1] += v; }
+        // Regra única de contratos do Atlas (matrícula + rematrícula + renovação de plano com vigência), por semana, com o valor vendido
+        else if (sem) { sem.contratos += 1; sem.valorContratos += v; }
         // Ranking e duração olham só a venda nova (matrícula e rematrícula): renovação é, na maior parte, a recorrência mensal automática.
         if (tipo !== "renov") {
           const n = nomePlano(i);
@@ -224,7 +226,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   for (const u of Object.values(por)) {
     for (const k of ["vendasManuais", "vendasRecorrentes", "vendasOnlineContratos", "vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal", "kids", "plus", "proMais"]) u[k] = round2(u[k]);
     for (const t of Object.values(u.tipoVenda)) t[1] = round2(t[1]);
-    for (const w of u.semanas) for (const k of ["totalVendas", "vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal"]) w[k] = round2(w[k]);
+    for (const w of u.semanas) for (const k of ["totalVendas", "valorContratos", "vendasOnline", "diarias", "camisetas", "coqueteleiras", "personal"]) w[k] = round2(w[k]);
     // Guarda os 10 planos mais vendidos (o painel mostra 5; a rede soma os das unidades).
     u.contratosVendidos = [...u._planos].map(([n, [q, v]]) => [n, q, round2(v)]).sort((a, b) => b[1] - a[1] || b[2] - a[2]).slice(0, 10);
     u.familiasVendidas = [...u._familias].map(([n, [q, v]]) => [n, q, round2(v)]).sort((a, b) => b[1] - a[1] || b[2] - a[2]);

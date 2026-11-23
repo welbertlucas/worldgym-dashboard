@@ -146,10 +146,10 @@ describe("relatório semanal", () => {
 
 describe("relatório semanal: contratos vendidos, mês até aqui no Overview e receitas complementares", () => {
   const cv = month("2026-11", [
-    com("Asa Norte", [{ faturamento: 1100, vendasContratos: 30, oportunidades: 10, cancelados: 3, novosContratos: 12, diarias: 100, personal: 50, kids: 20, plus: 10, proMais: 5, camisetas: 8, coqueteleiras: 7 }, { faturamento: 900, vendasContratos: 20, oportunidades: 8, cancelados: 2, diarias: 60, camisetas: 4 }]),
-    com("Gama", [{ faturamento: 450, vendasContratos: 10, oportunidades: 5, cancelados: 1, novosContratos: 4, diarias: 40, personal: 30 }, { faturamento: 650, vendasContratos: 15, oportunidades: 4, cancelados: 2, diarias: 10 }]),
+    com("Asa Norte", [{ faturamento: 1100, contratos: 30, valorContratos: 3000, oportunidades: 10, cancelados: 3, novosContratos: 12, diarias: 100, personal: 50, kids: 20, plus: 10, proMais: 5, camisetas: 8, coqueteleiras: 7 }, { faturamento: 900, contratos: 20, valorContratos: 2000, oportunidades: 8, cancelados: 2, diarias: 60, camisetas: 4 }]),
+    com("Gama", [{ faturamento: 450, contratos: 10, valorContratos: 1000, oportunidades: 5, cancelados: 1, novosContratos: 4, diarias: 40, personal: 30 }, { faturamento: 650, contratos: 15, valorContratos: 1500, oportunidades: 4, cancelados: 2, diarias: 10 }]),
   ]);
-  const antes = month("2026-10", [com("Asa Norte", [{ faturamento: 1000, vendasContratos: 25, diarias: 100, personal: 50 }]), com("Gama", [{ faturamento: 500, vendasContratos: 9, diarias: 50 }])]);
+  const antes = month("2026-10", [com("Asa Norte", [{ faturamento: 1000, contratos: 25, valorContratos: 2500, diarias: 100, personal: 50 }]), com("Gama", [{ faturamento: 500, contratos: 9, valorContratos: 900, diarias: 50 }])]);
 
   it("contratos vendidos entra no Overview da semana e no mês até aqui, em letras menores no mesmo slide", () => {
     const m = montarRelatorioSemanal([antes, cv], "2026-11", 1, [ID_BIG, ID_MES_ATE_AQUI], null, 20, [])!;
@@ -202,21 +202,21 @@ describe("relatório semanal: contratos vendidos, mês até aqui no Overview e r
     expect(m.big!.find((b) => b.nome === "Visitantes")!.valor).toBe("30");
   });
 
-  it("cada indicador da semana traz o acumulado do mês até agora (semanas 1 a N) e, nos contratos vendidos, quantos são especiais", () => {
+  it("cada indicador da semana traz o acumulado do mês até agora (semanas 1 a N) e, nos contratos vendidos, o valor vendido", () => {
     const base = month("2026-11", [
-      com("Asa Norte", [{ faturamento: 100, vendasContratos: 38, vendasContratosEspeciais: 1, visitantes: 20, convertidos: 10 }, { faturamento: 150, vendasContratos: 52, vendasContratosEspeciais: 1, visitantes: 30, convertidos: 12 }, { faturamento: 80, vendasContratos: 37, vendasContratosEspeciais: 6, visitantes: 10, convertidos: 8 }]),
+      com("Asa Norte", [{ faturamento: 100, contratos: 38, valorContratos: 3800, visitantes: 20, convertidos: 10 }, { faturamento: 150, contratos: 52, valorContratos: 5200, visitantes: 30, convertidos: 12 }, { faturamento: 80, contratos: 37, valorContratos: 3700, visitantes: 10, convertidos: 8 }]),
     ]);
     const m = montarRelatorioSemanal([base], "2026-11", 3, ["fat", "cv", ID_CONVERSAO], ["Asa Norte"], 21)!;
-    expect(m.ateAgora!.cv).toMatchObject({ valor: "127", nota: "dos quais 8 são especiais" });
+    expect(m.ateAgora!.cv).toMatchObject({ valor: "127", nota: "R$ 12.700 vendidos" });
     expect(m.ateAgora!.fat.valor).toBe("R$ 330");
     expect(m.ateAgora![ID_CONVERSAO].valor).toBe("50,0% (30 de 60 visitantes)"); // taxa acumulada, e não a soma de taxas
     const cv = m.rankings.find((r) => r.id === "cv")!;
     expect(cv.cartao!.valor).toBe("37"); // a semana continua sendo o número grande
-    expect(cv.ateAgora!.texto).toBe("no mês até aqui (1-21 nov/26): 127, dos quais 8 são especiais");
+    expect(cv.ateAgora!.texto).toBe("no mês até aqui (1-21 nov/26): 127, R$ 12.700 vendidos");
     // várias unidades: o total do conjunto
-    const dois = month("2026-11", [com("A", [{ vendasContratos: 10 }]), com("B", [{ vendasContratos: 5 }])]);
+    const dois = month("2026-11", [com("A", [{ contratos: 10, valorContratos: 1000 }]), com("B", [{ contratos: 5, valorContratos: 500 }])]);
     const m2 = montarRelatorioSemanal([dois], "2026-11", 1, ["cv"], null, 7)!;
-    expect(m2.rankings[0].ateAgora!.texto).toBe("total das unidades no mês até aqui (1-7 nov/26): 15");
+    expect(m2.rankings[0].ateAgora!.texto).toBe("total das unidades no mês até aqui (1-7 nov/26): 15, R$ 1.500 vendidos");
   });
 
   it("satisfação do relatório semanal, em um slide só: NPS e pontos de contato do mês até aqui, e só promotores e detratores da semana", () => {
