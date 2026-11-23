@@ -15,7 +15,7 @@ import { montarPdfPonto } from "@/components/estudos/pdfPonto";
 import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
-import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
+import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao } from "@/components/estudos/sugestoes";
 import {
   comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
@@ -65,8 +65,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const cartaoAberto = useRef<string | null>(null);
   // o mapa vai do topo dele até o fim da tela, sem precisar rolar
   const caixaMapa = useRef<HTMLDivElement>(null);
-  const alturaMapa = useAlturaAteOFim(caixaMapa);
-  useEffect(() => { mapaRef.current?.mapa.invalidateSize(); }, [alturaMapa]);
+  const alturaMapa = useAlturaAteOFim(caixaMapa, 480, 0);
+  const [vista, setVista] = useState<"mapa" | "estudo">("mapa");
+  useEffect(() => { mapaRef.current?.mapa.invalidateSize(); }, [alturaMapa, vista]);
   const [adicionando, setAdicionando] = useState(iniciarAdicionando);
   const [fundo, setFundo] = useState<Fundo>("padrao");
   const satelite = fundo === "satelite";
@@ -207,6 +208,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     // pontos em estudo
     pontos.forEach((p, i) => {
       const sel = p.id === atualId;
+      // canibalização: a área do ponto também (contorno cheio, como a da unidade no estudo dela), para ver onde ela encosta nas World Gym vizinhas
+      if (lente === "rede") L.circle(p.c, { radius: 2400, color: "#7a0a1e", weight: sel ? 1.6 : 1, fillColor: "#c41230", fillOpacity: sel ? 0.12 : 0.05, interactive: false }).addTo(camadas);
       const mk = L.marker(p.c, { draggable: editavel, zIndexOffset: sel ? 2000 : 1000, icon: pino(L, CORES[i % CORES.length], sel ? 40 : 32, letra(i)) })
         .bindPopup(() => cartaoDoPino(p, letra(i)), { offset: [0, -28], minWidth: 240, maxWidth: 300, className: "cartao-pino" }).addTo(camadas);
       // clicar num ponto que não estava escolhido redesenha o mapa: o cartão reabre no pino novo depois do redesenho
@@ -303,26 +306,17 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   };
 
   return (
-    <div className="space-y-4">
-      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
-
-      {/* topo */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={voltar}>Todos os estudos</Button>
-          <h2 className="font-display text-2xl font-medium">{comparando ? `Comparando ${pontos.length} pontos` : "Estudo de ponto"}</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
-          {editavel && (
-            <Button variant={adicionando ? "secondary" : "outline"} onClick={() => setAdicionando((a) => !a)} aria-pressed={adicionando}>{adicionando ? "Clique no mapa…" : "Adicionar ponto"}</Button>
-          )}
-          <Button onClick={exportar} disabled={gerando || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
-        </div>
-      </div>
-
-      {/* mapa: busca de endereço e camadas à direita, barra de mapa/Street View/zoom embaixo (arranjo do Mapfry) */}
-      <div ref={caixaMapa} style={{ height: alturaMapa }} className="relative isolate min-h-[480px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
+    <TelaDeMapa caixaRef={caixaMapa} altura={alturaMapa} vista={vista} setVista={setVista} temEstudo={pontos.length > 0}
+      subtitulo={comparando ? `Comparando ${pontos.length} pontos` : "Estudo de ponto"}
+      titulo={atual ? `${letra(Math.max(0, pontos.findIndex((p) => p.id === atual.id)))}. ${atual.nome}` : "Novo estudo"}
+      navegacao={<Button variant="outline" size="sm" className="h-8 px-2.5" onClick={voltar}>Todos os estudos</Button>}
+      acoes={<>
+        {editavel && <Button size="sm" className="h-8" variant={adicionando ? "secondary" : "outline"} onClick={() => { setVista("mapa"); setAdicionando((a) => !a); }} aria-pressed={adicionando}>{adicionando ? "Clique no mapa…" : "Adicionar ponto"}</Button>}
+        <Button size="sm" className="h-8" onClick={exportar} disabled={gerando || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
+        <span className="text-[11px] text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
+      </>}
+      mapa={<>
+        <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
         <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
         {(adicionando || verRua || achado) && (
           <div className="absolute left-1/2 top-3 z-[456] flex max-w-[calc(100%-34rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
@@ -333,7 +327,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         )}
         <BuscaEndereco perto={atual?.c ?? (mapaRef.current ? [mapaRef.current.mapa.getCenter().lat, mapaRef.current.mapa.getCenter().lng] : null)}
           aoEscolher={(l) => { setAdicionando(false); setVerRua(false); setAchado(l); mapaRef.current?.mapa.setView(l.c, 16); }} />
-        <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa"
+        <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" topo="top-[7.25rem]"
           abaExtra={{ rotulo: "Lugares por perto", conteudo: <ControlePois embutido centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
@@ -349,8 +343,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />
         <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
-      </div>
-
+      </>}
+      estudo={<div className="space-y-4">
       {/* pontos em estudo */}
       {pontos.length > 0 ? (
         <div className="flex gap-2.5 overflow-x-auto pb-1" role="tablist" aria-label="Pontos em estudo">
@@ -518,7 +512,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           </div>
         </fieldset>
       )}
-    </div>
+      </div>}
+    />
   );
 }
 

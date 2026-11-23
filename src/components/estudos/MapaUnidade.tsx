@@ -3,15 +3,15 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { aplicarFundo, bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
-import { BarraMapa, PainelCamadas, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
-import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento } from "@/components/estudos/deslocamento";
+import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
+import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { COR_OUTROS_BAIRROS, CORES_BAIRROS, LegendaCenso, LegendaRenda, RoscaBairros, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 export { LegendaRenda };
-import { LIMITES_SUGESTAO, REGRAS_NOVA_UNIDADE, desenharSugestoes, enderecoCurto, textoConcorrencia, textoSugestoes, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
+import { LIMITES_SUGESTAO, REGRAS_NOVA_UNIDADE, desenharSugestoes, enderecoCurto, textoConcorrencia, textoParecerSugestao, textoSugestoes, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
-import { comercioEm, rendaTotalEm, MINUTOS_PADRAO, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { avaliarPonto, faixaDaFatia, comercioEm, rendaTotalEm, MINUTOS_PADRAO, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "oportunidade";
@@ -20,6 +20,7 @@ const LENTES: { id: Lente; rotulo: string }[] = [
   { id: "pessoas", rotulo: "População" }, { id: "idade", rotulo: "Idade" }, { id: "domicilios", rotulo: "Domicílios" },
   { id: "renda", rotulo: "Renda" }, { id: "rendaTotal", rotulo: "Renda total" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "comercio", rotulo: "Concentração comercial" }, { id: "rede", rotulo: "Canibalização" },
 ];
+const SEM_UNIDADES: UnidadeEstudo[] = [];
 const fmtKm = (v: number | null) => (v == null ? "—" : `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`);
 
 /**
@@ -35,8 +36,9 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const satelite = fundo === "satelite";
   // o mapa ocupa do topo dele até o fim da tela, sem precisar rolar
   const caixaMapa = useRef<HTMLDivElement>(null);
-  const alturaMapa = useAlturaAteOFim(caixaMapa);
-  useEffect(() => { ref.current?.mapa.invalidateSize(); }, [alturaMapa]);
+  const alturaMapa = useAlturaAteOFim(caixaMapa, 480, 0);
+  const [vista, setVista] = useState<"mapa" | "estudo">("mapa");
+  useEffect(() => { ref.current?.mapa.invalidateSize(); }, [alturaMapa, vista]);
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -73,7 +75,15 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     ? posicoesMelhores({ c: u.c, m2: dados.premissas.modelos[u.modelo]?.padraoM2 ?? u.m2 ?? 1200 }, dados.censo, dados.unidades ?? [], [], dados.premissas.curva,
       { raioKm: 10, n: 8, separacaoKm: 2.5, ganhoMinimo: -0.3, ...REGRAS_NOVA_UNIDADE })
     : null), [u?.nome, dados]); // eslint-disable-line react-hooks/exhaustive-deps
-  const novaUnidade = useSugestoesSemSaturacao(candidatasNova, dados.censo);
+  // parecer de cada posição sugerida: o mesmo do estudo de ponto, com o tamanho padrão do modelo e a fatia do potencial contra a rede
+  const refsModelo = useReferenciaPopulacao(dados.unidades ?? SEM_UNIDADES, dados.censo, candidatasNova && u ? u.modelo : null);
+  const avaliacaoNova = useMemo(() => {
+    const faixaM2 = u ? dados.vendasPorM2?.[u.modelo] : null;
+    if (!u || !dados.premissas || !faixaM2 || !refsModelo) return null;
+    const r = avaliarPonto({ m2: dados.premissas.modelos[u.modelo]?.padraoM2 ?? u.m2 ?? 1200, modelo: u.modelo }, dados.premissas, faixaM2);
+    return { provavel: r.provavel, veredito: r.veredito, faixa: faixaDaFatia(refsModelo) };
+  }, [u?.nome, dados, refsModelo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const novaUnidade = useSugestoesSemSaturacao(avaliacaoNova ? candidatasNova : null, dados.censo, 3, avaliacaoNova);
   // Totais da área para a legenda (rosca das classes de renda e valor do potencial de consumo), na mesma área dos hexágonos
   const resumoCenso = useMemo(() => (u?.c && dados.censo ? {
     renda: area10 ? classesNaArea(dados.censo, area10) : classesNoRaio(u.c, dados.censo, 5),
@@ -236,34 +246,24 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   };
 
   return (
-    <div className="space-y-4">
-      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
-
-      {/* topo: voltar, unidade, exportar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          {voltar && <Button variant="outline" size="sm" onClick={voltar}>Todos os estudos</Button>}
-          {verRede && <Button variant="outline" size="sm" onClick={verRede}>Mapa da rede</Button>}
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Estudo da unidade{u.m2 ? `, ${u.m2.toLocaleString("pt-BR")} m²` : ""}</p>
-            <h2 className="truncate font-display text-2xl font-medium">World Gym {u.nome}</h2>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {unidades.length > 1 && (
-            <select value={u.nome} onChange={(e) => setNome(e.target.value)} aria-label="Unidade" className="h-10 rounded-xl border bg-white px-2.5 text-sm">
-              {unidades.map((x) => <option key={x.nome} value={x.nome}>{x.nome}</option>)}
+    <>
+      <TelaDeMapa caixaRef={caixaMapa} altura={alturaMapa} vista={vista} setVista={setVista}
+        subtitulo={`Estudo da unidade${u.m2 ? `, ${u.m2.toLocaleString("pt-BR")} m²` : ""}`}
+        titulo={unidades.length > 1
+          ? <select value={u.nome} onChange={(e) => setNome(e.target.value)} aria-label="Unidade" className="-ml-1 max-w-[16rem] truncate rounded-md bg-transparent pr-1 font-display text-lg font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+              {unidades.map((x) => <option key={x.nome} value={x.nome}>World Gym {x.nome}</option>)}
             </select>
-          )}
-          <Button onClick={exportar} disabled={gerando}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
-        </div>
-      </div>
-
-      {/* mapa: camadas à direita e barra de mapa/Street View/zoom embaixo (arranjo do Mapfry) */}
-      <div ref={caixaMapa} style={{ height: alturaMapa }} className="relative isolate min-h-[480px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
+          : `World Gym ${u.nome}`}
+        navegacao={<>
+          {voltar && <Button variant="outline" size="sm" className="h-8 px-2.5" onClick={voltar}>Todos os estudos</Button>}
+          {verRede && <Button variant="outline" size="sm" className="h-8 px-2.5" onClick={verRede}>Mapa da rede</Button>}
+        </>}
+        acoes={<Button size="sm" className="h-8" onClick={exportar} disabled={gerando}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>}
+        mapa={<>
+        <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
         <div ref={el} className="absolute inset-0" aria-label={`Mapa da unidade ${u.nome}`} />
         {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
-        <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa"
+        <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" topo="top-[7.25rem]"
           abaExtra={{ rotulo: "Lugares por perto", conteudo: <ControlePois embutido centro={u.c} aviso={false} area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
           legenda={lente === "modelo" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
@@ -300,6 +300,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
                       <p className="mt-0.5 text-foreground">{endsNova[i] ? enderecoCurto(endsNova[i]) : "Buscando o endereço…"}</p>
                       {x.divideCom.length > 0 && <p className="mt-0.5">Divide {x.divideCom.map((d) => `${Math.round(d.parte * 100)}% com ${d.nome.replace("World Gym ", "")}`).join(", ")}.</p>}
                       {textoConcorrencia(x.concorrencia) && <p className="mt-0.5">{textoConcorrencia(x.concorrencia)}.</p>}
+                      {textoParecerSugestao(x.parecer) && <p className="mt-0.5 font-medium text-foreground">{textoParecerSugestao(x.parecer)}.</p>}
                       {estudarPosicao && <Button size="sm" variant="outline" className="mt-1 h-7 bg-white px-2.5 text-xs" onClick={() => estudarPosicao(x.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u, endsNova[i])}>Estudar esta posição</Button>}
                     </div>
                   ))}
@@ -311,8 +312,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
           ]} />
         <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
-      </div>
-
+        </>}
+        estudo={<>
       {/* números principais numa faixa fina, embaixo do mapa (decisão do dono, 23/11/2026: ao abrir, o mapa ocupa a tela inteira, sem rolar) */}
       <div className="flex flex-wrap gap-2 text-[13px]">
         {[
@@ -331,7 +332,9 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       </div>
 
 
-      {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
-    </div>
+          {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
+        </>}
+      />
+    </>
   );
 }

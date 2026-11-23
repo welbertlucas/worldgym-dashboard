@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { aplicarFundo, carregarLeaflet, pino, URL_OSM, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
-import { BarraMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
+import { BarraMapa, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { StreetView } from "@/components/estudos/StreetView";
 import { reais, type UnidadeEstudo } from "@/lib/estudoPonto";
 
@@ -17,7 +17,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
   // os mesmos controles do mapa da unidade: fundo (padrão, cinza, relevo, satélite), régua, Street View e zoom
   const [fundo, setFundo] = useState<Fundo>("padrao");
   const caixa = useRef<HTMLDivElement>(null);
-  const altura = useAlturaAteOFim(caixa);
+  const altura = useAlturaAteOFim(caixa, 480, 0);
   useEffect(() => { ref.current?.mapa.invalidateSize(); }, [altura]);
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
@@ -59,26 +59,22 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
   }, [verRua, pronto]);
   const n = (mod: "low" | "pro") => comPosicao.filter((u) => u.modelo === mod).length;
   return (
-    <div className="space-y-3">
-      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={voltar}>Todos os estudos</Button>
-          <h2 className="font-display text-2xl font-medium">Mapa da rede</h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full" style={{ background: COR.low }} />{n("low")} Low Cost</span>
-          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full" style={{ background: COR.pro }} />{n("pro")} Pro</span>
-          <span>{comPosicao.length} unidades</span>
-        </div>
-      </div>
-      <div ref={caixa} style={{ height: altura }} className="relative isolate min-h-[480px] overflow-hidden rounded-2xl border bg-muted">
+    <TelaDeMapa caixaRef={caixa} altura={altura} vista="mapa" setVista={() => {}} temEstudo={false}
+      titulo="Mapa da rede"
+      subtitulo={abrir ? "Clique numa unidade para abrir o estudo dela" : undefined}
+      navegacao={<Button variant="outline" size="sm" className="h-8 px-2.5" onClick={voltar}>Todos os estudos</Button>}
+      acoes={<div className="flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.low }} />{n("low")} Low Cost</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.pro }} />{n("pro")} Pro</span>
+        <span>{comPosicao.length} unidades</span>
+      </div>}
+      mapa={<>
+        <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
         <div ref={el} className="absolute inset-0" aria-label="Mapa das unidades da rede" />
         {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
         <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
-      </div>
-      {abrir && <p className="text-xs text-muted-foreground">Passe o mouse numa unidade para ver os números; clique para abrir o estudo dela.</p>}
-    </div>
+      </>}
+    />
   );
 }

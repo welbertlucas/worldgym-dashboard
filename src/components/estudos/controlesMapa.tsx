@@ -267,3 +267,45 @@ export function useAlturaAteOFim(el: React.RefObject<HTMLElement | null>, minimo
   useEffect(() => { window.addEventListener("resize", medir); return () => window.removeEventListener("resize", medir); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return altura;
 }
+
+/**
+ * Tela de mapa no arranjo do Mapfry (pedido do dono, 23/11/2026): o mapa ocupa toda a área de conteúdo, de ponta a ponta, e o que é clicável
+ * fica por cima dele: no canto de cima à esquerda, o cartão com a volta, o título, a troca Mapa/Estudo e as ações. O resultado do estudo
+ * fica na vista "Estudo", em página normal. O mapa não é desmontado ao trocar de vista (só escondido), para não perder o que está nele.
+ */
+export function TelaDeMapa({ caixaRef, altura, titulo, subtitulo, navegacao, acoes, vista, setVista, temEstudo = true, mapa, estudo }: {
+  caixaRef: React.RefObject<HTMLDivElement>; altura: number | undefined;
+  titulo: ReactNode; subtitulo?: ReactNode; navegacao?: ReactNode; acoes?: ReactNode;
+  vista: "mapa" | "estudo"; setVista: (v: "mapa" | "estudo") => void; temEstudo?: boolean;
+  mapa: ReactNode; estudo?: ReactNode;
+}) {
+  const troca = temEstudo && (
+    <div className="flex rounded-lg bg-muted p-0.5 text-[12px] font-medium" role="tablist" aria-label="Mapa ou estudo">
+      {(["mapa", "estudo"] as const).map((v) => (
+        <button key={v} type="button" role="tab" aria-selected={vista === v} onClick={() => setVista(v)}
+          className="rounded-md px-3 py-1 text-muted-foreground aria-selected:bg-white aria-selected:text-foreground aria-selected:shadow-sm">{v === "mapa" ? "Mapa" : "Estudo"}</button>
+      ))}
+    </div>
+  );
+  const cartao = (
+    <div className="pointer-events-auto w-fit max-w-[calc(100vw-2rem)] space-y-2 rounded-xl border bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur">
+      <div className="flex min-w-0 items-center gap-2">
+        {navegacao}
+        <div className="min-w-0">
+          {subtitulo && <p className="truncate text-[11px] leading-tight text-muted-foreground">{subtitulo}</p>}
+          <h2 className="truncate font-display text-lg font-medium leading-tight">{titulo}</h2>
+        </div>
+      </div>
+      {(troca || acoes) && <div className="flex flex-wrap items-center gap-2">{troca}{acoes}</div>}
+    </div>
+  );
+  return (
+    <div className="-mx-3 !-mt-4 sm:-mx-6 sm:!-mt-6 lg:-mx-8">
+      <div ref={caixaRef} style={{ height: altura }} className={`relative isolate min-h-[480px] overflow-hidden bg-muted ${vista === "estudo" ? "hidden" : ""}`}>
+        {mapa}
+        <div className="pointer-events-none absolute left-3 top-3 z-[457]">{cartao}</div>
+      </div>
+      {vista === "estudo" && <div className="space-y-4 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">{cartao}{estudo}</div>}
+    </div>
+  );
+}

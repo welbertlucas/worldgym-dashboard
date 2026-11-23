@@ -11,10 +11,10 @@ export const ehCamadaCenso = (x: string): x is CamadaCenso => ["pessoas", "idade
 export const VERDE = (t: number) => `rgb(${Math.round(220 - 190 * t)},${Math.round(240 - 120 * t)},${Math.round(225 - 150 * t)})`;
 export const ROXO = (t: number) => `rgb(${Math.round(237 - 150 * t)},${Math.round(225 - 190 * t)},${Math.round(247 - 120 * t)})`;
 /**
- * Abaixo disso o hexágono (200 m) não é desenhado, como no Mapfry, que deixa em branco o que não é área de moradia (parques, vazios, rodovias).
- * Os números da área continuam contando todos: perto do Gama, os escondidos são quase metade dos hexágonos e 1,2% dos moradores.
+ * Hexágono com pelo menos 1 morador é desenhado. Em 23/11/2026 o corte foi de 20 moradores (para imitar o Mapfry, que deixa parques e vazios em
+ * branco), mas em áreas de ocupação espalhada (ex.: Lago Azul, no Novo Gama) isso apagava bairros com gente morando: o dono pediu a área cheia.
  */
-export const MIN_MORADORES_NO_MAPA = 20;
+export const MIN_MORADORES_NO_MAPA = 1;
 /** Hexágonos desenhados: os de centro dentro da área e, com a geometria, também os da borda, recortados nela. */
 function poligonos(censo: Censo, c: [number, number], area?: Geometria | null): [number, number][][] {
   const h = hexagono(c[0], c[1], censo.rk);
