@@ -16,7 +16,7 @@ import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
-import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao } from "@/components/estudos/sugestoes";
+import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
   comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
@@ -125,9 +125,13 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const fatiaPonto = r && potencial10 ? r.provavel / potencial10 : null;
   const vf = vereditoComFatia(ex?.veredito ?? r?.veredito ?? null, fatiaPonto, faixaFatia);
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
-  const sugestoes = useMemo(() => (atual && dados.censo && dados.premissas
-    ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva)
+  const candidatasPerto = useMemo(() => (atual && dados.censo && dados.premissas
+    ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva, { n: 8 })
     : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.m2, todos.length, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  // as posições melhores passam pelo mesmo parecer do ponto (decisão do dono, 23/11/2026): saturadas de academias ou "Não aprova" saem
+  const avaliacaoPerto = useMemo(() => (r && atual && refsPop ? { provavel: r.provavel, veredito: (ex?.veredito ?? r.veredito), faixa: faixaFatia } : null),
+    [r?.provavel, r?.veredito, ex?.veredito, atual?.id, refsPop, faixaFatia?.comum, faixaFatia?.maxima]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sugestoes = useSugestoesSemSaturacao(avaliacaoPerto ? candidatasPerto : null, dados.censo, 3, avaliacaoPerto);
 
   const mudar = (id: string, campos: Partial<Ponto>) => editavel && setPontos((ps) => ps.map((p) => (p.id === id ? { ...p, ...campos, atualizadoEm: new Date().toISOString() } : p)));
   const remover = (id: string) => { setPontos((ps) => ps.filter((p) => p.id !== id)); if (atualId === id) setAtualId(pontos.find((p) => p.id !== id)?.id ?? null); };
@@ -309,25 +313,13 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     <TelaDeMapa caixaRef={caixaMapa} altura={alturaMapa} vista={vista} setVista={setVista} temEstudo={pontos.length > 0}
       subtitulo={comparando ? `Comparando ${pontos.length} pontos` : "Estudo de ponto"}
       titulo={atual ? `${letra(Math.max(0, pontos.findIndex((p) => p.id === atual.id)))}. ${atual.nome}` : "Novo estudo"}
-      navegacao={<Button variant="outline" size="sm" className="h-8 px-2.5" onClick={voltar}>Todos os estudos</Button>}
+      navegacao={<Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={voltar}>Todos os estudos</Button>}
       acoes={<>
-        {editavel && <Button size="sm" className="h-8" variant={adicionando ? "secondary" : "outline"} onClick={() => { setVista("mapa"); setAdicionando((a) => !a); }} aria-pressed={adicionando}>{adicionando ? "Clique no mapa…" : "Adicionar ponto"}</Button>}
-        <Button size="sm" className="h-8" onClick={exportar} disabled={gerando || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
+        {editavel && <Button size="sm" className="h-7 px-2.5 text-[12px]" variant={adicionando ? "secondary" : "outline"} onClick={() => { setVista("mapa"); setAdicionando((a) => !a); }} aria-pressed={adicionando}>{adicionando ? "Clique no mapa…" : "Adicionar ponto"}</Button>}
+        <Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
         <span className="text-[11px] text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
       </>}
-      mapa={<>
-        <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
-        <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
-        {(adicionando || verRua || achado) && (
-          <div className="absolute left-1/2 top-3 z-[456] flex max-w-[calc(100%-34rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
-            {adicionando ? "Clique no mapa onde fica o imóvel" : verRua ? "Clique no mapa onde quer ver a rua" : <span className="truncate">{achado!.nome}</span>}
-            {achado && !adicionando && !verRua && editavel && <Button size="sm" onClick={estudarAchado}>Estudar este endereço</Button>}
-            {achado && !adicionando && !verRua && <Button size="sm" variant="ghost" className="text-background hover:bg-background/15 hover:text-background" onClick={() => setAchado(null)}>Fechar</Button>}
-          </div>
-        )}
-        <BuscaEndereco perto={atual?.c ?? (mapaRef.current ? [mapaRef.current.mapa.getCenter().lat, mapaRef.current.mapa.getCenter().lng] : null)}
-          aoEscolher={(l) => { setAdicionando(false); setVerRua(false); setAchado(l); mapaRef.current?.mapa.setView(l.c, 16); }} />
-        <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" topo="top-[7.25rem]"
+      painel={<PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" naColuna
           abaExtra={{ rotulo: "Lugares por perto", conteudo: <ControlePois embutido centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
@@ -340,7 +332,19 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             })() : <p>Nenhuma World Gym divide a área deste ponto.</p>}
             <p className="mt-1.5">Parte do público da área que World Gym vizinhas também atraem. Círculos: a área de cada unidade e a do ponto.</p>
           </> : null}
-          sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />
+          sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />}
+      mapa={<>
+        <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
+        <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
+        {(adicionando || verRua || achado) && (
+          <div className="absolute left-1/2 top-3 z-[456] flex max-w-[calc(100%-34rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
+            {adicionando ? "Clique no mapa onde fica o imóvel" : verRua ? "Clique no mapa onde quer ver a rua" : <span className="truncate">{achado!.nome}</span>}
+            {achado && !adicionando && !verRua && editavel && <Button size="sm" onClick={estudarAchado}>Estudar este endereço</Button>}
+            {achado && !adicionando && !verRua && <Button size="sm" variant="ghost" className="text-background hover:bg-background/15 hover:text-background" onClick={() => setAchado(null)}>Fechar</Button>}
+          </div>
+        )}
+        <BuscaEndereco perto={atual?.c ?? (mapaRef.current ? [mapaRef.current.mapa.getCenter().lat, mapaRef.current.mapa.getCenter().lng] : null)}
+          aoEscolher={(l) => { setAdicionando(false); setVerRua(false); setAchado(l); mapaRef.current?.mapa.setView(l.c, 16); }} />
         <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </>}

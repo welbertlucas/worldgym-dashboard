@@ -101,18 +101,20 @@ export function desenharSugestoes(L: Leaflet, grupo: import("leaflet").LayerGrou
     .bindTooltip(`Posição sugerida ${i + 1}: ${pct(s.ganho)} de público alcançável`).addTo(grupo));
 }
 
-export const LIMITES_SUGESTAO = "A recomendação usa o que o Atlas mede: moradores do Censo, distância até o ponto, divisão do público com outras World Gym e, na nova unidade, quantas academias há por perto (Google). Ela não enxerga imóvel disponível, aluguel, visibilidade da fachada, acesso, estacionamento nem fluxo de pessoas: serve para orientar onde procurar imóveis, não substitui a visita.";
+export const LIMITES_SUGESTAO = "A recomendação usa o que o Atlas mede: moradores do Censo, distância até o ponto, divisão do público com outras World Gym, quantas academias há por perto (Google) e o mesmo parecer de um estudo de ponto: posição que não seria aprovada não é recomendada. Ela não enxerga imóvel disponível, aluguel, visibilidade da fachada, acesso, estacionamento nem fluxo de pessoas: serve para orientar onde procurar imóveis, não substitui a visita.";
 
 /** Texto da recomendação (para a tela e para o PDF). */
 export function textoSugestoes(res: ResultadoSugestoes, tipo: TipoSugestao, nome: string) {
   if (!res.sugestoes.length) {
     return tipo === "ponto"
-      ? `Testamos ${res.testadas} posições num raio de 3 km e nenhuma alcança 10% mais público que ${nome}: o ponto já está entre os melhores da região pelo que o Atlas mede.`
+      ? (res.saturadas || res.naoAprovam
+        ? `Testamos ${res.testadas} posições num raio de 3 km. As que alcançam mais público que ${nome} foram descartadas (${[res.saturadas ? `${res.saturadas} por concorrência saturada` : "", res.naoAprovam ? `${res.naoAprovam} porque o parecer seria "Não aprova"` : ""].filter(Boolean).join(" e ")}): pelo que o Atlas mede, não há posição melhor e aprovável por perto.`
+        : `Testamos ${res.testadas} posições num raio de 3 km e nenhuma alcança 10% mais público que ${nome}: o ponto já está entre os melhores da região pelo que o Atlas mede.`)
       : `Testamos ${res.testadas} posições num raio de 10 km, a mais de 5 km de qualquer World Gym. Nenhuma alcança ao menos 70% do público da World Gym ${nome} sem dividir mais de 10% do público com uma unidade existente${res.saturadas ? ` e fora de região saturada de academias (${res.saturadas} ${res.saturadas === 1 ? "posição descartada" : "posições descartadas"} por ter menos de ${MIN_MORADORES_POR_ACADEMIA.toLocaleString("pt-BR")} moradores por academia)` : ""}${res.naoAprovam ? `; ${res.naoAprovam} ${res.naoAprovam === 1 ? "posição foi descartada porque o parecer seria" : "posições foram descartadas porque o parecer seria"} "Não aprova" (a venda prevista passaria do que a rede tira do mercado de esportes da região)` : ""}: pelo que o Atlas mede, a região não comporta outra unidade hoje.`;
   }
   const s = res.sugestoes[0];
   return tipo === "ponto"
-    ? `Testamos ${res.testadas} posições num raio de 3 km. A melhor fica a ${km1(s.distanciaKm)} de ${nome} e alcança ${pct(s.ganho)} de público, por estar mais perto de onde mora mais gente e mais longe das outras World Gym. Vale procurar imóveis nessas regiões antes de fechar o ponto.${s.renda != null && s.renda > 6000 ? " Atenção: é uma região de renda alta, onde o Low Cost da rede costuma vender menos; ela combina mais com o modelo Pro." : ""}`
+    ? `Testamos ${res.testadas} posições num raio de 3 km${res.saturadas || res.naoAprovam ? ` (${[res.saturadas ? `${res.saturadas} descartada${res.saturadas === 1 ? "" : "s"} por concorrência saturada` : "", res.naoAprovam ? `${res.naoAprovam} descartada${res.naoAprovam === 1 ? "" : "s"} porque o parecer seria "Não aprova"` : ""].filter(Boolean).join(" e ")})` : ""}. A melhor fica a ${km1(s.distanciaKm)} de ${nome} e alcança ${pct(s.ganho)} de público, por estar mais perto de onde mora mais gente e mais longe das outras World Gym. Vale procurar imóveis nessas regiões antes de fechar o ponto.${s.renda != null && s.renda > 6000 ? " Atenção: é uma região de renda alta, onde o Low Cost da rede costuma vender menos; ela combina mais com o modelo Pro." : ""}`
     : `Testamos ${res.testadas} posições num raio de 10 km, a mais de 5 km de qualquer World Gym, dividindo no máximo 10% do público com cada unidade, com pelo menos 70% do público da própria unidade e fora de região saturada (pelo menos ${MIN_MORADORES_POR_ACADEMIA.toLocaleString("pt-BR")} moradores por academia${res.saturadas ? `; ${res.saturadas} ${res.saturadas === 1 ? "posição foi descartada" : "posições foram descartadas"} por isso` : ""}) e com parecer de estudo de ponto que não seja "Não aprova"${res.naoAprovam ? ` (${res.naoAprovam} descartada${res.naoAprovam === 1 ? "" : "s"} por isso)` : ""}. A região mais promissora fica a ${km1(s.distanciaKm)} da World Gym ${nome}, com público alcançável ${pct(s.ganho)} em relação ao da própria unidade. É um ponto de partida para o comitê de expansão buscar imóveis e fazer o estudo completo.`;
 }
 
@@ -143,7 +145,9 @@ export function SecaoSugestoes({ res, tipo, nome, aoEstudar, aoVerNoMapa }: { re
                 <Linha rotulo="Renda média" valor={reaisRenda(s.renda)} />
                 {s.renda != null && s.renda > 6000 && <p className="mt-1 text-[11px] text-warning">Renda alta: na rede, o Low Cost vende menos em áreas de renda muito alta. Combina mais com o Pro.</p>}
                 <Linha rotulo="Divide com a rede" valor={s.divideCom.length ? s.divideCom.map((d) => `${Math.round(d.parte * 100)}%`).join(" + ") : "nada"} />
+                {s.concorrencia && <Linha rotulo="Academias a até 1,5 km" valor={`${s.concorrencia.academias}${s.concorrencia.porAcademia != null ? ` (${Math.round(s.concorrencia.porAcademia).toLocaleString("pt-BR")} moradores cada)` : ""}`} />}
               </div>
+              {s.parecer && <p className="mt-2 text-[12px] font-medium text-foreground">{textoParecerSugestao(s.parecer)}.</p>}
               {aoEstudar && <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => aoEstudar(s, i, ends[i])}>Estudar esta posição</Button>}
             </div>
           ))}

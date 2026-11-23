@@ -467,11 +467,13 @@ export interface RefPopulacao { nome: string; vendas: number; moradores: number;
 /**
  * Fatia do potencial de consumo (decisão do dono, 23/11/2026): vendas ÷ o que os moradores da área de 10 min gastam com esportes.
  * A faixa vem das unidades maduras do mesmo modelo: `comum` = 3 em cada 4 unidades ficam até ela; `maxima` = a maior da rede.
- * Em 23/11/2026 (Low Cost): mediana 28%, comum 38%, máxima 74%. Com menos de 3 unidades com o dado, não há faixa.
+ * Em 23/11/2026 (Low Cost): mediana 28%, comum 38%, máxima 74%. Com menos de MIN_UNIDADES_FATIA unidades com o dado, não há faixa
+ * (decisão do dono, 23/11/2026: o Pro tem 3 unidades, poucas para a fatia barrar o parecer; ela fica só como informação).
  */
+export const MIN_UNIDADES_FATIA = 5;
 export function faixaDaFatia(refs: RefPopulacao[] | null | undefined): { comum: number; maxima: number; mediana: number; unidades: number } | null {
   const fs = (refs ?? []).filter((r) => (r.potencial ?? 0) > 0 && r.vendas > 0).map((r) => r.vendas / (r.potencial as number));
-  if (fs.length < 3) return null;
+  if (fs.length < MIN_UNIDADES_FATIA) return null;
   return { comum: percentilDe(fs, 0.75)!, maxima: Math.max(...fs), mediana: percentilDe(fs, 0.5)!, unidades: fs.length };
 }
 /** Veredito com a fatia: acima da maior da rede não aprova; acima da comum, no máximo "com condicionantes". */

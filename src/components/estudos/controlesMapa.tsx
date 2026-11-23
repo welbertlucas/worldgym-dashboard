@@ -15,7 +15,9 @@ export interface Sobreposicao { id: string; rotulo: string; ativo: boolean; alte
  * `vazia`: a camada sem nada pintado (ex.: "limpa"). Com ela, o olho do topo desliga todas as camadas de uma vez (a escolhida e as de
  * cima do mapa) e, clicado de novo, volta ao que estava ligado.
  */
-export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3", sobre = [], vazia, abaExtra }: { itens: ItemCamada[]; atual: string; escolher: (id: string) => void; legenda?: ReactNode; topo?: string; sobre?: Sobreposicao[]; vazia?: string;
+export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3", sobre = [], vazia, abaExtra, naColuna = false }: { itens: ItemCamada[]; atual: string; escolher: (id: string) => void; legenda?: ReactNode; topo?: string; sobre?: Sobreposicao[]; vazia?: string;
+  /** Dentro da coluna da esquerda da TelaDeMapa (embaixo do cartão do título, com a mesma largura): sem posição própria. */
+  naColuna?: boolean;
   /** Segunda aba do painel (ex.: "Lugares por perto", com a busca de academias concorrentes), para nada ficar por cima das camadas. */
   abaExtra?: { rotulo: string; conteudo: ReactNode } }) {
   const [aberto, setAberto] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
@@ -36,7 +38,7 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
     }
   };
   return (
-    <div className={`absolute left-3 ${topo} z-[455] w-64 max-w-[calc(100%-1.5rem)] overflow-hidden rounded-xl border bg-white/95 shadow-lg backdrop-blur`}>
+    <div className={`${naColuna ? "pointer-events-auto flex min-h-0 w-full flex-col" : `absolute left-3 ${topo} z-[455] w-64 max-w-[calc(100%-1.5rem)]`} overflow-hidden rounded-xl border bg-white/95 shadow-lg backdrop-blur`}>
       <div className="flex items-center">
         <button type="button" onClick={() => setAberto((a) => !a)} aria-expanded={aberto} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-sm font-semibold">
           <Layers className="h-4 w-4 text-primary" aria-hidden />Camadas
@@ -58,9 +60,9 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
           ))}
         </div>
       )}
-      {aberto && abaExtra && aba === "extra" && <div className="max-h-[52vh] overflow-y-auto px-3 py-2.5">{abaExtra.conteudo}</div>}
+      {aberto && abaExtra && aba === "extra" && <div className={`${naColuna ? "min-h-0 flex-1" : "max-h-[52vh]"} overflow-y-auto px-3 py-2.5`}>{abaExtra.conteudo}</div>}
       {aberto && (!abaExtra || aba === "camadas") && (
-        <div className="max-h-[52vh] space-y-1 overflow-y-auto border-t px-2 py-2">
+        <div className={`${naColuna ? "min-h-0 flex-1" : "max-h-[52vh]"} space-y-1 overflow-y-auto border-t px-2 py-2`}>
           {sobre.length > 0 && <p className="px-2.5 pb-1 text-[11px] font-medium text-muted-foreground">Por cima do mapa</p>}
           {sobre.map((o) => (
             <div key={o.id} className={`rounded-lg ${o.ativo ? "bg-muted" : ""}`}>
@@ -273,39 +275,40 @@ export function useAlturaAteOFim(el: React.RefObject<HTMLElement | null>, minimo
  * fica por cima dele: no canto de cima à esquerda, o cartão com a volta, o título, a troca Mapa/Estudo e as ações. O resultado do estudo
  * fica na vista "Estudo", em página normal. O mapa não é desmontado ao trocar de vista (só escondido), para não perder o que está nele.
  */
-export function TelaDeMapa({ caixaRef, altura, titulo, subtitulo, navegacao, acoes, vista, setVista, temEstudo = true, mapa, estudo }: {
+export function TelaDeMapa({ caixaRef, altura, titulo, subtitulo, navegacao, acoes, vista, setVista, temEstudo = true, mapa, estudo, painel }: {
   caixaRef: React.RefObject<HTMLDivElement>; altura: number | undefined;
   titulo: ReactNode; subtitulo?: ReactNode; navegacao?: ReactNode; acoes?: ReactNode;
   vista: "mapa" | "estudo"; setVista: (v: "mapa" | "estudo") => void; temEstudo?: boolean;
   mapa: ReactNode; estudo?: ReactNode;
+  /** Painel de camadas (com naColuna), embaixo do cartão do título, na mesma coluna e com a mesma largura. */
+  painel?: ReactNode;
 }) {
   const troca = temEstudo && (
     <div className="flex rounded-lg bg-muted p-0.5 text-[12px] font-medium" role="tablist" aria-label="Mapa ou estudo">
       {(["mapa", "estudo"] as const).map((v) => (
         <button key={v} type="button" role="tab" aria-selected={vista === v} onClick={() => setVista(v)}
-          className="rounded-md px-3 py-1 text-muted-foreground aria-selected:bg-white aria-selected:text-foreground aria-selected:shadow-sm">{v === "mapa" ? "Mapa" : "Estudo"}</button>
+          className="rounded-md px-2.5 py-0.5 text-muted-foreground aria-selected:bg-white aria-selected:text-foreground aria-selected:shadow-sm">{v === "mapa" ? "Mapa" : "Estudo"}</button>
       ))}
     </div>
   );
+  // cartão do título (pedido do dono, 23/11/2026): o nome do estudo em cima e os botões embaixo, na largura da coluna de camadas
   const cartao = (
-    <div className="pointer-events-auto w-fit max-w-[calc(100vw-2rem)] space-y-2 rounded-xl border bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur">
-      <div className="flex min-w-0 items-center gap-2">
-        {navegacao}
-        <div className="min-w-0">
-          {subtitulo && <p className="truncate text-[11px] leading-tight text-muted-foreground">{subtitulo}</p>}
-          <h2 className="truncate font-display text-lg font-medium leading-tight">{titulo}</h2>
-        </div>
+    <div className="pointer-events-auto w-full space-y-2 rounded-xl border bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur">
+      <div className="min-w-0">
+        {subtitulo && <p className="truncate text-[11px] leading-tight text-muted-foreground">{subtitulo}</p>}
+        <h2 className="line-clamp-2 font-display text-lg font-medium leading-tight">{titulo}</h2>
       </div>
-      {(troca || acoes) && <div className="flex flex-wrap items-center gap-2">{troca}{acoes}</div>}
+      {(navegacao || troca) && <div className="flex flex-wrap items-center gap-1.5">{navegacao}{troca}</div>}
+      {acoes && <div className="flex flex-wrap items-center gap-1.5">{acoes}</div>}
     </div>
   );
   return (
     <div className="-mx-3 !-mt-4 sm:-mx-6 sm:!-mt-6 lg:-mx-8">
       <div ref={caixaRef} style={{ height: altura }} className={`relative isolate min-h-[480px] overflow-hidden bg-muted ${vista === "estudo" ? "hidden" : ""}`}>
         {mapa}
-        <div className="pointer-events-none absolute left-3 top-3 z-[457]">{cartao}</div>
+        <div className="pointer-events-none absolute bottom-20 left-3 top-3 z-[457] flex w-64 max-w-[calc(100%-1.5rem)] flex-col gap-2">{cartao}{painel}</div>
       </div>
-      {vista === "estudo" && <div className="space-y-4 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">{cartao}{estudo}</div>}
+      {vista === "estudo" && <div className="space-y-4 px-3 py-4 sm:px-6 sm:py-6 lg:px-8"><div className="w-72 max-w-full">{cartao}</div>{estudo}</div>}
     </div>
   );
 }

@@ -62,7 +62,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
     <TelaDeMapa caixaRef={caixa} altura={altura} vista="mapa" setVista={() => {}} temEstudo={false}
       titulo="Mapa da rede"
       subtitulo={abrir ? "Clique numa unidade para abrir o estudo dela" : undefined}
-      navegacao={<Button variant="outline" size="sm" className="h-8 px-2.5" onClick={voltar}>Todos os estudos</Button>}
+      navegacao={<Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={voltar}>Todos os estudos</Button>}
       acoes={<div className="flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground">
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.low }} />{n("low")} Low Cost</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COR.pro }} />{n("pro")} Pro</span>

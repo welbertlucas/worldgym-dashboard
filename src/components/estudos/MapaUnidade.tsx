@@ -255,15 +255,11 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             </select>
           : `World Gym ${u.nome}`}
         navegacao={<>
-          {voltar && <Button variant="outline" size="sm" className="h-8 px-2.5" onClick={voltar}>Todos os estudos</Button>}
-          {verRede && <Button variant="outline" size="sm" className="h-8 px-2.5" onClick={verRede}>Mapa da rede</Button>}
+          {voltar && <Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={voltar}>Todos os estudos</Button>}
+          {verRede && <Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={verRede}>Mapa da rede</Button>}
         </>}
-        acoes={<Button size="sm" className="h-8" onClick={exportar} disabled={gerando}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>}
-        mapa={<>
-        <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
-        <div ref={el} className="absolute inset-0" aria-label={`Mapa da unidade ${u.nome}`} />
-        {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
-        <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" topo="top-[7.25rem]"
+        acoes={<Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>}
+        painel={<PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" naColuna
           abaExtra={{ rotulo: "Lugares por perto", conteudo: <ControlePois embutido centro={u.c} aviso={false} area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
           legenda={lente === "modelo" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
@@ -309,7 +305,11 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
               <details className="mt-1"><summary className="cursor-pointer font-medium text-foreground">Como foi calculado</summary>
                 <p className="mt-1">{textoSugestoes(novaUnidade, "nova", u.nome)}</p><p className="mt-1 text-[11px]">{LIMITES_SUGESTAO}</p></details>
             </> }] : []),
-          ]} />
+          ]} />}
+        mapa={<>
+        <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
+        <div ref={el} className="absolute inset-0" aria-label={`Mapa da unidade ${u.nome}`} />
+        {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
         <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
         </>}

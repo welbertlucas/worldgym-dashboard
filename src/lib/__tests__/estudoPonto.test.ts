@@ -482,7 +482,7 @@ describe("fatia do potencial de consumo", () => {
     const refs = [10, 20, 30, 40, 70].map((f, i) => ({ nome: `U${i}`, vendas: f * 10_000, moradores: 100_000, potencial: 1_000_000 }));
     const fx = faixaDaFatia(refs)!;
     expect(fx.maxima).toBeCloseTo(0.7); expect(fx.mediana).toBeCloseTo(0.3); expect(fx.comum).toBeCloseTo(0.4); expect(fx.unidades).toBe(5);
-    expect(faixaDaFatia(refs.slice(0, 2))).toBeNull(); // poucas unidades: sem faixa
+    expect(faixaDaFatia(refs.slice(0, 4))).toBeNull(); // menos de 5 unidades maduras (ex.: o Pro, com 3): sem faixa, a fatia não barra o parecer
     expect(vereditoComFatia("aprovado", 1.4, fx)).toBe("reprovado"); // acima da maior da rede
     expect(vereditoComFatia("aprovado", 0.5, fx)).toBe("atencao"); // acima da comum
     expect(vereditoComFatia("atencao", 0.2, fx)).toBe("atencao");
