@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { aplicarFundo, carregarLeaflet, pino, URL_OSM, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
-import { BarraMapa } from "@/components/estudos/controlesMapa";
+import { BarraMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { StreetView } from "@/components/estudos/StreetView";
 import { reais, type UnidadeEstudo } from "@/lib/estudoPonto";
 
@@ -16,6 +16,9 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
   const [pronto, setPronto] = useState(false);
   // os mesmos controles do mapa da unidade: fundo (padrão, cinza, relevo, satélite), régua, Street View e zoom
   const [fundo, setFundo] = useState<Fundo>("cinza");
+  const caixa = useRef<HTMLDivElement>(null);
+  const altura = useAlturaAteOFim(caixa);
+  useEffect(() => { ref.current?.mapa.invalidateSize(); }, [altura]);
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const comPosicao = unidades.filter((u) => u.c);
@@ -69,7 +72,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
           <span>{comPosicao.length} unidades</span>
         </div>
       </div>
-      <div className="relative h-[calc(100vh-11rem)] min-h-[520px] overflow-hidden rounded-2xl border bg-muted">
+      <div ref={caixa} style={{ height: altura }} className="relative min-h-[480px] overflow-hidden rounded-2xl border bg-muted">
         <div ref={el} className="absolute inset-0" aria-label="Mapa das unidades da rede" />
         {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
         <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />

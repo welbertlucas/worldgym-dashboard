@@ -246,28 +246,28 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
             {rd.classes.map((x) => <div key={x.id} className="flex items-center gap-1.5" title={x.faixa}><span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: x.cor }} /><span className="flex-1 whitespace-nowrap">Classe {x.id}</span><b className="tabular-nums">{Math.round(x.parte * 100)}%</b></div>)}
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">{rd.porDomicilio ? `${Math.round(rd.moradores).toLocaleString("pt-BR")} domicílios por classe` : "Moradores por classe"} {resumo?.onde ?? "na área"}{rd.media ? `; renda média do responsável R$ ${Math.round(rd.media).toLocaleString("pt-BR")}` : ""} (Censo 2022{rd.porDomicilio ? "; a classe de cada domicílio é estimada pela média e pela variação da renda em cada setor" : ""}).</p>
+        <p className="text-[11px] text-muted-foreground">{rd.porDomicilio ? `${Math.round(rd.moradores).toLocaleString("pt-BR")} domicílios` : "Moradores por classe"} {resumo?.onde ?? "na área"}.</p>
       </div>
     );
   }
   if (camada === "pessoas") return (
     <div className="space-y-1">
       {resumo?.moradores ? <CaixaTotal rotulo="Moradores" valor={Math.round(resumo.moradores).toLocaleString("pt-BR")} onde={resumo.onde ?? "na área"} barra={["#f6d6dc", "#c41230"]} /> : null}
-      <p>Vermelho mais forte = mais moradores no hexágono (Censo 2022). Passe o mouse para ver o número.</p>
+      <p>Vermelho mais forte = mais moradores. Passe o mouse para ver o número.</p>
     </div>
   );
   if (camada === "consumo") {
     const pt = resumo?.potencial;
     return (
       <div className="space-y-2">
-        {pt && <CaixaTotal rotulo="Gasto com esportes por mês" valor={reaisCurto(pt.total)} onde={resumo?.onde ?? "na área"} barra={[AZUL(0), AZUL(1)]} nota={`${Math.round(pt.domicilios).toLocaleString("pt-BR")} domicílios, R$ ${Math.round(pt.porDomicilio).toLocaleString("pt-BR")} por domicílio (estimativa: POF 2017-2018 pela renda estimada dos domicílios do Censo 2022).`} />}
+        {pt && <CaixaTotal rotulo="Gasto com esportes por mês" valor={reaisCurto(pt.total)} onde={resumo?.onde ?? "na área"} barra={[AZUL(0), AZUL(1)]} nota={`${Math.round(pt.domicilios).toLocaleString("pt-BR")} domicílios, R$ ${Math.round(pt.porDomicilio).toLocaleString("pt-BR")} por domicílio.`} />}
         {!pt && <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: `linear-gradient(90deg,${AZUL(0)},${AZUL(1)})` }} />mais gasto com esporte</div>}
       </div>
     );
   }
   if (camada === "rendaTotal") {
     const rt = resumo?.rendaTotal;
-    return rt ? <CaixaTotal rotulo="Renda dos domicílios por mês" valor={reaisCurto(rt.total)} onde={resumo?.onde ?? "na área"} barra={[VERDE(0), VERDE(1)]} nota={`${Math.round(rt.domicilios).toLocaleString("pt-BR")} domicílios, R$ ${Math.round(rt.porDomicilio).toLocaleString("pt-BR")} por domicílio (estimativa: renda do responsável no Censo 2022 × a relação entre a renda do domicílio e a do responsável no estado).`} />
+    return rt ? <CaixaTotal rotulo="Renda dos domicílios por mês" valor={reaisCurto(rt.total)} onde={resumo?.onde ?? "na área"} barra={[VERDE(0), VERDE(1)]} nota={`${Math.round(rt.domicilios).toLocaleString("pt-BR")} domicílios, R$ ${Math.round(rt.porDomicilio).toLocaleString("pt-BR")} por domicílio.`} />
       : <p>Sem a renda dos domicílios nesta malha do Censo.</p>;
   }
   if (camada === "comercio") {
@@ -295,7 +295,7 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
   if (dm && dm.total > 0) return (
     <div className="space-y-2">
       <ListaTotais total={dm.total} rotuloTotal="Domicílios" onde={resumo?.onde ?? "na área"} itens={dm.classes.map((x) => ({ rotulo: x.rotulo, n: x.domicilios, cor: x.cor }))} />
-      <p className="text-[11px]">{dm.porDomicilio ? `Média de ${dm.porDomicilio.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio. ` : ""}{dm.porTamanho ? "Domicílios ocupados por número de moradores; no mapa, a cor do tamanho mais comum em cada hexágono (Censo 2022)." : "Cada faixa soma os domicílios dos hexágonos com aquela média de moradores (Censo 2022)."}</p>
+      <p className="text-[11px]">{dm.porDomicilio ? `Média de ${dm.porDomicilio.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} moradores por domicílio. ` : ""}{dm.porTamanho ? "No mapa, a cor do tamanho mais comum em cada hexágono." : ""}</p>
     </div>
   );
   const itens = CLASSES_DENSIDADE;

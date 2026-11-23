@@ -233,3 +233,26 @@ export function BuscaEndereco({ perto, aoEscolher }: { perto: [number, number] |
     </div>
   );
 }
+
+/**
+ * Altura para o mapa ir do topo dele até o fim da janela (menos uma folga), para caber inteiro ao abrir a tela, sem rolar.
+ * Recalcula quando a janela muda de tamanho; nunca fica abaixo de `minimo`.
+ */
+export function useAlturaAteOFim(el: React.RefObject<HTMLElement | null>, minimo = 480, folga = 16) {
+  const [altura, setAltura] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const medir = () => {
+      const e = el.current;
+      if (!e) return;
+      // posição do topo do mapa na página (soma a rolagem, para não mudar quando a pessoa rola)
+      let topo = e.getBoundingClientRect().top, p: HTMLElement | null = e.parentElement;
+      while (p) { topo += p.scrollTop; p = p.parentElement; }
+      topo += window.scrollY;
+      setAltura(Math.max(minimo, Math.round(window.innerHeight - topo - folga)));
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [el, minimo, folga]);
+  return altura;
+}

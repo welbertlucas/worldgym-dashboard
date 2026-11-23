@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { aplicarFundo, bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
-import { BarraMapa, PainelCamadas } from "@/components/estudos/controlesMapa";
+import { BarraMapa, PainelCamadas, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
@@ -33,6 +33,10 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const [lente, setLente] = useState<Lente>("alunos");
   const [fundo, setFundo] = useState<Fundo>("cinza");
   const satelite = fundo === "satelite";
+  // o mapa ocupa do topo dele até o fim da tela, sem precisar rolar
+  const caixaMapa = useRef<HTMLDivElement>(null);
+  const alturaMapa = useAlturaAteOFim(caixaMapa);
+  useEffect(() => { ref.current?.mapa.invalidateSize(); }, [alturaMapa]);
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -253,25 +257,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         </div>
       </div>
 
-      {/* números principais numa faixa fina (decisão do dono, 23/11/2026: o mapa fica com a tela; os cards saíram) */}
-      <div className="flex flex-wrap gap-2 text-[13px]">
-        {[
-          u.vendas != null ? { v: reais(u.vendas), r: "por mês", tom: comparado == null ? "" : comparado >= 0 ? "text-success" : "text-destructive" } : null,
-          porM2 && mediana ? { v: `R$ ${Math.round(porM2).toLocaleString("pt-BR")}/m²`, r: `rede R$ ${mediana.toLocaleString("pt-BR")}`, tom: "" } : null,
-          u.previsto && u.vendas != null && u.madura ? { v: `${u.vendas >= u.previsto.provavel ? "+" : "−"}${Math.abs(Math.round((u.vendas / u.previsto.provavel - 1) * 100))}%`, r: "vs. modelo", tom: u.vendas >= u.previsto.provavel ? "text-success" : "text-destructive" } : null,
-          u.alunos != null ? { v: u.alunos.toLocaleString("pt-BR"), r: "alunos", tom: "" } : null,
-          area10 ? { v: pct0(parte10), r: `a até ${MINUTOS_PADRAO} min`, tom: "" } : { v: fmtKm(r80), r: "raio onde moram 80%", tom: "" },
-          moradoresArea != null ? { v: `${Math.round(moradoresArea / 1000).toLocaleString("pt-BR")} mil`, r: `moradores ${area10 ? `em ${MINUTOS_PADRAO} min` : "na área"}`, tom: "" } : null,
-        ].filter((x): x is { v: string; r: string; tom: string } => !!x).map((x) => (
-          <div key={x.r} className="flex items-baseline gap-1.5 whitespace-nowrap rounded-xl border bg-white px-2.5 py-1">
-            <b className={`font-display text-lg tabular-nums ${x.tom || "text-foreground"}`}>{x.v}</b><span className="text-muted-foreground">{x.r}</span>
-          </div>
-        ))}
-        {!u.madura && <span className="self-center text-[11px] text-muted-foreground">Ainda amadurecendo: a comparação vale a partir de 12 meses de operação.</span>}
-      </div>
-
       {/* mapa: camadas à direita e barra de mapa/Street View/zoom embaixo (arranjo do Mapfry) */}
-      <div className="relative h-[calc(100vh-11rem)] min-h-[560px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
+      <div ref={caixaMapa} style={{ height: alturaMapa }} className="relative min-h-[480px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
         <div ref={el} className="absolute inset-0" aria-label={`Mapa da unidade ${u.nome}`} />
         {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
         <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa"
@@ -283,7 +270,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             <p className="mt-1">Vermelho: onde o modelo espera alunos. Círculos escuros: onde eles moram hoje. Vermelho forte sem círculo é onde vale fazer marketing.</p>
           </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
-            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><RoscaBairros total={alunosBairro} nota={`${alunosBairro.toLocaleString("pt-BR")} alunos com bairro localizado${u.alunos ? `, de ${u.alunos.toLocaleString("pt-BR")} ativos` : ""} (EVO).`} bairros={topBairros.map(([b, , , n]) => ({ nome: b.replace(/\s*\([^)]*\)/, ""), n }))} /></div>}No mapa, cada bolha tem a cor do bairro na rosca (cinza: outros bairros); bolha maior = mais alunos, e o número aparece nos bairros com 3% ou mais. {area10 ? LEGENDA_DESLOCAMENTO : "Tracejado: onde moram 80%."}</>
+            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><RoscaBairros total={alunosBairro} nota={`${alunosBairro.toLocaleString("pt-BR")} alunos com bairro localizado${u.alunos ? `, de ${u.alunos.toLocaleString("pt-BR")} ativos` : ""} (EVO).`} bairros={topBairros.map(([b, , , n]) => ({ nome: b.replace(/\s*\([^)]*\)/, ""), n }))} /></div>}{area10 ? "" : "Tracejado: onde moram 80%."}</>
             : lente === "rede" ? <>
               {cap?.divideCom.length ? (() => {
                 const so = Math.max(0, 1 - cap.divideCom.reduce((a, d) => a + d.parte, 0));
@@ -300,7 +287,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             }, legenda: <>
               <p className="text-foreground">{leituraParecidas(compParec, u.vendas)}</p>
               {compParec.itens.map((it) => <p key={it.u.nome} className="mt-1.5"><b className={it.parecida ? "text-success" : ""}>{it.u.nome}</b>: {it.u.vendas ? reais(it.u.vendas) : "—"} por mês{it.parecida ? "" : " (vizinhança diferente, só referência)"}. {it.leitura}</p>)}
-              <p className="mt-1.5 text-[11px]">Anel verde no mapa: parecida; cinza: só referência. Comparação pelos moradores e pela renda a até 2 km (Censo 2022).</p>
+              <p className="mt-1.5 text-[11px]">Anel verde no mapa: parecida; cinza: só referência. Comparação pelos moradores e pela renda a até 2 km.</p>
             </> }] : []),
             ...(novaUnidade ? [{ id: "nova", rotulo: "Onde abrir outra unidade", ativo: verNova, alternar: () => { if (!verNova) verNovaUnidade(); setVerNova((v) => !v); }, legenda: <>
               {novaUnidade.sugestoes.length
@@ -321,6 +308,24 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={u.c} aviso={false} area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
+
+      {/* números principais numa faixa fina, embaixo do mapa (decisão do dono, 23/11/2026: ao abrir, o mapa ocupa a tela inteira, sem rolar) */}
+      <div className="flex flex-wrap gap-2 text-[13px]">
+        {[
+          u.vendas != null ? { v: reais(u.vendas), r: "por mês", tom: comparado == null ? "" : comparado >= 0 ? "text-success" : "text-destructive" } : null,
+          porM2 && mediana ? { v: `R$ ${Math.round(porM2).toLocaleString("pt-BR")}/m²`, r: `rede R$ ${mediana.toLocaleString("pt-BR")}`, tom: "" } : null,
+          u.previsto && u.vendas != null && u.madura ? { v: `${u.vendas >= u.previsto.provavel ? "+" : "−"}${Math.abs(Math.round((u.vendas / u.previsto.provavel - 1) * 100))}%`, r: "vs. modelo", tom: u.vendas >= u.previsto.provavel ? "text-success" : "text-destructive" } : null,
+          u.alunos != null ? { v: u.alunos.toLocaleString("pt-BR"), r: "alunos", tom: "" } : null,
+          area10 ? { v: pct0(parte10), r: `a até ${MINUTOS_PADRAO} min`, tom: "" } : { v: fmtKm(r80), r: "raio onde moram 80%", tom: "" },
+          moradoresArea != null ? { v: `${Math.round(moradoresArea / 1000).toLocaleString("pt-BR")} mil`, r: `moradores ${area10 ? `em ${MINUTOS_PADRAO} min` : "na área"}`, tom: "" } : null,
+        ].filter((x): x is { v: string; r: string; tom: string } => !!x).map((x) => (
+          <div key={x.r} className="flex items-baseline gap-1.5 whitespace-nowrap rounded-xl border bg-white px-2.5 py-1">
+            <b className={`font-display text-lg tabular-nums ${x.tom || "text-foreground"}`}>{x.v}</b><span className="text-muted-foreground">{x.r}</span>
+          </div>
+        ))}
+        {!u.madura && <span className="self-center text-[11px] text-muted-foreground">Ainda amadurecendo: a comparação vale a partir de 12 meses de operação.</span>}
+      </div>
+
 
       {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
     </div>

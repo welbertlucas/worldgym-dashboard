@@ -15,7 +15,7 @@ import { montarPdfPonto } from "@/components/estudos/pdfPonto";
 import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
-import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/controlesMapa";
+import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao } from "@/components/estudos/sugestoes";
 import {
   comercioEm, rendaTotalEm, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
@@ -62,6 +62,10 @@ interface PropsMapa {
 /** O mapa do estudo: painel com os pontos (todos, ou só os escolhidos para comparar), a conta e a decisão; lentes e ferramentas. */
 function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo, editavel }: PropsMapa) {
   const [lente, setLente] = useState<Lente>("captacao");
+  // o mapa vai do topo dele até o fim da tela, sem precisar rolar
+  const caixaMapa = useRef<HTMLDivElement>(null);
+  const alturaMapa = useAlturaAteOFim(caixaMapa);
+  useEffect(() => { mapaRef.current?.mapa.invalidateSize(); }, [alturaMapa]);
   const [adicionando, setAdicionando] = useState(iniciarAdicionando);
   const [fundo, setFundo] = useState<Fundo>("cinza");
   const satelite = fundo === "satelite";
@@ -311,7 +315,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       </div>
 
       {/* mapa: busca de endereço e camadas à direita, barra de mapa/Street View/zoom embaixo (arranjo do Mapfry) */}
-      <div className="relative h-[74vh] min-h-[520px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
+      <div ref={caixaMapa} style={{ height: alturaMapa }} className="relative min-h-[480px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
         <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
         {(adicionando || verRua || achado) && (
           <div className="absolute left-1/2 top-3 z-[456] flex max-w-[calc(100%-34rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
