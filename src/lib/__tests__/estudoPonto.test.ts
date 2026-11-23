@@ -316,6 +316,20 @@ describe("recomendação de localização", () => {
 });
 
 describe("classes de renda", () => {
+  it("com a estimativa por domicílio, soma os domicílios de cada classe (AA a E)", async () => {
+    const { classesNoRaio } = await import("@/lib/estudoPonto");
+    // inventado: dois hexágonos com domicílios por classe [AA, A, B, C, D, E]
+    const censo = { rk: 0.3, celulas: [
+      [-15.8, -47.9, 300, 4000, 100, undefined, undefined, [2, 3, 15, 40, 25, 15]],
+      [-15.801, -47.9, 200, 3000, 60, undefined, undefined, [0, 1, 4, 25, 20, 10]],
+    ] as never };
+    const r = classesNoRaio([-15.8, -47.9], censo, 2);
+    expect(r.porDomicilio).toBe(true);
+    expect(r.moradores).toBe(160); // aqui é o total de domicílios
+    expect(r.classes.find((c) => c.id === "AA")?.parte).toBeCloseTo(2 / 160);
+    expect(r.classes.find((c) => c.id === "C")?.parte).toBeCloseTo(65 / 160);
+    expect(r.media).toBeCloseTo((4000 * 100 + 3000 * 60) / 160);
+  });
   it("classifica pela faixa e divide os moradores do raio por classe", async () => {
     const { classeDaRenda, classesNoRaio } = await import("@/lib/estudoPonto");
     expect(classeDaRenda(1000)?.id).toBe("E");
@@ -367,10 +381,12 @@ describe("população recomendada, ticket e estacionamento", () => {
 });
 
 describe("faixa de idade que predomina", () => {
-  it("compara por ano de idade: a faixa 0 a 14 (15 anos) não ganha só por ser mais larga", async () => {
-    const { faixaPredominante, idadeEm } = await import("@/lib/estudoPonto");
-    // inventado: 0-14 tem 300 (20 por ano), 20-29 tem 250 (25 por ano) → predomina 20-29
-    expect(faixaPredominante([300, 90, 250, 200, 180, 100, 150])).toBe(2);
+  it("compara por ano de idade: a faixa de 60 anos ou mais (uns 20 anos) não ganha só por ser mais larga", async () => {
+    const { faixaPredominante, idadeEm, FAIXAS_IDADE } = await import("@/lib/estudoPonto");
+    expect(FAIXAS_IDADE[0]).toBe("Crianças (0 a 9 anos)");
+    expect(FAIXAS_IDADE[1]).toBe("Adolescentes (10 a 19 anos)");
+    // inventado: 60+ tem 400 (20 por ano), 20-29 tem 250 (25 por ano) → predomina 20-29
+    expect(faixaPredominante([150, 160, 250, 200, 180, 100, 400])).toBe(2);
     expect(faixaPredominante([])).toBeNull();
     expect(idadeEm({ rk: 0.3, celulas: [[0, 0, 10, null, 3, [1, 2, 3, 4, 5, 6, 7]], [1, 1, 10, null, 3, [1, 1, 1, 1, 1, 1, 1]]] }, (la) => la < 0.5)).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });

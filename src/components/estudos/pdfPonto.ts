@@ -176,7 +176,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
         titulo: "Conclusão e Recomendação Final", novaPagina: true, linhas: [],
         faixa: vfin ? `${vfin === "aprovado" ? "Recomendado" : vfin === "atencao" ? "Atenção" : "Não recomendado"}: modelo ${modelo}${vfin !== r?.veredito ? " (estacionamento)" : ""}` : undefined,
         texto: conc,
-        paragrafo: `Premissas: vendas por m² das unidades maduras da rede, penetração de mercado de ${pct(PENETRACAO_MERCADO)}, população recomendada e ticket calibrados com as unidades da rede, estacionamento com 8% a 12% no pico e 20% a 30% de carro, classes estimadas pela renda média do Censo e gasto da POF corrigido pela inflação. Os números de mercado devem ser lidos como ordem de grandeza.`,
+        paragrafo: `Premissas: vendas por m² das unidades maduras da rede, penetração de mercado de ${pct(PENETRACAO_MERCADO)}, população recomendada e ticket calibrados com as unidades da rede, estacionamento com 8% a 12% no pico e 20% a 30% de carro, classes de renda estimadas pela média e pela variação da renda de cada setor do Censo e gasto da POF corrigido pela inflação. Os números de mercado devem ser lidos como ordem de grandeza.`,
       });
     }
     paginas.push({

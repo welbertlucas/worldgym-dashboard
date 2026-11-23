@@ -18,7 +18,16 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
     const mx = escala((c) => c[2]);
     for (const c of vis) { const t = Math.min(1, c[2] / mx); hex(c, { fillColor: "#c41230", fillOpacity: 0.04 + t * t * 0.42 }, `${c[2].toLocaleString("pt-BR")} moradores`); }
   } else if (camada === "renda") {
-    for (const c of vis) { const cl = classeDaRenda(c[3]); if (cl) hex(c, { fillColor: cl.cor, fillOpacity: 0.45 }, `${cl.rotulo}: renda média do responsável R$ ${c[3]!.toLocaleString("pt-BR")}`); }
+    for (const c of vis) {
+      // Com a estimativa por domicílio, a cor é a da classe com mais domicílios no hexágono; sem ela, a da renda média do responsável
+      const dist = c[7];
+      if (dist?.length && dist.some((x) => x > 0)) {
+        const tot = dist.reduce((a, x) => a + x, 0), i = dist.indexOf(Math.max(...dist)), cl = CLASSES_RENDA[i];
+        hex(c, { fillColor: cl.cor, fillOpacity: 0.45 }, `<strong>Mais domicílios: ${cl.rotulo}</strong><br/>${CLASSES_RENDA.map((k, j) => `${k.rotulo}: ${Math.round((dist[j] / tot) * 100)}%`).join("<br/>")}${c[3] ? `<br/>renda média do responsável R$ ${c[3].toLocaleString("pt-BR")}` : ""}`);
+        continue;
+      }
+      const cl = classeDaRenda(c[3]); if (cl) hex(c, { fillColor: cl.cor, fillOpacity: 0.45 }, `${cl.rotulo}: renda média do responsável R$ ${c[3]!.toLocaleString("pt-BR")}`);
+    }
   } else if (camada === "idade") {
     for (const c of vis) {
       const i = faixaPredominante(c[5]); if (i == null) continue;
@@ -56,7 +65,7 @@ export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup,
 
 /** Totais da área para mostrar junto da legenda (rosca das classes de renda, valor do potencial de consumo). */
 export interface ResumoCenso {
-  renda?: { classes: { id: string; cor: string; faixa: string; parte: number }[]; media: number | null; moradores: number } | null;
+  renda?: { classes: { id: string; cor: string; faixa: string; parte: number }[]; media: number | null; moradores: number; porDomicilio?: boolean } | null;
   potencial?: { total: number; domicilios: number; porDomicilio: number } | null;
   /** Moradores por faixa de idade na área (na ordem de FAIXAS_IDADE). */
   idade?: number[] | null;
@@ -127,7 +136,7 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
             {rd.classes.map((x) => <div key={x.id} className="flex items-center gap-1.5" title={x.faixa}><span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: x.cor }} /><span className="flex-1 whitespace-nowrap">Classe {x.id}</span><b className="tabular-nums">{Math.round(x.parte * 100)}%</b></div>)}
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">Moradores por classe {resumo?.onde ?? "na área"}{rd.media ? `; renda média do responsável R$ ${Math.round(rd.media).toLocaleString("pt-BR")}` : ""} (Censo 2022).</p>
+        <p className="text-[11px] text-muted-foreground">{rd.porDomicilio ? `${Math.round(rd.moradores).toLocaleString("pt-BR")} domicílios por classe` : "Moradores por classe"} {resumo?.onde ?? "na área"}{rd.media ? `; renda média do responsável R$ ${Math.round(rd.media).toLocaleString("pt-BR")}` : ""} (Censo 2022{rd.porDomicilio ? "; a classe de cada domicílio é estimada pela média e pela variação da renda em cada setor" : ""}).</p>
       </div>
     );
   }

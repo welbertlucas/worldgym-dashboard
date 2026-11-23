@@ -18,10 +18,12 @@ export interface UnidadeEstudo {
 }
 /**
  * Hexágonos do Censo 2022: [lat, lng, população, renda média do responsável, domicílios ocupados, moradores por faixa de idade].
- * Faixas (FAIXAS_IDADE): 0–14, 15–19, 20–29, 30–39, 40–49, 50–59, 60+. Os dois últimos campos podem faltar em dados antigos.
+ * Faixas (FAIXAS_IDADE): 0–9, 10–19, 20–29, 30–39, 40–49, 50–59, 60+ (as do Mapfry até 59 anos; o IBGE junta 60 a 69 numa faixa só).
+ * Depois: domicílios com 1, 2, 3, 4 e 5 ou mais moradores (IBGE, Características do Domicílio parte 1) e domicílios por classe de renda
+ * (AA, A, B, C, D, E), estimados em cada setor por uma curva lognormal com a média e a variância da renda do responsável. Os campos
+ * do fim podem faltar em dados antigos.
  */
-/** O último campo (quando existe): domicílios com 1, 2, 3, 4 e 5 ou mais moradores (IBGE, Características do Domicílio parte 1). */
-export type CelulaCenso = [number, number, number, number | null, number?, number[]?, number[]?];
+export type CelulaCenso = [number, number, number, number | null, number?, number[]?, number[]?, number[]?];
 /** Domicílios por número de moradores, como no Mapfry (cores na ordem: 1, 2, 3, 4, 5 ou mais). */
 export const TAMANHOS_DOMICILIO = [
   { rotulo: "1 morador", cor: "#e9c46a" }, { rotulo: "2 moradores", cor: "#e07a9a" }, { rotulo: "3 moradores", cor: "#3a9bd5" },
@@ -30,7 +32,7 @@ export const TAMANHOS_DOMICILIO = [
 /** Tamanho de domicílio que mais aparece no hexágono (índice de TAMANHOS_DOMICILIO), ou null sem o dado. */
 export const tamanhoPredominante = (t?: number[]) => (t?.length && t.some((x) => x > 0) ? t.indexOf(Math.max(...t)) : null);
 export interface Censo { rk: number; celulas: CelulaCenso[] }
-export const FAIXAS_IDADE = ["0 a 14 anos", "15 a 19 anos", "20 a 29 anos", "30 a 39 anos", "40 a 49 anos", "50 a 59 anos", "60 anos ou mais"];
+export const FAIXAS_IDADE = ["Crianças (0 a 9 anos)", "Adolescentes (10 a 19 anos)", "Jovens (20 a 29 anos)", "Jovens adultos (30 a 39 anos)", "Adultos (40 a 49 anos)", "Meia idade (50 a 59 anos)", "Idosos (60 anos ou mais)"];
 
 /**
  * Potencial de consumo em academia: gasto médio mensal das famílias com "Recreações e esportes" (IBGE, POF 2017-2018, tabela 1.1.1),
@@ -59,10 +61,10 @@ export function potencialNaArea(censo: Censo, g: Geometria) {
 /** Uma cor por faixa de idade (mapa: cada hexágono na cor da faixa que predomina por ano de idade), na ordem de FAIXAS_IDADE. */
 export const CORES_IDADE = ["#f2c94c", "#f2994a", "#e86a92", "#27ae60", "#2bb3a3", "#2f80ed", "#8e5bd6"];
 /** Anos de idade em cada faixa (60+ conta como 60 a 79), para comparar faixas de tamanhos diferentes. */
-export const ANOS_FAIXA = [15, 5, 10, 10, 10, 10, 20];
+export const ANOS_FAIXA = [10, 10, 10, 10, 10, 10, 20];
 /**
- * Faixa de idade que predomina no hexágono, comparando moradores POR ANO de idade (a faixa 0 a 14 junta 15 anos e ganharia quase
- * sempre se comparada pelo total: em Ceilândia ela é 19% dos moradores e "vencia" em 2 de cada 3 hexágonos). Null sem dado.
+ * Faixa de idade que predomina no hexágono, comparando moradores POR ANO de idade (a faixa de 60 anos ou mais junta uns 20 anos e
+ * ganharia muitas vezes se comparada pelo total). Null sem dado.
  */
 export const faixaPredominante = (ida?: number[]) => {
   if (!ida?.length) return null;
@@ -326,19 +328,29 @@ export function minutosPara80(bairros: [string, number, number, number][], d: De
   return null;
 }
 
-/** Classes de renda dos hexágonos que passam no filtro. */
+/**
+ * Classes de renda dos hexágonos que passam no filtro. Com a estimativa por domicílio (último campo do hexágono), conta domicílios em
+ * cada classe, como o Mapfry; sem ela (dado antigo), põe todos os moradores do hexágono na classe da renda média.
+ */
 function classesEm(censo: Censo, dentro: (lat: number, lng: number) => boolean) {
   const conta = new Map<string, number>();
-  let total = 0, soma = 0;
-  for (const [lat, lng, p, r] of censo.celulas) {
+  let total = 0, soma = 0, peso = 0;
+  const porDomicilio = censo.celulas.some((c) => c[7]?.length);
+  for (const [lat, lng, p, r, d, , , cls] of censo.celulas) {
     if (!dentro(lat, lng)) continue;
+    if (porDomicilio) {
+      if (!cls?.length) continue;
+      cls.forEach((n, i) => { const id = CLASSES_RENDA[i].id; conta.set(id, (conta.get(id) ?? 0) + n); total += n; });
+      if (r && d) { soma += r * d; peso += d; }
+      continue;
+    }
     const cl = classeDaRenda(r);
     if (!cl || !p) continue;
-    conta.set(cl.id, (conta.get(cl.id) ?? 0) + p); total += p; soma += (r ?? 0) * p;
+    conta.set(cl.id, (conta.get(cl.id) ?? 0) + p); total += p; soma += (r ?? 0) * p; peso += p;
   }
   const parte = (id: string) => (total ? (conta.get(id) ?? 0) / total : 0);
   const classes = CLASSES_RENDA.map((cl) => ({ ...cl, parte: parte(cl.id) }));
-  return { classes, moradores: total, media: total ? soma / total : null, ab: parte("AA") + parte("A") + parte("B"), cde: parte("C") + parte("D") + parte("E") };
+  return { classes, moradores: total, porDomicilio, media: peso ? soma / peso : null, ab: parte("AA") + parte("A") + parte("B"), cde: parte("C") + parte("D") + parte("E") };
 }
 
 /** As unidades maduras do mesmo modelo mais parecidas com o ponto (gente e renda a até 2 km). */
