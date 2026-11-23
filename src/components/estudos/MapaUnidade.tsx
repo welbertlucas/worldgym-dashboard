@@ -79,8 +79,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }
   const verNovaUnidade = () => {
     const m = ref.current;
     if (!m || !u?.c || !novaUnidade?.sugestoes.length) return;
+    // ao ligar a camada (ou no link "Ver as posições no mapa"), o mapa enquadra a unidade e as posições sugeridas
     m.mapa.fitBounds(m.L.latLngBounds([u.c, ...novaUnidade.sugestoes.map((x) => x.c)]).pad(0.25));
-    el.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
   const pct0 = (x: number | null) => (x == null ? "—" : `${Math.round(x * 100)}%`);
 
@@ -273,7 +273,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao }
             </> : null}
           sobre={[
             ...(pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []),
-            ...(novaUnidade ? [{ id: "nova", rotulo: "Onde abrir outra unidade", ativo: verNova, alternar: () => setVerNova((v) => !v), legenda: <>
+            ...(novaUnidade ? [{ id: "nova", rotulo: "Onde abrir outra unidade", ativo: verNova, alternar: () => { if (!verNova) verNovaUnidade(); setVerNova((v) => !v); }, legenda: <>
               {novaUnidade.sugestoes.length
                 ? <>{novaUnidade.sugestoes.map((x, i) => (
                     <div key={i} className="mb-1.5">

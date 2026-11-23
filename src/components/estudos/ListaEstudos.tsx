@@ -1,5 +1,6 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarPonto, meses, raio80Real, reais, regiaoDe,
@@ -47,44 +48,49 @@ function MiniMapa({ linhas, abrir }: { linhas: Linha[]; abrir: (id: string) => v
   return <div ref={el} className="mapa-cinza h-[300px]" aria-label="Mapa dos estudos" />;
 }
 
-/** As unidades que já funcionam: vendas reais contra a mediana da rede e contra o que o modelo preveria pelo tamanho. */
+/** As unidades que já funcionam, em cards: vendas reais contra a mediana da rede (R$/m²) e contra o que o modelo preveria pelo tamanho. */
 function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nome: string) => void }) {
   const linhas = (dados.unidades ?? []).filter((u) => u.c && u.vendas).map((u) => {
     const med = dados.vendasPorM2?.[u.modelo]?.mediana ?? null, porM2 = u.m2 ? (u.vendas as number) / u.m2 : null;
     return { u, porM2, med, dif: u.previsto ? (u.vendas as number) / u.previsto.provavel - 1 : null, r80: raio80Real(u) };
   }).sort((a, b) => Number(b.u.madura) - Number(a.u.madura) || (b.porM2 ?? 0) - (a.porM2 ?? 0));
+  const [todas, setTodas] = useState(false);
   if (!linhas.length) return null;
+  const visiveis = todas ? linhas : linhas.slice(0, 8);
+  const maxM2 = Math.max(...linhas.map((l) => Math.max(l.porM2 ?? 0, l.med ?? 0)), 1);
   return (
-    <section className="space-y-2">
-      <div><h3 className="text-base font-semibold">Unidades em operação</h3><p className="text-[13px] text-muted-foreground">Como cada unidade vende para o tamanho dela e de onde vêm os alunos. Clique para abrir o estudo.</p></div>
-      <div className="overflow-x-auto rounded-2xl border bg-white">
-        <table className="w-full text-[13px]">
-          <thead className="bg-muted/40 text-xs text-muted-foreground"><tr>
-            <th className="px-3 py-2.5 text-left font-medium">Unidade</th><th className="px-2 py-2.5 text-right font-medium">m²</th>
-            <th className="px-2 py-2.5 text-right font-medium">Vendas por mês</th><th className="px-2 py-2.5 text-right font-medium">Vendas por m²</th>
-            <th className="px-2 py-2.5 text-right font-medium">80% dos alunos a até</th><th className="px-2 py-2.5 text-right font-medium">Contra o modelo</th><th className="px-3 py-2.5 text-left font-medium">Situação</th>
-          </tr></thead>
-          <tbody>
-            {linhas.map(({ u, porM2, med, dif, r80 }) => (
-              <tr key={u.nome} tabIndex={0} onClick={() => abrir(u.nome)} onKeyDown={(e) => e.key === "Enter" && abrir(u.nome)}
-                className="cursor-pointer border-t hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <td className="whitespace-nowrap px-3 py-2.5 font-semibold">{u.nome}<span className="ml-1.5 text-xs font-normal text-muted-foreground">{NOME_MODELO[u.modelo]}</span></td>
-                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{u.m2?.toLocaleString("pt-BR") ?? "—"}</td>
-                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{reais(u.vendas as number)}</td>
-                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{porM2 ? <span className={med ? (porM2 >= med ? "text-success" : "text-destructive") : ""}>R$ {Math.round(porM2).toLocaleString("pt-BR")}</span> : "—"}{med && <span className="ml-1 text-[11px] text-muted-foreground">rede {med}</span>}</td>
-                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{r80 != null ? `${r80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km` : "—"}</td>
-                <td className="whitespace-nowrap px-2 py-2.5 text-right tabular-nums">{dif != null && u.madura ? <span className={dif >= 0 ? "text-success" : "text-destructive"}>{dif >= 0 ? "+" : "−"}{Math.abs(Math.round(dif * 100))}%</span> : "—"}</td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{u.madura ? "madura" : "amadurecendo"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <section className="space-y-3">
+      <div><h3 className="text-base font-semibold">Unidades em operação</h3><p className="text-[13px] text-muted-foreground">Quanto cada unidade vende para o tamanho dela, contra a rede e contra o modelo. Clique para abrir o estudo.</p></div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {visiveis.map(({ u, porM2, med, dif, r80 }) => {
+          const acima = porM2 != null && med != null ? porM2 >= med : null;
+          return (
+            <button key={u.nome} type="button" onClick={() => abrir(u.nome)}
+              className="card-surface group flex flex-col p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0"><p className="truncate text-[15px] font-semibold">{u.nome}</p><p className="text-xs text-muted-foreground">{NOME_MODELO[u.modelo]}{u.m2 ? ` · ${u.m2.toLocaleString("pt-BR")} m²` : ""}</p></div>
+                {dif != null && u.madura
+                  ? <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${dif >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{dif >= 0 ? "+" : "−"}{Math.abs(Math.round(dif * 100))}% vs. modelo</span>
+                  : <span className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">amadurecendo</span>}
+              </div>
+              <p className="mt-3 font-display text-[28px] font-semibold leading-none tabular-nums">{reais(u.vendas as number)}<span className="ml-1 font-sans text-xs font-normal text-muted-foreground">por mês</span></p>
+              {porM2 != null && (
+                <div className="mt-3 space-y-1 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-2"><span className="w-16">esta unidade</span><span className="h-1.5 flex-1 rounded-full bg-muted"><span className={`block h-full rounded-full ${acima === false ? "bg-destructive" : "bg-success"}`} style={{ width: `${(porM2 / maxM2) * 100}%` }} /></span><b className="w-14 text-right tabular-nums text-foreground">R$ {Math.round(porM2)}/m²</b></div>
+                  {med != null && <div className="flex items-center gap-2"><span className="w-16">rede</span><span className="h-1.5 flex-1 rounded-full bg-muted"><span className="block h-full rounded-full bg-foreground/30" style={{ width: `${(med / maxM2) * 100}%` }} /></span><span className="w-14 text-right tabular-nums">R$ {med}/m²</span></div>}
+                </div>
+              )}
+              <p className="mt-3 border-t pt-2 text-xs text-muted-foreground">{r80 != null ? `80% dos alunos a até ${r80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km` : "Sem bairros dos alunos ainda"}</p>
+            </button>
+          );
+        })}
       </div>
+      {linhas.length > 8 && <div className="flex justify-center"><Button variant="outline" size="sm" onClick={() => setTodas((t) => !t)}>{todas ? "Mostrar menos" : `Ver todas as ${linhas.length} unidades`}</Button></div>}
     </section>
   );
 }
 
-export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void }) {
+export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void }) {
   const [busca, setBusca] = useState("");
   const [veredito, setVeredito] = useState<Veredito | "">("");
   const [decisao, setDecisao] = useState<StatusDecisao | "">("");
@@ -146,39 +152,43 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
       </div>
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="overflow-hidden rounded-2xl border bg-white">
+        <div>
           {!pontos.length ? (
-            <div className="p-10 text-center text-sm text-muted-foreground">{editavel ? <>Nenhum estudo ainda. Clique em <strong>Novo estudo</strong> e marque o imóvel no mapa.</> : "Nenhum ponto estudado ainda."}</div>
+            <div className="card-surface p-10 text-center text-sm text-muted-foreground">{editavel ? <>Nenhum estudo ainda. Clique em <strong>Novo estudo</strong> e marque o imóvel no mapa.</> : "Nenhum ponto estudado ainda."}</div>
           ) : !filtradas.length ? (
-            <div className="p-10 text-center text-sm text-muted-foreground">Nenhum estudo com esses filtros.</div>
+            <div className="card-surface p-10 text-center text-sm text-muted-foreground">Nenhum estudo com esses filtros.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
-                <thead className="bg-muted/40 text-xs text-muted-foreground"><tr>
-                  <th className="w-10 px-3 py-2.5"><span className="sr-only">Selecionar</span></th>
-                  <th className="px-2 py-2.5 text-left font-medium">Estudo</th><th className="px-2 py-2.5 text-left font-medium">Modelo</th>
-                  <th className="px-2 py-2.5 text-right font-medium">m²</th><th className="px-2 py-2.5 text-right font-medium">Vendas previstas</th>
-                  <th className="px-2 py-2.5 text-right font-medium">Payback</th><th className="px-2 py-2.5 text-left font-medium">Veredito</th>
-                  <th className="px-2 py-2.5 text-left font-medium">Decisão</th><th className="px-2 py-2.5 text-left font-medium">Autor</th><th className="px-3 py-2.5 text-right font-medium">Data</th>
-                </tr></thead>
-                <tbody>
-                  {filtradas.map(({ p, r, regiao, real }) => (
-                    <tr key={p.id} tabIndex={0} onClick={() => abrir(p.id)} onKeyDown={(e) => e.key === "Enter" && abrir(p.id)}
-                      className={`cursor-pointer border-t hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${sel.has(p.id) ? "bg-primary/5" : ""}`}>
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(p.id)} onChange={() => alternar(p.id)} aria-label={`Selecionar ${p.nome}`} className="h-4 w-4 accent-primary" /></td>
-                      <td className="min-w-[180px] px-2 py-3"><div className="text-sm font-semibold">{p.nome}</div><div className="text-xs text-muted-foreground">{regiao}</div></td>
-                      <td className="whitespace-nowrap px-2 py-3">{NOME_MODELO[p.modelo]}</td>
-                      <td className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{p.m2.toLocaleString("pt-BR")}</td>
-                      <td className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{r ? reais(r.provavel) : "—"}{real != null && <div className="text-[11px] text-sky-800">real: {reais(real)}</div>}</td>
-                      <td className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{r ? meses(r.payback) : "—"}</td>
-                      <td className="px-2 py-3">{r && <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${PILULA_VEREDITO[r.veredito]}`}>{VEREDITO_ROTULO[r.veredito]}</span>}</td>
-                      <td className="px-2 py-3"><span title={p.decisao?.comentario} className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${PILULA_DECISAO[p.decisao?.status ?? "analise"]}`}>{DECISAO_ROTULO[p.decisao?.status ?? "analise"]}</span></td>
-                      <td className="whitespace-nowrap px-2 py-3">{p.autor?.nome ?? "Você"}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{dataBR(p.criadoEm)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid gap-3 md:grid-cols-2">
+              {filtradas.map(({ p, r, regiao, real }) => (
+                <div key={p.id} role="button" tabIndex={0} onClick={() => abrir(p.id)} onKeyDown={(e) => e.key === "Enter" && abrir(p.id)}
+                  className={`card-surface group relative flex cursor-pointer flex-col p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${sel.has(p.id) ? "border-primary ring-1 ring-primary" : ""}`}>
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 h-3 w-3 flex-none rounded-full" style={{ background: r ? COR_PINO[r.veredito] : "#c9ced8" }} aria-hidden />
+                    <div className="min-w-0 flex-1"><p className="truncate text-[15px] font-semibold">{p.nome}</p><p className="truncate text-xs text-muted-foreground">{regiao || "sem região"} · {NOME_MODELO[p.modelo]} · {p.m2.toLocaleString("pt-BR")} m²</p></div>
+                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground" onClick={(e) => e.stopPropagation()} title="Marcar para comparar no mapa">
+                      <input type="checkbox" checked={sel.has(p.id)} onChange={() => alternar(p.id)} aria-label={`Selecionar ${p.nome} para comparar`} className="h-4 w-4 accent-primary" />comparar
+                    </label>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div><p className="font-display text-2xl font-semibold leading-none tabular-nums">{r ? reais(r.provavel) : "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">vendas previstas por mês{real != null ? <span className="block text-sky-800">real: {reais(real)}</span> : null}</p></div>
+                    <div><p className="font-display text-2xl font-semibold leading-none tabular-nums">{r ? meses(r.payback) : "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">payback</p></div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    {r && <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${PILULA_VEREDITO[r.veredito]}`}>{VEREDITO_ROTULO[r.veredito]}</span>}
+                    <span title={p.decisao?.comentario} className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${PILULA_DECISAO[p.decisao?.status ?? "analise"]}`}>{DECISAO_ROTULO[p.decisao?.status ?? "analise"]}</span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t pt-2 text-xs text-muted-foreground">
+                    <span className="truncate">{p.autor?.nome ?? "Você"} · {dataBR(p.criadoEm)}</span>
+                    {apagar && editavel && (
+                      <button type="button" title="Apagar este estudo" aria-label={`Apagar o estudo ${p.nome}`}
+                        onClick={(e) => { e.stopPropagation(); if (window.confirm(`Apagar o estudo "${p.nome}"? Ele sai da lista e não dá para desfazer.`)) apagar(p.id); }}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden />Apagar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
