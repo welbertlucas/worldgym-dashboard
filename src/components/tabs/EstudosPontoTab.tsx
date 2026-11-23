@@ -317,7 +317,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       </div>
 
       {/* mapa: busca de endereço e camadas à direita, barra de mapa/Street View/zoom embaixo (arranjo do Mapfry) */}
-      <div ref={caixaMapa} style={{ height: alturaMapa }} className="relative min-h-[480px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
+      <div ref={caixaMapa} style={{ height: alturaMapa }} className="relative isolate min-h-[480px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
         <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
         {(adicionando || verRua || achado) && (
           <div className="absolute left-1/2 top-3 z-[456] flex max-w-[calc(100%-34rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
@@ -329,6 +329,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <BuscaEndereco perto={atual?.c ?? (mapaRef.current ? [mapaRef.current.mapa.getCenter().lat, mapaRef.current.mapa.getCenter().lng] : null)}
           aoEscolher={(l) => { setAdicionando(false); setVerRua(false); setAchado(l); mapaRef.current?.mapa.setView(l.c, 16); }} />
         <PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa"
+          abaExtra={{ rotulo: "Lugares por perto", conteudo: <ControlePois embutido centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
@@ -342,7 +343,6 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           </> : null}
           sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />
         <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
-        <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
 

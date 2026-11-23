@@ -72,7 +72,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
           <span>{comPosicao.length} unidades</span>
         </div>
       </div>
-      <div ref={caixa} style={{ height: altura }} className="relative min-h-[480px] overflow-hidden rounded-2xl border bg-muted">
+      <div ref={caixa} style={{ height: altura }} className="relative isolate min-h-[480px] overflow-hidden rounded-2xl border bg-muted">
         <div ref={el} className="absolute inset-0" aria-label="Mapa das unidades da rede" />
         {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
         <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />

@@ -132,3 +132,9 @@
   text-overflow: ellipsis;
   vertical-align: bottom;
 }
+
+/* Mapas (Leaflet): as camadas internas usam z-index altos (400 a 1000); isolados, elas não passam por cima dos menus do topo
+   (ex.: "Ver como"), em todos os mapas do Atlas. */
+.leaflet-container {
+  isolation: isolate;
+}

@@ -115,10 +115,12 @@ export function desenharPois(L: Leaflet, mapa: import("leaflet").Map, grupo: imp
 }
 
 /** Controle "Academias concorrentes" (no canto de baixo do mapa): categoria, raio e buscar. `aviso`: pergunta antes de mandar a posição ao Google (pontos novos). */
-export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado, area, res }: {
+export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado, area, res, embutido }: {
   centro: [number, number] | null; aviso: boolean; aoResultado: (r: ResultadoPois | null) => void; modo: ModoPois; setModo: (m: ModoPois) => void; temResultado: boolean;
   /** O resultado mostrado (para o cartão com o total, como no Mapfry). */
   res?: ResultadoPois | null;
+  /** Dentro da aba "Lugares por perto" do painel de camadas: o formulário fica aberto, sem botão flutuante sobre o mapa. */
+  embutido?: boolean;
   /** Área de deslocamento: a busca cobre a área e só ficam os lugares de dentro (sem escolher raio). */
   area?: { geometria: Geometria; rotulo: string } | null;
 }) {
@@ -142,6 +144,39 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
       setAberto(false);
     } catch (e) { setErro((e as Error).message); } finally { setBuscando(false); }
   };
+  if (embutido) return (
+    <div className="space-y-3 text-foreground">
+      <label className="block text-xs font-medium text-muted-foreground">O que buscar
+        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="mt-1 h-9 w-full rounded-lg border bg-white px-2 text-sm text-foreground">
+          {CATEGORIAS_POIS.map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
+        </select>
+      </label>
+      {area ? <p className="text-xs text-muted-foreground">Onde: <b className="text-foreground">área de {area.rotulo}</b> (a linha verde do mapa)</p> : (
+        <label className="block text-xs font-medium text-muted-foreground">Raio: <b className="text-foreground">{raio.toLocaleString("pt-BR")} km</b>
+          <input type="range" min={0.5} max={5} step={0.5} value={raio} onChange={(e) => setRaio(Number(e.target.value))} className="mt-1 w-full accent-primary" />
+        </label>
+      )}
+      {erro && <p className="text-xs text-destructive">{erro}</p>}
+      <div className="flex gap-2">
+        <Button size="sm" onClick={buscar} disabled={buscando || !centro} className="flex-1">{buscando ? "Buscando…" : "Buscar"}</Button>
+        {temResultado && <Button size="sm" variant="outline" onClick={() => aoResultado(null)}>Limpar</Button>}
+      </div>
+      {res && (
+        <div className="rounded-lg bg-muted px-2.5 py-2">
+          <div className="flex items-baseline gap-2"><b className="text-xl font-semibold tabular-nums text-primary">{totalPois(res)}</b><span className="text-[12px]">{totalPois(res) === 1 ? CATEGORIAS_POIS.find((c) => c.id === res.categoria)?.singular ?? "lugar" : rotuloPois(res).toLowerCase()}</span></div>
+          <p className="text-[11px] text-muted-foreground">{ondePois(res)}{res.categoria === "academias" && totalPois(res) !== res.total ? " · sem contar as World Gym" : ""}{res.lugares.some((l) => l.rede && l.rede !== "World Gym") ? ` · redes: ${[...new Set(res.lugares.map((l) => l.rede).filter((r): r is string => !!r && r !== "World Gym"))].join(", ")}` : ""}</p>
+        </div>
+      )}
+      {temResultado && (
+        <div className="flex gap-1.5" role="group" aria-label="Como mostrar os lugares">
+          {(["nomes", "numeros"] as ModoPois[]).map((m) => (
+            <Pilula key={m} ativo={modo === m} onClick={() => setModo(m)}>{m === "nomes" ? "Nomes no mapa" : "Números + lista"}</Pilula>
+          ))}
+        </div>
+      )}
+      <p className="text-[11px] text-muted-foreground">Dados do Google. A mesma busca fica guardada por 90 dias. A lista completa aparece embaixo do mapa.</p>
+    </div>
+  );
   return (
     // botão embaixo à esquerda e, ao lado dele (não em cima, para não cobrir o painel de camadas), o total e o modo de mostrar
     <div className="pointer-events-auto relative flex items-end gap-2">

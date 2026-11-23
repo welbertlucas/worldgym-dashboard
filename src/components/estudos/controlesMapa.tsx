@@ -15,8 +15,11 @@ export interface Sobreposicao { id: string; rotulo: string; ativo: boolean; alte
  * `vazia`: a camada sem nada pintado (ex.: "limpa"). Com ela, o olho do topo desliga todas as camadas de uma vez (a escolhida e as de
  * cima do mapa) e, clicado de novo, volta ao que estava ligado.
  */
-export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3", sobre = [], vazia }: { itens: ItemCamada[]; atual: string; escolher: (id: string) => void; legenda?: ReactNode; topo?: string; sobre?: Sobreposicao[]; vazia?: string }) {
+export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3", sobre = [], vazia, abaExtra }: { itens: ItemCamada[]; atual: string; escolher: (id: string) => void; legenda?: ReactNode; topo?: string; sobre?: Sobreposicao[]; vazia?: string;
+  /** Segunda aba do painel (ex.: "Lugares por perto", com a busca de academias concorrentes), para nada ficar por cima das camadas. */
+  abaExtra?: { rotulo: string; conteudo: ReactNode } }) {
   const [aberto, setAberto] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
+  const [aba, setAba] = useState<"camadas" | "extra">("camadas");
   const guardado = useRef<{ camada: string; sobre: string[] } | null>(null);
   const tudoDesligado = !!vazia && atual === vazia && sobre.every((o) => !o.ativo);
   const alternarTudo = () => {
@@ -47,7 +50,16 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
           </button>
         )}
       </div>
-      {aberto && (
+      {aberto && abaExtra && (
+        <div className="flex gap-1 border-t px-2 pt-2" role="tablist">
+          {([["camadas", "Camadas"], ["extra", abaExtra.rotulo]] as const).map(([id, rotulo]) => (
+            <button key={id} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
+              className="flex-1 rounded-lg px-2 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-muted aria-selected:bg-foreground aria-selected:text-background">{rotulo}</button>
+          ))}
+        </div>
+      )}
+      {aberto && abaExtra && aba === "extra" && <div className="max-h-[52vh] overflow-y-auto px-3 py-2.5">{abaExtra.conteudo}</div>}
+      {aberto && (!abaExtra || aba === "camadas") && (
         <div className="max-h-[52vh] space-y-1 overflow-y-auto border-t px-2 py-2">
           {sobre.length > 0 && <p className="px-2.5 pb-1 text-[11px] font-medium text-muted-foreground">Por cima do mapa</p>}
           {sobre.map((o) => (
@@ -244,9 +256,9 @@ export function useAlturaAteOFim(el: React.RefObject<HTMLElement | null>, minimo
     const e = el.current;
     if (!e) return;
     // posição do topo do mapa na página (soma a rolagem, para não mudar quando a pessoa rola)
-    let topo = e.getBoundingClientRect().top, p: HTMLElement | null = e.parentElement;
-    while (p) { topo += p.scrollTop; p = p.parentElement; }
-    topo += window.scrollY;
+    // (a rolagem da página entra uma vez só: o <html> já é a janela, então ele e o <body> ficam fora da soma)
+    let topo = e.getBoundingClientRect().top + window.scrollY, p: HTMLElement | null = e.parentElement;
+    while (p && p !== document.body && p !== document.documentElement) { topo += p.scrollTop; p = p.parentElement; }
     const h = Math.max(minimo, Math.round(window.innerHeight - topo - folga));
     setAltura((a) => (a === h ? a : h));
   };
