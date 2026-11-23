@@ -240,19 +240,18 @@ export function BuscaEndereco({ perto, aoEscolher }: { perto: [number, number] |
  */
 export function useAlturaAteOFim(el: React.RefObject<HTMLElement | null>, minimo = 480, folga = 16) {
   const [altura, setAltura] = useState<number | undefined>(undefined);
-  useEffect(() => {
-    const medir = () => {
-      const e = el.current;
-      if (!e) return;
-      // posição do topo do mapa na página (soma a rolagem, para não mudar quando a pessoa rola)
-      let topo = e.getBoundingClientRect().top, p: HTMLElement | null = e.parentElement;
-      while (p) { topo += p.scrollTop; p = p.parentElement; }
-      topo += window.scrollY;
-      setAltura(Math.max(minimo, Math.round(window.innerHeight - topo - folga)));
-    };
-    medir();
-    window.addEventListener("resize", medir);
-    return () => window.removeEventListener("resize", medir);
-  }, [el, minimo, folga]);
+  const medir = () => {
+    const e = el.current;
+    if (!e) return;
+    // posição do topo do mapa na página (soma a rolagem, para não mudar quando a pessoa rola)
+    let topo = e.getBoundingClientRect().top, p: HTMLElement | null = e.parentElement;
+    while (p) { topo += p.scrollTop; p = p.parentElement; }
+    topo += window.scrollY;
+    const h = Math.max(minimo, Math.round(window.innerHeight - topo - folga));
+    setAltura((a) => (a === h ? a : h));
+  };
+  // mede a cada desenho da tela: o mapa pode aparecer depois (quando os dados terminam de carregar); sem mudança, não redesenha
+  useEffect(medir);
+  useEffect(() => { window.addEventListener("resize", medir); return () => window.removeEventListener("resize", medir); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return altura;
 }

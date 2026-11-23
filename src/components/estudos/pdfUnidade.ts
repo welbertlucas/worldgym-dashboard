@@ -3,7 +3,7 @@
 // Cada seção traz a leitura escrita (o "porquê" do número), não só o mapa. Os textos são montados por regras fixas a partir dos
 // números da própria tela: nada inventado; o que é estimativa ou premissa de mercado aparece escrito como tal.
 import type { ConteudoPdf, Secao } from "@/lib/estudoPdf";
-import { nomeDoArquivo } from "@/lib/estudoPdf";
+import { nomeDoArquivo, ALT_FOTO_MAPA } from "@/lib/estudoPdf";
 import { compararComParecidas, leituraParecidas, CLASSES_RENDA, CORES_IDADE, CORRECAO_POF, FAIXAS_IDADE, reais, type densidadeNaArea, type UnidadeEstudo, type classesNoRaio, type perfilNaArea, type potencialNaArea, type FaixaM2 } from "@/lib/estudoPonto";
 import type { ResultadoPois } from "@/components/estudos/pois";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
@@ -82,7 +82,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
     secoes.push({
       titulo: "População por Faixa Etária", novaPagina: true, linhas: [],
       texto: [`A população de 20 a 49 anos ${area} soma ${num(tot * p2049)} pessoas, ${pct(p2049)} do total. ${p2049 >= 0.49 ? "É uma aderência etária alta ao público de academia." : p2049 >= 0.42 ? "É uma aderência etária média, com base relevante de público economicamente ativo." : "A aderência etária é baixa: a área é mais jovem ou mais envelhecida que o público típico, o que pede oferta e comunicação ajustadas."} Na rede, 55% dos alunos ativos têm de 25 a 44 anos, faixa em que o churn e a inadimplência são menores que entre os mais jovens; na área, os moradores de 30 a 49 anos são ${pct(nucleo)}.`],
-      foto: { dados: m.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade que predomina, comparando moradores por ano de idade (Censo 2022)." }, altFoto: 85,
+      foto: { dados: m.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade que predomina, comparando moradores por ano de idade (Censo 2022)." }, altFoto: ALT_FOTO_MAPA,
       legenda: FAIXAS_IDADE.map((f, i) => ({ cor: CORES_IDADE[i], texto: `${f}: ${num(perfil.idade![i])} (${pct(perfil.idade![i] / tot, 0)})` })),
       destaques: [{ valor: pct(p2049), rotulo: "moradores de 20 a 49 anos" }, { valor: mil(tot * p2049), rotulo: "pessoas de 20 a 49 anos" }],
     });
@@ -95,7 +95,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
       destaques: [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }, { valor: dec(pd), rotulo: "moradores por domicílio" }, { valor: mil(perfil.moradores), rotulo: "moradores" }],
       texto: [`A área conta com ${num(perfil.domicilios)} domicílios ocupados, com média de ${dec(pd)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)}). ${pd >= 2.95 ? "Famílias maiores dividem a renda entre mais pessoas: o consumo é compartilhado e a sensibilidade a preço é maior, o que reforça ticket acessível, planos familiares e alto volume de alunos." : pd <= 2.55 ? "Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor." : "O tamanho das famílias está perto da média nacional: o público combina famílias e adultos que moram sozinhos, sem pressão extra sobre o preço."}`],
-      foto: { dados: m.fotos.domicilios, legenda: m.densidade?.[0]?.rotulo === "1 morador" ? "Cada hexágono na cor do tamanho de domicílio mais comum (número de moradores, Censo 2022)." : "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)." }, altFoto: 85,
+      foto: { dados: m.fotos.domicilios, legenda: m.densidade?.[0]?.rotulo === "1 morador" ? "Cada hexágono na cor do tamanho de domicílio mais comum (número de moradores, Censo 2022)." : "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)." }, altFoto: ALT_FOTO_MAPA,
       ...(m.densidade ? { grafico: { tipo: "rosca" as const, titulo: m.densidade[0]?.rotulo === "1 morador" ? "Domicílios por número de moradores" : "Domicílios por faixa de moradores por domicílio", fatias: m.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
     });
   }
@@ -106,7 +106,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
     secoes.push({
       titulo: "Perfil Socioeconômico", novaPagina: true, linhas: [],
       texto: [`A região tem perfil ${perfilRenda}: ${pct(renda.ab)} dos ${renda.porDomicilio ? "domicílios" : "moradores"} estão nas classes AA, A e B e ${pct(renda.cde)} nas classes C, D e E. As classes que mais aparecem são a ${a.id} (${pct(a.parte)}) e a ${b.id} (${pct(b.parte)}), ${renda.cde >= 0.75 ? "o que indica sensibilidade a preço e favorece modelos focados em escala e eficiência, como o Low Cost." : renda.ab >= 0.4 ? "o que abre espaço para planos de maior valor, serviços adicionais e o modelo Pro." : "o que pede uma oferta que atenda as duas faixas, com plano de entrada e opções de maior valor."}${renda.media ? ` A renda média do responsável pelo domicílio na área é de R$ ${num(Math.round(renda.media / 10) * 10)}.` : ""}`],
-      foto: { dados: m.fotos.renda, legenda: renda.porDomicilio ? "Cada hexágono na cor da classe com mais domicílios (renda do domicílio estimada a partir do Censo 2022)." : "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022, estimativa por hexágono)." }, altFoto: 88,
+      foto: { dados: m.fotos.renda, legenda: renda.porDomicilio ? "Cada hexágono na cor da classe com mais domicílios (renda do domicílio estimada a partir do Censo 2022)." : "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022, estimativa por hexágono)." }, altFoto: ALT_FOTO_MAPA,
       grafico: { tipo: "rosca", titulo: `Distribuição dos ${renda.porDomicilio ? "domicílios" : "moradores"} por classe de renda`, fatias: CLASSES_RENDA.map((c) => ({ rotulo: `${c.rotulo} (${c.faixa})`, valor: renda.classes.find((x) => x.id === c.id)?.parte ?? 0, cor: c.cor })), centro: mil(renda.moradores), rotuloCentro: renda.porDomicilio ? "domicílios" : "moradores" },
     });
   }
@@ -124,7 +124,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
           : `Para chegar à meta de ${reais(m.vendas!)} por mês (o que paga o investimento no prazo da régua da rede), o ponto precisaria capturar ${pct(fatia, 0)} desse potencial. ${fatia >= 0.36 ? "É uma fatia alta demais: nos estudos da rede, pontos que precisavam de mais de ~36% do potencial foram reprovados." : fatia >= 0.33 ? "Está na zona de atenção dos estudos da rede (33% a 35%)." : "Está dentro do que os estudos da rede consideram capturável (até ~32%)."}`] : []),
         `Estimativa: gasto médio mensal das famílias com recreações e esportes por faixa de renda (IBGE, POF 2017-2018), corrigido pela inflação (×${dec(CORRECAO_POF)}) e aplicado à renda estimada dos domicílios de cada hexágono do Censo 2022 (a renda do responsável, a mais informada pelo IBGE, convertida em renda do domicílio pela relação média do estado e espalhada entre as faixas pela variação da renda em cada setor).`,
       ],
-      foto: { dados: m.fotos.consumo, legenda: "Mais escuro = maior gasto estimado com recreações e esportes." }, altFoto: 95,
+      foto: { dados: m.fotos.consumo, legenda: "Mais escuro = maior gasto estimado com recreações e esportes." }, altFoto: ALT_FOTO_MAPA,
     });
   }
 
@@ -136,7 +136,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
     secoes.push({
       titulo: "Análise de Concorrência", novaPagina: true, linhas: [], texto,
       destaques: [{ valor: num(conc.diretos), rotulo: "concorrentes diretos" }, ...(habPorAcademia != null ? [{ valor: num(habPorAcademia), rotulo: "habitantes por academia" }] : []), ...(share != null ? [{ valor: pct(share, 0), rotulo: "participação no mercado da área" }] : [])],
-      foto: { dados: m.fotos.pois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, altFoto: 92,
+      foto: { dados: m.fotos.pois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, altFoto: ALT_FOTO_MAPA,
     });
     secoes.push({
       titulo: "Composição da Concorrência", novaPagina: true, linhas: [],
@@ -189,7 +189,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
       "Mapeamento das academias concorrentes (Google)",
       `Premissas da rede: régua de vendas por m² das unidades maduras e penetração de mercado de ${pct(PENETRACAO_MERCADO, 0)}`,
     ],
-    paragrafo: "Os dados do Censo são agregados em hexágonos de cerca de 300 m e contados quando o centro do hexágono cai dentro da área. Contagens de alunos são totais por bairro, sem dado pessoal.",
+    paragrafo: "Os dados do Censo são agregados em hexágonos de cerca de 200 m e contados quando o centro do hexágono cai dentro da área. Contagens de alunos são totais por bairro, sem dado pessoal.",
   };
 
   // ---------- Base de clientes ativos ----------
@@ -200,7 +200,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     if (d.parteNaArea != null) texto.push(`${pct(d.parteNaArea, 0)} da base mora ${area} e 80% dos alunos moram a até ${d.onde80}. ${d.parteNaArea >= 0.8 ? "A área de 10 minutos explica quase toda a base: é nela que se concentram as ações de marketing e as parcerias." : "Uma parte relevante da base vem de fora da área de 10 minutos: vale entender o que atrai esses alunos (trabalho, estudo ou trajeto) e reforçar esse canal."}`);
     secoes.push({
       titulo: "Base de Clientes Ativos", novaPagina: true, linhas: [], texto,
-      foto: { dados: d.fotos.alunos, legenda: `Bolha maior = mais alunos no bairro.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: 78,
+      foto: { dados: d.fotos.alunos, legenda: `Bolha maior = mais alunos no bairro.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: ALT_FOTO_MAPA,
       grafico: d.parteNaArea != null ? { tipo: "rosca", fatias: [{ rotulo: `Moram ${area}`, valor: d.parteNaArea, cor: "#0f8a8a" }, { rotulo: "Moram fora da área", valor: 1 - d.parteNaArea, cor: "#d6d9e0" }], centro: pct(d.parteNaArea, 0), rotuloCentro: "na área" } : undefined,
       tabela: { colunas: ["Bairro", "Alunos", "%"], larguras: [2.4, 0.8, 0.6], blocos: 2, linhas: d.topBairros.map(([b, , , n]) => [b, num(n), pct(n / Math.max(1, d.alunosBairro), 0)]) },
     });
@@ -222,7 +222,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     texto: [d.divideCom.length
       ? `A área da unidade se sobrepõe à de outras World Gym. Pelo modelo de captação, ${d.divideCom.map((x) => `${pct(x.parte, 0)} do potencial é disputado com a ${x.nome}`).join(", ")}. ${perda >= 0.25 ? "É uma sobreposição alta: ações comerciais devem ser coordenadas entre as unidades para não disputar o mesmo aluno com desconto, e novas aberturas nessa direção pedem cuidado." : "É uma sobreposição moderada, comum em redes adensadas; vale combinar campanhas entre as unidades para cobrir os bairros de fronteira."}`
       : "Nenhuma outra World Gym divide de forma relevante a área desta unidade: não há canibalização dentro da rede, e o crescimento depende só da disputa com a concorrência externa."],
-    foto: { dados: d.fotos.rede, legenda: "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." }, altFoto: 100,
+    foto: { dados: d.fotos.rede, legenda: "Bolinhas vermelhas: outras World Gym. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA,
     grafico: d.divideCom.length ? { tipo: "rosca", titulo: "Potencial de captação da unidade", fatias: [{ rotulo: `Só da World Gym ${u.nome}`, valor: Math.max(0, 1 - perda), cor: "#c41230" }, ...d.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } : undefined,
   });
 
@@ -242,7 +242,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     secoes.push({
       titulo: "Oportunidade de Nova Unidade", novaPagina: true, linhas: [],
       texto: [textoSugestoes(d.novaUnidade, "nova", u.nome), LIMITES_SUGESTAO],
-      foto: d.fotos.nova ? { dados: d.fotos.nova, legenda: "Pinos cinza numerados: regiões sugeridas. Bolinhas vermelhas: World Gym em operação." } : undefined, altFoto: 100,
+      foto: d.fotos.nova ? { dados: d.fotos.nova, legenda: "Pinos cinza numerados: regiões sugeridas. Bolinhas vermelhas: World Gym em operação." } : undefined, altFoto: ALT_FOTO_MAPA,
       ...(d.novaUnidade.sugestoes.length ? { tabela: { colunas: ["Região", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.novaUnidade) } } : {}),
     });
   }

@@ -3,7 +3,7 @@
 // E as legendas de cada uma, para o painel de camadas.
 import type { Leaflet } from "@/components/estudos/mapaComum";
 import { hexagono, rampa, recortarNaArea } from "@/components/estudos/mapaComum";
-import { CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, TAMANHOS_DOMICILIO, classeDaRenda, classeDensidade, dentroDaArea, faixaPredominante, gastoDoHexagono, tamanhoPredominante, type Censo, type Geometria } from "@/lib/estudoPonto";
+import { SALARIO_MINIMO, CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, TAMANHOS_DOMICILIO, classeDaRenda, classeDensidade, dentroDaArea, faixaPredominante, gastoDoHexagono, tamanhoPredominante, type Censo, type Geometria } from "@/lib/estudoPonto";
 
 export type CamadaCenso = "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio";
 export const ehCamadaCenso = (x: string): x is CamadaCenso => ["pessoas", "idade", "domicilios", "renda", "rendaTotal", "consumo", "comercio"].includes(x);
@@ -243,10 +243,10 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
         <div className="flex items-center gap-2.5">
           <RoscaRenda classes={rd.classes} />
           <div className="min-w-0 flex-1 space-y-0.5 text-[11px]">
-            {rd.classes.map((x) => <div key={x.id} className="flex items-center gap-1.5" title={x.faixa}><span className="h-2.5 w-2.5 flex-none rounded-sm" style={{ background: x.cor }} /><span className="flex-1 whitespace-nowrap">Classe {x.id}</span><b className="tabular-nums">{Math.round(x.parte * 100)}%</b></div>)}
+            {rd.classes.map((x) => <div key={x.id} className="flex items-start gap-1.5"><span className="mt-[2px] h-2.5 w-2.5 flex-none rounded-sm" style={{ background: x.cor }} /><span className="min-w-0 flex-1 leading-tight"><span className="whitespace-nowrap">Classe {x.id}</span><span className="block text-[10px] text-muted-foreground">{x.faixa}</span></span><b className="tabular-nums">{Math.round(x.parte * 100)}%</b></div>)}
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">{rd.porDomicilio ? `${Math.round(rd.moradores).toLocaleString("pt-BR")} domicílios` : "Moradores por classe"} {resumo?.onde ?? "na área"}.</p>
+        <p className="text-[11px] text-muted-foreground">{rd.porDomicilio ? `${Math.round(rd.moradores).toLocaleString("pt-BR")} domicílios` : "Moradores por classe"} {resumo?.onde ?? "na área"}. Renda mensal do domicílio, pelo salário mínimo de {SALARIO_MINIMO.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}.</p>
       </div>
     );
   }

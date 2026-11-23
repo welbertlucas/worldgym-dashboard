@@ -173,19 +173,26 @@ async function esperarAzulejos(m: MapaBase, ms = 5000) {
  * Foto do mapa para o PDF num enquadramento fixo (o mesmo para todo mundo, não importa o zoom da tela): leva o mapa até `alvo`,
  * troca o fundo (ruas cinza ou satélite), espera carregar, fotografa e devolve tudo como estava.
  */
+/** Lado, em pixels, das fotos de mapa do PDF (quadradas). */
+export const LADO_FOTO = 900;
 export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, number]; zoom: number } | { limites: import("leaflet").LatLngBounds }, satelite = false): Promise<string | null> {
   const centro = m.mapa.getCenter(), zoom = m.mapa.getZoom();
   const tinhaSat = m.mapa.hasLayer(m.sat), tinhaRuas = m.mapa.hasLayer(m.ruas);
   // o PDF sai sempre com as ruas do mapa padrão (em cinza), qualquer que seja o fundo escolhido na tela
   const urlAntes = urlDe(m.ruas);
   if (!satelite && urlAntes !== URL_OSM) m.ruas.setUrl(URL_OSM);
+  // foto QUADRADA (como nos estudos do Mapfry), do mesmo tamanho em todos os mapas: o mapa vira um quadrado de LADO_FOTO só durante a foto,
+  // e a área enche o quadro (o enquadramento fica igual em todos os temas, sem sobrar mapa dos lados)
+  const caixa = m.mapa.getContainer(), estiloAntes = caixa.getAttribute("style") ?? "";
+  caixa.style.width = `${LADO_FOTO}px`; caixa.style.height = `${LADO_FOTO}px`; caixa.style.right = "auto"; caixa.style.bottom = "auto";
+  m.mapa.invalidateSize({ animate: false });
   try {
     if (satelite) { if (tinhaRuas) m.mapa.removeLayer(m.ruas); if (!tinhaSat) m.sat.addTo(m.mapa); }
     else { if (tinhaSat) m.mapa.removeLayer(m.sat); if (!tinhaRuas) m.ruas.addTo(m.mapa); }
     // zoom fracionado só para a foto: com zoom inteiro o enquadramento sobra muito em volta da área
     const snap = m.mapa.options.zoomSnap;
     m.mapa.options.zoomSnap = 0.1;
-    if ("limites" in alvo) m.mapa.fitBounds(alvo.limites, { animate: false, padding: [10, 10] });
+    if ("limites" in alvo) m.mapa.fitBounds(alvo.limites, { animate: false, padding: [14, 14] });
     else m.mapa.setView(alvo.centro, alvo.zoom, { animate: false });
     m.mapa.options.zoomSnap = snap;
     await esperarAzulejos(m);
@@ -194,6 +201,8 @@ export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, numbe
     if (m.mapa.hasLayer(m.sat) !== tinhaSat) { if (tinhaSat) m.sat.addTo(m.mapa); else m.mapa.removeLayer(m.sat); }
     if (m.mapa.hasLayer(m.ruas) !== tinhaRuas) { if (tinhaRuas) m.ruas.addTo(m.mapa); else m.mapa.removeLayer(m.ruas); }
     if (urlDe(m.ruas) !== urlAntes) m.ruas.setUrl(urlAntes);
+    caixa.setAttribute("style", estiloAntes);
+    m.mapa.invalidateSize({ animate: false });
     m.mapa.setView(centro, zoom, { animate: false });
   }
 }

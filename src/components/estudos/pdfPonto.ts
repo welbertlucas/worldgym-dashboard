@@ -3,7 +3,7 @@
 // concorrência, canibalização, cenários de faturamento, o imóvel, a recomendação de localização, unidades parecidas e a conclusão.
 // Os textos são montados por regras fixas a partir dos números da tela; o que é estimativa ou premissa aparece escrito como tal.
 import type { ConteudoPdf, PaginaDoEstudo, Secao } from "@/lib/estudoPdf";
-import { nomeDoArquivo } from "@/lib/estudoPdf";
+import { nomeDoArquivo, ALT_FOTO_MAPA } from "@/lib/estudoPdf";
 import { DECISAO_ROTULO, compararComParecidas, leituraParecidas, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
 import { PENETRACAO_MERCADO, resumoMercado, secoesDeMercado, type DadosMercado } from "@/components/estudos/pdfUnidade";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
@@ -58,7 +58,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
         "Vendas previstas pelo tamanho do imóvel e pelas vendas por m² das unidades maduras da rede (EVO)",
         `Régua de retorno da rede: payback em até ${pr.regua.mesesAprovado} meses aprova; até ${pr.regua.mesesAtencao} meses pede atenção`,
       ],
-      paragrafo: "Os dados do Censo são agregados em hexágonos de cerca de 300 m e contados quando o centro do hexágono cai dentro da área.",
+      paragrafo: "Os dados do Censo são agregados em hexágonos de cerca de 200 m e contados quando o centro do hexágono cai dentro da área.",
     }],
   });
 
@@ -80,7 +80,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
         secoes.push({
           titulo: "Área de Captação", novaPagina: true, linhas: [],
           texto: [`O mapa mostra onde estariam os alunos do ponto: cada hexágono pesa pela quantidade de moradores e pela distância até o imóvel, já descontado o que as World Gym e os outros pontos em volta dividem. 80% dos alunos esperados morariam a até ${cap.raio80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km${merc?.perfil ? `, e ${area} vivem ${mil(merc.perfil.moradores)} pessoas` : ""}.`],
-          foto: { dados: d.fotoCaptacao, legenda: `Mais escuro = onde o modelo espera mais alunos.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: 110,
+          foto: { dados: d.fotoCaptacao, legenda: `Mais escuro = onde o modelo espera mais alunos.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: ALT_FOTO_MAPA,
         });
       }
       const pp = d.populacao;
@@ -107,7 +107,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
         texto: [cap.divideCom.length
           ? `A área do ponto se sobrepõe à de unidades World Gym. Pelo modelo de captação, ${cap.divideCom.map((x) => `${pct(x.parte)} do público seria dividido com a ${x.nome}`).join(", ")}. ${cap.divideCom.reduce((a, x) => a + x.parte, 0) >= 0.25 ? "É uma sobreposição alta: a nova unidade tiraria alunos da rede, o que precisa entrar na decisão." : "É uma sobreposição moderada, aceitável em redes adensadas."}`
           : "Nenhuma World Gym divide de forma relevante a área do ponto: a nova unidade não tiraria alunos da rede."],
-        ...(d.fotoRede ? { foto: { dados: d.fotoRede, legenda: "Bolinhas vermelhas: World Gym em operação. Círculos: área de cada uma." }, altFoto: 95 } : {}),
+        ...(d.fotoRede ? { foto: { dados: d.fotoRede, legenda: "Bolinhas vermelhas: World Gym em operação. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA } : {}),
         ...(cap.divideCom.length ? { grafico: { tipo: "rosca" as const, titulo: "Público do ponto", fatias: [{ rotulo: "Só do ponto", valor: Math.max(0, 1 - cap.divideCom.reduce((a, x) => a + x.parte, 0)), cor: "#c41230" }, ...cap.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } } : {}),
       });
       if (r) secoes.push({
@@ -149,7 +149,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       });
       if (d.sugestoes) secoes.push({
         titulo: "Recomendação de Localização", novaPagina: true, linhas: [], texto: [textoSugestoes(d.sugestoes, "ponto", p.nome)], nota: LIMITES_SUGESTAO,
-        ...(d.fotoSugestoes ? { foto: { dados: d.fotoSugestoes, legenda: `Pino com letra: o ponto estudado. Pinos cinza numerados: posições sugeridas (mesma numeração da tabela). Bolinhas vermelhas: World Gym.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro do ponto.` : ""}` }, altFoto: 95 } : {}),
+        ...(d.fotoSugestoes ? { foto: { dados: d.fotoSugestoes, legenda: `Pino com letra: o ponto estudado. Pinos cinza numerados: posições sugeridas (mesma numeração da tabela). Bolinhas vermelhas: World Gym.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro do ponto.` : ""}` }, altFoto: ALT_FOTO_MAPA } : {}),
         ...(d.sugestoes.sugestoes.length ? { tabela: { colunas: ["Posição", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.sugestoes) } } : {}),
       });
       if (pt.parecidas.itens.length) secoes.push({
@@ -189,7 +189,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
 
   return {
     arquivo: nomeDoArquivo(d.pontos.length === 1 ? `estudo-de-ponto-${d.pontos[0].ponto.nome}` : "estudos-de-ponto"), cabecalho: "Estudo de ponto", foto: null,
-    capa: { titulo: "Estudo de Geomarketing", linha: "Avaliação de Ponto", subtitulo: d.pontos.map((x) => `${x.ponto.nome}${x.ponto.regiao ? ` | ${x.ponto.regiao}` : ""}`).join(" · ") },
+    capa: { titulo: "Estudo de Geomarketing", linha: "Avaliação de Ponto", subtitulo: d.pontos.map((x) => x.ponto.endereco ?? `${x.ponto.nome}${x.ponto.regiao ? ` | ${x.ponto.regiao}` : ""}`).join(" · ") }, // capa com o endereço do ponto (pedido do dono, 23/11/2026)
     paginas,
     ...(d.pontos.length > 1 ? {
       fotoComparacao: { dados: d.comparacao?.foto ?? null, legenda: "Letras: os pontos estudados; bolinhas vermelhas: unidades World Gym." },

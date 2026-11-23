@@ -131,7 +131,8 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
     } catch (e) { setErro((e as Error).message); } finally { setBuscando(false); }
   };
   return (
-    <div className="pointer-events-auto relative flex flex-col-reverse items-start gap-2">
+    // botão embaixo à esquerda e, ao lado dele (não em cima, para não cobrir o painel de camadas), o total e o modo de mostrar
+    <div className="pointer-events-auto relative flex items-end gap-2">
       <Button variant="outline" aria-expanded={aberto} onClick={() => setAberto((a) => !a)} disabled={!centro} className="bg-white shadow-lg aria-expanded:ring-2 aria-expanded:ring-foreground">
         <MapPinned className="h-4 w-4 text-primary" aria-hidden />Academias concorrentes
       </Button>
@@ -155,8 +156,9 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
           <p className="text-[11px] text-muted-foreground">Dados do Google. A mesma busca fica guardada por 90 dias.</p>
         </div>
       )}
+      {(res || temResultado) && <div className="flex flex-col items-start gap-1.5">
       {res && (
-        <div className="rounded-xl border bg-white px-3 py-2 shadow-lg">
+        <div className="max-w-xs rounded-xl border bg-white px-3 py-2 shadow-lg">
           <div className="flex items-baseline gap-2"><b className="text-2xl font-semibold tabular-nums text-primary">{totalPois(res)}</b><span className="text-sm text-foreground">{totalPois(res) === 1 ? CATEGORIAS_POIS.find((c) => c.id === res.categoria)?.singular ?? "lugar" : rotuloPois(res).toLowerCase()}</span></div>
           <p className="text-[11px] text-muted-foreground">{ondePois(res)}{res.categoria === "academias" && totalPois(res) !== res.total ? " · sem contar as World Gym" : ""}{res.lugares.some((l) => l.rede && l.rede !== "World Gym") ? ` · redes: ${[...new Set(res.lugares.map((l) => l.rede).filter((r): r is string => !!r && r !== "World Gym"))].join(", ")}` : ""}</p>
         </div>
@@ -168,6 +170,7 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
           ))}
         </div>
       )}
+      </div>}
     </div>
   );
 }

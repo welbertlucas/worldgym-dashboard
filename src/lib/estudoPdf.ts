@@ -9,6 +9,8 @@ import sairaUrl from "@/assets/estudo-pdf/SairaCondensed-Black.ttf?url";
 import openUrl from "@/assets/estudo-pdf/OpenSans-Regular.ttf?url";
 import openNegritoUrl from "@/assets/estudo-pdf/OpenSans-Bold.ttf?url";
 
+/** Altura das fotos de mapa (quadradas) no PDF, em mm: o mesmo tamanho em todos os temas, grande o bastante para ler o mapa. */
+export const ALT_FOTO_MAPA = 128;
 const VERMELHO: [number, number, number] = [196, 18, 48];
 const TEXTO: [number, number, number] = [27, 33, 48];
 const CINZA: [number, number, number] = [120, 124, 132];
@@ -328,7 +330,7 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       doc.setFillColor(...fundo); doc.rect(L, y, W, 9, "F");
       fonte("negrito", 10); doc.setTextColor(255, 255, 255); doc.text(t(p.faixa.texto).toUpperCase(), L + 3, y + 6); y += 13;
     }
-    figura(p.foto ?? (i === 0 && c.foto ? { dados: c.foto, legenda: c.legendaFoto } : undefined), p.grafico || p.texto?.length ? 78 : 118);
+    figura(p.foto ?? (i === 0 && c.foto ? { dados: c.foto, legenda: c.legendaFoto } : undefined), p.grafico || p.texto?.length ? 100 : ALT_FOTO_MAPA);
     destaques(p.destaques);
     if (p.frase) nota(p.frase);
     textoAnalise(p.texto);

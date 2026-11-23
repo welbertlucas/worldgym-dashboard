@@ -290,17 +290,21 @@ export function arredores(c: [number, number], censo: Censo, raio = 2): { pop: n
   return { pop, renda: peso ? soma / peso : null };
 }
 
+/** Salário mínimo vigente (2026: R$ 1.621, Decreto 12.797/2025), para mostrar as faixas das classes em reais de hoje. Atualizar todo janeiro. */
+export const SALARIO_MINIMO = 1621;
+const reaisSM = (n: number) => `R$ ${Math.round(n * SALARIO_MINIMO).toLocaleString("pt-BR")}`;
 /**
- * Classes de renda (as faixas do estudo de geomarketing, em reais) pela renda média do responsável pelo domicílio em cada
- * hexágono do Censo 2022. É uma aproximação: o Censo dá a média do hexágono, não a renda de cada casa.
+ * Classes de renda do domicílio em salários mínimos (as do estudo de geomarketing): E até 1, D de 1 a 2, C de 2 a 5, B de 5 a 10, A de 10 a 15
+ * e AA acima de 15. Como a renda vem do Censo 2022, a comparação usa o mínimo de 2022 (`min`, em reais de 2022); a faixa mostrada na tela e
+ * no PDF usa o mínimo vigente (correção de 23/11/2026: antes as rendas de 2022 eram comparadas com o mínimo de 2025).
  */
 export const CLASSES_RENDA = [
-  { id: "AA", rotulo: "Classe AA", faixa: "acima de R$ 22.770", min: 22770, cor: "#1e3a8a" },
-  { id: "A", rotulo: "Classe A", faixa: "R$ 15.180 a 22.770", min: 15180, cor: "#0284c7" },
-  { id: "B", rotulo: "Classe B", faixa: "R$ 7.590 a 15.180", min: 7590, cor: "#16a34a" },
-  { id: "C", rotulo: "Classe C", faixa: "R$ 3.036 a 7.590", min: 3036, cor: "#8b5cf6" },
-  { id: "D", rotulo: "Classe D", faixa: "R$ 1.518 a 3.036", min: 1518, cor: "#f59e0b" },
-  { id: "E", rotulo: "Classe E", faixa: "até R$ 1.518", min: 0, cor: "#ef6f6c" },
+  { id: "AA", rotulo: "Classe AA", sm: 15, faixa: `acima de ${reaisSM(15)}`, min: 15 * SM_CENSO, cor: "#1e3a8a" },
+  { id: "A", rotulo: "Classe A", sm: 10, faixa: `${reaisSM(10)} a ${reaisSM(15)}`, min: 10 * SM_CENSO, cor: "#0284c7" },
+  { id: "B", rotulo: "Classe B", sm: 5, faixa: `${reaisSM(5)} a ${reaisSM(10)}`, min: 5 * SM_CENSO, cor: "#16a34a" },
+  { id: "C", rotulo: "Classe C", sm: 2, faixa: `${reaisSM(2)} a ${reaisSM(5)}`, min: 2 * SM_CENSO, cor: "#8b5cf6" },
+  { id: "D", rotulo: "Classe D", sm: 1, faixa: `${reaisSM(1)} a ${reaisSM(2)}`, min: 1 * SM_CENSO, cor: "#f59e0b" },
+  { id: "E", rotulo: "Classe E", sm: 0, faixa: `até ${reaisSM(1)}`, min: 0, cor: "#ef6f6c" },
 ] as const;
 export type ClasseRenda = (typeof CLASSES_RENDA)[number];
 export const classeDaRenda = (r: number | null): ClasseRenda | null => (r == null || r <= 0 ? null : CLASSES_RENDA.find((c) => r >= c.min) ?? null);
