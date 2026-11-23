@@ -43,13 +43,13 @@ const TEMPLATES: Record<AlertKind, Template> = {
   },
   inadimplencia: {
     hypotheses: ["Falha ou atraso na cobrança recorrente", "Concentração de vencimentos no período", "Perfil de plano/forma de pagamento da unidade"],
-    investigate: ["Abrir Financeiro, aba Inadimplência com a unidade escolhida: saldo devedor por tempo de atraso e motivos das cobranças recusadas", "No EVO, tirar a lista de inadimplentes da unidade para a régua de cobrança"],
+    investigate: ["Abrir Gerencial, aba Inadimplência com a unidade escolhida: saldo devedor por tempo de atraso e motivos das cobranças recusadas", "No EVO, tirar a lista de inadimplentes da unidade para a régua de cobrança"],
     correct: ["Régua de cobrança ativa (contato, renegociação) e revisão da forma de pagamento recorrente"],
     followUp: "Inadimplência % e pagamentos dos clientes ÷ faturamento no próximo mês fechado",
   },
   recebimento: {
     hypotheses: ["Inadimplência elevada", "Descompasso entre competência e caixa (vendas parceladas ou a prazo)", "Cobranças recusadas no cartão recorrente (cartão vencido ou sem limite)"],
-    investigate: ["Abrir Financeiro, aba Inadimplência com a unidade escolhida: cobranças recusadas e saldo devedor", "Abrir Financeiro, aba Pagamentos dos clientes: formas de pagamento do mês, para ver se o que falta é cartão, boleto ou Pix"],
+    investigate: ["Abrir Gerencial, aba Inadimplência com a unidade escolhida: cobranças recusadas e saldo devedor", "Abrir Gerencial, aba Recebimentos: formas de pagamento do mês, para ver se o que falta é cartão, boleto ou Pix"],
     correct: ["Cobrar os títulos em aberto e atualizar os cartões recusados; se a diferença for venda a prazo, acompanhar a entrada no mês seguinte"],
     followUp: "Razão pagamentos dos clientes ÷ faturamento no próximo mês fechado",
   },
@@ -77,7 +77,7 @@ const TEMPLATES: Record<AlertKind, Template> = {
   },
   yoyInadimplencia: {
     hypotheses: ["Cobrança recorrente menos efetiva que a do ano anterior", "Mudança na forma de pagamento predominante", "Perfil de alunos/planos com mais atraso"],
-    investigate: ["Abrir Financeiro, aba Inadimplência: saldo devedor por tempo de atraso e cobranças recusadas, e comparar com a régua de cobrança do ano anterior"],
+    investigate: ["Abrir Gerencial, aba Inadimplência: saldo devedor por tempo de atraso e cobranças recusadas, e comparar com a régua de cobrança do ano anterior"],
     correct: ["Reforçar régua de cobrança e renegociação"],
     followUp: "Inadimplência vs. mesmo mês do ano anterior no próximo mês fechado",
   },
@@ -89,7 +89,7 @@ const TEMPLATES: Record<AlertKind, Template> = {
   },
   yoyNovosContratos: {
     hypotheses: ["Menor volume de captação (campanhas, equipe comercial, divulgação) que no ano anterior", "Mudança no tipo de contrato vendido (menos contratos, ticket diferente)", "Saturação ou concorrência na região"],
-    investigate: ["Comparar leads (Marketing, aba Leads), conversão e contratos vendidos (Comercial, aba Vendas) com o mesmo mês do ano anterior", "Se a queda é geral na rede, conferir a política comercial e de preços do período"],
+    investigate: ["Comparar leads (Marketing, aba Leads), conversão e contratos vendidos (Gerencial, aba Vendas) com o mesmo mês do ano anterior", "Se a queda é geral na rede, conferir a política comercial e de preços do período"],
     correct: ["Plano comercial com meta de contratos; se a queda for da rede inteira, tratar como decisão de diretoria"],
     followUp: "Novos contratos vs. mesmo mês do ano anterior no próximo mês fechado",
   },
@@ -101,7 +101,7 @@ const TEMPLATES: Record<AlertKind, Template> = {
   },
   notasFalta: {
     hypotheses: ["Emissão automática de nota desligada ou falhando para alguma forma de pagamento", "Notas negadas pela prefeitura e não reenviadas", "Recebimentos lançados manualmente (balcão, Pix) sem emissão de nota"],
-    investigate: ["Abrir Financeiro, aba Notas fiscais com a unidade escolhida e ver a cobertura mês a mês", "No EVO, listar os recebimentos do mês sem nota e as notas negadas"],
+    investigate: ["Abrir Gerencial, aba Notas fiscais com a unidade escolhida e ver a cobertura mês a mês", "No EVO, listar os recebimentos do mês sem nota e as notas negadas"],
     correct: ["Emitir as notas que faltam e corrigir a configuração de emissão da unidade no EVO"],
     followUp: "Parte do recebido com nota no próximo mês fechado",
   },

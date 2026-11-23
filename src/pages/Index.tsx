@@ -101,7 +101,7 @@ const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 /** Aba guardada no endereço (#id), se for uma aba que existe. "acessos" só abre para o dono (a tela confere de novo). */
 const ABAS = new Set(TODOS_OS_MENUS.map((n) => n.id));
-const ABAS_COMERCIAL = SUBMENUS.comercial, ABAS_FINANCEIRO = SUBMENUS.financeiro;
+const ABAS_GERENCIAL = SUBMENUS.gerencial;
 function abaDoEndereco(): string | null {
   try {
     const id = enderecoAtual(decodeURIComponent(window.location.hash.slice(1))).split("/")[0];
@@ -110,7 +110,7 @@ function abaDoEndereco(): string | null {
     return null;
   }
 }
-/** Submenu guardado no endereço (#financeiro/notas → "notas"); cada tela confere se a aba existe. */
+/** Submenu guardado no endereço (#gerencial/notas → "notas"); cada tela confere se a aba existe. */
 function subDoEndereco(): string | null {
   try {
     return enderecoAtual(decodeURIComponent(window.location.hash.slice(1))).split("/")[1] || null;
@@ -155,7 +155,7 @@ const Index = () => {
     return !c;
   });
   const mainRef = useRef<HTMLElement>(null);
-  /** Abre um menu (`id`) ou um submenu dele (`id/aba`, ex.: "financeiro/notas"). */
+  /** Abre um menu (`id`) ou um submenu dele (`id/aba`, ex.: "gerencial/notas"). */
   const changeTab = (id: string) => {
     const [tela, sub] = id.split("/");
     setActiveTab(tela);
@@ -404,21 +404,21 @@ const Index = () => {
           />
         )}
 
-        {activeTab === "comercial" && (() => {
-          const aba = abaAtiva(ABAS_COMERCIAL, subAba);
+        {activeTab === "gerencial" && (() => {
+          // Gerencial: o antigo Comercial e o antigo Financeiro num menu só (decisão do dono, 23/11/2026). A aba Despesas ("Em breve") é só do dono.
+          const abasGerencial = ehDono() ? ABAS_GERENCIAL : ABAS_GERENCIAL.filter((a) => !ABAS_SO_DONO.has(`gerencial/${a.id}`));
+          const aba = abaAtiva(abasGerencial, subAba);
           const mes = formatMonthLong(fullMonthData.month), quem = selectedUnit ?? "Rede";
           return (
           <section>
-            <SectionTitle>Comercial</SectionTitle>
-            <Abas tela="comercial" titulo="Comercial" abas={ABAS_COMERCIAL} ativa={aba} onChange={(s) => changeTab(`comercial/${s}`)} />
-            {aba === "resumo" && (<>
+            <SectionTitle>Gerencial</SectionTitle>
+            <Abas tela="gerencial" titulo="Gerencial" abas={abasGerencial} ativa={aba} onChange={(s) => changeTab(`gerencial/${s}`)} />
+            {aba === "vendas" && (<>
               <div className="mb-8"><KpiGrid ctx={kpiCtx} specs={comercialSpecs} /></div>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
                 <NovosContratosChart selectedUnit={selectedUnit} />
                 <VendasOnlineChart selectedUnit={selectedUnit} />
               </div>
-            </>)}
-            {aba === "vendas" && (<>
               <div className="mb-6"><VendasPorDia total={kpiCtx.cur.total} month={fullMonthData.month} partial={partialSelected} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} metas={metasData} /></div>
               <div className="mb-6"><ContratosVendidos total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} porFamilia={!selectedUnit} /></div>
               <div className="mb-6"><VendedoresVendas total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} /></div>
@@ -454,21 +454,8 @@ const Index = () => {
                 <ProdutosVendidos total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
               </div>
             </>)}
-          </section>
-          );
-        })()}
-
-        {activeTab === "financeiro" && (() => {
-          // A aba Despesas (ainda "Em breve") é só do dono
-          const abasFinanceiro = ehDono() ? ABAS_FINANCEIRO : ABAS_FINANCEIRO.filter((a) => !ABAS_SO_DONO.has(`financeiro/${a.id}`));
-          const aba = abaAtiva(abasFinanceiro, subAba);
-          const mes = formatMonthLong(fullMonthData.month), quem = selectedUnit ?? "Rede";
-          return (
-          <section>
-            <SectionTitle>Financeiro</SectionTitle>
-            <Abas tela="financeiro" titulo="Financeiro" abas={abasFinanceiro} ativa={aba} onChange={(s) => changeTab(`financeiro/${s}`)} />
             {aba === "despesas" && <EmBreve titulo="Despesas" descricao="Contas a pagar, contas pagas e gráficos de despesas, vindos da integração com o sistema financeiro." />}
-            {aba === "resumo" && (<>
+            {aba === "recebimento" && (<>
               {/* Faturamento, pagamentos e inadimplência ficam no Overview; aqui só o que é do financeiro (ticket e adimplentes) */}
               <div className="mb-6"><KpiGrid ctx={kpiCtx} specs={[...financeiroSpecs, ...retencaoSpecs(false).filter((s) => s.title === "Adimplentes")]} columns="lg:grid-cols-3">
                 {/* Velocímetro de despesas: só o dono vê, e só ganha número quando a integração (contas a pagar) existir */}
@@ -477,10 +464,7 @@ const Index = () => {
               <div className="mb-6"><FaturamentoProjecao total={kpiCtx.cur.total} month={fullMonthData.month} partial={partialSelected} unit={selectedUnit} atualizadoEm={evoAtualizadoEm} /></div>
               <div className="grid grid-cols-1 gap-6 mb-10">
                 <RevenueChart selectedUnit={selectedUnit} />
-                <InadimplenciaChart selectedUnit={selectedUnit} />
               </div>
-            </>)}
-            {aba === "recebimento" && (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-10">
                 {partialSelected && <div className="xl:col-span-2"><CartaoAReceber total={kpiCtx.cur.total} units={fullMonthData.units} month={fullMonthData.month} hoje={hojeBR()} unitLabel={quem} porUnidade={!selectedUnit} /></div>}
                 <FormasPagamento total={kpiCtx.cur.total} monthLabel={mes} unitLabel={quem} />
@@ -489,9 +473,10 @@ const Index = () => {
                 <TaxasCobradas total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
                 {podeCompararTaxasCartao() && !selectedUnit && <div className="xl:col-span-2"><TaxaCartaoPorUnidade units={fullMonthData.units} monthLabel={mes} /></div>}
               </div>
-            )}
+            </>)}
             {aba === "cobranca" && (
               <div className="grid grid-cols-1 gap-6 mb-10">
+                <InadimplenciaChart selectedUnit={selectedUnit} />
                 <CobrancasRecusa total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />
                 <SaldoDevedorCard total={kpiCtx.cur.total} month={fullMonthData.month} monthLabel={mes} partial={partialSelected} unit={selectedUnit} />
                 <InadPerfilCard total={kpiCtx.cur.total} monthLabel={mes} partial={partialSelected} unitLabel={quem} />

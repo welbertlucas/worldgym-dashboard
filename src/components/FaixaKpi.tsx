@@ -15,7 +15,7 @@ export interface ItemKpi {
 
 /**
  * Faixa de números do topo de uma tela: um cartão só, com linhas finas entre os itens e o número em Oswald
- * (o mesmo estilo dos KPIs do Overview e do Comercial). Quebra em quantas colunas couberem.
+ * (o mesmo estilo dos KPIs do Overview e do Gerencial). Quebra em quantas colunas couberem.
  */
 export function FaixaKpi({ itens, rotulo }: { itens: ItemKpi[]; rotulo: string }) {
   return (

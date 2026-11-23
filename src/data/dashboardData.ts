@@ -880,7 +880,7 @@ export function mergeEvo(data: MonthData[], evoMonths: EvoMonth[]): MonthData[] 
       unit.recebimento = e.recebimento;
       unit.previsaoFaturamento = e.previsaoFaturamento;
       // Um só faturamento em todo o Atlas: o Total de Vendas do EVO. Sem vendas lidas no mês (ou lidas zeradas com cobrança existindo), fica a conta antiga
-      // dos títulos. A previsão por títulos (o que ainda vai vencer no mês) segue guardada com o faturamento dos títulos ao lado: a projeção do Financeiro usa as duas.
+      // dos títulos. A previsão por títulos (o que ainda vai vencer no mês) segue guardada com o faturamento dos títulos ao lado: a projeção da aba Recebimentos usa as duas.
       const tv = totalDeVendas(e);
       if (tv !== null && (tv > 0 || !e.faturamento)) { unit.faturamento = tv; unit.faturamentoTitulos = e.faturamento; }
       // Etapa 2: inadimplência vem do EVO quando o mês já foi calculado com ela (bateu com a planilha em

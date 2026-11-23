@@ -1,4 +1,4 @@
-import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Wallet, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, Presentation, Landmark, Scale, ClipboardCheck, MapPinned, HardHat, type LucideIcon } from "lucide-react";
+import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, Presentation, Landmark, Scale, ClipboardCheck, MapPinned, HardHat, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
@@ -12,8 +12,8 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "plano", label: "Plano de ação", icon: ListChecks },
   { id: "metas", label: "Metas", icon: Target },
   { id: "riscos", label: "Alertas", icon: ShieldAlert, oculto: true },
-  { id: "comercial", label: "Comercial", icon: TrendingUp },
-  { id: "financeiro", label: "Financeiro", icon: Wallet },
+  // Gerencial (decisão do dono, 23/11/2026): junta o antigo Comercial e o antigo Financeiro, sem as abas Resumo
+  { id: "gerencial", label: "Gerencial", icon: TrendingUp },
   { id: "alunos", label: "Alunos", icon: Users },
   { id: "catraca", label: "Acessos na catraca", icon: DoorOpen },
   { id: "retencao", label: "Retenção", icon: UserCheck },
@@ -44,7 +44,7 @@ export const MENUS_SO_DONO = new Set(["unidades-em-obra"]);
 export const MENUS_EM_BREVE = new Set(["unidades-em-obra"]);
 /** Menus recém-liberados (selo "Novidade" em vermelho na barra lateral), até o dono pedir para tirar. */
 export const MENUS_NOVIDADE = new Set(["estudos-de-ponto"]);
-export const ABAS_SO_DONO = new Set(["financeiro/despesas"]);
+export const ABAS_SO_DONO = new Set(["gerencial/despesas"]);
 /** Todos os menus que têm endereço (#id). */
 export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, ROYALTIES, JURIDICO, QUALIDADE, RELATORIOS, ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA, ...NAV_RODAPE, USUARIOS];
 
@@ -55,9 +55,10 @@ export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorio
   return [...base, ...(royalties ? [ROYALTIES] : []), ...(juridico ? [JURIDICO] : []), ...(qualidade ? [QUALIDADE] : []), ...(relatorios ? [RELATORIOS] : []), ...(e.estudos ? [ESTUDOS_DE_PONTO] : []), ...(e.obras ? [UNIDADES_EM_OBRA] : []), ...(gerirAcessos ? [USUARIOS] : [])];
 };
 
-/** "comercial/vendas" → "Comercial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
+/** "gerencial/vendas" → "Gerencial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
 export function nomeDaTela(tela: string): string {
-  const [menu, aba] = tela.split("/");
+  // endereços antigos (ex.: registros de atividade de antes do Gerencial) aparecem com o nome de hoje
+  const [menu, aba] = (ENDERECOS_ANTIGOS[tela] ?? tela).split("/");
   const item = TODOS_OS_MENUS.find((i) => i.id === menu);
   const sub = aba ? SUBMENUS[menu]?.find((a) => a.id === aba) : null;
   return item ? (sub ? `${item.label} › ${sub.rotulo}` : item.label) : tela;
@@ -73,8 +74,10 @@ export function ondeFica(tela: string): string {
 
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
 export const SUBMENUS: Record<string, Aba[]> = {
-  comercial: [{ id: "resumo", rotulo: "Resumo" }, { id: "vendas", rotulo: "Vendas" }, { id: "oportunidades", rotulo: "Oportunidades" }, { id: "complementares", rotulo: "Receitas complementares" }],
-  financeiro: [{ id: "resumo", rotulo: "Resumo" }, { id: "recebimento", rotulo: "Pagamentos dos clientes" }, { id: "despesas", rotulo: "Despesas" }, { id: "cobranca", rotulo: "Inadimplência" }, { id: "notas", rotulo: "Notas fiscais" }],
+  gerencial: [
+    { id: "vendas", rotulo: "Vendas" }, { id: "oportunidades", rotulo: "Oportunidades" }, { id: "complementares", rotulo: "Receitas complementares" },
+    { id: "recebimento", rotulo: "Recebimentos" }, { id: "despesas", rotulo: "Despesas" }, { id: "cobranca", rotulo: "Inadimplência" }, { id: "notas", rotulo: "Notas fiscais" },
+  ],
   alunos: [{ id: "base", rotulo: "Tamanho da base" }, { id: "perfil", rotulo: "Perfil" }, { id: "onde-moram", rotulo: "Onde moram" }, { id: "contratos", rotulo: "Contratos" }],
   catraca: [{ id: "frequencia", rotulo: "Frequência" }, { id: "liberacoes", rotulo: "Liberações" }, { id: "outras-unidades", rotulo: "Outras unidades" }],
   retencao: [{ id: "cancelamentos", rotulo: "Cancelamentos" }, { id: "renovacao", rotulo: "Renovação" }, { id: "satisfacao", rotulo: "Satisfação" }],
@@ -87,7 +90,19 @@ export const SUBMENUS: Record<string, Aba[]> = {
 const ENDERECOS_ANTIGOS: Record<string, string> = {
   mapa: "alunos/onde-moram",
   "alunos/frequencia": "catraca/frequencia",
-  "campanhas/leads": "comercial/oportunidades",
+  "campanhas/leads": "gerencial/oportunidades",
+  // Comercial e Financeiro viraram Gerencial (23/11/2026); as abas Resumo foram para Vendas e Recebimentos
+  comercial: "gerencial/vendas",
+  "comercial/resumo": "gerencial/vendas",
+  "comercial/vendas": "gerencial/vendas",
+  "comercial/oportunidades": "gerencial/oportunidades",
+  "comercial/complementares": "gerencial/complementares",
+  financeiro: "gerencial/recebimento",
+  "financeiro/resumo": "gerencial/recebimento",
+  "financeiro/recebimento": "gerencial/recebimento",
+  "financeiro/despesas": "gerencial/despesas",
+  "financeiro/cobranca": "gerencial/cobranca",
+  "financeiro/notas": "gerencial/notas",
   unidades: "benchmark/posicao",
   "benchmark/contratos": "alunos/contratos",
 };
@@ -96,15 +111,14 @@ export const enderecoAtual = (endereco: string) => ENDERECOS_ANTIGOS[endereco] ?
 /** Palavras que levam a cada menu ou aba na busca do menu (o que tem nos cards dela). */
 const PALAVRAS: Record<string, string> = {
   executiva: "visao executiva resumo geral rede painel principal inicio",
-  "comercial/resumo": "novos contratos cancelamentos vendas online conversao saldo de clientes",
-  "comercial/vendas": "vendas por dia projecao fechamento calendario contratos mais vendidos planos vendedores ranking quem vendeu",
-  "comercial/complementares": "diarias personal brinquedoteca kids wg plus pro+ camisetas coqueteleiras produtos",
+  gerencial: "comercial financeiro gerencial",
+  "gerencial/vendas": "comercial vendas por dia projecao fechamento calendario contratos vendidos mais vendidos planos vendedores ranking quem vendeu novos contratos cancelamentos vendas online conversao saldo de clientes total de vendas",
+  "gerencial/complementares": "diarias personal brinquedoteca kids wg plus pro+ camisetas coqueteleiras produtos",
   plano: "plano de acao o que fazer bussola gestor tarefas copiar whatsapp equipe socios prioridades",
   metas: "meta bronze prata ouro atingimento",
-  "financeiro/resumo": "faturamento recebimento receita inadimplencia adimplentes ticket medio",
-  "financeiro/recebimento": "formas de pagamento pix cartao credito debito bandeiras gateways adquirente multas taxas ajustes",
-  "financeiro/cobranca": "cobrancas recusadas cartao recusado saldo devedor divida devendo inadimplencia por genero idade perfil quem deve",
-  "financeiro/notas": "notas fiscais nf nfs-e nfse iss emissao",
+  "gerencial/recebimento": "financeiro faturamento projecao recebimento pagamentos dos clientes receita adimplentes ticket medio formas de pagamento pix cartao credito debito bandeiras gateways adquirente multas taxas ajustes",
+  "gerencial/cobranca": "inadimplencia cobrancas recusadas cartao recusado saldo devedor divida devendo inadimplencia por genero idade perfil quem deve",
+  "gerencial/notas": "notas fiscais nf nfs-e nfse iss emissao",
   "alunos/base": "alunos ativos base fluxo novos retornos saidas permanencia ltv suspensos",
   "alunos/perfil": "genero idade perfil",
   "alunos/onde-moram": "mapa dos alunos bairros onde moram endereco localizacao",
@@ -123,7 +137,7 @@ const PALAVRAS: Record<string, string> = {
   campanhas: "trafego pago meta facebook instagram",
   "campanhas/campanhas": "investimento alertas evolucao cac pixel compras",
   "campanhas/anuncios": "anuncios contato mais barato horarios dos contatos campanhas no ar veiculando",
-  "comercial/oportunidades": "oportunidades leads origem perfil prospects cadastros consultor tempo converter conversao unidade",
+  "gerencial/oportunidades": "oportunidades leads origem perfil prospects cadastros consultor tempo converter conversao unidade",
   "campanhas/instagram": "instagram feed stories posts seguidores redes sociais perfil postagem",
   "campanhas/influenciadores": "influenciadores influencer parceiros contrato stories feed reels instagram arroba combinado entregas",
   riscos: "alertas riscos recomendacoes atencao critico",
@@ -136,7 +150,7 @@ const PALAVRAS: Record<string, string> = {
   qualidade: "qualidade checklist visita vistoria limpeza uniforme organizacao padrao unidade auditoria nota fotos roteiro",
   "estudos-de-ponto": "estudos de ponto geomarketing geolocalizacao onde abrir nova unidade mapfry concorrentes regiao praca",
   "unidades-em-obra": "unidades em obra construcao obras inauguracao nova unidade cronograma",
-  "financeiro/despesas": "despesas contas a pagar contas pagas custos gastos fornecedores financeiro f360",
+  "gerencial/despesas": "despesas contas a pagar contas pagas custos gastos fornecedores financeiro f360",
   relatorios: "relatorio apresentacao pptx powerpoint slides exportar baixar report operacional",
   acessos: "usuarios senha permissoes login niveis quem entra no painel",
 };

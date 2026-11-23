@@ -280,13 +280,13 @@ describe("busca do menu", () => {
   const itens = itensDeBusca(NAV_ITEMS);
   const busca = (q: string) => buscarNoMenu(itens, q).map((r) => r.destino);
   it("acha abas pelo nome e pelo que tem nos cards, sem acento", () => {
-    expect(busca("nota")[0]).toBe("financeiro/notas");
+    expect(busca("nota")[0]).toBe("gerencial/notas");
     expect(busca("catraca")).toContain("catraca/frequencia");
     expect(busca("liberacoes")).toContain("catraca/liberacoes");
     expect(busca("mapa dos alunos")).toEqual(["alunos/onde-moram"]);
-    expect(busca("oportunidades")).toContain("comercial/oportunidades");
+    expect(busca("oportunidades")).toContain("gerencial/oportunidades");
     expect(busca("benchmark")).toContain("benchmark/posicao");
-    expect(busca("saldo devedor")).toEqual(["financeiro/cobranca"]);
+    expect(busca("saldo devedor")).toEqual(["gerencial/cobranca"]);
     expect(busca("renovacao")[0]).toBe("retencao/renovacao");
     expect(busca("Retenção")[0]).toBe("retencao");
     expect(busca("xyz")).toEqual([]);

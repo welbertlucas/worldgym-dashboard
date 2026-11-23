@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import type { Leaflet } from "@/components/estudos/mapaComum";
-import { MINUTOS_PADRAO, type Deslocamento, type Geometria } from "@/lib/estudoPonto";
+import { MINUTOS_PADRAO, moradoresNaArea, type Censo, type Deslocamento, type Geometria, type Modelo, type RefPopulacao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 export const COR_DESLOCAMENTO = "#0f8a8a";
 const guardados = new Map<string, Promise<Deslocamento>>();
@@ -77,3 +77,33 @@ export function raioQueCobre(c: [number, number], g: Geometria) {
 
 /** Legenda curta do contorno. */
 export const LEGENDA_DESLOCAMENTO = "linha verde: área de até 10 min de carro";
+
+/**
+ * Referência da rede para a população recomendada: moradores na área de 10 min de carro de cada unidade madura do modelo (endereços
+ * públicos, sem pergunta) e as vendas dela. As áreas vêm do Blob quando já foram calculadas; as que faltam são pedidas ao Mapbox uma vez.
+ */
+export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo | null | undefined, modelo: Modelo | null): RefPopulacao[] | null {
+  const [refs, setRefs] = useState<RefPopulacao[] | null>(null);
+  useEffect(() => {
+    setRefs(null);
+    if (!modelo || !censo) return;
+    const alvo = unidades.filter((u) => u.madura && u.modelo === modelo && u.c && u.vendas);
+    let vivo = true;
+    (async () => {
+      const out: RefPopulacao[] = [];
+      for (let i = 0; i < alvo.length; i += 4) {
+        const lote = await Promise.all(alvo.slice(i, i + 4).map(async (u) => {
+          try {
+            const g = (await buscarDeslocamento(u.c as [number, number], "carro")).contornos[String(MINUTOS_PADRAO)];
+            return g ? { nome: u.nome, vendas: u.vendas as number, moradores: moradoresNaArea(censo, g) } : null;
+          } catch { return null; }
+        }));
+        out.push(...lote.filter((x): x is RefPopulacao => !!x));
+        if (!vivo) return;
+      }
+      if (vivo) setRefs(out);
+    })();
+    return () => { vivo = false; };
+  }, [modelo, censo, unidades]);
+  return refs;
+}

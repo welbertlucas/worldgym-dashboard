@@ -101,7 +101,7 @@ describe("alertas do mês vigente", () => {
     ]);
     const r = computeAlertasVigentes([...fechados, nov], [], { atualizadoEm: lido, now, incluirRede: false });
     const de = (unit: string) => r.alertas.find((a) => a.unit === unit && a.kind === "conversao");
-    expect(de("A")).toMatchObject({ severity: "critical", tipo: "ritmo", tela: "comercial/oportunidades" });
+    expect(de("A")).toMatchObject({ severity: "critical", tipo: "ritmo", tela: "gerencial/oportunidades" });
     expect(de("A")?.fact).toContain("40 de 80 visitantes");
     expect(de("A")?.fact).toContain("convertia 75,0%");
     expect(de("B")?.severity).toBe("attention");

@@ -111,7 +111,7 @@ describe("MetasTab", () => {
     expect(html).toContain("Projeção de fechamento");
     expect(html).toContain("nível Bronze"); // A: 110 mil
     expect(html).toContain("nível Ouro"); // B: 160 mil
-    expect(html).toContain("a conta fica em Financeiro");
+    expect(html).toContain("a conta fica em Gerencial");
     // mês fechado: sem projeção
     expect(renderToString(<MetasTab data={data} metas={metas} month="2026-09" />)).not.toContain("Projeção de fechamento");
   });

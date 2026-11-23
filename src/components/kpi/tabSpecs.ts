@@ -17,7 +17,7 @@ const complementar = (title: string, pick: KpiSpec["pick"]): KpiSpec => ({ title
  */
 export const taxaDoCartao = (v: MonthView): number => (v.total.visitantes ? Math.round(((v.total.convertidos ?? 0) / v.total.visitantes) * 1000) / 10 : v.total.icv);
 
-/** Abaixo do velocímetro de conversão (Comercial e Overview): quantos visitantes e quantos convertidos, como no EVO. */
+/** Abaixo do velocímetro de conversão (Gerencial e Overview): quantos visitantes e quantos convertidos, como no EVO. */
 export const oportunidadesCadastradas = (v: MonthView): MetricDetail[] => {
   if (v.total.visitantes) return [{ text: `${int(v.total.visitantes)} visitantes · ${int(v.total.convertidos ?? 0)} convertidos`, tone: "neutral" }];
   return v.total.oportunidades > 0 ? [{ text: `${int(v.total.oportunidades)} oportunidades cadastradas`, tone: "neutral" }] : [];
@@ -27,7 +27,7 @@ export const oportunidadesCadastradas = (v: MonthView): MetricDetail[] => {
 export const brlCurto = (v: number) => (Math.abs(v) >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} mi` : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }));
 
 /**
- * O ÚNICO cartão de faturamento do Atlas (Overview, Financeiro e Comercial): o Total de Vendas do EVO, somando recepção, cartão recorrente e online.
+ * O ÚNICO cartão de faturamento do Atlas (Overview e Gerencial): o Total de Vendas do EVO, somando recepção, cartão recorrente e online.
  * Os mesmos números, com o mesmo nome, em todas as telas.
  */
 export const faturamentoSpec: KpiSpec = {
@@ -48,7 +48,7 @@ export const vendasOnlineSpec: KpiSpec = {
   extra: (v) => (v.total.faturamento ? [{ text: `${((v.total.vendasOnline / v.total.faturamento) * 100).toFixed(2).replace(".", ",")}% do faturamento`, tone: "neutral" }] : []),
 };
 
-/** Comercial › Resumo: o que é só do comercial (faturamento, vendas online e conversão ficam no Overview). */
+/** Gerencial › Vendas (antigo Comercial › Resumo): o que é só do comercial (faturamento, vendas online e conversão ficam no Overview). */
 export const comercialSpecs: KpiSpec[] = [
   {
     title: "Contratos Vendidos", kind: "flow", noDataIfZero: true, semTextoDoMesAnterior: true, projecao: true, pick: (v) => sumUnits(v, (u) => u.vendasContratos ?? 0), fmt: int,
@@ -66,7 +66,7 @@ export const receitaComplementarSpec: KpiSpec = {
 /** Cada receita complementar (cartão neutro: sem dado vira "—"). */
 export const complementarSpec = complementar;
 
-/** Financeiro › Resumo: o que é só do financeiro (faturamento, pagamentos e inadimplência ficam no Overview). */
+/** Gerencial › Recebimentos (antigo Financeiro › Resumo): o que é só do financeiro (faturamento, pagamentos e inadimplência ficam no Overview). */
 export const financeiroSpecs: KpiSpec[] = [
   // Ticket = pagamentos dos clientes ÷ ativos: no mês em andamento acumula como o recebimento (comparado como fluxo).
   { title: "Ticket Médio", kind: "flow", pick: (v) => v.total.ticketMedio, fmt: brl },

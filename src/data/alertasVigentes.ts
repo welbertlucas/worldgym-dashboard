@@ -66,7 +66,7 @@ export interface AlertaVigente {
   fact: string;
   /** O que fazer. */
   action: string;
-  /** Tela do Atlas com o detalhe (endereço do menu, ex.: "financeiro/cobranca"). */
+  /** Tela do Atlas com o detalhe (endereço do menu, ex.: "gerencial/cobranca"). */
   tela: string;
   /** Peso da unidade na rede (previsão de faturamento), para ordenar. */
   weight: number;
@@ -165,7 +165,7 @@ export function computeAlertasVigentes(
         : p >= md.inadimplenciaPerc + I.criticoPP && p >= I.criticoMinPct ? "critical"
         : p >= md.inadimplenciaPerc + I.atencaoPP && p >= I.minimoPct ? "attention" : "info";
       push({
-        unit: nome, kind: "inadAberta", severity, weight, tela: "financeiro/cobranca",
+        unit: nome, kind: "inadAberta", severity, weight, tela: "gerencial/cobranca",
         fact: `${int(u.inadimplentes)} ${u.inadimplentes === 1 ? "pessoa está" : "pessoas estão"} com mensalidade vencida neste mês e ainda não paga (${pct(p)} de quem tinha mensalidade vencida).${md ? `${noMesmoDia} ${pct(md.inadimplenciaPerc)}.` : ""}`,
         action: "Cobrar quem está com mensalidade vencida e não paga, começando por quem ainda treina. A lista com nomes está no relatório de inadimplentes do EVO.",
       });
@@ -177,7 +177,7 @@ export function computeAlertasVigentes(
       const acima = md && share !== null ? share - md.cartaoSobrePrevisao : null;
       const severity: SeveridadeVigente = acima === null ? "info" : acima >= L.cartao.criticoPP ? "critical" : acima >= L.cartao.atencaoPP ? "attention" : "info";
       push({
-        unit: nome, kind: "cartaoRecusado", severity, weight, tela: "financeiro/cobranca",
+        unit: nome, kind: "cartaoRecusado", severity, weight, tela: "gerencial/cobranca",
         fact: `${int(c.abertas)} ${c.abertas === 1 ? "cobrança recusada" : "cobranças recusadas"} no cartão ainda em aberto, ${brl(c.valorAberto)}${share !== null && md ? ` (${pct(share)} da previsão de faturamento do mês)` : ""}${motivo ? `. Motivo mais comum: “${motivo[0]}”` : ""}.${md && share !== null ? `${noMesmoDia} ${pct(md.cartaoSobrePrevisao)}.` : ""}`,
         action: "Falar com cada aluno para atualizar o cartão ou pagar por Pix. As cobranças recusadas, com nomes, estão no EVO.",
       });
@@ -270,7 +270,7 @@ export function computeAlertasVigentes(
     const pf = projecaoFaturamento(u, month, true, nome, atualizadoEm);
     if (pf) {
       const r = ritmo(nome, "faturamento", pf.estimativa, L.faturamentoSemMeta, media(hist(nome, L.mesesMedia, (x) => x.faturamento)), brl);
-      if (r) push({ unit: nome, kind: "fatRitmo", weight, tela: "financeiro/resumo", ...r, action: "Puxar vendas e cobrança nos dias que faltam: matrículas, rematrículas de quem saiu e cobrança das mensalidades vencidas. A conta da projeção está em Financeiro, aba Resumo." });
+      if (r) push({ unit: nome, kind: "fatRitmo", weight, tela: "gerencial/recebimento", ...r, action: "Puxar vendas e cobrança nos dias que faltam: matrículas, rematrículas de quem saiu e cobrança das mensalidades vencidas. A conta da projeção está em Gerencial, aba Recebimentos." });
     }
     // 8. Novos contratos
     const pc = projecaoContratos(u, month, true, nome, atualizadoEm);
@@ -280,7 +280,7 @@ export function computeAlertasVigentes(
       const restam = diasNoMes(month) - dias;
       const extra = piso && piso.value > u.novosContratos && restam > 0 ? ` Para chegar lá faltam ${int(piso.value - u.novosContratos)}, cerca de ${(Math.round(((piso.value - u.novosContratos) / restam) * 10) / 10).toLocaleString("pt-BR")} por dia.` : "";
       const r = ritmo(nome, "novosContratos", pc.valor, L.contratosSemMeta, media(hist(nome, L.mesesMedia, (x) => x.novosContratos)), int, extra);
-      if (r) push({ unit: nome, kind: "contratosRitmo", weight, tela: "comercial/vendas", ...r, action: "Reforçar a venda nos dias que faltam: retomar as oportunidades em aberto, ligar para ex-alunos e usar os dias que mais vendem (Comercial, aba Vendas)." });
+      if (r) push({ unit: nome, kind: "contratosRitmo", weight, tela: "gerencial/vendas", ...r, action: "Reforçar a venda nos dias que faltam: retomar as oportunidades em aberto, ligar para ex-alunos e usar os dias que mais vendem (Gerencial, aba Vendas)." });
     }
     // 9. Cancelamentos: com o histórico de contratos, contra o mesmo dia dos 3 meses anteriores; sem ele, a regra antiga.
     const C = L.cancelamentos;
@@ -306,7 +306,7 @@ export function computeAlertasVigentes(
     if (rc && rc.base.meses > 0 && rc.oportunidades >= V.minOportunidades) {
       const queda = rc.base.taxa - rc.taxa;
       if (queda >= V.atencaoPP) push({
-        unit: nome, kind: "conversao", severity: queda >= V.criticoPP ? "critical" : "attention", weight, tela: "comercial/oportunidades",
+        unit: nome, kind: "conversao", severity: queda >= V.criticoPP ? "critical" : "attention", weight, tela: "gerencial/oportunidades",
         fact: `${int(rc.conversoes)} de ${int(rc.oportunidades)} visitantes do mês viraram aluno com contrato até agora (${pct(rc.taxa)}). No dia ${rc.dia} dos ${rc.base.meses} meses anteriores a unidade convertia ${pct(rc.base.taxa)}.`,
         action: "Retomar os visitantes do mês que ainda não fecharam: ligar ou mandar mensagem, oferecer aula experimental e conferir se o cadastro está sendo convertido no EVO na hora da venda.",
       });
@@ -320,13 +320,13 @@ export function computeAlertasVigentes(
     const mf = getMeta(metas, month, "TOTAL", "faturamento");
     if (pf && mf) {
       const r = ritmo("TOTAL", "faturamento", pf.estimativa, L.faturamentoSemMeta, null, brl);
-      if (r) push({ unit: "Rede", kind: "fatRitmo", weight: 1, tela: "financeiro/resumo", ...r, action: "Ver quais unidades puxam a projeção para baixo (Metas, indicador Faturamento) e concentrar o esforço nelas." });
+      if (r) push({ unit: "Rede", kind: "fatRitmo", weight: 1, tela: "gerencial/recebimento", ...r, action: "Ver quais unidades puxam a projeção para baixo (Metas, indicador Faturamento) e concentrar o esforço nelas." });
     }
     const pc = projecaoContratos(t, month, true, null, atualizadoEm);
     const mc = getMeta(metas, month, "TOTAL", "novosContratos");
     if (pc && mc) {
       const r = ritmo("TOTAL", "novosContratos", pc.valor, L.contratosSemMeta, null, int);
-      if (r) push({ unit: "Rede", kind: "contratosRitmo", weight: 1, tela: "comercial/vendas", ...r, action: "Ver quais unidades estão abaixo do ritmo (Metas, indicador Novos contratos) e reforçar a venda nelas." });
+      if (r) push({ unit: "Rede", kind: "contratosRitmo", weight: 1, tela: "gerencial/vendas", ...r, action: "Ver quais unidades estão abaixo do ritmo (Metas, indicador Novos contratos) e reforçar a venda nelas." });
     }
   }
 

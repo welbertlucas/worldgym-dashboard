@@ -99,7 +99,7 @@ export function ContratosVendidos({ total, monthLabel, partial, unitLabel, porFa
       subtitle={subtitle}
       headline={
         <div className="flex flex-wrap gap-x-10 gap-y-3">
-          {/* O total de contratos vendidos fica no cartão do Comercial › Resumo */}
+          {/* O total de contratos vendidos fica no cartão do Gerencial › Vendas */}
           <HeadlineStat label="Valor médio por venda" value={moeda(valor / vendas)} swatch={<span className="h-2 w-2 rounded-full bg-foreground/50" />} />
           <HeadlineStat label={lider ? `${lider.rotulo} responde por` : `Os ${top.length} primeiros somam`} value={pct(lider ? lider.n : top.reduce((s, r) => s + r[1], 0), vendas)} swatch={<span className="h-2 w-2 rounded-full bg-primary" />} />
         </div>
@@ -185,7 +185,7 @@ export function ProdutosVendidos({ total, monthLabel, partial, unitLabel }: { to
   return (
     <ChartCard title="Produtos e serviços mais vendidos" subtitle={subtitle}>
       <RankingPorValor lista={lista} rotulo="Produtos e serviços que mais faturaram" />
-      <p className="mt-4 text-xs text-muted-foreground">Os 5 itens que mais faturaram no mês. Pro+, WG Plus, diárias, brinquedoteca e taxa de personal aparecem somados, cada um na sua linha (avulsas e vendidas como contrato, como nos cartões); as diárias de todas as unidades, inclusive as PRO, ficam numa linha só. Os demais itens são vendas fora de contrato, pelo nome no EVO. Multas, taxas e ajustes de cobrança ficam no Financeiro.</p>
+      <p className="mt-4 text-xs text-muted-foreground">Os 5 itens que mais faturaram no mês. Pro+, WG Plus, diárias, brinquedoteca e taxa de personal aparecem somados, cada um na sua linha (avulsas e vendidas como contrato, como nos cartões); as diárias de todas as unidades, inclusive as PRO, ficam numa linha só. Os demais itens são vendas fora de contrato, pelo nome no EVO. Multas, taxas e ajustes de cobrança ficam na aba Recebimentos.</p>
     </ChartCard>
   );
 }

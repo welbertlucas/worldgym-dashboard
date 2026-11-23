@@ -1,4 +1,4 @@
-/** Uma aba dentro de um menu (submenu): id curto, que vai no endereço (#financeiro/notas), e o rótulo. */
+/** Uma aba dentro de um menu (submenu): id curto, que vai no endereço (#gerencial/notas), e o rótulo. */
 export interface Aba { id: string; rotulo: string }
 
 /** A aba ativa: a pedida no endereço, se existir nesta tela; senão a primeira. */

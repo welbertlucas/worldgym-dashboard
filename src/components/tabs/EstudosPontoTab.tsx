@@ -6,8 +6,8 @@ import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 import { fotoDoMapa, fotoEnquadrada, gradienteRampa, pausa, pino } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
-import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento } from "@/components/estudos/deslocamento";
-import { CSS_POIS, ControlePois, SecaoPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
+import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Faixa, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { Building2, Calculator, Gavel, ListChecks, Store, TrendingUp } from "lucide-react";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
@@ -18,17 +18,18 @@ import { BarraMapa, BuscaEndereco, PainelCamadas } from "@/components/estudos/co
 import { SecaoSugestoes, desenharSugestoes } from "@/components/estudos/sugestoes";
 import {
   DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  SITUACAO_POPULACAO, SITUACAO_VAGAS, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
 const CORES = ["#c41230", "#1f5f8b", "#7a4bb5", "#0f7b6c", "#b45309", "#334155"];
 const letra = (i: number) => String.fromCharCode(65 + (i % 26));
-const ITENS: { k: keyof Ponto["imovel"]; rotulo: string }[] = [
-  { k: "fachada", rotulo: "Fachada na avenida" }, { k: "estacionamento", rotulo: "Estacionamento" },
+const ITENS: { k: "fachada" | "polo" | "aPe"; rotulo: string }[] = [
+  { k: "fachada", rotulo: "Fachada na avenida" },
   { k: "polo", rotulo: "Polo comercial" }, { k: "aPe", rotulo: "Bom acesso a pé" },
 ];
-// "limpa": só os pinos (usada nas fotos de satélite do PDF)
-type Lente = "captacao" | "pessoas" | "idade" | "domicilios" | "renda" | "consumo" | "rede" | "limpa";
+// "limpa": só os pinos (usada nas fotos de satélite do PDF); "sugestoes": pinos, área e posições sugeridas (foto do PDF)
+type Lente = "captacao" | "pessoas" | "idade" | "domicilios" | "renda" | "consumo" | "rede" | "limpa" | "sugestoes";
 const LENTES: { id: Lente; rotulo: string }[] = [
   { id: "captacao", rotulo: "Captação estimada" }, { id: "pessoas", rotulo: "População" }, { id: "idade", rotulo: "Idade" }, { id: "domicilios", rotulo: "Domicílios" },
   { id: "renda", rotulo: "Renda" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "rede", rotulo: "Canibalização" },
@@ -73,6 +74,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const [gerando, setGerando] = useState(false);
   const [pois, setPois] = useState<ResultadoPois | null>(null);
   const [modoPois, setModoPois] = useState<ModoPois>("nomes");
+  const [verPois, setVerPois] = useState(true);
   // endereço achado na busca: fica marcado até virar ponto de estudo ou ser fechado
   const [achado, setAchado] = useState<{ nome: string; endereco: string; c: [number, number] } | null>(null);
   const mapaEl = useRef<HTMLDivElement>(null);
@@ -84,12 +86,25 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const pronto = true;
   const avaliar = (p: Ponto) => (dados.vendasPorM2![p.modelo] ? avaliarPonto(p, dados.premissas!, dados.vendasPorM2![p.modelo]!) : null);
   const resultados = useMemo(() => new Map(pontos.map((p) => [p.id, avaliar(p)])), [pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ticket sugerido, alunos e vagas de cada ponto (estacionamento insuficiente reprova: critério eliminatório)
+  const extras = useMemo(() => new Map(pontos.map((p) => {
+    const rr = resultados.get(p.id) ?? null;
+    const tk = ticketSugerido(p.modelo, dados.unidades!, parecidas(p, dados.censo!, dados.unidades!));
+    const alunos = rr && tk ? alunosDoPonto(rr, tk.preco) : null;
+    const vagas = alunos ? vagasDoPonto(alunos, p.imovel) : null;
+    return [p.id, { ticket: tk, alunos, vagas, veredito: rr ? vereditoFinal(rr.veredito, vagas) : null }];
+  })), [resultados, pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const cap = useMemo(() => (atual && pronto ? captacaoDe(atual, dados.censo!, dados.unidades!, todos, dados.premissas!.curva) : null), [atual, pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const r = atual ? resultados.get(atual.id) ?? null : null;
   // área de 10 min de carro do ponto aberto (pergunta antes de mandar a posição ao Mapbox)
   const areas = useDeslocamento(atual?.c, true);
   const area10 = areaOficial(areas);
   const moradores10 = area10 ? moradoresNaArea(dados.censo!, area10) : null;
+  // população recomendada calibrada com a rede (moradores na área de 10 min de cada unidade madura do modelo)
+  const refsPop = useReferenciaPopulacao(dados.unidades!, dados.censo, atual?.modelo ?? null);
+  const ex = atual ? extras.get(atual.id) ?? null : null;
+  const pop = r && refsPop ? populacaoRecomendada(r.meta, moradores10, refsPop) : null;
+  const vf = ex?.veredito ?? r?.veredito ?? null;
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
   const sugestoes = useMemo(() => (atual && dados.censo && dados.premissas
     ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva)
@@ -166,7 +181,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       const mx = Math.max(...cap.pesos, 1e-9);
       cap.indices.forEach((i, k) => {
         const t = cap.pesos[k] / mx;
-        if (t < 0.03) return;
+        if (t < 0.01) return;
         const [lat, lng] = censo.celulas[i];
         L.polygon(hex(lat, lng), { stroke: false, fillColor: rampa(t ** 0.6), fillOpacity: 0.22 + 0.5 * Math.sqrt(t), interactive: false }).addTo(camadas);
       });
@@ -194,7 +209,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (lente !== "limpa") desenharSugestoes(L, camadas, sugestoes);
   }, [lente, cap, pontos, atualId, desenho, rua, areas, sugestoes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  usePoisNoMapa(desenho ? mapaRef.current : null, pois, modoPois);
+  usePoisNoMapa(desenho ? mapaRef.current : null, verPois ? pois : null, modoPois);
+  const aoPois = (res: ResultadoPois | null) => { setPois(res); setVerPois(true); };
   // pino do endereço achado
   useEffect(() => {
     const m = mapaRef.current;
@@ -224,7 +240,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     const m = mapaRef.current;
     if (!m) return;
     setGerando(true);
-    const lenteAntes = lente, poisAntes = pois;
+    const lenteAntes = lente, poisAntes = pois, verAntes = verPois;
     // fotos para o PDF: o mapa como está na tela, o satélite de cada ponto e, do ponto aberto, uma foto por tema na área de 10 min
     const tirar = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
@@ -244,8 +260,14 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         pois: null as string | null,
       };
       const fotoRede = atual ? await tirar("rede", { limites: m.L.latLng(atual.c).toBounds(14000) }) : null;
+      let fotoSugestoes: string | null = null;
+      if (atual && sugestoes?.sugestoes.length) {
+        // enquadra o ponto e as posições sugeridas (com pelo menos 1,5 km em volta do ponto), para os pinos aparecerem grandes
+        const lim = m.L.latLngBounds([atual.c, ...sugestoes.sugestoes.map((sg) => sg.c)]).extend(m.L.latLng(atual.c).toBounds(3000));
+        fotoSugestoes = await tirar("sugestoes", { limites: lim.pad(0.25) });
+      }
       if (poisAntes && atual) {
-        setPois(poisAntes); await pausa(300);
+        setPois(poisAntes); setVerPois(true); await pausa(300);
         fotos.pois = await tirar("limpa", { limites: poisAntes.areaRotulo && area10 ? limitesDaArea(m.L, area10).pad(0.08) : m.L.latLng(poisAntes.c).toBounds(poisAntes.raioKm * 2000) });
       }
       setLente(lenteAntes);
@@ -255,7 +277,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       } : null;
       await gerarPdfDoEstudo(montarPdfPonto({
         premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado,
-        fotoCaptacao: fotoCap, fotoRede, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
+        fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
+        populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
+        ticket: ex?.ticket ?? null, alunos: ex?.alunos ?? null, vagas: ex?.vagas ?? null,
         pontos: pontos.map((p, i) => {
           const rr = resultados.get(p.id) ?? null;
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
@@ -263,7 +287,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!) : [], parecidas: parecidas(p, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
         }),
       }));
-    } finally { setLente(lenteAntes); setPois(poisAntes); setGerando(false); }
+    } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); }
   };
 
   return (
@@ -286,7 +310,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       </div>
 
       {/* mapa: busca de endereço e camadas à direita, barra de mapa/Street View/zoom embaixo (arranjo do Mapfry) */}
-      <div className="relative h-[58vh] min-h-[420px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
+      <div className="relative h-[74vh] min-h-[520px] overflow-hidden rounded-2xl border border-primary/30 bg-muted">
         <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
         {(adicionando || verRua || achado) && (
           <div className="absolute left-1/2 top-3 z-[456] flex max-w-[calc(100%-34rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
@@ -301,9 +325,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
-          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} /> : lente === "rede" ? "Bolinhas vermelhas: World Gym. Círculos: área de cada unidade." : null} />
+          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} /> : lente === "rede" ? "Bolinhas vermelhas: World Gym. Círculos: área de cada unidade." : null}
+          sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />
         <BarraMapa mapa={desenho ? mapaRef.current?.mapa ?? null : null} satelite={satelite} setSatelite={setSatelite} verRua={verRua} setVerRua={(f) => { setAdicionando(false); setVerRua(f); }} />
-        <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={setPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
+        <div className="absolute bottom-7 left-3 z-[460]"><ControlePois centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} modo={modoPois} setModo={setModoPois} temResultado={!!pois} /></div>
         {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
       </div>
 
@@ -312,13 +337,14 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <div className="flex gap-2.5 overflow-x-auto pb-1" role="tablist" aria-label="Pontos em estudo">
           {pontos.map((p, i) => {
             const rr = resultados.get(p.id);
+            const vv = extras.get(p.id)?.veredito ?? rr?.veredito;
             return (
               <button key={p.id} type="button" role="tab" aria-selected={p.id === atualId} onClick={() => setAtualId(p.id)}
                 className="flex min-w-[230px] items-center gap-2.5 rounded-xl border bg-white px-3 py-2.5 text-left hover:bg-muted/40 aria-selected:border-foreground aria-selected:ring-1 aria-selected:ring-foreground">
                 <span className="grid h-[26px] w-[26px] flex-none place-items-center rounded-full text-[13px] font-semibold text-white" style={{ background: CORES[i % CORES.length] }}>{letra(i)}</span>
                 <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{p.nome}</span>
                   {rr && <span className="block text-xs tabular-nums text-muted-foreground">{reais(rr.provavel)} · {meses(rr.payback)}</span>}</span>
-                {rr && <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${FUNDO_VEREDITO[rr.veredito]}`}>{VEREDITO_ROTULO[rr.veredito]}</span>}
+                {rr && vv && <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${FUNDO_VEREDITO[vv]}`}>{VEREDITO_ROTULO[vv]}</span>}
               </button>
             );
           })}
@@ -349,8 +375,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             </label>
           </div>
 
-          <Faixa tom={r.veredito === "aprovado" ? "bom" : r.veredito === "atencao" ? "atencao" : "ruim"}>
-            {VEREDITO_ROTULO[r.veredito]} pelo modelo · payback {meses(r.payback)}
+          <Faixa tom={vf === "aprovado" ? "bom" : vf === "atencao" ? "atencao" : "ruim"}>
+            {VEREDITO_ROTULO[vf ?? r.veredito]} pelo modelo · payback {meses(r.payback)}{ex?.vagas?.situacao === "insuficiente" ? " · estacionamento insuficiente" : ""}
           </Faixa>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -373,6 +399,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                 <Linha rotulo="Equilíbrio do mês" valor={`${reais(r.custoFixo / (1 - dados.premissas!.modelos[atual.modelo].variavel))} de vendas`} />
                 <Linha rotulo="80% dos alunos a até" valor={cap ? `${cap.raio80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km` : "—"} />
                 {moradores10 != null && <Linha rotulo={`Moradores em ${MINUTOS_PADRAO} min de carro`} valor={`${Math.round(moradores10 / 1000).toLocaleString("pt-BR")} mil`} />}
+                {pop && <Linha rotulo="População recomendada" valor={`${Math.round(pop.recomendada / 1000).toLocaleString("pt-BR")} mil${pop.situacao ? ` (${SITUACAO_POPULACAO[pop.situacao]})` : ""}`} />}
+                {!pop && moradores10 != null && <Linha rotulo="População recomendada" valor={refsPop ? "rede sem dados" : "calculando…"} />}
+                {ex?.ticket && <Linha rotulo="Ticket sugerido" valor={`R$ ${ex.ticket.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />}
+                {ex?.alunos != null && <Linha rotulo="Alunos para atender" valor={ex.alunos.toLocaleString("pt-BR")} />}
               </div>
             </Secao>
             <Secao icone={ListChecks} titulo="O que pesa">
@@ -405,7 +435,19 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                   <Pilula key={it.k} ativo={atual.imovel[it.k]} onClick={() => mudar(atual.id, { imovel: { ...atual.imovel, [it.k]: !atual.imovel[it.k] } })}>{it.rotulo}</Pilula>
                 ))}
               </div>
-              <div className="mt-3"><Nota>Fica registrado no estudo. Ainda não muda a conta: o peso de cada item será medido com as unidades da rede.</Nota></div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {([["vagas", "Vagas do imóvel"], ["vagasPerto", "Vagas por perto (rua, parceria)"]] as const).map(([k, rot]) => (
+                  <label key={k} className="text-xs text-muted-foreground">{rot}
+                    <input type="number" min={0} max={2000} step={1} inputMode="numeric" value={atual.imovel[k] ?? ""} placeholder="não informado" aria-label={rot}
+                      onChange={(e) => { const t = e.target.value; const n = t === "" ? undefined : Math.max(0, Math.min(2000, Math.round(Number(t) || 0))); mudar(atual.id, { imovel: { ...atual.imovel, [k]: n, ...(k === "vagas" ? { estacionamento: (n ?? 0) > 0 } : {}) } }); }}
+                      className="mt-1 w-full rounded-md border bg-white px-2 py-1 text-right text-sm tabular-nums text-foreground" />
+                  </label>
+                ))}
+              </div>
+              {ex?.vagas && <div className="mt-3"><Nota>
+                Para {ex.alunos?.toLocaleString("pt-BR")} alunos o ponto precisa de {ex.vagas.min} a {ex.vagas.max} vagas (8% a 12% no mesmo horário, 20% a 30% de carro).{" "}
+                {ex.vagas.situacao === "sem-dado" ? "Informe as vagas: estacionamento é critério eliminatório." : `Informadas: ${ex.vagas.informadas}, ${SITUACAO_VAGAS[ex.vagas.situacao]}${ex.vagas.situacao === "insuficiente" ? ": o ponto não é aprovado" : ""}.`}
+              </Nota></div>}
             </Secao>
             {parec.length > 0 && (
               <Secao icone={Store} titulo="Unidades parecidas na rede">

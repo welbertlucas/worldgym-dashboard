@@ -27,6 +27,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-23-menu-gerencial", data: "2026-11-23", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "gerencial/vendas", artigo: "tela-gerencial",
+    titulo: "Gerencial: Comercial e Financeiro num menu só",
+    texto: "Os números de venda e de dinheiro ficavam em dois menus, cada um com uma aba Resumo, e era fácil se perder entre eles. Agora tudo fica no menu Gerencial: Vendas, Oportunidades, Receitas complementares, Recebimentos, Inadimplência e Notas fiscais. O que estava nos Resumos foi para Vendas (contratos, cancelamentos e vendas online) e para Recebimentos (ticket médio, adimplentes e a previsão de faturamento). Links salvos dos menus antigos continuam abrindo o lugar certo.",
+  },
+  {
     id: "2026-11-20-planos-de-acao", data: "2026-11-20", tipo: "novo", publico: "qualidade", autora: AUTORA, tela: "qualidade", artigo: "qualidade-como-usar",
     titulo: "Qualidade: plano de ação para cada item não conforme",
     texto: "Na visita da franqueadora, todo item não conforme agora pede um plano de ação: o que será feito e até quando. A unidade vê os planos dela, corrige e marca como feito (com foto, se quiser), e quem criou o plano na visita confirma a correção ou devolve com o que falta. A aba Planos de ação mostra o que espera a sua confirmação e o que está atrasado, e a visão geral avisa. O gerente da unidade não confirma o próprio plano.",
@@ -57,12 +62,12 @@ export const NOVIDADES: Novidade[] = [
     texto: "Acompanhar o que cada unidade paga à marca (taxa fixa e royalties) e quem está devendo exigia abrir outro painel, com outra senha. Agora o menu Royalties mostra o resumo do período, quem está devendo (com a concentração do saldo e exportação em CSV), a situação de pagamento mês a mês, os royalties de cada unidade com as marcações de mês sem pagamento e queda forte, e o que era esperado contra o que entrou. Clicar numa unidade abre o detalhe da cobrança. Os números são os mesmos do painel anterior.",
   },
   {
-    id: "2026-11-20-total-de-vendas", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial", artigo: "diferente-do-evo",
+    id: "2026-11-20-total-de-vendas", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "gerencial/vendas", artigo: "diferente-do-evo",
     titulo: "Comercial: Total de vendas como no EVO",
     texto: "O Faturamento do Atlas soma as cobranças que venceram no mês e por isso nunca batia com o Total de vendas do Gerencial do EVO. Agora o Comercial também tem o cartão Total de vendas, que soma o valor das vendas de contrato do mês como o EVO faz, separado em recepção, cartão recorrente e online. O Faturamento continua em Financeiro. O cartão aparece nos meses em que o EVO já foi lido de novo; nos outros, fica sem dado.",
   },
   {
-    id: "2026-11-20-contratos-vendidos-evo", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial", artigo: "diferente-do-evo",
+    id: "2026-11-20-contratos-vendidos-evo", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "gerencial/vendas", artigo: "diferente-do-evo",
     titulo: "Comercial: Contratos Vendidos como no EVO",
     texto: "O número de contratos do Atlas não batia com o do Gerencial do EVO, porque o Atlas contava só os contratos novos. Agora o cartão do Comercial se chama Contratos Vendidos e soma o mesmo que o EVO: matrículas, rematrículas e renovações feitas na recepção, sem a renovação automática do cartão, a diária e o personal. As metas de novos contratos e o Saldo de Clientes continuam contando só matrículas e rematrículas. O cartão aparece nos meses em que o EVO já foi lido de novo; nos outros, fica sem dado.",
   },
@@ -97,7 +102,7 @@ export const NOVIDADES: Novidade[] = [
     texto: "Quantos contratos especiais, de personal, de plano local e de plano rede a unidade tem era um dado de base de alunos escondido no Ranking da rede. Agora fica em Alunos, na aba Contratos, com o percentual da rede ao lado quando uma unidade está escolhida. O endereço antigo continua funcionando e leva para o novo.",
   },
   {
-    id: "2026-11-19-conversoes-cadastros-antigos", data: "2026-11-19", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "comercial/oportunidades", artigo: "tela-comercial",
+    id: "2026-11-19-conversoes-cadastros-antigos", data: "2026-11-19", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "gerencial/oportunidades", artigo: "tela-gerencial",
     titulo: "Comercial: conversões de cadastros antigos",
     texto: "O número de visitantes e conversões do Resumo gerencial do EVO nunca batia com o do Atlas, e não dava para saber por quê. A conversão do Atlas conta só quem se cadastrou e virou cliente no mesmo período; o EVO também considera gente que se cadastrou antes e fechou agora. Na tabela Oportunidades por unidade, a nova coluna De cadastros antigos mostra quantos foram, sem mudar a taxa de conversão. A coluna aparece com os dados de hoje em diante.",
   },
@@ -107,12 +112,12 @@ export const NOVIDADES: Novidade[] = [
     texto: "Para saber o faturamento de um trimestre ou do ano, era preciso somar mês a mês. No Overview, o botão Ver por período deixa escolher o mês inicial e o final: faturamento, recebimento e vendas online aparecem somados, e churn, inadimplência, renovação e conversão em média ponderada pelo tamanho de cada mês (um mês grande pesa mais que um pequeno). A marca no arco passa a ser o período anterior, com o mesmo número de meses. O X no botão volta ao mês escolhido no topo.",
   },
   {
-    id: "2026-11-18-vendedores-que-mais-vendem", data: "2026-11-18", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial/vendas", artigo: "tela-comercial",
+    id: "2026-11-18-vendedores-que-mais-vendem", data: "2026-11-18", tipo: "novo", publico: "todos", autora: AUTORA, tela: "gerencial/vendas", artigo: "tela-gerencial",
     titulo: "Comercial: vendedores que mais vendem",
     texto: "Era preciso abrir o EVO para saber quem estava fechando os contratos da unidade. A aba Vendas agora traz o ranking dos vendedores do mês, com os contratos novos e rematrículas de cada um e o valor vendido, além de quantos vendedores venderam e quantos contratos ficaram sem vendedor no EVO (online e recorrência). Renovações não entram. Cada unidade vê os nomes só da própria equipe. O ranking aparece com os dados de hoje em diante; os meses já lidos ficam sem ele até serem recalculados.",
   },
   {
-    id: "2026-11-18-gateway-cobrancas-taxas", data: "2026-11-18", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "financeiro/recebimento", artigo: "tela-financeiro",
+    id: "2026-11-18-gateway-cobrancas-taxas", data: "2026-11-18", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "gerencial/recebimento", artigo: "tela-gerencial",
     titulo: "Financeiro: cobranças e taxas por gateway de cartão",
     texto: "O recebimento em cartão mostrava só quanto entrou por Stone, Rede, Cielo e outros, sem dizer o peso de cada um. Agora cada gateway traz também quantas cobranças foram, o ticket médio e, quando o EVO informa, as taxas e quanto elas representam do recebido. Os meses já lidos ganham esse detalhe quando forem recalculados; o mês atual já vem com ele a partir da próxima atualização do EVO.",
   },
@@ -192,7 +197,7 @@ export const NOVIDADES: Novidade[] = [
     texto: "Descobrir no último dia que a meta não vai sair não ajuda. As Metas agora mostram para onde o faturamento e os novos contratos devem ir até o fim do mês, no ritmo atual, e quanto falta para cada meta.",
   },
   {
-    id: "2026-11-15-oportunidades", data: "2026-11-15", tipo: "novo", publico: "todos", autora: AUTORA, tela: "comercial/oportunidades", artigo: "tela-comercial",
+    id: "2026-11-15-oportunidades", data: "2026-11-15", tipo: "novo", publico: "todos", autora: AUTORA, tela: "gerencial/oportunidades", artigo: "tela-gerencial",
     titulo: "Comercial: nova aba Oportunidades",
     texto: "De onde vêm os interessados, e quem converte melhor? A nova aba mostra a origem das oportunidades, o perfil, quanto tempo levam para fechar e os consultores que mais convertem.",
   },

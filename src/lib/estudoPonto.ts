@@ -13,6 +13,8 @@ export interface FaixaM2 { p25: number; mediana: number; p75: number; n: number 
 export interface UnidadeEstudo {
   nome: string; c: [number, number] | null; m2: number | null; modelo: Modelo; abertura: string | null; madura: boolean; vendas: number | null; alunos: number | null;
   bairros?: [string, number, number, number][]; previsto?: { pessimista: number; provavel: number; otimista: number };
+  /** Ticket médio realizado no EVO (recebido ÷ clientes pagantes), média dos últimos meses fechados. */
+  ticket?: number | null;
 }
 /**
  * Hexágonos do Censo 2022: [lat, lng, população, renda média do responsável, domicílios ocupados, moradores por faixa de idade].
@@ -90,7 +92,8 @@ export function perfilNaArea(censo: Censo, g: Geometria) {
     parte20a49: totalIdade ? (idade[2] + idade[3] + idade[4]) / totalIdade : null,
   };
 }
-export interface ImovelItens { fachada: boolean; estacionamento: boolean; polo: boolean; aPe: boolean }
+/** `vagas`: vagas do próprio imóvel; `vagasPerto`: vagas de rua ou de parceria por perto (contam, mas são menos seguras). */
+export interface ImovelItens { fachada: boolean; estacionamento: boolean; polo: boolean; aPe: boolean; vagas?: number; vagasPerto?: number }
 /** `autor` vem do servidor (quem criou o estudo); ponto novo vai sem e fica com quem salvou. */
 export type StatusDecisao = "analise" | "aprovado" | "recusado" | "unidade";
 /** Sua decisão sobre o estudo. `previsao` guarda a conta do dia da decisão, para comparar depois com o real. */
@@ -374,3 +377,65 @@ export const unidadeComoPonto = (u: UnidadeEstudo): Ponto => ({
   id: `unidade-${u.nome}`, nome: u.nome, c: u.c as [number, number], modelo: u.modelo, m2: u.m2 ?? 1000,
   imovel: { fachada: false, estacionamento: false, polo: false, aPe: false },
 });
+
+// ---------- População recomendada, ticket e estacionamento (decisões do dono em 23/11/2026) ----------
+
+/** Percentil p (0 a 1) com interpolação. */
+function percentilDe(valores: number[], p: number): number | null {
+  const v = [...valores].sort((a, b) => a - b);
+  if (!v.length) return null;
+  const i = (v.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
+  return v[lo] + (v[hi] - v[lo]) * (i - lo);
+}
+
+/** Referência de uma unidade madura da rede: vendas por mês e moradores na própria área de 10 min de carro. */
+export interface RefPopulacao { nome: string; vendas: number; moradores: number }
+export type SituacaoPopulacao = "adequada" | "limite" | "abaixo";
+/**
+ * População recomendada calibrada com a rede: quanto as unidades maduras vendem por morador da própria área de 10 min de carro.
+ * Recomendada = meta ÷ mediana (o ponto vendendo por morador como a unidade típica); mínima = meta ÷ quartil de cima (como as que
+ * mais vendem por morador). Abaixo da mínima, o ponto só bate a meta se vender por morador mais que 3 de cada 4 unidades da rede.
+ */
+export function populacaoRecomendada(meta: number, moradores: number | null, refs: RefPopulacao[]) {
+  const porMorador = refs.filter((x) => x.vendas > 0 && x.moradores > 0).map((x) => x.vendas / x.moradores);
+  if (porMorador.length < 4) return null;
+  const med = percentilDe(porMorador, 0.5)!, p75 = percentilDe(porMorador, 0.75)!;
+  const recomendada = meta / med, minima = meta / p75;
+  const situacao: SituacaoPopulacao | null = moradores == null ? null : moradores >= recomendada ? "adequada" : moradores >= minima ? "limite" : "abaixo";
+  return { recomendada, minima, vendasPorMorador: med, n: porMorador.length, situacao };
+}
+export const SITUACAO_POPULACAO: Record<SituacaoPopulacao, string> = { adequada: "adequada", limite: "no limite", abaixo: "abaixo do recomendado" };
+
+/** Referência dos estudos de geomarketing antigos (Canva): alunos ÷ (penetração × participação de 15% a 20%). */
+export const PARTICIPACAO_CANVA = [0.15, 0.2] as const;
+export const populacaoCanva = (alunos: number, penetracao: number) => ({ min: alunos / (penetracao * PARTICIPACAO_CANVA[1]), max: alunos / (penetracao * PARTICIPACAO_CANVA[0]) });
+
+/** Preço de tabela mais perto do ticket: termina em ,90 (ex.: 137 vira 139,90). */
+export const precoDeTabela = (v: number) => Math.max(10, Math.round(v / 10) * 10) - 0.1;
+/**
+ * Ticket sugerido: o ticket realizado (EVO) das unidades parecidas com o ponto (moradores e renda); sem elas, a mediana do modelo.
+ * A faixa (quartis) vem das unidades maduras do mesmo modelo.
+ */
+export function ticketSugerido(modelo: Modelo, unidades: UnidadeEstudo[], parecidasDoPonto: UnidadeEstudo[]) {
+  const doModelo = unidades.filter((u) => u.madura && u.modelo === modelo && u.ticket && u.ticket > 0).map((u) => u.ticket as number);
+  if (!doModelo.length) return null;
+  const par = parecidasDoPonto.filter((u) => u.ticket && u.ticket > 0).map((u) => u.ticket as number);
+  const base = par.length ? percentilDe(par, 0.5)! : percentilDe(doModelo, 0.5)!;
+  return { realizado: base, preco: precoDeTabela(base), p25: percentilDe(doModelo, 0.25)!, p75: percentilDe(doModelo, 0.75)!, n: doModelo.length, dasParecidas: par.length > 0 };
+}
+/** Alunos que o ponto precisa atender: o maior entre a meta e a previsão, dividido pelo ticket. */
+export const alunosDoPonto = (r: Pick<Resultado, "meta" | "provavel">, ticket: number) => Math.ceil(Math.max(r.meta, r.provavel) / ticket);
+
+/** Estacionamento (prompt novo, decisão do dono): pico de 8% a 12% dos alunos no mesmo horário, 20% a 30% deles de carro. Eliminatório. */
+export const ESTACIONAMENTO = { pico: [0.08, 0.12], carro: [0.2, 0.3] } as const;
+export type SituacaoVagas = "suficiente" | "limite" | "insuficiente" | "sem-dado";
+export function vagasDoPonto(alunos: number, imovel: ImovelItens) {
+  const min = Math.ceil(alunos * ESTACIONAMENTO.pico[0] * ESTACIONAMENTO.carro[0]);
+  const max = Math.ceil(alunos * ESTACIONAMENTO.pico[1] * ESTACIONAMENTO.carro[1]);
+  const informadas = imovel.vagas == null && imovel.vagasPerto == null ? null : (imovel.vagas ?? 0) + (imovel.vagasPerto ?? 0);
+  const situacao: SituacaoVagas = informadas == null ? "sem-dado" : informadas >= max ? "suficiente" : informadas >= min ? "limite" : "insuficiente";
+  return { min, max, informadas, proprias: imovel.vagas ?? null, perto: imovel.vagasPerto ?? null, situacao };
+}
+export const SITUACAO_VAGAS: Record<SituacaoVagas, string> = { suficiente: "suficiente", limite: "no limite", insuficiente: "insuficiente", "sem-dado": "vagas não informadas" };
+/** Veredito final: o do modelo, mas estacionamento insuficiente reprova (critério eliminatório). */
+export const vereditoFinal = (v: Veredito, vagas: { situacao: SituacaoVagas } | null): Veredito => (vagas?.situacao === "insuficiente" ? "reprovado" : v);

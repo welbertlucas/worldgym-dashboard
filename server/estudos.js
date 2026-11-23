@@ -59,6 +59,8 @@ export function unidadesDoEstudo(meses, premissas, mesAtual, janela = 4) {
       madura: idade != null && idade >= maturidade,
       vendas: vendas.length ? Math.round(vendas.reduce((a, b) => a + b, 0) / vendas.length) : null,
       alunos: ua?.alunosAtivos ?? ua?.ativosFim ?? null,
+      // ticket médio realizado no EVO (recebido ÷ pagantes), média dos meses fechados
+      ticket: (() => { const t = fechados.map((m) => m.units?.find((u) => u.name === nome)?.ticketMedio).filter((v) => typeof v === "number" && v > 0); return t.length ? Math.round((t.reduce((a, b) => a + b, 0) / t.length) * 100) / 100 : null; })(),
       // onde moram os alunos ativos hoje: [bairro, lat, lng, alunos] (só os com posição de bairro; os do centro da cidade ficam de fora)
       bairros: (ua?.bairros ?? []).filter((x) => !x[5]).map((x) => [x[0], x[3], x[4], x[2]]),
     };
@@ -88,6 +90,14 @@ export function pontoValido(p) {
   if (!Number.isFinite(m2) || m2 < 300 || m2 > 8000) throw new ErroEstudos("Tamanho do imóvel fora do esperado (300 a 8.000 m²).");
   const imovel = {};
   for (const k of ["fachada", "estacionamento", "polo", "aPe"]) imovel[k] = p?.imovel?.[k] === true;
+  // vagas: número inteiro de 0 a 2.000; vazio fica de fora (não informado)
+  for (const k of ["vagas", "vagasPerto"]) {
+    const v = p?.imovel?.[k];
+    if (v === null || v === undefined || v === "") continue;
+    const n = Math.round(Number(v));
+    if (Number.isFinite(n) && n >= 0 && n <= 2000) imovel[k] = n;
+  }
+  if (imovel.vagas > 0) imovel.estacionamento = true;
   const id = String(p?.id ?? "").replace(/[^a-z0-9-]/gi, "").slice(0, 40) || `p${Date.now().toString(36)}`;
   const autor = p?.autor ? { id: idSeguro(p.autor.id), nome: String(p.autor.nome ?? "").slice(0, 80) } : null;
   const agora = new Date().toISOString();

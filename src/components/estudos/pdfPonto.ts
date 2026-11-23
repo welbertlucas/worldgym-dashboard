@@ -4,13 +4,14 @@
 // Os textos são montados por regras fixas a partir dos números da tela; o que é estimativa ou premissa aparece escrito como tal.
 import type { ConteudoPdf, PaginaDoEstudo, Secao } from "@/lib/estudoPdf";
 import { nomeDoArquivo } from "@/lib/estudoPdf";
-import { DECISAO_ROTULO, VEREDITO_ROTULO, meses, reais, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { DECISAO_ROTULO, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
 import { PENETRACAO_MERCADO, resumoMercado, secoesDeMercado, type DadosMercado } from "@/components/estudos/pdfUnidade";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
 const pct = (x: number | null | undefined, casas = 0) => (x == null ? "—" : `${(x * 100).toLocaleString("pt-BR", { maximumFractionDigits: casas })}%`);
 const num = (x: number) => Math.round(x).toLocaleString("pt-BR");
 const mil = (x: number | null | undefined) => (x == null ? "—" : x >= 10000 ? `${Math.round(x / 1000).toLocaleString("pt-BR")} mil` : num(x));
+const preco = (x: number) => `R$ ${x.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export interface PontoNoPdf {
   ponto: Ponto; letra: string; regiao: string; resultado: Resultado | null; captacao: Captacao; fatores: Fator[];
@@ -20,7 +21,12 @@ export interface DadosPdfPonto {
   pontos: PontoNoPdf[]; premissas: Premissas; minutos: number; temArea: boolean;
   /** Só do ponto aberto na tela (as buscas e fotos da área são dele). */
   atualId: string | null; mercado: Omit<DadosMercado, "tipo" | "nome" | "area" | "vendas" | "alunosNaArea"> | null;
-  fotoCaptacao: string | null; fotoRede: string | null; sugestoes: ResultadoSugestoes | null;
+  fotoCaptacao: string | null; fotoRede: string | null; fotoSugestoes?: string | null; sugestoes: ResultadoSugestoes | null;
+  /** População recomendada calibrada com a rede (só com a área de 10 min). */
+  populacao?: { moradores: number; recomendada: number; minima: number; n: number; situacao: SituacaoPopulacao | null } | null;
+  ticket?: { preco: number; realizado: number; p25: number; p75: number; n: number; dasParecidas: boolean } | null;
+  alunos?: number | null;
+  vagas?: { min: number; max: number; informadas: number | null; proprias: number | null; perto: number | null; situacao: SituacaoVagas } | null;
   comparacao?: { foto: string | null };
   itensImovel: { k: keyof Ponto["imovel"]; rotulo: string }[];
   hoje?: Date;
@@ -77,6 +83,24 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
           foto: { dados: d.fotoCaptacao, legenda: `Mais escuro = onde o modelo espera mais alunos.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: 110,
         });
       }
+      const pp = d.populacao;
+      if (pp && r) {
+        const canva = d.alunos ? populacaoCanva(d.alunos, PENETRACAO_MERCADO) : null;
+        secoes.push({
+          titulo: "População Recomendada", linhas: [],
+          texto: [`Para chegar à meta de ${reais(r.meta)} por mês vendendo por morador como a unidade típica da rede, o ponto precisaria de cerca de ${mil(pp.recomendada)} moradores ${area}; o mínimo, vendendo como as unidades que mais aproveitam a própria população, é de ${mil(pp.minima)}. A área tem ${mil(pp.moradores)} moradores: população ${pp.situacao ? SITUACAO_POPULACAO[pp.situacao] : "não medida"}.${pp.situacao === "abaixo" ? " Abaixo do mínimo, o ponto só bate a meta vendendo por morador mais que 3 de cada 4 unidades da rede." : pp.situacao === "limite" ? " O ponto depende de vender acima da média da rede por morador." : ""}`],
+          tabela: {
+            colunas: ["Referência", "Moradores"], larguras: [3, 1],
+            linhas: [
+              [`Área do ponto (${d.minutos} min de carro)`, mil(pp.moradores)],
+              [`Recomendada pela rede (mediana de ${pp.n} unidades maduras)`, mil(pp.recomendada)],
+              ["Mínima pela rede (quartil de cima)", mil(pp.minima)],
+              ...(canva ? [[`Estudos antigos: ${num(d.alunos!)} alunos ÷ (${pct(PENETRACAO_MERCADO)} × ${pct(PARTICIPACAO_CANVA[0])} a ${pct(PARTICIPACAO_CANVA[1])})`, `${mil(canva.min)} a ${mil(canva.max)}`]] : []),
+            ],
+          },
+          paragrafo: "A recomendação usa o que cada unidade madura do mesmo modelo vende por morador da própria área de 10 min de carro (EVO e Censo 2022). A conta dos estudos antigos aparece como referência: ela supõe uma participação de mercado fixa e costuma pedir mais gente do que as unidades da rede têm em volta.",
+        });
+      }
       if (merc) secoes.push(...secoesDeMercado({ ...merc, tipo: "ponto", nome: p.nome, area, vendas: r?.meta ?? null, alunosNaArea: null }));
       secoes.push({
         titulo: "Canibalização com a Rede", novaPagina: true, linhas: [],
@@ -97,14 +121,35 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
           }).concat([["Meta da régua", reais(r.meta), "", `${pr.regua.mesesAprovado} meses`]]),
         },
       });
+      const tk = d.ticket;
+      if (r && tk) secoes.push({
+        titulo: "Ticket Médio Sugerido", linhas: [],
+        texto: [`Sugerimos trabalhar com ticket de ${preco(tk.preco)}: ${tk.dasParecidas ? "é o ticket realizado pelas unidades da rede com moradores e renda parecidos com os do ponto" : `é a mediana do ticket realizado pelas unidades maduras do modelo ${modelo}`} (${preco(tk.realizado)} no EVO, arredondado para o preço de tabela). Na rede, o ticket realizado do modelo vai de ${preco(tk.p25)} a ${preco(tk.p75)} (quartis de ${tk.n} unidades). Com esse ticket, a meta pede cerca de ${num(Math.ceil(r.meta / tk.preco))} alunos ativos e a previsão provável corresponde a ${num(Math.ceil(r.provavel / tk.preco))} alunos.`],
+        tabela: {
+          colunas: ["Ticket", "Alunos para a meta", "Alunos na previsão provável"], larguras: [1.2, 1, 1],
+          linhas: [...new Set([tk.preco, Math.round(tk.p25 / 10) * 10 - 0.1, Math.round(tk.p75 / 10) * 10 - 0.1])].sort((a, b) => a - b)
+            .map((t) => [`${preco(t)}${t === tk.preco ? " (sugerido)" : ""}`, num(Math.ceil(r.meta / t)), num(Math.ceil(r.provavel / t))]),
+        },
+        paragrafo: "Ticket realizado no EVO = recebido no mês ÷ clientes pagantes, média dos últimos meses fechados. O preço dos concorrentes da área não entra na conta e deve ser conferido em campo.",
+      });
+      const vg = d.vagas;
       secoes.push({
-        titulo: "O Imóvel e a Decisão", novaPagina: true, linhas: [],
-        lista: [...d.itensImovel.map((it) => `${it.rotulo}: ${p.imovel[it.k] ? "sim" : "não"}`), `Decisão: ${DECISAO_ROTULO[p.decisao?.status ?? "analise"]}${p.decisao?.unidade ? ` (${p.decisao.unidade})` : ""}${p.decisao?.em ? `, em ${new Date(p.decisao.em).toLocaleDateString("pt-BR")}` : ""}`],
-        ...(p.decisao?.comentario ? { nota: p.decisao.comentario } : {}),
-        paragrafo: "Os itens do imóvel ficam registrados no estudo e ainda não mudam a conta: o peso de cada um será medido com as unidades da rede.",
+        titulo: "Infraestrutura e Estacionamento", novaPagina: true, linhas: [],
+        texto: [vg && d.alunos
+          ? `O estacionamento é critério eliminatório da rede. Para atender cerca de ${num(d.alunos)} alunos, considerando de ${pct(ESTACIONAMENTO.pico[0])} a ${pct(ESTACIONAMENTO.pico[1])} deles treinando no mesmo horário de pico e de ${pct(ESTACIONAMENTO.carro[0])} a ${pct(ESTACIONAMENTO.carro[1])} chegando de carro, o ponto precisa de ${vg.min} a ${vg.max} vagas. ${vg.situacao === "sem-dado" ? `As vagas do imóvel não foram informadas no estudo${p.imovel.estacionamento ? " (o imóvel foi marcado como tendo estacionamento)" : ""}: precisam ser levantadas antes da decisão.` : `Foram informadas ${vg.informadas} vagas${vg.perto ? ` (${vg.proprias ?? 0} do imóvel e ${vg.perto} por perto, na rua ou em parceria)` : ""}: estacionamento ${SITUACAO_VAGAS[vg.situacao]}.${vg.situacao === "insuficiente" ? " Pelo critério da rede, o ponto não é aprovado enquanto as vagas não chegarem ao mínimo." : vg.situacao === "limite" ? " Atende o mínimo, mas pode faltar vaga nos horários de pico." : ""}`}`
+          : "O estacionamento é critério eliminatório da rede, mas o número de vagas necessárias depende do ticket realizado das unidades, que não está disponível neste estudo."],
+        ...(vg ? { tabela: { colunas: ["Item", "Vagas"], larguras: [3, 1], linhas: [
+          ["Necessárias (mínimo: 8% no pico × 20% de carro)", num(vg.min)],
+          ["Necessárias (folga: 12% no pico × 30% de carro)", num(vg.max)],
+          ["Do imóvel", vg.proprias == null ? "não informado" : num(vg.proprias)],
+          ["Por perto (rua, parceria)", vg.perto == null ? "não informado" : num(vg.perto)],
+        ] } } : {}),
+        lista: d.itensImovel.map((it) => `${it.rotulo}: ${p.imovel[it.k] ? "sim" : "não"}`),
+        paragrafo: "Os estudos antigos da rede supunham de 40% a 50% dos alunos de carro (80 a 120 vagas para cerca de 2.850 alunos); a regra atual usa 20% a 30%. Fachada, polo comercial e acesso a pé ficam registrados e devem ser conferidos na visita.",
       });
       if (d.sugestoes) secoes.push({
         titulo: "Recomendação de Localização", novaPagina: true, linhas: [], texto: [textoSugestoes(d.sugestoes, "ponto", p.nome)], nota: LIMITES_SUGESTAO,
+        ...(d.fotoSugestoes ? { foto: { dados: d.fotoSugestoes, legenda: `Pino com letra: o ponto estudado. Pinos cinza numerados: posições sugeridas (mesma numeração da tabela). Bolinhas vermelhas: World Gym.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro do ponto.` : ""}` }, altFoto: 95 } : {}),
         ...(d.sugestoes.sugestoes.length ? { tabela: { colunas: ["Posição", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.sugestoes) } } : {}),
       });
       if (pt.parecidas.length) secoes.push({
@@ -121,12 +166,16 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       else conc.push("A concorrência não entrou neste estudo porque as academias concorrentes não foram buscadas antes de exportar; recomenda-se gerar o PDF com a busca feita.");
       if (fatia != null) conc.push(`Para chegar à meta, o ponto precisaria capturar ${pct(fatia)} do potencial de consumo da área em recreações e esportes, ${fatia >= 0.36 ? "acima do que os estudos da rede consideram viável (~36%)" : fatia >= 0.33 ? "na zona de atenção dos estudos da rede (33% a 35%)" : "dentro do que os estudos da rede consideram capturável (até ~32%)"}.`);
       if (cap.divideCom.length) conc.push(`Dentro da rede, o ponto dividiria ${pct(cap.divideCom.reduce((a, x) => a + x.parte, 0))} do público com ${cap.divideCom.map((x) => x.nome).join(" e ")}.`);
-      if (r) conc.push(`Diante desse cenário, o modelo ${r.veredito === "aprovado" ? "aprova" : r.veredito === "atencao" ? "coloca em atenção" : "não aprova"} o ponto para o ${modelo}: vendas previstas de ${reais(r.provavel)} por mês, lucro de ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} e payback de ${meses(r.payback)}.${d.sugestoes?.sugestoes.length ? ` Há posições até ${pct(d.sugestoes.sugestoes[0].ganho)} melhores em público a até ${d.sugestoes.sugestoes[0].distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, que valem uma busca de imóveis antes de fechar.` : ""} O estacionamento e a visibilidade do imóvel precisam ser conferidos na visita.`);
+      if (pp?.situacao) conc.push(`A população da área (${mil(pp.moradores)} moradores) está ${SITUACAO_POPULACAO[pp.situacao]} para a meta: a rede recomendaria cerca de ${mil(pp.recomendada)}.`);
+      if (d.ticket && d.alunos) conc.push(`Com ticket sugerido de ${preco(d.ticket.preco)}, o ponto precisa atender cerca de ${num(d.alunos)} alunos${d.vagas ? ` e de ${d.vagas.min} a ${d.vagas.max} vagas de estacionamento (${d.vagas.situacao === "sem-dado" ? "vagas ainda não informadas" : `informadas ${d.vagas.informadas}, ${SITUACAO_VAGAS[d.vagas.situacao]}`})` : ""}.`);
+      const vfin = r ? vereditoFinal(r.veredito, d.vagas ?? null) : null;
+      if (r) conc.push(`Diante desse cenário, o estudo ${vfin === "aprovado" ? "aprova" : vfin === "atencao" ? "coloca em atenção" : "não aprova"} o ponto para o ${modelo}: vendas previstas de ${reais(r.provavel)} por mês, lucro de ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} e payback de ${meses(r.payback)}${vfin !== r.veredito ? ", mas o estacionamento não atende o mínimo, critério eliminatório da rede" : ""}.${d.sugestoes?.sugestoes.length ? ` Há posições até ${pct(d.sugestoes.sugestoes[0].ganho)} melhores em público a até ${d.sugestoes.sugestoes[0].distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, que valem uma busca de imóveis antes de fechar.` : ""} A visibilidade da fachada e o acesso devem ser conferidos na visita.`);
+      conc.push(`Situação no comitê de expansão: ${DECISAO_ROTULO[p.decisao?.status ?? "analise"]}${p.decisao?.unidade ? ` (${p.decisao.unidade})` : ""}${p.decisao?.em ? `, em ${new Date(p.decisao.em).toLocaleDateString("pt-BR")}` : ""}.${p.decisao?.comentario ? ` Comentário: ${p.decisao.comentario}` : ""}`);
       secoes.push({
         titulo: "Conclusão e Recomendação Final", novaPagina: true, linhas: [],
-        faixa: r ? `${r.veredito === "aprovado" ? "Recomendado" : r.veredito === "atencao" ? "Atenção" : "Não recomendado"}: modelo ${modelo}` : undefined,
+        faixa: vfin ? `${vfin === "aprovado" ? "Recomendado" : vfin === "atencao" ? "Atenção" : "Não recomendado"}: modelo ${modelo}${vfin !== r?.veredito ? " (estacionamento)" : ""}` : undefined,
         texto: conc,
-        paragrafo: `Premissas: vendas por m² das unidades maduras da rede, penetração de mercado de ${pct(PENETRACAO_MERCADO)}, classes estimadas pela renda média do Censo e gasto da POF corrigido pela inflação. Os números de mercado devem ser lidos como ordem de grandeza.`,
+        paragrafo: `Premissas: vendas por m² das unidades maduras da rede, penetração de mercado de ${pct(PENETRACAO_MERCADO)}, população recomendada e ticket calibrados com as unidades da rede, estacionamento com 8% a 12% no pico e 20% a 30% de carro, classes estimadas pela renda média do Censo e gasto da POF corrigido pela inflação. Os números de mercado devem ser lidos como ordem de grandeza.`,
       });
     }
     paginas.push({

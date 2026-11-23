@@ -7,15 +7,20 @@ const noop = () => {};
 
 describe("navegação", () => {
   it("menu numa sequência só (os ids antigos continuam, o mapa virou aba de Alunos)", () => {
-    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "plano", "metas", "riscos", "comercial", "financeiro", "alunos", "catraca", "retencao", "campanhas", "benchmark"]);
+    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "plano", "metas", "riscos", "gerencial", "alunos", "catraca", "retencao", "campanhas", "benchmark"]);
   });
 
   it("endereços antigos levam para o lugar novo", () => {
     expect(enderecoAtual("mapa")).toBe("alunos/onde-moram");
     expect(enderecoAtual("alunos/frequencia")).toBe("catraca/frequencia");
-    expect(enderecoAtual("campanhas/leads")).toBe("comercial/oportunidades");
+    expect(enderecoAtual("campanhas/leads")).toBe("gerencial/oportunidades");
     expect(enderecoAtual("unidades")).toBe("benchmark/posicao");
-    expect(enderecoAtual("financeiro/notas")).toBe("financeiro/notas");
+    expect(enderecoAtual("gerencial/notas")).toBe("gerencial/notas");
+    // Comercial e Financeiro viraram Gerencial: links salvos continuam abrindo o lugar certo
+    expect(enderecoAtual("financeiro/notas")).toBe("gerencial/notas");
+    expect(enderecoAtual("comercial")).toBe("gerencial/vendas");
+    expect(enderecoAtual("comercial/resumo")).toBe("gerencial/vendas");
+    expect(enderecoAtual("financeiro/resumo")).toBe("gerencial/recebimento");
   });
 
   it("sidebar lista as seções (Alertas fica no cabeçalho, não na barra) e marca a ativa", () => {

@@ -39,7 +39,7 @@ describe("central de ajuda", () => {
   it("seção e artigo não dividem o mesmo endereço; onde fica cada tela", () => {
     const ids = new Set(ARTIGOS.map((a) => a.id));
     expect(SECOES.some((s) => ids.has(s.id))).toBe(false);
-    expect(ondeFica("comercial/oportunidades")).toBe("Menu › Comercial › Oportunidades");
+    expect(ondeFica("gerencial/oportunidades")).toBe("Menu › Gerencial › Oportunidades");
     expect(ondeFica("riscos/mes")).toBe("Botão Alertas, no cabeçalho › Mês em andamento");
     expect(ondeFica("novidades")).toBe("Novidades, no rodapé do menu");
   });

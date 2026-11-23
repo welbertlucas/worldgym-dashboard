@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { createElement } from "react";
 import {
-  acertoDoModelo, arredores, atracao, avaliarPonto, regiaoDe, captacaoDe, fatoresDe, investimentoDe, km, m2Efetivo, paybackDe, parecidas, vendasParaPayback,
+  acertoDoModelo, alunosDoPonto, arredores, atracao, avaliarPonto, populacaoCanva, populacaoRecomendada, precoDeTabela, regiaoDe, ticketSugerido, vagasDoPonto, vereditoFinal, captacaoDe, fatoresDe, investimentoDe, km, m2Efetivo, paybackDe, parecidas, vendasParaPayback,
   type Censo, type Ponto, type Premissas, type UnidadeEstudo,
 } from "@/lib/estudoPonto";
 import { EstudosPontoTab } from "@/components/tabs/EstudosPontoTab";
@@ -121,6 +121,8 @@ describe("servidor dos estudos (server/estudos.js)", () => {
     const p = pontoValido({ c: [-15.8, -47.9], m2: 1200.4, nome: "  Av.   X ", modelo: "outro", imovel: { fachada: true, extra: true }, lixo: 1 });
     expect(p).toMatchObject({ nome: "Av. X", modelo: "low", m2: 1200, imovel: { fachada: true, estacionamento: false } });
     expect(p).not.toHaveProperty("lixo");
+    const v = pontoValido({ c: [-15.8, -47.9], m2: 1000, imovel: { vagas: "42.6", vagasPerto: -3 } });
+    expect(v.imovel).toMatchObject({ vagas: 43, estacionamento: true }); expect(v.imovel).not.toHaveProperty("vagasPerto");
     expect(p.criadoEm).toMatch(/^\d{4}-/);
     const d = pontoValido({ c: [-15.8, -47.9], m2: 1000, decisao: { status: "unidade", unidade: "Gama", comentario: " ok ", previsao: { provavel: "300000.4", pessimista: 250000, otimista: 350000 } } });
     expect(d.decisao).toMatchObject({ status: "unidade", unidade: "Gama", comentario: "ok", previsao: { provavel: 300000 } });
@@ -330,3 +332,36 @@ describe("classes de renda", () => {
   });
 });
 
+
+// Números INVENTADOS (o repositório é público).
+describe("população recomendada, ticket e estacionamento", () => {
+  const refs = [100, 200, 300, 400, 500].map((m, i) => ({ nome: `U${i}`, vendas: 1000, moradores: m }));
+  it("recomendada pela mediana da rede e mínima pelo quartil de cima", () => {
+    // vendas por morador: 10, 5, 3,33, 2,5, 2 -> mediana 3,33; quartil de cima 5
+    const r = populacaoRecomendada(1000, 250, refs)!;
+    expect(r.recomendada).toBeCloseTo(300); expect(r.minima).toBeCloseTo(200); expect(r.situacao).toBe("limite");
+    expect(populacaoRecomendada(1000, 150, refs)!.situacao).toBe("abaixo");
+    expect(populacaoRecomendada(1000, 300, refs)!.situacao).toBe("adequada");
+    expect(populacaoRecomendada(1000, 300, refs.slice(0, 3))).toBeNull();
+    const cv = populacaoCanva(100, 0.1); expect(cv.min).toBeCloseTo(5000); expect(cv.max).toBeCloseTo(6666.67, 1);
+  });
+  it("ticket: preço de tabela terminado em ,90, das parecidas quando houver", () => {
+    expect(precoDeTabela(57)).toBeCloseTo(59.9); expect(precoDeTabela(61)).toBeCloseTo(59.9);
+    const u = (nome: string, ticket: number | null, madura = true): UnidadeEstudo => ({ nome, c: [0, 0], m2: 100, modelo: "low", abertura: null, madura, vendas: 1, alunos: 1, ticket });
+    const us = [u("A", 40), u("B", 50), u("C", 60), u("D", 999, false), u("E", null)];
+    expect(ticketSugerido("low", us, [])).toMatchObject({ realizado: 50, n: 3, dasParecidas: false });
+    expect(ticketSugerido("low", us, [us[2]])).toMatchObject({ realizado: 60, dasParecidas: true });
+    expect(ticketSugerido("pro", us, [])).toBeNull();
+    expect(alunosDoPonto({ meta: 1000, provavel: 800 }, 10)).toBe(100);
+  });
+  it("vagas: faixa pelo pico e pelo carro; insuficiente reprova", () => {
+    const im = { fachada: false, estacionamento: false, polo: false, aPe: false };
+    const v = vagasDoPonto(1000, im);
+    expect(v).toMatchObject({ min: 16, max: 36, situacao: "sem-dado" });
+    expect(vagasDoPonto(1000, { ...im, vagas: 10 }).situacao).toBe("insuficiente");
+    expect(vagasDoPonto(1000, { ...im, vagas: 10, vagasPerto: 10 }).situacao).toBe("limite");
+    expect(vagasDoPonto(1000, { ...im, vagas: 40 }).situacao).toBe("suficiente");
+    expect(vereditoFinal("aprovado", { situacao: "insuficiente" })).toBe("reprovado");
+    expect(vereditoFinal("atencao", { situacao: "sem-dado" })).toBe("atencao");
+  });
+});

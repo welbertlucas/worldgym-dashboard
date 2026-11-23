@@ -20,7 +20,7 @@ import { AXIS_TICK, GRID, TOOLTIP_STYLE } from "@/components/chartTheme";
 const shortMonth = (m: string) => { const [y, mo] = m.split("-").map(Number); return new Date(y, mo - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }); };
 const TIER_RANK: Record<TierResult, number> = { ouro: 3, prata: 2, bronze: 1, abaixo: 0 };
 
-/** Indicadores com projeção de fechamento: faturamento (Financeiro) e novos contratos (Comercial → Vendas). */
+/** Indicadores com projeção de fechamento: faturamento (Gerencial › Recebimentos) e novos contratos (Gerencial › Vendas). */
 const PROJETAVEIS: MetaKey[] = ["faturamento", "novosContratos"];
 
 /** Projeção de fechamento do mês em andamento para o indicador; null se não há (mês fechado, antes do dia 10, sem dados). */
@@ -199,8 +199,8 @@ export function MetasTab({ data, metas, month, unit = null, atualizadoEm = null 
           <p className="mt-2 text-xs text-muted-foreground">
             A porcentagem é o quanto já foi alcançado do próximo nível. A barra mostra as faixas Bronze, Prata e Ouro; o traço escuro é o realizado.
             {partial && PROJETAVEIS.includes(k) && (k === "faturamento"
-              ? " A projeção soma o que já está lançado no EVO ao que se estima vender até o fim do mês; a conta fica em Financeiro, aba Resumo."
-              : " A projeção usa a curva de vendas dos 3 meses anteriores; a conta fica em Comercial, aba Vendas.")}
+              ? " A projeção soma o que já está lançado no EVO ao que se estima vender até o fim do mês; a conta fica em Gerencial, aba Recebimentos."
+              : " A projeção usa a curva de vendas dos 3 meses anteriores; a conta fica em Gerencial, aba Vendas.")}
           </p>
         </section>
       )}

@@ -1,4 +1,4 @@
-// Projeções de fechamento do mês em andamento (novos contratos e faturamento), usadas em Comercial, Financeiro e Metas.
+// Projeções de fechamento do mês em andamento (novos contratos e faturamento), usadas no Gerencial e em Metas.
 import { getDataByMonth, getUnitData, type UnitData } from "@/data/dashboardData";
 import { diasFechados, projetarMes, type Projecao } from "@/data/vendasDia";
 

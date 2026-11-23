@@ -43,7 +43,8 @@ describe("registro de atividade (cliente)", () => {
   });
 
   it("nome da tela legível", () => {
-    expect(nomeDaTela("comercial/vendas")).toBe("Comercial › Vendas");
+    expect(nomeDaTela("gerencial/vendas")).toBe("Gerencial › Vendas");
+    expect(nomeDaTela("comercial/vendas")).toBe("Gerencial › Vendas"); // registro antigo, com o nome de hoje
     expect(nomeDaTela("executiva")).toBe("Overview");
     expect(nomeDaTela("xyz")).toBe("xyz");
   });
@@ -68,7 +69,7 @@ describe("detalhe do acesso (clicar no nome)", () => {
     const h = renderToString(<DetalheDoAcesso usuario={u} entradas={entradas} atividade={ativ} onFechar={() => {}} />).replace(/<!-- -->/g, "");
     expect(h).toContain("Último acesso");
     expect(h).toContain("Senha errada");
-    expect(h).toContain("Comercial › Vendas");
+    expect(h).toContain("Gerencial › Vendas"); // registro antigo (comercial/vendas) com o nome de hoje
     expect(h).toContain("Gama");
     expect(h).toContain("outubro de 2026");
   });

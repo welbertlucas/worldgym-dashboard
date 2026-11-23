@@ -41,7 +41,7 @@ function enfileirar(e: Evento) {
   if (!relogio) relogio = setTimeout(enviarAgora, ENVIAR_A_CADA_MS);
 }
 
-/** Anota que a pessoa abriu a tela (ex.: "comercial/vendas"), com a unidade e o mês que ela via. Trocar a unidade ou o mês na mesma tela conta como outra vista. */
+/** Anota que a pessoa abriu a tela (ex.: "gerencial/vendas"), com a unidade e o mês que ela via. Trocar a unidade ou o mês na mesma tela conta como outra vista. */
 export function registrarTela(tela: string, vista: Vista = {}, agora: number = Date.now()) {
   const chave = `${tela}|${vista.unidade ?? ""}|${vista.mes ?? ""}`;
   if (!tela || !getUsuario() || agora - (vistas.get(chave) ?? -Infinity) < REPETIR_APOS_MS) return;

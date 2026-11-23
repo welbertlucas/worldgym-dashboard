@@ -11,7 +11,7 @@ const int = (n: number) => Math.round(n).toLocaleString("pt-BR");
 /**
  * Quanto vai faturar até o fim do mês, em duas partes:
  *  1. o que já está lançado no EVO (já venceu + vai vencer nos dias que faltam): é a soma dos títulos do mês, não estimativa;
- *  2. a estimativa das vendas que ainda vão entrar: contratos novos que faltam (a mesma projeção de Comercial → Vendas)
+ *  2. a estimativa das vendas que ainda vão entrar: contratos novos que faltam (a mesma projeção da aba Vendas)
  *     vezes o valor médio de um contrato novo no mês.
  * Só aparece no mês em andamento, quando o EVO trouxe a previsão. O nível da meta fica só em Metas (cada informação numa tela só).
  */
@@ -57,7 +57,7 @@ export function FaturamentoProjecao({ total, month, partial, unit, atualizadoEm 
           </p>
           {vendasFuturas !== null && proj && (
             <p>
-              <b className="text-foreground">Vendas que ainda devem entrar (≈ {brl(vendasFuturas)}):</b> pela projeção de Comercial, aba Vendas, o mês deve fechar com ≈ {int(proj.valor)} novos contratos e já saíram {int(total.novosContratos ?? proj.realizado)};
+              <b className="text-foreground">Vendas que ainda devem entrar (≈ {brl(vendasFuturas)}):</b> pela projeção da aba Vendas, o mês deve fechar com ≈ {int(proj.valor)} novos contratos e já saíram {int(total.novosContratos ?? proj.realizado)};
               faltam ≈ {int(faltam)}. Cada contrato novo vendido neste mês rendeu em média {brl(ticket)}, então {int(faltam)} × {brl(ticket)} ≈ {brl(vendasFuturas)}.
             </p>
           )}

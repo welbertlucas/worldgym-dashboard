@@ -326,7 +326,7 @@ export async function lerRegistro(agora = Date.now(), limite = 1000) {
 const arquivoAtividade = (dia) => `acesso/atividade-${dia}.json`;
 const LIMITE_ATIVIDADE_DIA = 2000;
 export const EVENTOS_ATIVIDADE = ["tela", "exportar"];
-/** Endereço de tela válido: letras minúsculas, números, "/" e "-" (ex.: "comercial/vendas"). */
+/** Endereço de tela válido: letras minúsculas, números, "/" e "-" (ex.: "gerencial/vendas"). */
 export const telaValida = (t) => typeof t === "string" && /^[a-z0-9][a-z0-9/-]{0,39}$/.test(t);
 /** Mês AAAA-MM e unidade da rede (ou null = a rede toda): o que a pessoa estava vendo. Valor inválido vira null. */
 export const mesValido = (m) => (typeof m === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(m) ? m : null);

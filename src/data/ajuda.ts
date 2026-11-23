@@ -84,18 +84,14 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "O botão Alertas no cabeçalho mostra quantos alertas críticos existem e os mais importantes. \"Ver todos\" abre a tela completa.",
     "A aba Mês em andamento mostra o que fazer agora. A aba Fechamento conta o que aconteceu no mês anterior.",
   ], { tela: "riscos/mes", imagem: "alertas" }),
-  a("telas", "tela-comercial", "Comercial", "Vendas, oportunidades e receitas complementares.", [
-    "Resumo: novos contratos, cancelamentos, vendas online e conversão.",
-    "Vendas: vendas por dia, projeção de fechamento, os 10 planos mais vendidos e os vendedores que mais vendem (contratos novos e rematrículas, com o valor; cada unidade vê os nomes só da própria equipe).",
+  a("telas", "tela-gerencial", "Gerencial", "Vendas, oportunidades, receitas complementares, recebimentos, inadimplência e notas fiscais (o antigo Comercial e o antigo Financeiro, num menu só).", [
+    "Vendas: contratos vendidos, novos contratos, cancelamentos, vendas online e conversão; vendas por dia, projeção de fechamento, os 10 planos mais vendidos e os vendedores que mais vendem (contratos novos e rematrículas, com o valor; cada unidade vê os nomes só da própria equipe).",
     "Oportunidades: de onde vêm, o perfil, o tempo até fechar e os consultores que mais convertem. Na tabela por unidade, a coluna \"De cadastros antigos\" mostra quem se cadastrou em meses anteriores e fechou neste mês; ela não entra na taxa de conversão.",
     "Receitas complementares: diárias, personal, brinquedoteca, WG Plus, Pro+, camisetas e coqueteleiras.",
-  ], { tela: "comercial", imagem: "comercial" }),
-  a("telas", "tela-financeiro", "Financeiro", "Faturamento, pagamentos dos clientes, inadimplência e notas fiscais.", [
-    "Resumo: faturamento, pagamentos dos clientes, inadimplência e ticket médio, com a previsão de faturamento até o fim do mês.",
-    "Pagamentos dos clientes: formas de pagamento, bandeiras de cartão e taxas cobradas. No cartão, o gateway (Stone, Rede, Cielo...) mostra quanto entrou por cada um, quantas cobranças foram e o ticket; quando o EVO informa, também as taxas e quanto elas pesam no recebido. Esse percentual é a taxa que o EVO registrou, não a cobrada no extrato da operadora; a cobrança sem taxa registrada entra como zero, e por isso o card diz em quantos % das cobranças há taxa registrada (abaixo de 90% o número fica marcado como incompleto).",
-    "Inadimplência: cobranças de cartão recusadas, saldo devedor por unidade e o perfil de quem está em atraso.",
+    "Recebimentos: ticket médio e adimplentes, a previsão de faturamento até o fim do mês e o histórico; formas de pagamento, bandeiras de cartão e taxas cobradas. No cartão, o gateway (Stone, Rede, Cielo...) mostra quanto entrou por cada um, quantas cobranças foram e o ticket; quando o EVO informa, também as taxas e quanto elas pesam no recebido. Esse percentual é a taxa que o EVO registrou, não a cobrada no extrato da operadora; a cobrança sem taxa registrada entra como zero, e por isso o card diz em quantos % das cobranças há taxa registrada (abaixo de 90% o número fica marcado como incompleto).",
+    "Inadimplência: o histórico, as cobranças de cartão recusadas, o saldo devedor por unidade e o perfil de quem está em atraso.",
     "Notas fiscais: notas emitidas no mês por unidade.",
-  ], { tela: "financeiro", imagem: "financeiro" }),
+  ], { tela: "gerencial", imagem: "comercial" }),
   a("telas", "tela-alunos", "Alunos", "Tamanho da base, perfil, onde os alunos moram e contratos ativos.", [
     "Tamanho da base: alunos ativos, quem entrou, voltou e saiu, permanência média e LTV.",
     "Perfil: gênero e faixa de idade. Onde moram: os bairros dos alunos no mapa.",
@@ -155,7 +151,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   ]),
   a("duvidas", "diferente-do-evo", "Por que um número é diferente do que vejo no EVO?", "O Atlas usa regras próprias e é gravado de madrugada.", [
     "Cada indicador tem uma regra de cálculo, explicada em “O que significa cada indicador” e no botão “i” de cada card. O painel Gerencial do EVO usa outras regras, e o número dele muda durante o dia. O Atlas é gravado de madrugada, então os dois só batem por acaso.",
-    "Faturamento: é o mesmo número do “Total de vendas” do Gerencial do EVO, o valor das vendas de contrato lançadas no mês (recepção, cartão recorrente e online). O Atlas usa uma conta só, com o mesmo nome e o mesmo valor, em Overview, Financeiro e Comercial. Pequenas diferenças para o EVO podem sobrar porque o EVO ainda tira vendas ao longo do dia, como as de cartão recusado. Os Pagamentos dos clientes, no Financeiro, são outra informação: o que os clientes pagaram no mês, segundo o EVO.",
+    "Faturamento: é o mesmo número do “Total de vendas” do Gerencial do EVO, o valor das vendas de contrato lançadas no mês (recepção, cartão recorrente e online). O Atlas usa uma conta só, com o mesmo nome e o mesmo valor, no Overview e no Gerencial. Pequenas diferenças para o EVO podem sobrar porque o EVO ainda tira vendas ao longo do dia, como as de cartão recusado. Os Pagamentos dos clientes, no Gerencial, aba Recebimentos, são outra informação: o que os clientes pagaram no mês, segundo o EVO.",
     "Contratos vendidos: o cartão Contratos Vendidos do Atlas segue o do EVO e soma matrículas, rematrículas e renovações feitas na recepção, sem a renovação automática do cartão, a diária e o personal. Já as metas de novos contratos e o Saldo de Clientes continuam contando só matrículas e rematrículas (contratos novos), sem as renovações.",
     "Conversão: segue o relatório de cadastro e conversão de oportunidades, e não o número de visitantes do Resumo gerencial do EVO, que usa outra regra e também conta quem se cadastrou antes e fechou agora. Esse grupo aparece à parte, na coluna “De cadastros antigos” de Oportunidades por unidade.",
     "Se mesmo assim o número parecer errado, avise quem liberou o seu acesso.",
