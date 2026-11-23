@@ -256,13 +256,16 @@ export interface Sugestao { c: [number, number]; publico: number; ganho: number;
  * World Gym existentes (para sugerir uma NOVA unidade na região de uma unidade em operação).
  */
 export function posicoesMelhores(base: { c: [number, number]; m2: number }, censo: Censo, unidades: UnidadeEstudo[], outros: Ponto[], curva: Premissas["curva"],
-  { raioKm = 3, n = 3, separacaoKm = 1, ganhoMinimo = 0.1, longeDeUnidadesKm = 0, minimoMoradores = 300, maxCanibalizacao = 1 }: { raioKm?: number; n?: number; separacaoKm?: number; ganhoMinimo?: number; longeDeUnidadesKm?: number; minimoMoradores?: number; maxCanibalizacao?: number } = {}) {
+  { raioKm = 3, n = 3, separacaoKm = 1, ganhoMinimo = 0.1, longeDeUnidadesKm = 0, minimoMoradores = 130, maxCanibalizacao = 1 }: { raioKm?: number; n?: number; separacaoKm?: number; ganhoMinimo?: number; longeDeUnidadesKm?: number; minimoMoradores?: number; maxCanibalizacao?: number } = {}) {
   const ref = publicoAlcancavel(base.c, base.m2, censo, unidades, outros, curva);
   const cand: Sugestao[] = [];
+  // minimoMoradores (130): só posições com gente morando em volta; equivale a ~1.250 moradores por km² no hexágono de 200 m (era 300 no de 300 m)
+  let avaliadas = 0; // todas as posições do raio com gente, antes das regras de distância e divisão com a rede (é o "testamos N posições")
   for (const [lat, lng, pop] of censo.celulas) {
     if (pop < minimoMoradores) continue;
     const c: [number, number] = [lat, lng], d = km(c, base.c);
     if (d > raioKm || d < 0.4) continue;
+    avaliadas++;
     if (longeDeUnidadesKm && unidades.some((u) => u.c && km(u.c, c) < longeDeUnidadesKm)) continue;
     const r = publicoAlcancavel(c, base.m2, censo, unidades, outros, curva);
     if (r.divideCom.some((x) => x.parte > maxCanibalizacao)) continue;
@@ -276,7 +279,7 @@ export function posicoesMelhores(base: { c: [number, number]; m2: number }, cens
     if (escolhidas.some((e) => km(e.c, x.c) < separacaoKm)) continue;
     escolhidas.push(x);
   }
-  return { referencia: ref, sugestoes: escolhidas, testadas: cand.length };
+  return { referencia: ref, sugestoes: escolhidas, testadas: avaliadas };
 }
 
 /** População e renda média num raio, somando os hexágonos. */

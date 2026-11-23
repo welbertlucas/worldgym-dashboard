@@ -62,6 +62,7 @@ interface PropsMapa {
 /** O mapa do estudo: painel com os pontos (todos, ou só os escolhidos para comparar), a conta e a decisão; lentes e ferramentas. */
 function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo, editavel }: PropsMapa) {
   const [lente, setLente] = useState<Lente>("captacao");
+  const cartaoAberto = useRef<string | null>(null);
   // o mapa vai do topo dele até o fim da tela, sem precisar rolar
   const caixaMapa = useRef<HTMLDivElement>(null);
   const alturaMapa = useAlturaAteOFim(caixaMapa);
@@ -202,10 +203,11 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     // pontos em estudo
     pontos.forEach((p, i) => {
       const sel = p.id === atualId;
-      const esc = (t: string) => t.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]!));
       const mk = L.marker(p.c, { draggable: editavel, zIndexOffset: sel ? 2000 : 1000, icon: pino(L, CORES[i % CORES.length], sel ? 40 : 32, letra(i)) })
-        .bindTooltip(`<strong>${esc(p.nome)}</strong><br/>${p.endereco ? esc(p.endereco) : p.regiao ? esc(p.regiao) : "<em>sem endereço: use “Buscar o endereço” no estudo</em>"}`, { direction: "top", offset: [0, -30] }).addTo(camadas);
-      mk.on("click", () => { setAtualId(p.id); mk.openTooltip(); });
+        .bindPopup(() => cartaoDoPino(p, letra(i)), { offset: [0, -28], minWidth: 240, maxWidth: 300, className: "cartao-pino" }).addTo(camadas);
+      // clicar num ponto que não estava escolhido redesenha o mapa: o cartão reabre no pino novo depois do redesenho
+      if (cartaoAberto.current === p.id) { cartaoAberto.current = null; setTimeout(() => mk.openPopup(), 0); }
+      mk.on("click", () => { if (p.id !== atualId) cartaoAberto.current = p.id; setAtualId(p.id); });
       // arrastou: o endereço guardado deixa de valer
       mk.on("dragend", () => { const ll = mk.getLatLng(); mudar(p.id, { c: [ll.lat, ll.lng], endereco: undefined }); setAtualId(p.id); });
     });
@@ -598,4 +600,38 @@ function EnderecoDoPonto({ endereco, editavel, buscar }: { endereco?: string; ed
       </Button>}
     </div>
   );
+}
+
+/** Copia um texto: a área de transferência do navegador e, se ela recusar, o jeito antigo (seleção + copiar). */
+async function copiarTexto(texto: string): Promise<boolean> {
+  try { await navigator.clipboard.writeText(texto); return true; } catch { /* tenta o jeito antigo */ }
+  const ta = document.createElement("textarea");
+  ta.value = texto; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { return document.execCommand("copy"); } catch { return false; } finally { ta.remove(); }
+}
+
+/**
+ * Cartão do pino do ponto (como no Mapfry): nome, endereço e coordenadas; clicar no endereço ou nas coordenadas copia o texto.
+ * Montado com elementos (não com HTML em texto), para o nome e o endereço nunca virarem código.
+ */
+function cartaoDoPino(p: Ponto, letraDoPonto: string): HTMLElement {
+  const el = (tag: string, cls: string, texto?: string) => { const e = document.createElement(tag); e.className = cls; if (texto != null) e.textContent = texto; return e; };
+  const caixa = el("div", "space-y-2 text-[13px] text-foreground");
+  caixa.appendChild(el("p", "font-semibold", `${letraDoPonto}. ${p.nome}`));
+  const copiavel = (rotulo: string, texto: string) => {
+    const b = el("button", "flex w-full items-start gap-2 rounded-md px-1 py-0.5 text-left hover:bg-muted") as HTMLButtonElement;
+    b.type = "button"; b.title = `Clique para copiar ${rotulo}`;
+    const t = el("span", "min-w-0 flex-1 break-words", texto), aviso = el("span", "flex-none text-[11px] text-muted-foreground", "copiar");
+    b.append(t, aviso);
+    b.onclick = async () => {
+      aviso.textContent = (await copiarTexto(texto)) ? "copiado ✓" : "não copiou";
+      setTimeout(() => { aviso.textContent = "copiar"; }, 1600);
+    };
+    return b;
+  };
+  if (p.endereco) caixa.appendChild(copiavel("o endereço", p.endereco));
+  else caixa.appendChild(el("p", "text-muted-foreground", "Sem endereço guardado: use “Buscar o endereço” no estudo, embaixo do nome do ponto."));
+  caixa.appendChild(copiavel("as coordenadas", `${p.c[0].toFixed(6)}, ${p.c[1].toFixed(6)}`));
+  return caixa;
 }

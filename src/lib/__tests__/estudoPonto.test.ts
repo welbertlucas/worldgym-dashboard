@@ -255,6 +255,21 @@ describe("pontos de interesse (server/pois.js)", () => {
     expect(r2.doCache).toBe(true); expect(chamadas).toBe(antes);
     definirArmazem(null);
   });
+
+  it("conta as academias pela categoria principal, só pelo número, e guarda", async () => {
+    // @ts-expect-error módulo JS do servidor
+    const { contarAcademias } = await import("../../../server/pois.js");
+    const m = new Map<string, unknown>();
+    definirArmazem({ async ler(c: string) { return (m.get(c) as unknown) ?? null; }, async gravar(c: string, d: unknown) { m.set(c, structuredClone(d)); } });
+    let corpo = "", chamadas = 0;
+    const fetcher = async (_url: string, o: { body: string }) => { chamadas++; corpo = o.body; return { json: async () => ({ count: "9" }) }; };
+    const r = await contarAcademias({ c: [-15.8, -47.9], raioKm: 1.5 }, { chave: "k", fetcher });
+    expect(r).toMatchObject({ academias: 9, raioKm: 1.5, doCache: false });
+    expect(JSON.parse(corpo)).toMatchObject({ insights: ["INSIGHT_COUNT"], filter: { typeFilter: { includedPrimaryTypes: ["gym", "fitness_center"] } } });
+    expect((await contarAcademias({ c: [-15.8, -47.9], raioKm: 1.5 }, { chave: "k", fetcher })).doCache).toBe(true);
+    expect(chamadas).toBe(1);
+    definirArmazem(null);
+  });
 });
 
 describe("área de deslocamento (server/deslocamento.js e contas no front)", () => {

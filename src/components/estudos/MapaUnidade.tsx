@@ -9,7 +9,7 @@ import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, use
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { COR_OUTROS_BAIRROS, CORES_BAIRROS, LegendaCenso, LegendaRenda, RoscaBairros, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 export { LegendaRenda };
-import { LIMITES_SUGESTAO, desenharSugestoes, enderecoCurto, textoSugestoes, useEnderecos } from "@/components/estudos/sugestoes";
+import { LIMITES_SUGESTAO, REGRAS_NOVA_UNIDADE, desenharSugestoes, enderecoCurto, textoConcorrencia, textoSugestoes, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
 import { comercioEm, rendaTotalEm, MINUTOS_PADRAO, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type UnidadeEstudo } from "@/lib/estudoPonto";
 
@@ -68,10 +68,12 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const moradoresArea = area10 && dados.censo ? moradoresNaArea(dados.censo, area10) : moradores80;
   const onde80 = min80 != null ? `${min80.toLocaleString("pt-BR")} min de carro` : areas?.carro ? `mais de 20 min de carro` : fmtKm(r80);
   // onde abrir outra unidade na região (estratégia de expansão: não aparece para quem só tem acesso à própria unidade)
-  const novaUnidade = useMemo(() => (u?.c && dados.censo && dados.premissas && dados.modo !== "unidade"
+  // candidatas: até 8, para sobrar 3 depois de descartar as regiões saturadas de academias (useSugestoesSemSaturacao)
+  const candidatasNova = useMemo(() => (u?.c && dados.censo && dados.premissas && dados.modo !== "unidade"
     ? posicoesMelhores({ c: u.c, m2: dados.premissas.modelos[u.modelo]?.padraoM2 ?? u.m2 ?? 1200 }, dados.censo, dados.unidades ?? [], [], dados.premissas.curva,
-      { raioKm: 10, longeDeUnidadesKm: 3, separacaoKm: 2.5, maxCanibalizacao: 0.2, ganhoMinimo: -0.3 })
+      { raioKm: 10, n: 8, separacaoKm: 2.5, ganhoMinimo: -0.3, ...REGRAS_NOVA_UNIDADE })
     : null), [u?.nome, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  const novaUnidade = useSugestoesSemSaturacao(candidatasNova, dados.censo);
   // Totais da área para a legenda (rosca das classes de renda e valor do potencial de consumo), na mesma área dos hexágonos
   const resumoCenso = useMemo(() => (u?.c && dados.censo ? {
     renda: area10 ? classesNaArea(dados.censo, area10) : classesNoRaio(u.c, dados.censo, 5),
@@ -289,12 +291,14 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
               {compParec.itens.map((it) => <p key={it.u.nome} className="mt-1.5"><b className={it.parecida ? "text-success" : ""}>{it.u.nome}</b>: {it.u.vendas ? reais(it.u.vendas) : "—"} por mês{it.parecida ? "" : " (vizinhança diferente, só referência)"}. {it.leitura}</p>)}
               <p className="mt-1.5 text-[11px]">Anel verde no mapa: parecida; cinza: só referência. Comparação pelos moradores e pela renda a até 2 km.</p>
             </> }] : []),
-            ...(novaUnidade ? [{ id: "nova", rotulo: "Onde abrir outra unidade", ativo: verNova, alternar: () => { if (!verNova) verNovaUnidade(); setVerNova((v) => !v); }, legenda: <>
+            ...(candidatasNova ? [{ id: "nova", rotulo: "Onde abrir outra unidade", ativo: verNova, alternar: () => { if (!verNova) verNovaUnidade(); setVerNova((v) => !v); }, legenda: !novaUnidade ? <p>Conferindo as academias em volta das posições…</p> : <>
               {novaUnidade.sugestoes.length
                 ? <>{novaUnidade.sugestoes.map((x, i) => (
                     <div key={i} className="mb-1.5">
                       <p>Posição {i + 1}: a {x.distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, público {x.ganho >= 0 ? "+" : "−"}{Math.abs(Math.round(x.ganho * 100))}% em relação ao da unidade.</p>
                       <p className="mt-0.5 text-foreground">{endsNova[i] ? enderecoCurto(endsNova[i]) : "Buscando o endereço…"}</p>
+                      {x.divideCom.length > 0 && <p className="mt-0.5">Divide {x.divideCom.map((d) => `${Math.round(d.parte * 100)}% com ${d.nome.replace("World Gym ", "")}`).join(", ")}.</p>}
+                      {textoConcorrencia(x.concorrencia) && <p className="mt-0.5">{textoConcorrencia(x.concorrencia)}.</p>}
                       {estudarPosicao && <Button size="sm" variant="outline" className="mt-1 h-7 bg-white px-2.5 text-xs" onClick={() => estudarPosicao(x.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u, endsNova[i])}>Estudar esta posição</Button>}
                     </div>
                   ))}

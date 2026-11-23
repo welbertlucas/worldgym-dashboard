@@ -8,11 +8,70 @@ import type { Leaflet } from "@/components/estudos/mapaComum";
 import { pino } from "@/components/estudos/mapaComum";
 import { Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { Button } from "@/components/ui/button";
-import type { Sugestao } from "@/lib/estudoPonto";
+import { MINUTOS_PADRAO, moradoresNaArea, type Censo, type Sugestao } from "@/lib/estudoPonto";
+import { buscarDeslocamento } from "@/components/estudos/deslocamento";
 
 export const COR_SUGESTAO = "#5b6577";
 export type TipoSugestao = "ponto" | "nova";
-export interface ResultadoSugestoes { referencia: { publico: number }; sugestoes: Sugestao[]; testadas: number }
+/** Concorrência em volta de uma posição sugerida: academias a até RAIO_ACADEMIAS_KM e moradores na área de 10 min de carro. */
+export interface Concorrencia { academias: number; moradores: number | null; porAcademia: number | null }
+export interface ResultadoSugestoes { referencia: { publico: number }; sugestoes: (Sugestao & { concorrencia?: Concorrencia | null })[]; testadas: number; saturadas?: number }
+
+/**
+ * Regras da expansão (decisão do dono, 23/11/2026): posição a mais de 5 km de qualquer World Gym, dividindo no máximo 10% do público com cada
+ * uma, e fora de região saturada. Saturada = menos de MIN_MORADORES_POR_ACADEMIA moradores (área de 10 min) por academia a até 1,5 km,
+ * a mesma conta dos estudos de ponto antigos da rede (os reprovados por saturação ficaram abaixo de ~1.950).
+ */
+export const REGRAS_NOVA_UNIDADE = { longeDeUnidadesKm: 5, maxCanibalizacao: 0.1 };
+export const MIN_MORADORES_POR_ACADEMIA = 1950;
+export const RAIO_ACADEMIAS_KM = 1.5;
+
+async function contarAcademias(c: [number, number]): Promise<number> {
+  const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "contar-academias", c, raioKm: RAIO_ACADEMIAS_KM }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error ?? "Não consegui contar as academias agora.");
+  return Number(j.academias ?? 0);
+}
+
+/**
+ * Confere a concorrência das posições candidatas, na ordem, até achar `max` fora de região saturada. Posição sem resposta (Google ou Mapbox
+ * fora do ar) fica, sem o número. Devolve null enquanto confere.
+ */
+export function useSugestoesSemSaturacao(res: ResultadoSugestoes | null, censo: Censo | null | undefined, max = 3): ResultadoSugestoes | null {
+  const [saida, setSaida] = useState<ResultadoSugestoes | null>(null);
+  const chave = res?.sugestoes.map((s) => s.c.join(",")).join(";") ?? "";
+  useEffect(() => {
+    setSaida(null);
+    if (!res || !censo) return;
+    let vivo = true;
+    (async () => {
+      const ficam: ResultadoSugestoes["sugestoes"] = [];
+      let saturadas = 0;
+      for (const s of res.sugestoes) {
+        if (ficam.length >= max) break;
+        let concorrencia: Concorrencia | null = null;
+        try {
+          const [academias, d] = await Promise.all([contarAcademias(s.c), buscarDeslocamento(s.c, "carro").catch(() => null)]);
+          const area = d?.contornos[String(MINUTOS_PADRAO)];
+          const moradores = area ? moradoresNaArea(censo, area) : null;
+          concorrencia = { academias, moradores, porAcademia: moradores != null && academias > 0 ? moradores / academias : null };
+        } catch { /* sem resposta: a posição fica sem o número */ }
+        if (concorrencia?.porAcademia != null && concorrencia.porAcademia < MIN_MORADORES_POR_ACADEMIA) { saturadas++; continue; }
+        ficam.push({ ...s, concorrencia });
+      }
+      if (vivo) setSaida({ ...res, sugestoes: ficam, saturadas });
+    })();
+    return () => { vivo = false; };
+  }, [chave, censo]); // eslint-disable-line react-hooks/exhaustive-deps
+  return saida;
+}
+
+/** "9 academias a até 1,5 km · 6.200 moradores por academia" (ou null sem o dado). */
+export function textoConcorrencia(c: Concorrencia | null | undefined) {
+  if (!c) return null;
+  const por = c.porAcademia != null ? ` · ${Math.round(c.porAcademia).toLocaleString("pt-BR")} moradores por academia` : c.academias === 0 ? " · nenhuma academia por perto" : "";
+  return `${c.academias} ${c.academias === 1 ? "academia" : "academias"} a até ${RAIO_ACADEMIAS_KM.toLocaleString("pt-BR")} km${por}`;
+}
 
 const pct = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))}%`;
 const km1 = (x: number) => `${x.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`;
@@ -24,19 +83,19 @@ export function desenharSugestoes(L: Leaflet, grupo: import("leaflet").LayerGrou
     .bindTooltip(`Posição sugerida ${i + 1}: ${pct(s.ganho)} de público alcançável`).addTo(grupo));
 }
 
-export const LIMITES_SUGESTAO = "A recomendação usa só o que o Atlas mede: moradores do Censo, distância até o ponto e divisão do público com outras World Gym. Ela não enxerga imóvel disponível, aluguel, visibilidade da fachada, acesso, estacionamento, concorrência ao lado nem fluxo de pessoas: serve para orientar onde procurar imóveis, não substitui a visita.";
+export const LIMITES_SUGESTAO = "A recomendação usa o que o Atlas mede: moradores do Censo, distância até o ponto, divisão do público com outras World Gym e, na nova unidade, quantas academias há por perto (Google). Ela não enxerga imóvel disponível, aluguel, visibilidade da fachada, acesso, estacionamento nem fluxo de pessoas: serve para orientar onde procurar imóveis, não substitui a visita.";
 
 /** Texto da recomendação (para a tela e para o PDF). */
 export function textoSugestoes(res: ResultadoSugestoes, tipo: TipoSugestao, nome: string) {
   if (!res.sugestoes.length) {
     return tipo === "ponto"
       ? `Testamos ${res.testadas} posições num raio de 3 km e nenhuma alcança 10% mais público que ${nome}: o ponto já está entre os melhores da região pelo que o Atlas mede.`
-      : `Testamos ${res.testadas} posições num raio de 10 km, a pelo menos 3 km de qualquer World Gym. Nenhuma alcança ao menos 70% do público da World Gym ${nome} sem tirar mais de 20% do público de uma unidade existente: pelo que o Atlas mede, a região não comporta outra unidade hoje.`;
+      : `Testamos ${res.testadas} posições num raio de 10 km, a mais de 5 km de qualquer World Gym. Nenhuma alcança ao menos 70% do público da World Gym ${nome} sem dividir mais de 10% do público com uma unidade existente${res.saturadas ? ` e fora de região saturada de academias (${res.saturadas} ${res.saturadas === 1 ? "posição descartada" : "posições descartadas"} por ter menos de ${MIN_MORADORES_POR_ACADEMIA.toLocaleString("pt-BR")} moradores por academia)` : ""}: pelo que o Atlas mede, a região não comporta outra unidade hoje.`;
   }
   const s = res.sugestoes[0];
   return tipo === "ponto"
     ? `Testamos ${res.testadas} posições num raio de 3 km. A melhor fica a ${km1(s.distanciaKm)} de ${nome} e alcança ${pct(s.ganho)} de público, por estar mais perto de onde mora mais gente e mais longe das outras World Gym. Vale procurar imóveis nessas regiões antes de fechar o ponto.${s.renda != null && s.renda > 6000 ? " Atenção: é uma região de renda alta, onde o Low Cost da rede costuma vender menos; ela combina mais com o modelo Pro." : ""}`
-    : `Testamos ${res.testadas} posições num raio de 10 km, a pelo menos 3 km de qualquer World Gym, sem tirar mais de 20% do público de nenhuma unidade e com pelo menos 70% do público da própria unidade. A região mais promissora fica a ${km1(s.distanciaKm)} da World Gym ${nome}, com público alcançável ${pct(s.ganho)} em relação ao da própria unidade. É um ponto de partida para o comitê de expansão buscar imóveis e fazer o estudo completo.`;
+    : `Testamos ${res.testadas} posições num raio de 10 km, a mais de 5 km de qualquer World Gym, dividindo no máximo 10% do público com cada unidade, com pelo menos 70% do público da própria unidade e fora de região saturada (pelo menos ${MIN_MORADORES_POR_ACADEMIA.toLocaleString("pt-BR")} moradores por academia${res.saturadas ? `; ${res.saturadas} ${res.saturadas === 1 ? "posição foi descartada" : "posições foram descartadas"} por isso` : ""}). A região mais promissora fica a ${km1(s.distanciaKm)} da World Gym ${nome}, com público alcançável ${pct(s.ganho)} em relação ao da própria unidade. É um ponto de partida para o comitê de expansão buscar imóveis e fazer o estudo completo.`;
 }
 
 /** Linhas da tabela (posição, distância, público, renda, divisão com a rede). */

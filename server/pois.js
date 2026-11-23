@@ -55,6 +55,28 @@ async function lugaresNoCirculo(chave, c, raioM, tipos, fetcher, nivel = 0) {
   return (j.placeInsights ?? []).map((p) => p.place);
 }
 
+/**
+ * Quantas academias há num raio, só pela contagem do Google (Places Aggregate, INSIGHT_COUNT: não busca o detalhe de cada lugar, sai bem
+ * mais barato). Só lugares cuja categoria PRINCIPAL é academia (gym / fitness_center): ficam de fora quadras, campos e parques que o Google
+ * também marca como lugar de exercício. Usada para descartar posições sugeridas em região saturada. Guardada no Blob por 90 dias.
+ */
+export async function contarAcademias(pedido, { chave = process.env.GOOGLE_PLACES_KEY, fetcher = fetch, agora = Date.now() } = {}) {
+  const { c, raioKm } = pedidoValido({ ...pedido, categoria: "academias" });
+  const arquivo = `estudos/pois/conta-academias-${c[0].toFixed(4)}_${c[1].toFixed(4)}-${Math.round(raioKm * 10)}.json`;
+  const guardado = await lerJson(arquivo);
+  if (guardado && agora - Date.parse(guardado.em) < VALIDADE_DIAS * 864e5) return { ...guardado, doCache: true };
+  if (!chave) throw new ErroPois("A busca de pontos de interesse ainda não foi configurada no servidor.", 503);
+  const r = await fetcher("https://areainsights.googleapis.com/v1:computeInsights", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Goog-Api-Key": chave },
+    body: JSON.stringify({ insights: ["INSIGHT_COUNT"], filter: { locationFilter: { circle: { latLng: { latitude: c[0], longitude: c[1] }, radius: Math.round(raioKm * 1000) } }, typeFilter: { includedPrimaryTypes: ["gym", "fitness_center"] }, operatingStatus: ["OPERATING_STATUS_OPERATIONAL"] } }),
+  });
+  const j = await r.json();
+  if (j.error) throw new ErroPois("O Google não respondeu à contagem agora.", 502);
+  const resultado = { em: new Date(agora).toISOString(), c, raioKm, academias: Number(j.count ?? 0) };
+  await gravarJson(arquivo, resultado);
+  return { ...resultado, doCache: false };
+}
+
 /** Busca (ou lê do Blob) os pontos de interesse. `fetcher` e `agora` são injetáveis para os testes. */
 export async function buscarPois(pedido, { chave = process.env.GOOGLE_PLACES_KEY, fetcher = fetch, agora = Date.now() } = {}) {
   const { c, raioKm, categoria } = pedidoValido(pedido);

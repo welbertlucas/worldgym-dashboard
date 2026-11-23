@@ -9,6 +9,7 @@
 //     o dono e os liberados veem tudo e salvam (POST { acao: "pontos", pontos }); Master consulta tudo; unidades veem só a própria.
 //     POST { acao: "pois", c, raioKm, categoria } -> pontos de interesse do Google (todos; unidade só em volta da própria).
 //     POST { acao: "deslocamento", c, modo: "carro" | "pe" } -> áreas de deslocamento do Mapbox (mesma regra de acesso dos pois).
+//     POST { acao: "contar-academias", c, raioKm } -> quantas academias (categoria principal) no raio; fora do modo unidade.
 //     POST { acao: "endereco", q, perto } -> busca de endereço (Mapbox), para quem vê estudos de pontos novos (não para unidades).
 // Dado sensível: sem cache no navegador e permissão conferida a cada pedido.
 import { lerRoyalties } from "../server/royalties.js";
@@ -18,7 +19,7 @@ import { UNIDADES_DA_REDE } from "../server/acesso.js";
 import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
 import { ErroEstudos, lerEstudos, modoDe, podeEditar, salvarPontos } from "../server/estudos.js";
-import { ErroPois, buscarPois } from "../server/pois.js";
+import { ErroPois, buscarPois, contarAcademias } from "../server/pois.js";
 import { ErroDeslocamento, buscarDeslocamento, buscarEndereco, enderecoDaPosicao } from "../server/deslocamento.js";
 import { COORDENADAS_UNIDADES, UNIT_NAMES } from "../server/units.js";
 const COORDENADAS_POR_NOME = Object.fromEntries(Object.entries(UNIT_NAMES).map(([id, n]) => [n, COORDENADAS_UNIDADES[id]]));
@@ -39,6 +40,11 @@ async function estudos(req, res, sessao) {
   if (c.acao === "endereco-posicao") {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json(await enderecoDaPosicao(c));
+  }
+  // Contagem de academias em volta de uma posição sugerida para nova unidade: estratégia de expansão, fora do modo unidade
+  if (c.acao === "contar-academias") {
+    if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
+    return res.status(200).json(await contarAcademias(c));
   }
   if (c.acao === "pois" || c.acao === "deslocamento") {
     if (modoDe(sessao) === "unidade") {

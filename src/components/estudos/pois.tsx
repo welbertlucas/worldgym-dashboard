@@ -12,7 +12,7 @@ import { dentroDaArea, type Geometria } from "@/lib/estudoPonto";
 import { raioQueCobre } from "@/components/estudos/deslocamento";
 
 export interface Lugar { nome: string; endereco: string; c: [number, number]; km: number; rede: string | null }
-export interface ResultadoPois { categoria: string; rotulo: string; c: [number, number]; raioKm: number; total: number; cortado?: boolean; lugares: Lugar[]; areaRotulo?: string }
+export interface ResultadoPois { categoria: string; rotulo: string; c: [number, number]; raioKm: number; total: number; cortado?: boolean; lugares: Lugar[]; areaRotulo?: string; /** Lugares que o Google chama de academia mas não são (quadra, campo, parque...), tirados da conta. */ foraDaConta?: number }
 export type ModoPois = "nomes" | "numeros";
 
 export const CATEGORIAS_POIS: { id: string; rotulo: string; singular: string }[] = [
@@ -30,11 +30,23 @@ export const rotuloPois = (res: ResultadoPois) => CATEGORIAS_POIS.find((c) => c.
 export const ondePois = (res: ResultadoPois) => (res.areaRotulo ? `em ${res.areaRotulo}` : `a até ${res.raioKm.toLocaleString("pt-BR")} km`);
 export const totalPois = (res: ResultadoPois) => (res.categoria === "academias" ? res.lugares.filter((l) => l.rede !== "World Gym").length : res.total);
 
+/**
+ * Nomes que o Google marca como lugar de exercício mas não disputam o aluno da World Gym (pedido do dono, 23/11/2026): quadras, campos,
+ * parques, praças, escolas, institutos, associações, pilates e capoeira. Saem da contagem e da lista de academias concorrentes.
+ */
+export const NAO_ACADEMIA = /\b(quadras?|campos?|society|parques?|parquinho|pra[çc]as?|institutos?|escolas?|col[eé]gios?|associa[çc][aã]o|capoeira|pilates|igrejas?|condom[ií]nios?)\b/i;
+/** Nome com cara de academia fica sempre (ex.: "Academia Campos" não sai por causa de "campos"). */
+const EH_ACADEMIA = /academia|fitness|\bgym\b|\bfit\b|crossfit|muscula[çc][aã]o/i;
+export const ehAcademiaConcorrente = (nome: string) => EH_ACADEMIA.test(nome) || !NAO_ACADEMIA.test(nome);
+
 export async function buscarPois(c: [number, number], raioKm: number, categoria: string): Promise<ResultadoPois> {
   const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "pois", c, raioKm, categoria }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error ?? "Não consegui buscar agora.");
-  return j as ResultadoPois;
+  const res = j as ResultadoPois;
+  if (res.categoria !== "academias") return res;
+  const lugares = res.lugares.filter((l) => ehAcademiaConcorrente(l.nome));
+  return { ...res, lugares, total: lugares.length, foraDaConta: res.lugares.length - lugares.length };
 }
 
 /** Cor de cada grande rede no mapa (fundo e texto, aproximada da marca), para reconhecer a concorrente de longe, como no Mapfry. */
@@ -203,6 +215,7 @@ export function SecaoPois({ res }: { res: ResultadoPois }) {
           <div className="mt-1 text-sm text-muted-foreground">{total === 1 ? cat?.singular ?? "lugar" : rotuloPois(res).toLowerCase()}</div>
           {res.categoria === "academias" && total !== res.total && <div className="mt-1 text-xs text-muted-foreground">sem contar as World Gym</div>}
           {redes.length > 0 && <div className="mt-3 text-xs text-muted-foreground">Grandes redes: <b className="text-foreground">{redes.join(", ")}</b></div>}
+          {res.foraDaConta ? <div className="mt-2 text-xs text-muted-foreground">{res.foraDaConta} {res.foraDaConta === 1 ? "lugar que não é academia ficou" : "lugares que não são academia (quadras, campos, parques…) ficaram"} de fora.</div> : null}
           {res.cortado && <div className="mt-2 text-xs text-warning">Área com muitos lugares: a lista mostra os 220 mais perto.</div>}
         </div>
         <div className="max-h-72 overflow-y-auto pr-1 sm:columns-2 sm:gap-6">
