@@ -88,6 +88,9 @@ export function nomeNaLista(nome: string, rede: string | null): string {
   const sem = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   return rede && !sem(curto).includes(sem(rede)) ? `${curto} (${rede})` : curto;
 }
+/** Páginas da concorrência: no PDF vêm depois da canibalização, como "Academias concorrentes" é a última camada do mapa (decisão do dono, 24/11/2026). */
+const TITULOS_CONCORRENCIA = ["Análise de Concorrência", "Composição da Concorrência", "Academias da Área"];
+export const separarConcorrencia = (secoes: Secao[]): { antes: Secao[]; concorrencia: Secao[] } => ({ antes: secoes.filter((x) => !TITULOS_CONCORRENCIA.includes(x.titulo)), concorrencia: secoes.filter((x) => TITULOS_CONCORRENCIA.includes(x.titulo)) });
 export function secoesDeMercado(m: DadosMercado): Secao[] {
   const { perfil, renda, area } = m;
   const { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado(m);
@@ -100,6 +103,18 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       "A estimativa de faturamento, o retorno e o parecer pelo que a rede vende por m² continuam valendo. A demanda precisa ser conferida de outra forma antes da decisão.",
     ],
   });
+  // ---------- Domicílios e densidade ----------
+  if (perfil?.domicilios && perfil.porDomicilio) {
+    const pd = perfil.porDomicilio;
+    secoes.push({
+      titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
+      destaques: [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }, { valor: dec(pd), rotulo: "moradores por domicílio" }, { valor: mil(perfil.moradores), rotulo: "moradores" }],
+      texto: [`A área conta com ${num(perfil.domicilios)} domicílios ocupados, com média de ${dec(pd)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)}). ${pd >= 2.95 ? "Famílias maiores dividem a renda entre mais pessoas: o consumo é compartilhado e a sensibilidade a preço é maior, o que reforça ticket acessível, planos familiares e alto volume de alunos." : pd <= 2.55 ? "Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor." : "O tamanho das famílias está perto da média nacional: o público combina famílias e adultos que moram sozinhos, sem pressão extra sobre o preço."}`],
+      foto: { dados: m.fotos.domicilios, legenda: m.densidade?.[0]?.rotulo === "1 morador" ? "Cada hexágono na cor do tamanho de domicílio mais comum (número de moradores, Censo 2022)."+SEM_MORADORES : "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
+      ...(m.densidade ? { grafico: { tipo: "rosca" as const, titulo: m.densidade[0]?.rotulo === "1 morador" ? "Domicílios por número de moradores" : "Domicílios por faixa de moradores por domicílio", fatias: m.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
+    });
+  }
+
   // ---------- Perfil etário ----------
   if (perfil?.idade && perfil.parte20a49 != null) {
     const tot = perfil.idade.reduce((a, b) => a + b, 0);
@@ -110,18 +125,6 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       foto: { dados: m.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade que predomina, comparando moradores por ano de idade (Censo 2022)."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
       legenda: FAIXAS_IDADE.map((f, i) => ({ cor: CORES_IDADE[i], texto: `${f}: ${num(perfil.idade![i])} (${pct(perfil.idade![i] / tot, 0)})` })),
       destaques: [{ valor: pct(p2049), rotulo: "moradores de 20 a 49 anos" }, { valor: mil(tot * p2049), rotulo: "pessoas de 20 a 49 anos" }],
-    });
-  }
-
-  // ---------- Domicílios e densidade ----------
-  if (perfil?.domicilios && perfil.porDomicilio) {
-    const pd = perfil.porDomicilio;
-    secoes.push({
-      titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
-      destaques: [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }, { valor: dec(pd), rotulo: "moradores por domicílio" }, { valor: mil(perfil.moradores), rotulo: "moradores" }],
-      texto: [`A área conta com ${num(perfil.domicilios)} domicílios ocupados, com média de ${dec(pd)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)}). ${pd >= 2.95 ? "Famílias maiores dividem a renda entre mais pessoas: o consumo é compartilhado e a sensibilidade a preço é maior, o que reforça ticket acessível, planos familiares e alto volume de alunos." : pd <= 2.55 ? "Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor." : "O tamanho das famílias está perto da média nacional: o público combina famílias e adultos que moram sozinhos, sem pressão extra sobre o preço."}`],
-      foto: { dados: m.fotos.domicilios, legenda: m.densidade?.[0]?.rotulo === "1 morador" ? "Cada hexágono na cor do tamanho de domicílio mais comum (número de moradores, Censo 2022)."+SEM_MORADORES : "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
-      ...(m.densidade ? { grafico: { tipo: "rosca" as const, titulo: m.densidade[0]?.rotulo === "1 morador" ? "Domicílios por número de moradores" : "Domicílios por faixa de moradores por domicílio", fatias: m.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
     });
   }
 
@@ -248,7 +251,8 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     secoes.push({ titulo: "Oportunidades de Captação", novaPagina: true, linhas: [], texto, foto: { dados: d.fotos.oportunidade, legenda: "Vermelho: demanda esperada pelo modelo (mais forte = mais alunos esperados). Círculos escuros: alunos reais por bairro (maior = mais alunos)." } });
   }
 
-  secoes.push(...secoesDeMercado({ tipo: "unidade", nome: u.nome, area, vendas: u.vendas, alunosNaArea, perfil, renda, potencial: d.potencial, densidade: d.densidade, pois: d.pois, fotos: d.fotos }));
+  const mercadoU = separarConcorrencia(secoesDeMercado({ tipo: "unidade", nome: u.nome, area, vendas: u.vendas, alunosNaArea, perfil, renda, potencial: d.potencial, densidade: d.densidade, pois: d.pois, fotos: d.fotos }));
+  secoes.push(...mercadoU.antes);
 
   // ---------- Canibalização ----------
   const perda = d.divideCom.reduce((a, x) => a + x.parte, 0);
@@ -260,6 +264,8 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     foto: { dados: d.fotos.rede, legenda: "Pinos vermelhos pequenos: outras World Gym. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA,
     grafico: d.divideCom.length ? { tipo: "rosca", titulo: "Potencial de captação da unidade", fatias: [{ rotulo: `Só da World Gym ${u.nome}`, valor: Math.max(0, 1 - perda), cor: "#c41230" }, ...d.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } : undefined,
   });
+
+  secoes.push(...mercadoU.concorrencia);
 
   // ---------- Unidades parecidas ----------
   if (d.parecidas?.itens.length) secoes.push({

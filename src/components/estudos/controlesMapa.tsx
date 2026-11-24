@@ -63,7 +63,22 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
       {aberto && abaExtra && aba === "extra" && <div className={`${naColuna ? "min-h-0 flex-1" : "max-h-[52vh]"} overflow-y-auto px-3 py-2.5`}>{abaExtra.conteudo}</div>}
       {aberto && (!abaExtra || aba === "camadas") && (
         <div className={`${naColuna ? "min-h-0 flex-1" : "max-h-[52vh]"} space-y-1 overflow-y-auto border-t px-2 py-2`}>
-          {sobre.length > 0 && <p className="px-2.5 pb-1 text-[11px] font-medium text-muted-foreground">Por cima do mapa</p>}
+          {sobre.length > 0 && <p className="px-2.5 pb-1 text-[11px] font-medium text-muted-foreground">Camada do mapa</p>}
+          {itens.map((i) => {
+            const ativo = i.id === atual;
+            return (
+              <div key={i.id} className={`rounded-lg ${ativo ? "bg-muted" : ""}`}>
+                {/* clicar de novo na camada ligada desliga (pedido do dono, 23/11/2026); sem camada vazia, continua ligada */}
+                <button type="button" aria-pressed={ativo} onClick={() => escolher(ativo && vazia ? vazia : i.id)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] hover:bg-muted aria-pressed:font-semibold">
+                  <span className="flex-1">{i.rotulo}</span>
+                  {ativo ? <Eye className="h-4 w-4 text-foreground" aria-hidden /> : <EyeOff className="h-4 w-4 text-muted-foreground/60" aria-hidden />}
+                </button>
+                {ativo && legenda && <div className="px-2.5 pb-2.5 text-xs text-muted-foreground">{legenda}</div>}
+              </div>
+            );
+          })}
+          {sobre.length > 0 && <p className="px-2.5 pb-1 pt-2 text-[11px] font-medium text-muted-foreground">Por cima do mapa</p>}
           {sobre.map((o) => (
             <div key={o.id} className={`rounded-lg ${o.ativo ? "bg-muted" : ""}`}>
               <button type="button" aria-pressed={o.ativo} onClick={o.alternar}
@@ -79,21 +94,6 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
               )}
             </div>
           ))}
-          {sobre.length > 0 && <p className="px-2.5 pb-1 pt-2 text-[11px] font-medium text-muted-foreground">Camada do mapa</p>}
-          {itens.map((i) => {
-            const ativo = i.id === atual;
-            return (
-              <div key={i.id} className={`rounded-lg ${ativo ? "bg-muted" : ""}`}>
-                {/* clicar de novo na camada ligada desliga (pedido do dono, 23/11/2026); sem camada vazia, continua ligada */}
-                <button type="button" aria-pressed={ativo} onClick={() => escolher(ativo && vazia ? vazia : i.id)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] hover:bg-muted aria-pressed:font-semibold">
-                  <span className="flex-1">{i.rotulo}</span>
-                  {ativo ? <Eye className="h-4 w-4 text-foreground" aria-hidden /> : <EyeOff className="h-4 w-4 text-muted-foreground/60" aria-hidden />}
-                </button>
-                {ativo && legenda && <div className="px-2.5 pb-2.5 text-xs text-muted-foreground">{legenda}</div>}
-              </div>
-            );
-          })}
         </div>
       )}
     </div>

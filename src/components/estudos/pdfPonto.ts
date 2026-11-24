@@ -5,7 +5,7 @@
 import type { ConteudoPdf, PaginaDoEstudo, Secao } from "@/lib/estudoPdf";
 import { nomeDoArquivo, ALT_FOTO_MAPA } from "@/lib/estudoPdf";
 import { DECISAO_ROTULO, PARECER_ROTULO, vereditoComFatia, limitarSemCenso, compararComParecidas, leituraParecidas, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
-import { PENETRACAO_MERCADO, resumoMercado, secoesDeMercado, type DadosMercado } from "@/components/estudos/pdfUnidade";
+import { PENETRACAO_MERCADO, resumoMercado, secoesDeMercado, separarConcorrencia, type DadosMercado } from "@/components/estudos/pdfUnidade";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
 const pct = (x: number | null | undefined, casas = 0) => (x == null ? "—" : `${(x * 100).toLocaleString("pt-BR", { maximumFractionDigits: casas })}%`);
@@ -109,7 +109,8 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
           paragrafo: "A recomendação usa o que cada unidade madura do mesmo modelo vende por morador da própria área de 10 min de carro (EVO e Censo 2022). A conta dos estudos antigos aparece como referência: ela supõe uma participação de mercado fixa e costuma pedir mais gente do que as unidades da rede têm em volta.",
         });
       }
-      if (merc) secoes.push(...secoesDeMercado({ ...merc, tipo: "ponto", nome: p.nome, area, vendas: r?.meta ?? null, alunosNaArea: null }));
+      const mercadoP = merc ? separarConcorrencia(secoesDeMercado({ ...merc, tipo: "ponto", nome: p.nome, area, vendas: r?.meta ?? null, alunosNaArea: null })) : null;
+      if (mercadoP) secoes.push(...mercadoP.antes);
       secoes.push({
         titulo: "Canibalização com a Rede", novaPagina: true, linhas: [],
         texto: [d.semCenso
@@ -120,6 +121,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
         ...(d.fotoRede ? { foto: { dados: d.fotoRede, legenda: "Pinos vermelhos pequenos: World Gym em operação. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA } : {}),
         ...(cap.divideCom.length ? { grafico: { tipo: "rosca" as const, titulo: "Público do ponto", fatias: [{ rotulo: "Só do ponto", valor: Math.max(0, 1 - cap.divideCom.reduce((a, x) => a + x.parte, 0)), cor: "#c41230" }, ...cap.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } } : {}),
       });
+      if (mercadoP) secoes.push(...mercadoP.concorrencia);
       if (r) secoes.push({
         titulo: "Estimativa de Faturamento", novaPagina: true, linhas: [], faixa: `Modelo direcionado: ${modelo}`,
         texto: [`Os três cenários usam as vendas por m² das unidades maduras da rede: o pessimista é o quartil inferior, o provável é a mediana e o otimista é o quartil superior. A meta é o que paga o investimento em ${anos} anos.`],

@@ -45,7 +45,7 @@ function MiniMapa({ linhas, abrir }: { linhas: Linha[]; abrir: (id: string) => v
     }
     if (linhas.length) m.mapa.fitBounds(m.grupo.getBounds(), { padding: [24, 24], maxZoom: 13 });
   }, [linhas, pronto, abrir]);
-  return <div ref={el} className="h-[300px]" aria-label="Mapa dos estudos" />; // fundo padrão (colorido), como nos outros mapas (pedido do dono, 23/11/2026)
+  return <div ref={el} className="h-[220px]" aria-label="Mapa dos estudos" />; // fundo padrão (colorido), como nos outros mapas (pedido do dono, 23/11/2026)
 }
 
 /** As unidades que já funcionam, em cards: vendas reais contra a mediana da rede (R$/m²) e contra o que o modelo preveria pelo tamanho. */
@@ -115,6 +115,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
   const [periodo, setPeriodo] = useState(0);
   const [autor, setAutor] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
+  const [filtros, setFiltros] = useState(false);
 
   const linhas: Linha[] = useMemo(() => pontos.map((p) => {
     const faixa = dados.vendasPorM2?.[p.modelo];
@@ -134,7 +135,8 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
   const acerto = acertoDoModelo(pontos, dados.unidades ?? []);
   const alternar = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const limpar = () => { setBusca(""); setVeredito(""); setDecisao(""); setModelo(""); setPeriodo(0); setAutor(""); };
-  const selecionar = "h-10 rounded-xl border bg-white px-2.5 text-[13px]";
+  const selecionar = "h-9 rounded-xl border bg-white px-2.5 text-[13px]";
+  const nFiltros = [decisao, modelo, periodo, autor].filter(Boolean).length;
 
   return (
     <div className="space-y-4 pb-20">
@@ -148,30 +150,37 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
 
       {abrirUnidade && <UnidadesEmOperacao dados={dados} abrir={abrirUnidade} />}
 
-      <div className="pt-2"><h3 className="text-base font-semibold">Pontos estudados</h3></div>
+      <div className="flex items-baseline gap-2 pt-2"><h3 className="text-base font-semibold">Pontos estudados</h3><span className="text-xs text-muted-foreground">{linhas.length === 1 ? "1 estudo" : `${linhas.length} estudos`}</span></div>
 
-      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-        {([["", linhas.length, "estudos"], ["aprovado", conta("aprovado"), "aprovam"], ["atencao", conta("atencao"), "com condicionantes"], ["reprovado", conta("reprovado"), "não aprovam"]] as [Veredito | "", number, string][]).map(([v, n, t]) => (
-          <button key={t} type="button" aria-pressed={veredito === v} onClick={() => setVeredito(v)}
-            className="flex items-baseline gap-2 rounded-xl border bg-white px-3 py-2 text-left aria-pressed:border-foreground aria-pressed:ring-1 aria-pressed:ring-foreground">
-            <b className={`font-display text-xl font-medium leading-none ${v === "aprovado" ? "text-success" : v === "atencao" ? "text-warning" : v === "reprovado" ? "text-destructive" : ""}`}>{n}</b>
-            <span className="text-[12px] text-muted-foreground">{t}</span>
-          </button>
-        ))}
-      </div>
-
+      {/* uma barra só: busca, contagem por veredito (os chips filtram) e os demais filtros recolhidos (proposta aprovada em 24/11/2026) */}
       <div className="flex flex-wrap items-center gap-2">
-        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou região" aria-label="Buscar estudo" className="h-10 min-w-[220px] flex-1 rounded-xl border bg-white px-3 text-sm" />
-        <select value={decisao} onChange={(e) => setDecisao(e.target.value as StatusDecisao | "")} aria-label="Decisão" className={selecionar}>
-          <option value="">Todas as decisões</option>{(Object.keys(DECISAO_ROTULO) as StatusDecisao[]).map((d) => <option key={d} value={d}>{DECISAO_ROTULO[d]}</option>)}
-        </select>
-        <select value={modelo} onChange={(e) => setModelo(e.target.value)} aria-label="Modelo" className={selecionar}><option value="">Low Cost e Pro</option><option value="low">Low Cost</option><option value="pro">Pro</option></select>
-        <select value={periodo} onChange={(e) => setPeriodo(Number(e.target.value))} aria-label="Período" className={selecionar}>
-          <option value={0}>Qualquer data</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 3 meses</option><option value={365}>Último ano</option>
-        </select>
-        {autores.length > 1 && <select value={autor} onChange={(e) => setAutor(e.target.value)} aria-label="Autor" className={selecionar}><option value="">Todos os autores</option>{autores.map((a) => <option key={a}>{a}</option>)}</select>}
-        <Button variant="ghost" size="sm" onClick={limpar}>Limpar filtros</Button>
+        <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou região" aria-label="Buscar estudo" className="h-9 min-w-[200px] flex-1 rounded-xl border bg-white px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar por veredito">
+          {([["", linhas.length, "Todos"], ["aprovado", conta("aprovado"), "Aprovam"], ["atencao", conta("atencao"), "Condicionantes"], ["reprovado", conta("reprovado"), "Não aprovam"]] as [Veredito | "", number, string][]).map(([v, n, t]) => (
+            <button key={t} type="button" aria-pressed={veredito === v} onClick={() => setVeredito(v)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border bg-white px-3 text-[12px] font-medium text-muted-foreground hover:bg-muted aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background">
+              {t}<b className={`tabular-nums ${veredito === v ? "" : v === "aprovado" ? "text-success" : v === "atencao" ? "text-warning" : v === "reprovado" ? "text-destructive" : "text-foreground"}`}>{n}</b>
+            </button>
+          ))}
+        </div>
+        <button type="button" aria-expanded={filtros} onClick={() => setFiltros((f) => !f)}
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border bg-white px-3 text-[12px] font-medium hover:bg-muted aria-expanded:border-foreground">
+          Filtros{nFiltros > 0 && <span className="rounded-full bg-primary px-1.5 text-[10.5px] font-semibold text-primary-foreground">{nFiltros}</span>}
+        </button>
+        {(nFiltros > 0 || busca || veredito) && <Button variant="ghost" size="sm" onClick={limpar}>Limpar</Button>}
       </div>
+      {filtros && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-white p-2.5">
+          <select value={decisao} onChange={(e) => setDecisao(e.target.value as StatusDecisao | "")} aria-label="Decisão" className={selecionar}>
+            <option value="">Todas as decisões</option>{(Object.keys(DECISAO_ROTULO) as StatusDecisao[]).map((d) => <option key={d} value={d}>{DECISAO_ROTULO[d]}</option>)}
+          </select>
+          <select value={modelo} onChange={(e) => setModelo(e.target.value)} aria-label="Modelo" className={selecionar}><option value="">Low Cost e Pro</option><option value="low">Low Cost</option><option value="pro">Pro</option></select>
+          <select value={periodo} onChange={(e) => setPeriodo(Number(e.target.value))} aria-label="Período" className={selecionar}>
+            <option value={0}>Qualquer data</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 3 meses</option><option value={365}>Último ano</option>
+          </select>
+          {autores.length > 1 && <select value={autor} onChange={(e) => setAutor(e.target.value)} aria-label="Autor" className={selecionar}><option value="">Todos os autores</option>{autores.map((a) => <option key={a}>{a}</option>)}</select>}
+        </div>
+      )}
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div>
@@ -220,17 +229,15 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
               <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-sky-800 align-[-1px]" />virou unidade</span>
             </div>
           </div>
-          <div className="rounded-2xl border bg-white p-4">
-            <h3 className="text-sm font-semibold">O modelo está acertando?</h3>
-            {acerto ? (
-              <>
-                <p className="mt-2 font-display text-2xl font-medium">{acerto.dentro} de {acerto.n}</p>
-                <p className="text-[13px] leading-relaxed text-muted-foreground">estudos que viraram unidade madura ficaram dentro da faixa prevista. Erro médio de {Math.round(acerto.erroMedio * 100)}% entre o previsto e o real.</p>
-              </>
-            ) : (
-              <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">Quando um estudo virar unidade e ela completar 12 meses, a previsão é comparada aqui com as vendas reais.</p>
-            )}
-          </div>
+          {acerto ? (
+            <div className="rounded-2xl border bg-white p-4">
+              <h3 className="text-sm font-semibold">O modelo está acertando?</h3>
+              <p className="mt-2 font-display text-2xl font-medium">{acerto.dentro} de {acerto.n}</p>
+              <p className="text-[13px] leading-relaxed text-muted-foreground">estudos que viraram unidade madura ficaram dentro da faixa prevista. Erro médio de {Math.round(acerto.erroMedio * 100)}% entre o previsto e o real.</p>
+            </div>
+          ) : (
+            <p className="px-1 text-[12px] leading-relaxed text-muted-foreground"><b className="font-semibold text-foreground">O modelo está acertando?</b> Quando um estudo virar unidade e completar 12 meses, a previsão é comparada aqui com as vendas reais.</p>
+          )}
         </div>
       </div>
 

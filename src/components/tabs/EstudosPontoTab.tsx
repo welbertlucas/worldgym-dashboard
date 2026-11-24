@@ -35,7 +35,7 @@ const ITENS: { k: "fachada" | "polo" | "aPe"; rotulo: string }[] = [
 // "limpa": só os pinos (usada nas fotos de satélite do PDF); "sugestoes": pinos, área e posições sugeridas (foto do PDF)
 type Lente = "captacao" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "sugestoes";
 const LENTES: { id: Lente; rotulo: string }[] = [
-  { id: "captacao", rotulo: "Captação estimada" }, { id: "pessoas", rotulo: "População" }, { id: "idade", rotulo: "Idade" }, { id: "domicilios", rotulo: "Domicílios" },
+  { id: "captacao", rotulo: "Captação estimada" }, { id: "pessoas", rotulo: "População" }, { id: "domicilios", rotulo: "Domicílios" }, { id: "idade", rotulo: "Idade" },
   { id: "renda", rotulo: "Renda" }, { id: "rendaTotal", rotulo: "Renda total" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "comercio", rotulo: "Concentração comercial" }, { id: "rede", rotulo: "Canibalização" },
 ];
 const FUNDO_VEREDITO: Record<Veredito, string> = { aprovado: "bg-success/10 text-success", atencao: "bg-warning/10 text-warning", reprovado: "bg-destructive/10 text-destructive" };
@@ -85,6 +85,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const [pois, setPois] = useState<ResultadoPois | null>(null);
   useEffect(() => { if (pois?.categoria === "academias") setAvisoPdf(""); }, [pois]);
   const [buscandoAcademias, setBuscandoAcademias] = useState(false);
+  const [falhaAcademias, setFalhaAcademias] = useState(false);
   const [modoPois, setModoPois] = useState<ModoPois>("nomes");
   const [verPois, setVerPois] = useState(true);
   // endereço achado na busca: fica marcado até virar ponto de estudo ou ser fechado
@@ -265,8 +266,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: achado.nome.slice(0, 60) || `Ponto ${letra(todos.length)}`, ...(achado.endereco ? { endereco: achado.endereco.slice(0, 160) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: achado.c, modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
     setPontos((ps) => [...ps, novo]); setAtualId(novo.id); setAchado(null);
   };
-  useEffect(() => { setPois(null); setVerPois(false); }, [atualId]);
-  // Academias concorrentes: a busca roda sozinha quando o estudo abre (assim que a área de 10 min existe); a camada só liga se a pessoa quiser.
+  useEffect(() => { setPois(null); setVerPois(true); setFalhaAcademias(false); }, [atualId]);
+  // Academias concorrentes: a busca roda sozinha quando o estudo abre (assim que a área de 10 min existe); a camada nasce ligada (decisão do dono, 24/11/2026).
   // O servidor guarda cada busca por 90 dias, então abrir o mesmo estudo de novo não é cobrado outra vez. Depois de "Limpar" não busca de novo.
   const buscouAuto = useRef("");
   const atualIdRef = useRef(atualId); atualIdRef.current = atualId;
@@ -283,7 +284,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (!atual || !area10 || pois || buscouAuto.current === atual.id) return;
     buscouAuto.current = atual.id;
     const id = atual.id;
-    buscarAcademias().then((res) => { if (res) setPois((p) => (p ?? (id === atualIdRef.current ? res : null))); else buscouAuto.current = ""; });
+    buscarAcademias().then((res) => { if (res) { setFalhaAcademias(false); setPois((p) => (p ?? (id === atualIdRef.current ? res : null))); } else { buscouAuto.current = ""; if (id === atualIdRef.current) setFalhaAcademias(true); } });
   }, [atual?.id, area10, !!pois]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const idx = atual ? pontos.findIndex((p) => p.id === atual.id) : -1;
@@ -377,6 +378,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       acoes={<>
         {editavel && <Button size="sm" className="h-7 px-2.5 text-[12px]" variant={adicionando ? "secondary" : "outline"} onClick={() => { setVista("mapa"); setAdicionando((a) => !a); }} aria-pressed={adicionando}>{adicionando ? "Clique no mapa…" : "Adicionar ponto"}</Button>}
         <Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando || carregandoCenso || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
+        {falhaAcademias && !pois && !buscandoAcademias && <span role="alert" className="text-[11px] font-medium text-red-700">Não consegui buscar as academias concorrentes. <button type="button" className="underline" onClick={() => { buscouAuto.current = ""; setFalhaAcademias(false); buscarAcademias().then((res) => { if (res) setPois(res); else setFalhaAcademias(true); }); }}>Tentar de novo</button></span>}
         {avisoPdf && <span role="alert" className="text-[11px] font-medium text-red-700">{avisoPdf}</span>}
         <span className="text-[11px] text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
       </>}
