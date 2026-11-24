@@ -1,6 +1,6 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarPonto, foraDaMalhaDoCenso, limitarSemCenso, meses, raio80Real, reais, regiaoDe,
@@ -55,12 +55,26 @@ function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nom
     return { u, porM2, med, dif: u.previsto ? (u.vendas as number) / u.previsto.provavel - 1 : null, r80: raio80Real(u) };
   }).sort((a, b) => Number(b.u.madura) - Number(a.u.madura) || (b.porM2 ?? 0) - (a.porM2 ?? 0));
   const [todas, setTodas] = useState(false);
+  // busca pelo nome da unidade (pedido do dono, 24/11/2026): sem acento nem maiúscula; com busca, mostra todas as que combinam
+  const [busca, setBusca] = useState("");
   if (!linhas.length) return null;
-  const visiveis = todas ? linhas : linhas.slice(0, 12);
+  const sem = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const q = sem(busca);
+  const achadas = q ? linhas.filter((l) => sem(l.u.nome).includes(q)) : linhas;
+  const visiveis = q || todas ? achadas : linhas.slice(0, 12);
   const maxM2 = Math.max(...linhas.map((l) => Math.max(l.porM2 ?? 0, l.med ?? 0)), 1);
   return (
     <section className="space-y-3">
-      <div><h3 className="text-base font-semibold">Unidades em operação</h3><p className="text-[12px] text-muted-foreground">Vendas por mês, R$/m² (o traço na barra é a média da rede) e quanto a unidade vende acima ou abaixo do modelo. Clique para abrir o estudo.</p></div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><h3 className="text-base font-semibold">Unidades em operação</h3><p className="text-[12px] text-muted-foreground">Vendas por mês, R$/m² (o traço na barra é a média da rede) e quanto a unidade vende acima ou abaixo do modelo. Clique para abrir o estudo.</p></div>
+        <label className="relative block w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar unidade" aria-label="Buscar unidade pelo nome"
+            onKeyDown={(e) => { if (e.key === "Enter" && achadas.length === 1) abrir(achadas[0].u.nome); if (e.key === "Escape") setBusca(""); }}
+            className="h-9 w-full rounded-xl border bg-white pl-9 pr-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        </label>
+      </div>
+      {q && !achadas.length && <p className="rounded-xl border bg-white px-3 py-3 text-sm text-muted-foreground">Nenhuma unidade com “{busca.trim()}” no nome.</p>}
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {visiveis.map(({ u, porM2, med, dif }) => {
           const acima = porM2 != null && med != null ? porM2 >= med : null;
@@ -88,7 +102,7 @@ function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nom
           );
         })}
       </div>
-      {linhas.length > 12 && <div className="flex justify-center"><Button variant="outline" size="sm" onClick={() => setTodas((t) => !t)}>{todas ? "Mostrar menos" : `Ver todas as ${linhas.length} unidades`}</Button></div>}
+      {!q && linhas.length > 12 && <div className="flex justify-center"><Button variant="outline" size="sm" onClick={() => setTodas((t) => !t)}>{todas ? "Mostrar menos" : `Ver todas as ${linhas.length} unidades`}</Button></div>}
     </section>
   );
 }
