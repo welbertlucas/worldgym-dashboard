@@ -11,7 +11,7 @@ export interface Premissas {
 export interface FaixaM2 { p25: number; mediana: number; p75: number; n: number }
 /** `bairros`: onde moram os alunos ativos [bairro, lat, lng, alunos]; `previsto`: o que o modelo preveria pelo m² da unidade. */
 export interface UnidadeEstudo {
-  nome: string; c: [number, number] | null; m2: number | null; modelo: Modelo; abertura: string | null; madura: boolean; vendas: number | null; alunos: number | null;
+  nome: string; c: [number, number] | null; /** Endereço oficial (Google Maps), público. */ endereco?: string | null; m2: number | null; modelo: Modelo; abertura: string | null; madura: boolean; vendas: number | null; alunos: number | null;
   bairros?: [string, number, number, number][]; previsto?: { pessimista: number; provavel: number; otimista: number };
   /** Ticket médio realizado no EVO (recebido ÷ clientes pagantes), média dos últimos meses fechados. */
   ticket?: number | null;

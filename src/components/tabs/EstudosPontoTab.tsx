@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
-import { aplicarFundo, fotoNoPadrao, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
+import { aplicarFundo, cartaoDoLugar, fotoNoPadrao, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
@@ -207,6 +207,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       if (!u.c) continue;
       // pino pequeno (pedido do dono, 23/11/2026): bolinha não lia como unidade quando o mapa está afastado
       L.marker(u.c, { icon: pino(L, "#c41230", lente === "rede" ? 24 : 20) })
+        .bindPopup(() => cartaoDoLugar(`World Gym ${u.nome}`, u.c as [number, number], u.endereco, "Endereço não cadastrado."), { offset: [0, -16], minWidth: 240, maxWidth: 300 })
         .bindTooltip(`<strong>World Gym ${u.nome}</strong>${u.m2 ? `<br/>${u.m2.toLocaleString("pt-BR")} m²` : ""}${u.vendas ? `<br/>${reais(u.vendas)} por mês` : ""}${u.madura ? "" : "<br/><em>ainda amadurecendo</em>"}`).addTo(camadas);
       if (lente === "rede" && dados.premissas) L.circle(u.c, { radius: 2400, color: "#c41230", weight: 1, dashArray: "3 4", fillOpacity: 0.05, interactive: false }).addTo(camadas);
     }
@@ -216,7 +217,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       // canibalização: a área do ponto também (contorno cheio, como a da unidade no estudo dela), para ver onde ela encosta nas World Gym vizinhas
       if (lente === "rede") L.circle(p.c, { radius: 2400, color: "#7a0a1e", weight: sel ? 1.6 : 1, fillColor: "#c41230", fillOpacity: sel ? 0.12 : 0.05, interactive: false }).addTo(camadas);
       const mk = L.marker(p.c, { draggable: editavel, zIndexOffset: sel ? 2000 : 1000, icon: pino(L, CORES[i % CORES.length], sel ? 40 : 32, letra(i)) })
-        .bindPopup(() => cartaoDoPino(p, letra(i)), { offset: [0, -28], minWidth: 240, maxWidth: 300, className: "cartao-pino" }).addTo(camadas);
+        .bindPopup(() => cartaoDoLugar(`${letra(i)}. ${p.nome}`, p.c, p.endereco, "Sem endereço guardado: use “Buscar o endereço” no estudo, embaixo do nome do ponto."), { offset: [0, -28], minWidth: 240, maxWidth: 300, className: "cartao-pino" }).addTo(camadas);
       // clicar num ponto que não estava escolhido redesenha o mapa: o cartão reabre no pino novo depois do redesenho
       if (cartaoAberto.current === p.id) { cartaoAberto.current = null; setTimeout(() => mk.openPopup(), 0); }
       mk.on("click", () => { if (p.id !== atualId) cartaoAberto.current = p.id; setAtualId(p.id); });
@@ -622,36 +623,3 @@ function EnderecoDoPonto({ endereco, editavel, buscar }: { endereco?: string; ed
   );
 }
 
-/** Copia um texto: a área de transferência do navegador e, se ela recusar, o jeito antigo (seleção + copiar). */
-async function copiarTexto(texto: string): Promise<boolean> {
-  try { await navigator.clipboard.writeText(texto); return true; } catch { /* tenta o jeito antigo */ }
-  const ta = document.createElement("textarea");
-  ta.value = texto; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
-  document.body.appendChild(ta); ta.select();
-  try { return document.execCommand("copy"); } catch { return false; } finally { ta.remove(); }
-}
-
-/**
- * Cartão do pino do ponto (como no Mapfry): nome, endereço e coordenadas; clicar no endereço ou nas coordenadas copia o texto.
- * Montado com elementos (não com HTML em texto), para o nome e o endereço nunca virarem código.
- */
-function cartaoDoPino(p: Ponto, letraDoPonto: string): HTMLElement {
-  const el = (tag: string, cls: string, texto?: string) => { const e = document.createElement(tag); e.className = cls; if (texto != null) e.textContent = texto; return e; };
-  const caixa = el("div", "space-y-2 text-[13px] text-foreground");
-  caixa.appendChild(el("p", "font-semibold", `${letraDoPonto}. ${p.nome}`));
-  const copiavel = (rotulo: string, texto: string) => {
-    const b = el("button", "flex w-full items-start gap-2 rounded-md px-1 py-0.5 text-left hover:bg-muted") as HTMLButtonElement;
-    b.type = "button"; b.title = `Clique para copiar ${rotulo}`;
-    const t = el("span", "min-w-0 flex-1 break-words", texto), aviso = el("span", "flex-none text-[11px] text-muted-foreground", "copiar");
-    b.append(t, aviso);
-    b.onclick = async () => {
-      aviso.textContent = (await copiarTexto(texto)) ? "copiado ✓" : "não copiou";
-      setTimeout(() => { aviso.textContent = "copiar"; }, 1600);
-    };
-    return b;
-  };
-  if (p.endereco) caixa.appendChild(copiavel("o endereço", p.endereco));
-  else caixa.appendChild(el("p", "text-muted-foreground", "Sem endereço guardado: use “Buscar o endereço” no estudo, embaixo do nome do ponto."));
-  caixa.appendChild(copiavel("as coordenadas", `${p.c[0].toFixed(6)}, ${p.c[1].toFixed(6)}`));
-  return caixa;
-}

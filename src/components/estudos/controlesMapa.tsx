@@ -84,7 +84,8 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
             const ativo = i.id === atual;
             return (
               <div key={i.id} className={`rounded-lg ${ativo ? "bg-muted" : ""}`}>
-                <button type="button" aria-pressed={ativo} onClick={() => escolher(i.id)}
+                {/* clicar de novo na camada ligada desliga (pedido do dono, 23/11/2026); sem camada vazia, continua ligada */}
+                <button type="button" aria-pressed={ativo} onClick={() => escolher(ativo && vazia ? vazia : i.id)}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] hover:bg-muted aria-pressed:font-semibold">
                   <span className="flex-1">{i.rotulo}</span>
                   {ativo ? <Eye className="h-4 w-4 text-foreground" aria-hidden /> : <EyeOff className="h-4 w-4 text-muted-foreground/60" aria-hidden />}

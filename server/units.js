@@ -54,3 +54,31 @@ export const COORDENADAS_UNIDADES = {
   31: [-16.1537691, -47.9546244],
   32: [-16.0721155, -47.9855943],
 };
+
+// Endereço oficial de cada unidade, como está no Google Maps (conferido no Chrome do dono em 23/11/2026; as posições acima batem com as do
+// Google em todas). Aparece no cartão do pino da unidade nos estudos de ponto. Endereço comercial, público.
+export const ENDERECOS_UNIDADES = {
+  5: "SEPN Comércio Residencial Norte 511, Ed. Bittar III, Lj 103 - Asa Norte, Brasília - DF, 70750-542",
+  6: "St. Central, Área Especial 20/21 - Gama, Brasília - DF, 72405-922",
+  7: "Trevizzo Open Mall, SH Jardins, S/N - Itapoã, Brasília - DF, 71573-990",
+  8: "R. G, 10 - 11/12 - St. Leste, Planaltina - GO, 73752-105",
+  10: "Quadra 202, Samambaia Mall - Samambaia, Brasília - DF, 72316-042",
+  13: "ADE Conjunto 8, Lote 03 - Arniqueira, Brasília - DF, 71995-515",
+  14: "Av. Comercial, 1521 (prédio da Escola Zumbi dos Palmares) - São Sebastião, Brasília - DF, 71691-082",
+  15: "QN 5B, Conjunto 1, Lote 02, 1ª Etapa - Riacho Fundo II, Brasília - DF, 71880-521",
+  16: "St. N, QNN 2 - Ceilândia, Brasília - DF, 72220-501",
+  17: "Quadra 4 - Sobradinho, Brasília - DF, 73026-001",
+  18: "R. das Pitangueiras, S/N - Águas Claras, Brasília - DF, 71938-540",
+  19: "QN 122 - Samambaia, Brasília - DF, 72304-116",
+  20: "Quadra 50, Conjunto A, Lote 57/59, Setor 01 - Parque da Barragem, Águas Lindas de Goiás - GO, 72911-199",
+  21: "SH Ponte de Terra - Ponte Alta Norte (Gama), Brasília - DF, 72427-010",
+  22: "R. T-36, 3707 - St. Bueno, Goiânia - GO, 74223-055",
+  23: "Shopping Metrópole, Av. das Araucárias, 1525, Garagem A - Águas Claras, Brasília - DF, 71936-250",
+  24: "St. de Hotéis e Diversões, SHD Bloco G - Planaltina, Brasília - DF, 73310-223",
+  25: "Quadra 472, Lotes 2, 4 e 6, subsolo - Parque Estrela Dalva VI, Novo Gama - GO, 72860-435",
+  26: "Praça Jorge Freire, 170 - Costa Azul, Salvador - BA, 41760-070",
+  28: "CL 316, Bloco D - Santa Maria, Brasília - DF, 72546-230",
+  30: "Setor Industrial QI 18, Lotes 47 a 51 - Taguatinga, Brasília - DF, 72135-180",
+  31: "Av. Lucena Roriz, S/N, Quadra 113, Lote 01A - Jardim Ingá, Luziânia - GO, 72850-010",
+  32: "R. Vinte e Dois, Quadra 64, Lote 01, Loja 01 - Jardim Oriente, Valparaíso de Goiás - GO, 72870-233",
+};

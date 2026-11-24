@@ -278,7 +278,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
 
   return {
     arquivo: nomeDoArquivo(`estudo-unidade-${u.nome}`), cabecalho: "Estudo da unidade", foto: null,
-    capa: { titulo: "Estudo de Geomarketing", linha: "Estudo da Unidade", subtitulo: `World Gym ${u.nome}${u.m2 ? ` | ${num(u.m2)} m²` : ""}` },
+    capa: { titulo: "Estudo de Geomarketing", linha: "Estudo da Unidade", subtitulo: `World Gym ${u.nome}${u.m2 ? ` | ${num(u.m2)} m²` : ""}${u.endereco ? `\n${u.endereco}` : ""}` }, // e o endereço oficial embaixo (23/11/2026)
     paginas: [{
       titulo: "Objetivo do Estudo", subtitulo: "", numeros: [], secoes: [],
       texto: [`O presente estudo de geomarketing tem como objetivo avaliar o desempenho da World Gym ${u.nome} e o mercado em volta dela, considerando critérios demográficos, socioeconômicos, concorrenciais e de rede, por meio da análise de:`],

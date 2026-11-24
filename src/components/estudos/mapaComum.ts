@@ -217,3 +217,37 @@ export async function fotoNoPadrao(m: MapaBase, fundoDaTela: Fundo): Promise<str
   try { await esperarAzulejos(m); return await fotoDoMapa(m.mapa); }
   finally { aplicarFundo(m, fundoDaTela); }
 }
+
+/** Copia um texto: a área de transferência do navegador e, se ela recusar, o jeito antigo (seleção + copiar). */
+export async function copiarTexto(texto: string): Promise<boolean> {
+  try { await navigator.clipboard.writeText(texto); return true; } catch { /* tenta o jeito antigo */ }
+  const ta = document.createElement("textarea");
+  ta.value = texto; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { return document.execCommand("copy"); } catch { return false; } finally { ta.remove(); }
+}
+
+/**
+ * Cartão do pino (como no Mapfry), dos pontos estudados e das unidades em operação: nome, endereço e coordenadas; clicar no endereço ou
+ * nas coordenadas copia o texto. Montado com elementos (não com HTML em texto), para o nome e o endereço nunca virarem código.
+ */
+export function cartaoDoLugar(titulo: string, c: [number, number], endereco: string | null | undefined, semEndereco: string): HTMLElement {
+  const el = (tag: string, cls: string, texto?: string) => { const e = document.createElement(tag); e.className = cls; if (texto != null) e.textContent = texto; return e; };
+  const caixa = el("div", "space-y-2 text-[13px] text-foreground");
+  caixa.appendChild(el("p", "font-semibold", titulo));
+  const copiavel = (rotulo: string, texto: string) => {
+    const b = el("button", "flex w-full items-start gap-2 rounded-md px-1 py-0.5 text-left hover:bg-muted") as HTMLButtonElement;
+    b.type = "button"; b.title = `Clique para copiar ${rotulo}`;
+    const t = el("span", "min-w-0 flex-1 break-words", texto), aviso = el("span", "flex-none text-[11px] text-muted-foreground", "copiar");
+    b.append(t, aviso);
+    b.onclick = async () => {
+      aviso.textContent = (await copiarTexto(texto)) ? "copiado ✓" : "não copiou";
+      setTimeout(() => { aviso.textContent = "copiar"; }, 1600);
+    };
+    return b;
+  };
+  if (endereco) caixa.appendChild(copiavel("o endereço", endereco));
+  else caixa.appendChild(el("p", "text-muted-foreground", semEndereco));
+  caixa.appendChild(copiavel("as coordenadas", `${c[0].toFixed(6)}, ${c[1].toFixed(6)}`));
+  return caixa;
+}

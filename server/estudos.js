@@ -4,7 +4,7 @@
 // Os pontos estudados ficam no Blob, um arquivo por autor (estudos/pontos/<id>.json): o dono lê todos; os outros, só os próprios.
 // Só quem pode ver Estudos de ponto (dono e liberados) chega aqui.
 import { lerJson, gravarJson, listarCaminhos } from "./armazem.js";
-import { COORDENADAS_UNIDADES, UNIT_NAMES } from "./units.js";
+import { COORDENADAS_UNIDADES, ENDERECOS_UNIDADES, UNIT_NAMES } from "./units.js";
 
 export const ARQUIVO_PREMISSAS = "estudos/premissas.json";
 export const ARQUIVO_CENSO = "estudos/censo.json";
@@ -53,6 +53,7 @@ export function unidadesDoEstudo(meses, premissas, mesAtual, janela = 4) {
     return {
       nome,
       c: COORDENADAS_UNIDADES[id] ?? null,
+      endereco: ENDERECOS_UNIDADES[id] ?? null,
       m2: p.m2 ?? null,
       modelo: p.modelo ?? "low",
       abertura: p.abertura ?? null,
@@ -195,7 +196,7 @@ export async function lerEstudos(carregarMeses, mesAtual, sessao) {
   // unidade: as próprias completas; as outras só com nome, posição e m² (para a divisão da captação), sem vendas, alunos nem bairros
   const minhas = new Set(sessao?.unidades ?? []);
   const proprias = unidades.filter((u) => minhas.has(u.nome));
-  const outras = unidades.filter((u) => !minhas.has(u.nome)).map((u) => ({ nome: u.nome, c: u.c, m2: u.m2, modelo: u.modelo, abertura: null, madura: false, vendas: null, alunos: null, bairros: [] }));
+  const outras = unidades.filter((u) => !minhas.has(u.nome)).map((u) => ({ nome: u.nome, c: u.c, endereco: u.endereco, m2: u.m2, modelo: u.modelo, abertura: null, madura: false, vendas: null, alunos: null, bairros: [] }));
   const perto = (c) => proprias.some((u) => u.c && Math.hypot((u.c[0] - c[0]) * 110.6, (u.c[1] - c[1]) * 107) <= 15);
   return {
     disponivel: true, modo, minhas: proprias.map((u) => u.nome),

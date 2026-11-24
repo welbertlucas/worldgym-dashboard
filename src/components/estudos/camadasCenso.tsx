@@ -124,7 +124,7 @@ export interface ResumoCenso {
   domicilios?: { classes: { rotulo: string; cor: string; domicilios: number; parte: number }[]; total: number; porDomicilio: number | null; porTamanho?: boolean } | null;
   onde?: string;
 }
-const reaisCurto = (v: number) => (v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`);
+const reaisCurto = (v: number) => (v >= 1e9 ? `R$ ${(v / 1e9).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} bi` : v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`);
 
 /** Rosca das classes de renda (moradores por classe na área). */
 function RoscaRenda({ classes }: { classes: { id: string; cor: string; parte: number }[] }) {

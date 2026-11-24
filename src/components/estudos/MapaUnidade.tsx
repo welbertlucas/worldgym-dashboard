@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { aplicarFundo, bolinha, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { aplicarFundo, bolinha, cartaoDoLugar, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
@@ -176,13 +176,16 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     for (const o of dados.unidades ?? []) {
       if (!o.c || o.nome === u.nome || lente === "limpa") continue;
       // outras unidades: pino menor que o da unidade aberta (34)
-      L.marker(o.c, { icon: pino(L, "#c41230", lente === "rede" ? 24 : 20) }).bindTooltip(`World Gym ${o.nome}, a ${fmtKm(km(o.c, u.c))}`).addTo(camadas);
+      L.marker(o.c, { icon: pino(L, "#c41230", lente === "rede" ? 24 : 20) }).bindTooltip(`World Gym ${o.nome}, a ${fmtKm(km(o.c, u.c))}`)
+        .bindPopup(() => cartaoDoLugar(`World Gym ${o.nome}`, o.c as [number, number], o.endereco, "Endereço não cadastrado."), { offset: [0, -16], minWidth: 240, maxWidth: 300 }).addTo(camadas);
       if (lente === "rede") L.circle(o.c, { radius: 2400, color: "#c41230", weight: 1, dashArray: "3 4", fillOpacity: 0.05, interactive: false }).addTo(camadas);
     }
     // canibalização: a área da própria unidade também, mais marcada, para ver onde ela encosta nas vizinhas
     if (lente === "rede") L.circle(u.c, { radius: 2400, color: "#7a0a1e", weight: 1.6, fillColor: "#c41230", fillOpacity: 0.12, interactive: false }).addTo(camadas);
+    // clicar no pino abre o cartão com o endereço oficial e as coordenadas (pedido do dono, 23/11/2026)
     L.marker(u.c, { zIndexOffset: 2000, title: u.nome, icon: pino(L, "#c41230", 34) })
-      .bindTooltip(`<strong>World Gym ${u.nome}</strong>`).addTo(camadas);
+      .bindTooltip(`<strong>World Gym ${u.nome}</strong>`)
+      .bindPopup(() => cartaoDoLugar(`World Gym ${u.nome}`, u.c as [number, number], u.endereco, "Endereço não cadastrado."), { offset: [0, -28], minWidth: 240, maxWidth: 300 }).addTo(camadas);
     if (rua) L.marker(rua, { icon: bolinha(L, "#f59e0b", 14) }).addTo(camadas);
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
     // posições sugeridas para uma nova unidade: em todas as camadas (menos a limpa das fotos)
