@@ -39,12 +39,41 @@ const pertoDaBorda = (censo: Censo, la: number, ln: number, area?: Geometria | n
   if (la < a0 - m || la > a1 + m || ln < b0 - m || ln > b1 + m) return false;
   return hexagono(la, ln, censo.rk).some(([a, b]) => dentroDaArea(a, b, area));
 };
+
+const chaveDaCelula = (la: number, ln: number): string => {
+  // posição na malha v6 (hexágonos de ponta para cima, raio 0,2 km, âncora lat0 -15,8 / lng0 -47,9)
+  const dy = (1.5 * 0.2) / 110.6, dx = (Math.sqrt(3) * 0.2) / 107.1141;
+  const r = Math.round((la + 15.8) / dy);
+  return `${r},${Math.round((ln + 47.9 - (r % 2) * (dx / 2)) / dx)}`;
+};
+const ocupadas = new WeakMap<object, Set<string>>();
+/**
+ * Posições da malha dentro da área onde o Censo 2022 não tem morador (parque, setor institucional sem número, loteamento novo, terra rural):
+ * só o contorno em cinza claro, para o mapa não parecer incompleto (decisão do dono, 24/11/2026). Não mudam nenhum número.
+ */
+function desenharVazios(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, area?: Geometria | null) {
+  if (!area || censo.rk !== 0.2) return;
+  let tem = ocupadas.get(censo);
+  if (!tem) { tem = new Set(censo.celulas.filter((c) => c[2] >= MIN_MORADORES_NO_MAPA).map((c) => chaveDaCelula(c[0], c[1]))); ocupadas.set(censo, tem); }
+  const [a0, a1, b0, b1] = caixaDe(area);
+  const dy = (1.5 * 0.2) / 110.6, dx = (Math.sqrt(3) * 0.2) / 107.1141;
+  for (let r = Math.floor((a0 + 15.8) / dy) - 1; r <= Math.ceil((a1 + 15.8) / dy) + 1; r++) {
+    const la = -15.8 + r * dy;
+    for (let q = Math.floor((b0 + 47.9) / dx) - 1; q <= Math.ceil((b1 + 47.9) / dx) + 1; q++) {
+      const ln = -47.9 + q * dx + (r % 2) * (dx / 2);
+      if (tem.has(`${r},${q}`) || !dentroDaArea(la, ln, area) && !pertoDaBorda(censo, la, ln, area)) continue;
+      const ps = poligonos(censo, [la, ln], area);
+      if (ps.length) L.polygon(ps, { color: "#8d96a3", weight: 0.7, opacity: 0.55, fillColor: "#8d96a3", fillOpacity: 0.07, interactive: false }).addTo(grupo);
+    }
+  }
+}
 /** Escala azul do potencial de consumo e da demanda. */
 export const AZUL = (t: number) => `rgb(${Math.round(222 - 190 * t)},${Math.round(235 - 160 * t)},${Math.round(252 - 60 * t)})`;
 
 export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, camada: CamadaCenso, dentro: (lat: number, lng: number) => boolean, area?: Geometria | null) {
   const vis = censo.celulas.filter(([la, ln, p, , d, ida, , , rd, , com]) => (camada === "comercio" || p >= MIN_MORADORES_NO_MAPA) && (dentro(la, ln) || pertoDaBorda(censo, la, ln, area))
     && (camada === "idade" ? ida?.length : camada === "domicilios" || camada === "consumo" ? d : camada === "rendaTotal" ? d && rd : camada === "comercio" ? com : true));
+  if (camada !== "comercio") desenharVazios(L, grupo, censo, area);
   const hex = (c: (typeof vis)[number], estilo: import("leaflet").PolylineOptions, dica: string) => {
     const ps = poligonos(censo, [c[0], c[1]], area);
     if (ps.length) L.polygon(ps, { color: "#fff", weight: 0.6, opacity: 0.7, ...estilo }).bindTooltip(dica, { sticky: true }).addTo(grupo);
@@ -94,6 +123,7 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
 export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, cap: { pesos: number[]; indices: number[] }, dentro: (lat: number, lng: number) => boolean, cor: "quente" | "azul" | "vermelho", area?: Geometria | null) {
   const vis: [number, number][] = [];
   cap.indices.forEach((i, k) => { const c = censo.celulas[i]; if (cap.pesos[k] > 0 && c[2] >= MIN_MORADORES_NO_MAPA && (dentro(c[0], c[1]) || pertoDaBorda(censo, c[0], c[1], area))) vis.push([i, cap.pesos[k]]); });
+  desenharVazios(L, grupo, censo, area);
   const xs = vis.map((v) => v[1]).sort((a, b) => a - b);
   const ref = xs[Math.floor(xs.length * 0.95)] ?? 1;
   for (const [i, w] of vis) {

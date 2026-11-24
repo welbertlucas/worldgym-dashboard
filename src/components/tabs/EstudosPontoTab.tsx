@@ -81,7 +81,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [avisoPdf, setAvisoPdf] = useState("");
   const [pois, setPois] = useState<ResultadoPois | null>(null);
+  useEffect(() => { if (pois?.categoria === "academias") setAvisoPdf(""); }, [pois]);
   const [modoPois, setModoPois] = useState<ModoPois>("nomes");
   const [verPois, setVerPois] = useState(true);
   // endereço achado na busca: fica marcado até virar ponto de estudo ou ser fechado
@@ -271,6 +273,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const exportar = async () => {
     const m = mapaRef.current;
     if (!m) return;
+    // sem a busca de academias o parecer sairia sem concorrência: o PDF só sai depois dela (decisão do dono, 24/11/2026)
+    if (atual && pois?.categoria !== "academias") { setAvisoPdf("Falta buscar as academias concorrentes: abra a aba “Academias concorrentes” no painel de camadas e faça a busca antes de exportar."); return; }
+    setAvisoPdf("");
     setGerando(true);
     // as fotos saem do mapa: na aba Estudo ele está escondido (sem tamanho) e as fotos vinham vazias; mostra o mapa durante a exportação
     const vistaAntes = vista;
@@ -345,6 +350,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       acoes={<>
         {editavel && <Button size="sm" className="h-7 px-2.5 text-[12px]" variant={adicionando ? "secondary" : "outline"} onClick={() => { setVista("mapa"); setAdicionando((a) => !a); }} aria-pressed={adicionando}>{adicionando ? "Clique no mapa…" : "Adicionar ponto"}</Button>}
         <Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando || carregandoCenso || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
+        {avisoPdf && <span role="alert" className="text-[11px] font-medium text-red-700">{avisoPdf}</span>}
         <span className="text-[11px] text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
       </>}
       painel={<PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" naColuna

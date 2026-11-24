@@ -42,6 +42,8 @@ const dec = (x: number, c = 2) => x.toLocaleString("pt-BR", { minimumFractionDig
 
 /** Separa os lugares do Google em grandes redes, academias independentes e studios/modalidades (lutas, dança, pilates...). */
 const MODALIDADE = /capoeira|associa|pilates|dan[çc]a|jiu|jitsu|luta|krav|muay|boxe|box\b|karat|jud[oô]|taekwon|crossfit|cross fit|escola|studio|est[úu]dio|personal|fisio|cl[íi]nic|nata[çc][ãa]o|yoga|ioga|funcional|calistenia|equipamentos|ol[íi]mpico|centro de treinamento|ct\b/i;
+/** Frase das legendas dos mapas do Censo: o contorno cinza marca onde o Censo não tem morador. */
+const SEM_MORADORES = " Contorno cinza: sem moradores no Censo 2022 (parque, setor institucional, terra rural ou loteamento novo).";
 export function classificarConcorrentes(pois: ResultadoPois | null) {
   if (!pois || pois.categoria !== "academias") return null;
   const lugares = pois.lugares.filter((l) => l.rede !== "World Gym");
@@ -105,7 +107,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
     secoes.push({
       titulo: "População por Faixa Etária", novaPagina: true, linhas: [],
       texto: [`A população de 20 a 49 anos ${area} soma ${num(tot * p2049)} pessoas, ${pct(p2049)} do total. ${p2049 >= 0.49 ? "É uma aderência etária alta ao público de academia." : p2049 >= 0.42 ? "É uma aderência etária média, com base relevante de público economicamente ativo." : "A aderência etária é baixa: a área é mais jovem ou mais envelhecida que o público típico, o que pede oferta e comunicação ajustadas."} Na rede, 55% dos alunos ativos têm de 25 a 44 anos, faixa em que o churn e a inadimplência são menores que entre os mais jovens; na área, os moradores de 30 a 49 anos são ${pct(nucleo)}.`],
-      foto: { dados: m.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade que predomina, comparando moradores por ano de idade (Censo 2022)." }, altFoto: ALT_FOTO_MAPA,
+      foto: { dados: m.fotos.idade, legenda: "Cada hexágono na cor da faixa de idade que predomina, comparando moradores por ano de idade (Censo 2022)."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
       legenda: FAIXAS_IDADE.map((f, i) => ({ cor: CORES_IDADE[i], texto: `${f}: ${num(perfil.idade![i])} (${pct(perfil.idade![i] / tot, 0)})` })),
       destaques: [{ valor: pct(p2049), rotulo: "moradores de 20 a 49 anos" }, { valor: mil(tot * p2049), rotulo: "pessoas de 20 a 49 anos" }],
     });
@@ -118,7 +120,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
       destaques: [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }, { valor: dec(pd), rotulo: "moradores por domicílio" }, { valor: mil(perfil.moradores), rotulo: "moradores" }],
       texto: [`A área conta com ${num(perfil.domicilios)} domicílios ocupados, com média de ${dec(pd)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)}). ${pd >= 2.95 ? "Famílias maiores dividem a renda entre mais pessoas: o consumo é compartilhado e a sensibilidade a preço é maior, o que reforça ticket acessível, planos familiares e alto volume de alunos." : pd <= 2.55 ? "Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor." : "O tamanho das famílias está perto da média nacional: o público combina famílias e adultos que moram sozinhos, sem pressão extra sobre o preço."}`],
-      foto: { dados: m.fotos.domicilios, legenda: m.densidade?.[0]?.rotulo === "1 morador" ? "Cada hexágono na cor do tamanho de domicílio mais comum (número de moradores, Censo 2022)." : "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)." }, altFoto: ALT_FOTO_MAPA,
+      foto: { dados: m.fotos.domicilios, legenda: m.densidade?.[0]?.rotulo === "1 morador" ? "Cada hexágono na cor do tamanho de domicílio mais comum (número de moradores, Censo 2022)."+SEM_MORADORES : "Cada hexágono na cor da faixa de moradores por domicílio (média do hexágono, Censo 2022)."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
       ...(m.densidade ? { grafico: { tipo: "rosca" as const, titulo: m.densidade[0]?.rotulo === "1 morador" ? "Domicílios por número de moradores" : "Domicílios por faixa de moradores por domicílio", fatias: m.densidade.map((c) => ({ rotulo: c.rotulo, valor: c.parte, cor: c.cor })), centro: mil(perfil.domicilios), rotuloCentro: "domicílios" } } : {}),
     });
   }
@@ -129,7 +131,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
     secoes.push({
       titulo: "Perfil Socioeconômico", novaPagina: true, linhas: [],
       texto: [`A região tem perfil ${perfilRenda}: ${pct(renda.ab)} dos ${renda.porDomicilio ? "domicílios" : "moradores"} estão nas classes AA, A e B e ${pct(renda.cde)} nas classes C, D e E. As classes que mais aparecem são a ${a.id} (${pct(a.parte)}) e a ${b.id} (${pct(b.parte)}), ${renda.cde >= 0.75 ? "o que indica sensibilidade a preço e favorece modelos focados em escala e eficiência, como o Low Cost." : renda.ab >= 0.4 ? "o que abre espaço para planos de maior valor, serviços adicionais e o modelo Pro." : "o que pede uma oferta que atenda as duas faixas, com plano de entrada e opções de maior valor."}${renda.media ? ` A renda média do responsável pelo domicílio na área é de R$ ${num(Math.round(renda.media / 10) * 10)}.` : ""}`],
-      foto: { dados: m.fotos.renda, legenda: renda.porDomicilio ? "Cada hexágono na cor da classe com mais domicílios (renda do domicílio estimada a partir do Censo 2022)." : "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022, estimativa por hexágono)." }, altFoto: ALT_FOTO_MAPA,
+      foto: { dados: m.fotos.renda, legenda: renda.porDomicilio ? "Cada hexágono na cor da classe com mais domicílios (renda do domicílio estimada a partir do Censo 2022)."+SEM_MORADORES : "Cada hexágono na cor da classe pela renda média do responsável pelo domicílio (Censo 2022, estimativa por hexágono)."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
       grafico: { tipo: "rosca", titulo: `Distribuição dos ${renda.porDomicilio ? "domicílios" : "moradores"} por classe de renda`, fatias: CLASSES_RENDA.map((c) => ({ rotulo: `${c.rotulo} (${c.faixa})`, valor: renda.classes.find((x) => x.id === c.id)?.parte ?? 0, cor: c.cor })), centro: mil(renda.moradores), rotuloCentro: renda.porDomicilio ? "domicílios" : "moradores" },
     });
   }
@@ -147,7 +149,7 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
           : `Para chegar à meta de ${reais(m.vendas!)} por mês (o que paga o investimento no prazo da régua da rede), o ponto precisaria capturar ${pct(fatia, 0)} desse potencial. ${fatia >= 0.36 ? "É uma fatia alta demais: nos estudos da rede, pontos que precisavam de mais de ~36% do potencial foram reprovados." : fatia >= 0.33 ? "Está na zona de atenção dos estudos da rede (33% a 35%)." : "Está dentro do que os estudos da rede consideram capturável (até ~32%)."}`] : []),
         `Estimativa: gasto médio mensal das famílias com recreações e esportes por faixa de renda (IBGE, POF 2017-2018), corrigido pela inflação (×${dec(CORRECAO_POF)}) e aplicado à renda estimada dos domicílios de cada hexágono do Censo 2022 (a renda do responsável, a mais informada pelo IBGE, convertida em renda do domicílio pela relação média do estado e espalhada entre as faixas pela variação da renda em cada setor).`,
       ],
-      foto: { dados: m.fotos.consumo, legenda: "Mais escuro = maior gasto estimado com recreações e esportes." }, altFoto: ALT_FOTO_MAPA,
+      foto: { dados: m.fotos.consumo, legenda: "Mais escuro = maior gasto estimado com recreações e esportes."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
     });
   }
 
