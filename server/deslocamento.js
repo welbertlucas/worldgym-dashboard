@@ -27,6 +27,8 @@ export async function buscarDeslocamento(pedido, { chave = process.env.MAPBOX_TO
   const arquivo = chaveDoDeslocamento(c, modo);
   const guardado = await lerJson(arquivo);
   if (guardado && agora - Date.parse(guardado.em) < VALIDADE_DIAS * 864e5) return { ...guardado, doCache: true };
+  // só o que já está guardado (a lista de estudos usa isto: ela não manda posição nenhuma ao Mapbox, só abre a área de quem já a tem)
+  if (pedido?.soCache === true) return { ausente: true, c, modo };
   if (!chave) throw new ErroDeslocamento("A área de deslocamento ainda não foi configurada no servidor.", 503);
   const { perfil, minutos } = CONTORNOS[modo];
   const url = `https://api.mapbox.com/isochrone/v1/mapbox/${perfil}/${c[1]},${c[0]}?contours_minutes=${minutos.join(",")}&polygons=true&denoise=1&access_token=${encodeURIComponent(chave)}`;

@@ -288,6 +288,10 @@ describe("área de deslocamento (server/deslocamento.js e contas no front)", () 
     expect(Object.keys(d.contornos)).toEqual(["5", "10", "15", "20"]); expect(d.doCache).toBe(false);
     const d2 = await buscarDeslocamento({ c: [-15.8, -47.9], modo: "carro" }, { chave: "k", fetcher });
     expect(d2.doCache).toBe(true); expect(chamadas).toBe(1);
+    // só o cache (a lista de estudos): área já guardada volta; a que não existe não chama o Mapbox
+    expect((await buscarDeslocamento({ c: [-15.8, -47.9], modo: "carro", soCache: true }, { chave: "k", fetcher })).doCache).toBe(true);
+    expect((await buscarDeslocamento({ c: [-15.5, -47.5], modo: "carro", soCache: true }, { chave: "k", fetcher })).ausente).toBe(true);
+    expect(chamadas).toBe(1);
     await expect(buscarDeslocamento({ c: [-15.7, -47.9] }, { chave: "", fetcher })).rejects.toThrow(ErroDeslocamento);
     definirArmazem(null);
 
@@ -552,5 +556,28 @@ describe("freios da demanda para qualquer modelo", () => {
     expect(conta.join(" ")).toMatch(/R\$ 200 por m² × 2\.000 m²/);
     expect(conta.join(" ")).toContain("é uma premissa"); // a mediana é igual à premissa do modelo
     expect(conta.join(" ")).toContain("de R$ 130 a R$ 220 por m²");
+  });
+});
+
+describe("avaliarCompleto: a mesma conta na tela do estudo, na lista e no mapa", () => {
+  it("com a área e as referências aplica os freios; sem elas devolve o parecer simples; sem Censo limita (números inventados)", async () => {
+    const { avaliarCompleto } = await import("@/lib/estudoPonto");
+    const refs = [
+      ...[100, 110, 120, 130, 140, 150].map((m, i) => ({ nome: `A${i}`, modelo: "low" as const, vendas: 250_000 + i * 10_000, moradores: m * 1000, potencial: 900_000, ab: 0.2, alunos: 2000 + i * 100 })),
+      ...[0.5, 0.6, 0.7].map((ab, i) => ({ nome: `B${i}`, modelo: "pro" as const, vendas: 300_000 + i * 10_000, moradores: 120_000, potencial: 1_000_000, ab, alunos: 1000 + i * 100 })),
+    ];
+    const quadrado = { type: "Polygon" as const, coordinates: [[[-47.95, -15.85], [-47.85, -15.85], [-47.85, -15.75], [-47.95, -15.75], [-47.95, -15.85]]] };
+    const censo = { rk: 0.3, celulas: [[-15.8, -47.9, 30_000, 2000]] as [number, number, number, number | null][] };
+    const p = { ...ponto([-15.8, -47.9], 2000), modelo: "pro" as const };
+    const ctx = { premissas: PREMISSAS, vendasPorM2: { low: FAIXA, pro: { p25: 160, mediana: 200, p75: 226, n: 3 } }, unidades: [], censo, refs, area: quadrado, semCenso: false };
+    const simples = avaliarCompleto(p, { ...ctx, area: null })!;
+    expect(simples.completo).toBe(false); expect(simples.veredito).toBe("aprovado"); expect(simples.freios).toEqual([]); // só a conta do dinheiro
+    const completo = avaliarCompleto(p, ctx)!;
+    expect(completo.completo).toBe(true); expect(completo.veredito).toBe("reprovado");
+    expect(completo.freios.map((f) => f.id)).toContain("renda");
+    expect(avaliarCompleto(p, { ...ctx, refs: null })!.completo).toBe(false);
+    const sem = avaliarCompleto(p, { ...ctx, semCenso: true })!;
+    expect(sem.completo).toBe(true); expect(sem.veredito).toBe("atencao"); expect(sem.freios).toEqual([]);
+    expect(avaliarCompleto(p, { ...ctx, vendasPorM2: { low: FAIXA, pro: null } })).toBeNull();
   });
 });

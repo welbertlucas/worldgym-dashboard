@@ -3,9 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarPonto, foraDaMalhaDoCenso, limitarSemCenso, meses, raio80Real, reais, regiaoDe,
-  type DadosEstudos, type Ponto, type Resultado, type StatusDecisao, type Veredito,
+  DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarCompleto, foraDaMalhaDoCenso, meses, raio80Real, reais, regiaoDe,
+  type DadosEstudos, type Ponto, type Resultado, type StatusDecisao, type UnidadeEstudo, type Veredito,
 } from "@/lib/estudoPonto";
+import { useAreasEmCache, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
+
+const SEM_UNIDADES: UnidadeEstudo[] = [];
 
 const PILULA_VEREDITO: Record<Veredito, string> = { aprovado: "bg-success/10 text-success", atencao: "bg-warning/10 text-warning", reprovado: "bg-destructive/10 text-destructive" };
 const PILULA_DECISAO: Record<StatusDecisao, string> = { analise: "bg-muted text-muted-foreground", aprovado: "bg-success/10 text-success", recusado: "bg-destructive/10 text-destructive", unidade: "bg-sky-100 text-sky-800" };
@@ -14,7 +17,7 @@ const NOME_MODELO = { low: "Low Cost", pro: "Pro" } as const;
 const dataBR = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "—");
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-interface Linha { p: Ponto; r: Resultado | null; regiao: string; real: number | null }
+interface Linha { p: Ponto; r: Resultado | null; regiao: string; real: number | null; /** O parecer já inclui população, renda e alunos contra a rede (precisa da área de 10 min do ponto, guardada ao abrir o estudo). */ completo: boolean }
 
 /** Mapa pequeno com todos os estudos filtrados, coloridos pelo veredito (borda azul: virou unidade). */
 function MiniMapa({ linhas, abrir }: { linhas: Linha[]; abrir: (id: string) => void }) {
@@ -117,14 +120,16 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [filtros, setFiltros] = useState(false);
 
+  // os mesmos freios do estudo (população, fatia, renda e alunos): a área de 10 min vem do que o servidor já guardou (sem mandar posição ao Mapbox)
+  const refsTodas = useReferenciaPopulacao(dados.unidades ?? SEM_UNIDADES, dados.censo, pontos.length ? "low" : null);
+  const areas = useAreasEmCache(pontos);
   const linhas: Linha[] = useMemo(() => pontos.map((p) => {
-    const faixa = dados.vendasPorM2?.[p.modelo];
     const u = p.decisao?.status === "unidade" ? dados.unidades?.find((x) => x.nome === p.decisao?.unidade) : undefined;
     // sem Censo na região do ponto, o veredito nunca passa de "com condicionantes" (decisão do dono, 24/11/2026)
-    const r0 = faixa && dados.premissas ? avaliarPonto(p, dados.premissas, faixa) : null;
-    const r = r0 ? { ...r0, veredito: limitarSemCenso(r0.veredito, foraDaMalhaDoCenso(p.c, dados.censo)) } : null;
-    return { p, r, regiao: regiaoDe(p, dados.unidades ?? []), real: u?.madura ? u.vendas : null };
-  }).sort((a, b) => (b.p.criadoEm ?? "").localeCompare(a.p.criadoEm ?? "")), [pontos, dados]);
+    const res = dados.premissas && dados.vendasPorM2 ? avaliarCompleto(p, { premissas: dados.premissas, vendasPorM2: dados.vendasPorM2, unidades: dados.unidades ?? SEM_UNIDADES, censo: dados.censo, refs: refsTodas, area: areas.get(p.id) ?? null, semCenso: foraDaMalhaDoCenso(p.c, dados.censo) }) : null;
+    const r = res ? { ...res.r, veredito: res.veredito } : null;
+    return { p, r, regiao: regiaoDe(p, dados.unidades ?? []), real: u?.madura ? u.vendas : null, completo: !!res?.completo };
+  }).sort((a, b) => (b.p.criadoEm ?? "").localeCompare(a.p.criadoEm ?? "")), [pontos, dados, refsTodas, areas]);
   const autores = [...new Set(pontos.map((p) => p.autor?.nome).filter(Boolean))] as string[];
   const agora = Date.now();
   const filtradas = linhas.filter(({ p, r, regiao }) =>
@@ -169,6 +174,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
         </button>
         {(nFiltros > 0 || busca || veredito) && <Button variant="ghost" size="sm" onClick={limpar}>Limpar</Button>}
       </div>
+      {refsTodas && linhas.some((l) => !l.completo) && <p className="text-[11px] text-muted-foreground">Em {linhas.filter((l) => !l.completo).length === 1 ? "1 estudo" : `${linhas.filter((l) => !l.completo).length} estudos`}, o parecer ainda não inclui população, renda e alunos: a área de 10 min só é guardada quando o estudo é aberto. Abra o estudo para completar.</p>}
       {filtros && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-white p-2.5">
           <select value={decisao} onChange={(e) => setDecisao(e.target.value as StatusDecisao | "")} aria-label="Decisão" className={selecionar}>

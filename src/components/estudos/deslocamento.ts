@@ -23,6 +23,40 @@ export async function buscarDeslocamento(c: [number, number], modo: "carro" | "p
   return guardados.get(k)!;
 }
 
+const emCache = new Map<string, Promise<Geometria | null>>();
+/** A área de 10 min do ponto SE o servidor já a tem guardada: não manda a posição ao Mapbox (a lista de estudos usa isto, sem perguntar). */
+export function areaEmCache(c: [number, number]): Promise<Geometria | null> {
+  const k = `${c[0].toFixed(4)},${c[1].toFixed(4)}`;
+  if (!emCache.has(k)) {
+    emCache.set(k, (async () => {
+      const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "deslocamento", c, modo: "carro", soCache: true }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.ausente) return null;
+      return (j as Deslocamento).contornos?.[String(MINUTOS_PADRAO)] ?? null;
+    })().catch(() => null).then((g) => { if (!g) emCache.delete(k); return g; })); // área ausente não fica guardada: ela passa a existir quando o estudo é aberto
+  }
+  return emCache.get(k)!;
+}
+/** As áreas já guardadas de uma lista de pontos (por id). Pontos nunca abertos ficam de fora. */
+export function useAreasEmCache(pontos: { id: string; c: [number, number] }[]): Map<string, Geometria> {
+  const [areas, setAreas] = useState<Map<string, Geometria>>(new Map());
+  const chave = pontos.map((p) => `${p.id}:${p.c[0].toFixed(4)},${p.c[1].toFixed(4)}`).join("|");
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const novo = new Map<string, Geometria>();
+      for (let i = 0; i < pontos.length; i += 4) {
+        const lote = await Promise.all(pontos.slice(i, i + 4).map(async (p) => [p.id, await areaEmCache(p.c)] as const));
+        for (const [id, g] of lote) if (g) novo.set(id, g);
+        if (!vivo) return;
+      }
+      if (vivo) setAreas(novo);
+    })();
+    return () => { vivo = false; };
+  }, [chave]); // eslint-disable-line react-hooks/exhaustive-deps
+  return areas;
+}
+
 export interface Areas { carro: Deslocamento | null; pe: Deslocamento | null; erro: string }
 /** A área oficial (10 min de carro) dentro das áreas carregadas. */
 export const areaOficial = (a: Areas | null): Geometria | null => a?.carro?.contornos[String(MINUTOS_PADRAO)] ?? null;

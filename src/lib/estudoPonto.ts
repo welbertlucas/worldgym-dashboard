@@ -600,6 +600,26 @@ export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, 
   linhas.push("Essa conta não olha o lugar: população, renda, potencial de consumo e alunos entram como freios do parecer, e não nas vendas previstas.");
   return linhas;
 }
+/**
+ * O parecer completo de um ponto num modelo: payback, estacionamento, fatia do potencial, freios da demanda e "sem Censo". A tela do estudo,
+ * a comparação de modelos, a lista de estudos e o mapa usam esta mesma conta, para o veredito não mudar de uma tela para outra.
+ * Sem a área de 10 min do ponto (ainda não calculada) ou sem as referências da rede, devolve o parecer simples e `completo: false`.
+ */
+export interface ContextoAvaliacao { premissas: Premissas; vendasPorM2: Record<Modelo, FaixaM2 | null>; unidades: UnidadeEstudo[]; censo: Censo | null | undefined; refs: RefPopulacao[] | null; area: Geometria | null; semCenso: boolean }
+export function avaliarCompleto(ponto: Ponto, ctx: ContextoAvaliacao): { r: Resultado; veredito: Veredito; freios: Freio[]; completo: boolean } | null {
+  const faixa = ctx.vendasPorM2[ponto.modelo];
+  if (!faixa) return null;
+  const r = avaliarPonto(ponto, ctx.premissas, faixa);
+  const tk = ctx.censo ? ticketSugerido(ponto.modelo, ctx.unidades, parecidas(ponto, ctx.censo, ctx.unidades)) : null;
+  const alunos = tk ? alunosDoPonto(r, tk.preco) : null;
+  const base = vereditoFinal(r.veredito, alunos ? vagasDoPonto(alunos, ponto.imovel) : null);
+  if (ctx.semCenso) return { r, veredito: limitarSemCenso(base, true), freios: [], completo: true };
+  if (!ctx.area || !ctx.refs || !ctx.censo) return { r, veredito: base, freios: [], completo: false };
+  const potencial = potencialNaArea(ctx.censo, ctx.area)?.total ?? null;
+  const fm = freiosDeDemanda({ modelo: ponto.modelo, refs: ctx.refs, meta: r.meta, moradores: moradoresNaArea(ctx.censo, ctx.area), ab: classesNaArea(ctx.censo, ctx.area).ab, alunosNecessarios: alunos });
+  const v = aplicarFreios(vereditoComFatia(base, potencial ? r.provavel / potencial : null, fm.faixaFatia), fm.freios) as Veredito;
+  return { r, veredito: v, freios: fm.freios, completo: true };
+}
 /** Aplica os freios ao veredito: um que reprova reprova; um de atenção tira o "aprova". */
 export function aplicarFreios(v: Veredito | null, freios: Freio[]): Veredito | null {
   if (!v) return v;

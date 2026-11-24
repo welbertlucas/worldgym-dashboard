@@ -21,7 +21,7 @@ import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamada
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, avaliarCompleto, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -152,22 +152,13 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (!atual || !dados.premissas || !dados.vendasPorM2 || !dados.unidades || !dados.censo) return null;
     const rank: Record<Veredito, number> = { aprovado: 2, atencao: 1, reprovado: 0 };
     const itens = (["low", "pro"] as Modelo[]).flatMap((m) => {
-      const faixa = dados.vendasPorM2![m];
-      if (!faixa) return [];
-      const pm: Ponto = { ...atual, modelo: m };
-      const rm = avaliarPonto(pm, dados.premissas!, faixa);
-      const tk = ticketSugerido(m, dados.unidades!, parecidas(pm, dados.censo!, dados.unidades!));
-      const alunos = tk ? alunosDoPonto(rm, tk.preco) : null;
-      const vagas = alunos ? vagasDoPonto(alunos, atual.imovel) : null;
-      const fm = freiosDeDemanda({ modelo: m, refs: refsTodas, meta: rm.meta, moradores: moradores10, ab: ab10, alunosNecessarios: alunos, semCenso });
-      const fat = potencial10 ? rm.provavel / potencial10 : null;
-      const v = limitarSemCenso(aplicarFreios(vereditoComFatia(vereditoFinal(rm.veredito, vagas), fat, fm.faixaFatia), fm.freios) as Veredito, semCenso);
-      return [{ modelo: m, nome: dados.premissas!.modelos[m].nome, r: rm, veredito: v, freios: fm.freios }];
+      const av = avaliarCompleto({ ...atual, modelo: m }, { premissas: dados.premissas!, vendasPorM2: dados.vendasPorM2!, unidades: dados.unidades!, censo: dados.censo, refs: refsTodas, area: area10, semCenso });
+      return av ? [{ modelo: m, nome: dados.premissas!.modelos[m].nome, r: av.r, veredito: av.veredito, freios: av.freios }] : [];
     });
     if (itens.length < 2) return null;
     const melhor = [...itens].sort((a, b) => rank[b.veredito] - rank[a.veredito] || (a.r.payback === b.r.payback ? 0 : a.r.payback < b.r.payback ? -1 : 1))[0];
     return { itens, recomendado: melhor.veredito === "reprovado" ? null : melhor.modelo };
-  }, [atual?.id, atual?.m2, atual?.imovel, atual?.c, dados, refsTodas, moradores10, ab10, potencial10, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [atual?.id, atual?.m2, atual?.imovel, atual?.c, dados, refsTodas, area10, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
   const candidatasPerto = useMemo(() => (atual && dados.censo && !semCenso && dados.premissas
     ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva, { n: 8 })
