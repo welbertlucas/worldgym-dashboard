@@ -9,8 +9,8 @@ import { useCensoCompleto, usaFatorPadrao } from "@/components/estudos/censoMuni
 import { PedirCenso } from "@/components/estudos/PedirCenso";
 import { ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
-import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
-import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, raioQueCobre, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
+import { CSS_POIS, ControlePois, buscarPois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Faixa, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { Building2, Calculator, Gavel, ListChecks, Store, TrendingUp } from "lucide-react";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
@@ -84,6 +84,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const [avisoPdf, setAvisoPdf] = useState("");
   const [pois, setPois] = useState<ResultadoPois | null>(null);
   useEffect(() => { if (pois?.categoria === "academias") setAvisoPdf(""); }, [pois]);
+  const [buscandoAcademias, setBuscandoAcademias] = useState(false);
   const [modoPois, setModoPois] = useState<ModoPois>("nomes");
   const [verPois, setVerPois] = useState(true);
   // endereço achado na busca: fica marcado até virar ponto de estudo ou ser fechado
@@ -264,7 +265,26 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: achado.nome.slice(0, 60) || `Ponto ${letra(todos.length)}`, ...(achado.endereco ? { endereco: achado.endereco.slice(0, 160) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: achado.c, modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
     setPontos((ps) => [...ps, novo]); setAtualId(novo.id); setAchado(null);
   };
-  useEffect(() => { setPois(null); }, [atualId]);
+  useEffect(() => { setPois(null); setVerPois(false); }, [atualId]);
+  // Academias concorrentes: a busca roda sozinha quando o estudo abre (assim que a área de 10 min existe); a camada só liga se a pessoa quiser.
+  // O servidor guarda cada busca por 90 dias, então abrir o mesmo estudo de novo não é cobrado outra vez. Depois de "Limpar" não busca de novo.
+  const buscouAuto = useRef("");
+  const atualIdRef = useRef(atualId); atualIdRef.current = atualId;
+  const buscarAcademias = async (): Promise<ResultadoPois | null> => {
+    if (!atual || !area10) return null;
+    setBuscandoAcademias(true);
+    try {
+      const r = await buscarPois(atual.c, raioQueCobre(atual.c, area10), "academias");
+      const lugares = r.lugares.filter((l) => dentroDaArea(l.c[0], l.c[1], area10));
+      return { ...r, lugares, total: lugares.length, areaRotulo: `${MINUTOS_PADRAO} min de carro` };
+    } catch { return null; } finally { setBuscandoAcademias(false); }
+  };
+  useEffect(() => {
+    if (!atual || !area10 || pois || buscouAuto.current === atual.id) return;
+    buscouAuto.current = atual.id;
+    const id = atual.id;
+    buscarAcademias().then((res) => { if (res) setPois((p) => (p ?? (id === atualIdRef.current ? res : null))); else buscouAuto.current = ""; });
+  }, [atual?.id, area10, !!pois]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const idx = atual ? pontos.findIndex((p) => p.id === atual.id) : -1;
   const compParec = useMemo(() => (atual && !semCenso ? compararComParecidas(atual.c, atual.modelo, dados.censo!, dados.unidades!) : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.modelo, dados]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -273,14 +293,21 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const exportar = async () => {
     const m = mapaRef.current;
     if (!m) return;
-    // sem a busca de academias o parecer sairia sem concorrência: o PDF só sai depois dela (decisão do dono, 24/11/2026)
-    if (atual && pois?.categoria !== "academias") { setAvisoPdf("Falta buscar as academias concorrentes: abra a aba “Academias concorrentes” no painel de camadas e faça a busca antes de exportar."); return; }
+    // sem as academias o parecer sairia sem concorrência: o PDF só sai com elas (decisão do dono, 24/11/2026). A busca roda sozinha ao abrir o estudo;
+    // aqui só se refaz se ainda não chegou (ou se a camada foi trocada por outro tipo de lugar).
+    let poisPdf = pois;
+    if (atual && pois?.categoria !== "academias") {
+      setAvisoPdf(""); setGerando(true);
+      poisPdf = await buscarAcademias();
+      setGerando(false);
+      if (!poisPdf) { setAvisoPdf(area10 ? "Não consegui buscar as academias concorrentes agora. Tente de novo em instantes." : "Espere a área de 10 min aparecer no mapa: as academias concorrentes são buscadas nela."); return; }
+    }
     setAvisoPdf("");
     setGerando(true);
     // as fotos saem do mapa: na aba Estudo ele está escondido (sem tamanho) e as fotos vinham vazias; mostra o mapa durante a exportação
     const vistaAntes = vista;
     if (vista === "estudo") { setVista("mapa"); await pausa(400); m.mapa.invalidateSize({ animate: false }); }
-    const lenteAntes = lente, poisAntes = pois, verAntes = verPois;
+    const lenteAntes = lente, poisAntes = pois, verAntes = verPois, poisUso = poisPdf;
     // fotos de rua do último slide (até 4 pontos): pedidas já no começo; se a pessoa não autorizar mandar a posição ao Google, para no primeiro
     const ruaP = (async () => {
       const out: (ReturnType<typeof paginaDeFotos>)[] = [];
@@ -316,14 +343,14 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         const lim = m.L.latLngBounds([atual.c, ...sugestoes.sugestoes.map((sg) => sg.c)]).extend(m.L.latLng(atual.c).toBounds(3000));
         fotoSugestoes = await tirar("sugestoes", { limites: lim.pad(0.25) });
       }
-      if (poisAntes && atual) {
-        setPois(poisAntes); setVerPois(true); await pausa(300);
-        fotos.pois = await tirar("limpa", { limites: poisAntes.areaRotulo && area10 ? limitesDaArea(m.L, area10).pad(0.08) : m.L.latLng(poisAntes.c).toBounds(poisAntes.raioKm * 2000) });
+      if (poisUso && atual) {
+        setPois(poisUso); setVerPois(true); await pausa(300);
+        fotos.pois = await tirar("limpa", { limites: poisUso.areaRotulo && area10 ? limitesDaArea(m.L, area10).pad(0.08) : m.L.latLng(poisUso.c).toBounds(poisUso.raioKm * 2000) });
       }
       setLente(lenteAntes);
       const mercado = atual && area10 ? (semCenso
-        ? { perfil: null, renda: null, potencial: null, densidade: null, pois: poisAntes, fotos, semCenso: true }
-        : { perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10), densidade: densidadeNaArea(censo, area10), pois: poisAntes, fotos }) : null;
+        ? { perfil: null, renda: null, potencial: null, densidade: null, pois: poisUso, fotos, semCenso: true }
+        : { perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10), densidade: densidadeNaArea(censo, area10), pois: poisUso, fotos }) : null;
       const paginasRua = await ruaP;
       await gerarPdfDoEstudo(comFotosDaRegiao(montarPdfPonto({
         premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado, semCenso, fatorPadrao: !!atual && !semCenso && usaFatorPadrao(atual.c),
