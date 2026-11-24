@@ -13,6 +13,7 @@ import { COR_OUTROS_BAIRROS, CORES_BAIRROS, LegendaCenso, type ResumoCenso, Lege
 export { LegendaRenda };
 import { REGRAS_NOVA_UNIDADE, SecaoSugestoes, type ResultadoSugestoes, desenharSugestoes, enderecoCurto, textoParecerSugestao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
+import { buscarFotosDaRua, comFotosDaRegiao, paginaDeFotos } from "@/components/estudos/fotosRua";
 import { avaliarPonto, faixaDaFatia, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
@@ -208,6 +209,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     const vistaAntes = vista;
     if (vista === "estudo") { setVista("mapa"); await pausa(400); m.mapa.invalidateSize({ animate: false }); }
     const lenteAntes = lente, poisAntes = pois, verAntes = verPois;
+    // fotos de rua do último slide: pedidas já no começo (endereço público da unidade, sem pergunta)
+    const ruaP = buscarFotosDaRua(u.c, false);
     setPois(null); // as academias só aparecem na foto delas
     // Fotos do mapa num enquadramento fixo (o mesmo para todo mundo): satélite do imóvel e uma foto por tema, na área de 10 min de carro.
     const foto = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
@@ -243,11 +246,12 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         const tot = cap.pesos.reduce((a, b) => a + b, 0);
         esperadoNaArea = tot ? cap.indices.reduce((a, i, k) => a + (dentroDaArea(censo.celulas[i][0], censo.celulas[i][1], area10) ? cap.pesos[k] : 0), 0) / tot : null;
       }
-      await gerarPdfDoEstudo(montarPdfUnidade({
+      const fotosRua = paginaDeFotos(await ruaP, "Fotos da Região", `World Gym ${u.nome}`);
+      await gerarPdfDoEstudo(comFotosDaRegiao(montarPdfUnidade({
         u, faixa: dados.vendasPorM2?.[u.modelo] ?? null, porM2, comparado, minutos: MINUTOS_PADRAO, temArea: !!area10,
         parteNaArea: parte10, min80, onde80, topBairros: [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8), alunosBairro,
         esperadoNaArea, perfil, renda, novaUnidade, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
-      }));
+      }), fotosRua));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };
 

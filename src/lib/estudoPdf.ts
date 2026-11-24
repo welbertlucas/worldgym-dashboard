@@ -75,6 +75,8 @@ export interface ConteudoPdf {
   comparacao?: { colunas: string[]; linhas: string[][] };
   /** Mapa com todos os pontos, na página da comparação. */
   fotoComparacao?: Figura;
+  /** Últimas páginas: fotos de rua (Street View) de cada lugar, a primeira grande e as outras em fila; `nota` vai embaixo. */
+  fotosDaRegiao?: { titulo: string; subtitulo?: string; fotos: Figura[]; nota: string }[];
 }
 
 async function comoDados(url: string): Promise<string | null> {
@@ -392,6 +394,25 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       linha.forEach((s, j) => doc.text(doc.splitTextToSize(t(s), lw - 2), L + j * lw + 1.5, y + 3.5));
       y += h; doc.setDrawColor(...LINHA); doc.line(L, y, R, y); y += 1;
     }
+  }
+  // fotos da região: a primeira grande (de frente para o lugar) e as outras lado a lado, cada uma com a legenda embaixo
+  for (const fr of c.fotosDaRegiao ?? []) {
+    novaPagina(); titulo(fr.titulo, 26);
+    if (fr.subtitulo) { fonte("corpo", 10); doc.setTextColor(...CINZA); doc.text(t(fr.subtitulo), L, y); y += 7; } else y += 2;
+    const [primeira, ...outras] = fr.fotos.filter((f) => f.dados);
+    if (primeira) figura(primeira, 112);
+    if (outras.length) {
+      const gap = 4, n = Math.min(3, outras.length), w = (W - gap * (n - 1)) / n, h = w * 0.625;
+      cabe(h + 10);
+      outras.slice(0, 3).forEach((f, j) => {
+        const x = L + j * (w + gap);
+        doc.addImage(f.dados!, "JPEG", x, y, w, h, undefined, "FAST");
+        doc.setDrawColor(...VERMELHO); doc.setLineWidth(0.5); doc.rect(x, y, w, h); doc.setLineWidth(0.2);
+        if (f.legenda) { fonte("corpo", 8); doc.setTextColor(...CINZA); doc.text(doc.splitTextToSize(t(f.legenda), w), x, y + h + 4); }
+      });
+      y += h + 10;
+    }
+    nota(fr.nota);
   }
   // rodapé e número da página (a capa do Canva já tem o rodapé dela e não leva número)
   const total = doc.getNumberOfPages(), primeira = temCapa ? 2 : 1;

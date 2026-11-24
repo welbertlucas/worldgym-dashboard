@@ -10,6 +10,7 @@
 //     POST { acao: "pois", c, raioKm, categoria } -> pontos de interesse do Google (todos; unidade só em volta da própria).
 //     POST { acao: "deslocamento", c, modo: "carro" | "pe" } -> áreas de deslocamento do Mapbox (mesma regra de acesso dos pois).
 //     POST { acao: "contar-academias", c, raioKm } -> quantas academias (categoria principal) no raio; fora do modo unidade.
+//     POST { acao: "fotos-rua", c } -> fotos do Street View em volta da posição, para o último slide do PDF (mesma regra de acesso dos pois).
 //     POST { acao: "endereco", q, perto } -> busca de endereço (Mapbox), para quem vê estudos de pontos novos (não para unidades).
 // Dado sensível: sem cache no navegador e permissão conferida a cada pedido.
 import { lerRoyalties } from "../server/royalties.js";
@@ -20,6 +21,7 @@ import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
 import { ErroEstudos, lerEstudos, modoDe, podeEditar, salvarPontos } from "../server/estudos.js";
 import { ErroPois, buscarPois, contarAcademias } from "../server/pois.js";
+import { ErroFotosRua, fotosDaRua } from "../server/fotosRua.js";
 import { ErroDeslocamento, buscarDeslocamento, buscarEndereco, enderecoDaPosicao } from "../server/deslocamento.js";
 import { COORDENADAS_UNIDADES, UNIT_NAMES } from "../server/units.js";
 const COORDENADAS_POR_NOME = Object.fromEntries(Object.entries(UNIT_NAMES).map(([id, n]) => [n, COORDENADAS_UNIDADES[id]]));
@@ -46,13 +48,13 @@ async function estudos(req, res, sessao) {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json(await contarAcademias(c));
   }
-  if (c.acao === "pois" || c.acao === "deslocamento") {
+  if (c.acao === "pois" || c.acao === "deslocamento" || c.acao === "fotos-rua") {
     if (modoDe(sessao) === "unidade") {
       const p = Array.isArray(c.c) ? c.c.map(Number) : [];
       const perto = (sessao.unidades ?? []).some((n) => { const u = COORDENADAS_POR_NOME[n]; return u && Math.hypot((u[0] - p[0]) * 110.6, (u[1] - p[1]) * 107) <= 1; });
       if (!perto) return res.status(403).json({ error: "busca só em volta da sua unidade" });
     }
-    return res.status(200).json(c.acao === "pois" ? await buscarPois(c) : await buscarDeslocamento(c));
+    return res.status(200).json(c.acao === "pois" ? await buscarPois(c) : c.acao === "fotos-rua" ? await fotosDaRua(c) : await buscarDeslocamento(c));
   }
   if (!podeEditar(sessao)) return res.status(403).json({ error: "só quem faz estudos de ponto pode salvar" });
   if (c.acao === "pontos") return res.status(200).json({ ok: true, pontos: await salvarPontos(c.pontos, sessao) });
@@ -164,7 +166,7 @@ export default async function handler(req, res) {
     if (!dados) return res.status(200).json({ disponivel: false });
     return res.status(200).json({ disponivel: true, ...dados });
   } catch (e) {
-    if (e instanceof ErroQualidade || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroDeslocamento) return res.status(e.status).json({ error: e.message });
+    if (e instanceof ErroQualidade || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroDeslocamento || e instanceof ErroFotosRua) return res.status(e.status).json({ error: e.message });
     return res.status(503).json({ error: `não consegui ler ${modulo === "juridico" ? "o jurídico" : modulo === "qualidade" ? "a qualidade" : modulo === "estudos" ? "os estudos de ponto" : "os royalties"} agora` });
   }
 }

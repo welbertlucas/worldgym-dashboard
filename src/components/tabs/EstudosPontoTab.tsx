@@ -1,3 +1,4 @@
+import { buscarFotosDaRua, comFotosDaRegiao, paginaDeFotos } from "@/components/estudos/fotosRua";
 import "leaflet/dist/leaflet.css";
 import { Pilula } from "@/components/ui/pilula";
 import { Button } from "@/components/ui/button";
@@ -262,6 +263,16 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     const vistaAntes = vista;
     if (vista === "estudo") { setVista("mapa"); await pausa(400); m.mapa.invalidateSize({ animate: false }); }
     const lenteAntes = lente, poisAntes = pois, verAntes = verPois;
+    // fotos de rua do último slide (até 4 pontos): pedidas já no começo; se a pessoa não autorizar mandar a posição ao Google, para no primeiro
+    const ruaP = (async () => {
+      const out: (ReturnType<typeof paginaDeFotos>)[] = [];
+      for (const [i, p] of pontos.slice(0, 4).entries()) {
+        const f = await buscarFotosDaRua(p.c, true);
+        if (!f && i === 0) break;
+        out.push(paginaDeFotos(f, "Fotos da Região", `${letra(i)}. ${p.nome}${p.endereco ? ` · ${enderecoCurto(p.endereco)}` : ""}`));
+      }
+      return out;
+    })();
     // fotos para o PDF: o mapa como está na tela, o satélite de cada ponto e, do ponto aberto, uma foto por tema na área de 10 min
     const tirar = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
@@ -296,7 +307,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10),
         densidade: densidadeNaArea(censo, area10), pois: poisAntes, fotos,
       } : null;
-      await gerarPdfDoEstudo(montarPdfPonto({
+      const paginasRua = await ruaP;
+      await gerarPdfDoEstudo(comFotosDaRegiao(montarPdfPonto({
         premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado,
         fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
         populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
@@ -308,7 +320,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp,
             fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!) : [], parecidas: compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
         }),
-      }));
+      }), ...paginasRua));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };
 
