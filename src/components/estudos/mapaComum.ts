@@ -231,7 +231,7 @@ export async function copiarTexto(texto: string): Promise<boolean> {
  * Cartão do pino (como no Mapfry), dos pontos estudados e das unidades em operação: nome, endereço e coordenadas; clicar no endereço ou
  * nas coordenadas copia o texto. Montado com elementos (não com HTML em texto), para o nome e o endereço nunca virarem código.
  */
-export function cartaoDoLugar(titulo: string, c: [number, number], endereco: string | null | undefined, semEndereco: string): HTMLElement {
+export function cartaoDoLugar(titulo: string, c: [number, number], endereco: string | null | undefined, semEndereco: string, nota?: string): HTMLElement {
   const el = (tag: string, cls: string, texto?: string) => { const e = document.createElement(tag); e.className = cls; if (texto != null) e.textContent = texto; return e; };
   const caixa = el("div", "space-y-2 text-[13px] text-foreground");
   caixa.appendChild(el("p", "font-semibold", titulo));
@@ -249,5 +249,6 @@ export function cartaoDoLugar(titulo: string, c: [number, number], endereco: str
   if (endereco) caixa.appendChild(copiavel("o endereço", endereco));
   else caixa.appendChild(el("p", "text-muted-foreground", semEndereco));
   caixa.appendChild(copiavel("as coordenadas", `${c[0].toFixed(6)}, ${c[1].toFixed(6)}`));
+  if (nota) caixa.appendChild(el("p", "text-[11px] text-muted-foreground", nota));
   return caixa;
 }

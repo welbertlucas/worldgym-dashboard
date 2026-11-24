@@ -359,7 +359,13 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       faixaVermelha(s.faixa);
       textoAnalise(s.texto);
       lista(s.lista);
-      figura(s.foto, s.altFoto ?? 120);
+      // o mapa diminui o necessário para os números e o gráfico da seção caberem na mesma página (pedido do dono, 23/11/2026: o gráfico
+      // de Domicílios ia sozinho para a página seguinte); nunca abaixo de 80 mm
+      const depois = (s.destaques?.length ? 31 : 0) + (s.legenda?.length ? Math.ceil(s.legenda.length / 2) * 5.5 + 3 : 0)
+        + (s.grafico?.tipo === "rosca" ? Math.max(56, s.grafico.fatias.length * 7 + 10) + 3 + (s.grafico.titulo ? 7 : 0)
+          : s.grafico?.tipo === "barras" ? s.grafico.itens.length * 8.6 + 2 + (s.grafico.titulo ? 9 : 3) : 0);
+      const cabeAte = FIM - y - depois - (s.foto?.legenda ? 12 : 7);
+      figura(s.foto, depois && cabeAte >= 80 ? Math.min(s.altFoto ?? 120, cabeAte) : s.altFoto ?? 120);
       legenda(s.legenda);
       destaques(s.destaques);
       if (s.grafico?.tipo === "rosca") rosca(s.grafico); else if (s.grafico?.tipo === "barras") barras(s.grafico);

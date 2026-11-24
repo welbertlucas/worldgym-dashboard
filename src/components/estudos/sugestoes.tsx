@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { MapPinned } from "lucide-react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import type { Leaflet } from "@/components/estudos/mapaComum";
-import { pino } from "@/components/estudos/mapaComum";
+import { cartaoDoLugar, pino } from "@/components/estudos/mapaComum";
 import { Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { Button } from "@/components/ui/button";
 import { MINUTOS_PADRAO, moradoresNaArea, potencialNaArea, vereditoComFatia, PARECER_ROTULO, type Censo, type Sugestao, type Veredito } from "@/lib/estudoPonto";
@@ -97,8 +97,18 @@ const reaisRenda = (r: number | null) => (r == null ? "—" : `R$ ${(Math.round(
 
 /** Pinos cinza numerados das posições sugeridas. */
 export function desenharSugestoes(L: Leaflet, grupo: import("leaflet").LayerGroup, res: ResultadoSugestoes | null) {
-  res?.sugestoes.forEach((s, i) => L.marker(s.c, { zIndexOffset: 1500, icon: pino(L, COR_SUGESTAO, 30, String(i + 1)) })
-    .bindTooltip(`Posição sugerida ${i + 1}: ${pct(s.ganho)} de público alcançável`).addTo(grupo));
+  res?.sugestoes.forEach((s, i) => {
+    // clicar no pino abre o cartão com o endereço aproximado e as coordenadas (pedido do dono, 23/11/2026); o endereço é o mesmo dos cards
+    const titulo = `Posição sugerida ${i + 1} (${pct(s.ganho)} de público)`;
+    const mk = L.marker(s.c, { zIndexOffset: 1500, icon: pino(L, COR_SUGESTAO, 30, String(i + 1)) })
+      .bindTooltip(`Posição sugerida ${i + 1}: ${pct(s.ganho)} de público alcançável`)
+      .bindPopup(() => cartaoDoLugar(titulo, s.c, null, "Buscando o endereço aproximado…"), { offset: [0, -24], minWidth: 240, maxWidth: 300 })
+      .addTo(grupo);
+    mk.on("popupopen", async () => {
+      const e = await enderecoDaPosicao(s.c);
+      if (mk.isPopupOpen()) mk.setPopupContent(cartaoDoLugar(titulo, s.c, e, "Não achei o endereço desta posição.", "Endereço aproximado da posição (Mapbox): serve para orientar a busca de imóveis."));
+    });
+  });
 }
 
 export const LIMITES_SUGESTAO = "A recomendação usa o que o Atlas mede: moradores do Censo, distância até o ponto, divisão do público com outras World Gym, quantas academias há por perto (Google) e o mesmo parecer de um estudo de ponto: posição que não seria aprovada não é recomendada. Ela não enxerga imóvel disponível, aluguel, visibilidade da fachada, acesso, estacionamento nem fluxo de pessoas: serve para orientar onde procurar imóveis, não substitui a visita.";
