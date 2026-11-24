@@ -492,3 +492,65 @@ describe("fatia do potencial de consumo", () => {
     expect(p.porque).toContain("140%"); expect(p.porque).toContain("74%");
   });
 });
+
+describe("freios da demanda para qualquer modelo", () => {
+  // números inventados: 6 unidades do modelo A e 3 do modelo B (poucas para ter régua própria)
+  const refs = [
+    ...[100, 110, 120, 130, 140, 150].map((m, i) => ({ nome: `A${i}`, modelo: "low" as const, vendas: 250_000 + i * 10_000, moradores: m * 1000, potencial: 900_000, ab: 0.2, alunos: 2000 + i * 100 })),
+    ...[0.5, 0.6, 0.7].map((ab, i) => ({ nome: `B${i}`, modelo: "pro" as const, vendas: 300_000 + i * 10_000, moradores: 120_000, potencial: 1_000_000, ab, alunos: 1000 + i * 100 })),
+  ];
+
+  it("modelo com poucas unidades usa a rede toda e avisa", async () => {
+    const { refsParaModelo } = await import("@/lib/estudoPonto");
+    expect(refsParaModelo(refs, "low")).toMatchObject({ daRede: false });
+    expect(refsParaModelo(refs, "low")!.refs).toHaveLength(6);
+    expect(refsParaModelo(refs, "pro")).toMatchObject({ daRede: true });
+    expect(refsParaModelo(refs, "pro")!.refs).toHaveLength(9);
+    expect(refsParaModelo(null, "pro")).toBeNull();
+  });
+
+  it("ponto pobre e pequeno no modelo caro não passa, mesmo com a conta do dinheiro fechando", async () => {
+    const { freiosDeDemanda, aplicarFreios } = await import("@/lib/estudoPonto");
+    const f = freiosDeDemanda({ modelo: "pro", refs, meta: 460_000, moradores: 30_000, ab: 0.2, alunosNecessarios: 2200 });
+    expect(f.daRede).toBe(true);
+    expect(f.freios.map((x) => x.id).sort()).toEqual(["alunos", "populacao", "renda"]);
+    expect(f.freios.find((x) => x.id === "renda")!.nivel).toBe("reprovado"); // 20% contra o piso de 50%: menos da metade
+    expect(f.freios.find((x) => x.id === "alunos")!.nivel).toBe("reprovado"); // 2.200 contra 1.200 de maior base: mais de 1,5 vez
+    expect(aplicarFreios("aprovado", f.freios)).toBe("reprovado");
+  });
+
+  it("renda e alunos só limitam quando há referência do próprio modelo; população limita o 'aprova'", async () => {
+    const { freiosDeDemanda, aplicarFreios } = await import("@/lib/estudoPonto");
+    const bom = freiosDeDemanda({ modelo: "pro", refs, meta: 400_000, moradores: 200_000, ab: 0.55, alunosNecessarios: 1100 });
+    expect(bom.freios).toEqual([]);
+    expect(aplicarFreios("aprovado", bom.freios)).toBe("aprovado");
+    // renda entre a metade do piso e o piso: com condicionantes
+    const meio = freiosDeDemanda({ modelo: "pro", refs, meta: 400_000, moradores: 200_000, ab: 0.4, alunosNecessarios: 1100 });
+    expect(meio.freios.map((x) => [x.id, x.nivel])).toEqual([["renda", "atencao"]]);
+    expect(aplicarFreios("aprovado", meio.freios)).toBe("atencao");
+    expect(aplicarFreios("reprovado", meio.freios)).toBe("reprovado");
+    // o modelo barato não tem regra de renda
+    expect(freiosDeDemanda({ modelo: "low", refs, meta: 300_000, moradores: 200_000, ab: 0.01, alunosNecessarios: 2000 }).freios).toEqual([]);
+    // população abaixo do mínimo da rede: não é "aprova"
+    const pop = freiosDeDemanda({ modelo: "low", refs, meta: 300_000, moradores: 20_000, ab: 0.2, alunosNecessarios: 2000 });
+    expect(pop.freios.map((x) => x.id)).toEqual(["populacao"]);
+    expect(aplicarFreios("aprovado", pop.freios)).toBe("atencao");
+    // sem Censo, os freios de moradores e renda não valem
+    expect(freiosDeDemanda({ modelo: "pro", refs, meta: 400_000, moradores: 0, ab: 0, alunosNecessarios: 1100, semCenso: true }).freios).toEqual([]);
+  });
+
+  it("o parecer explica o motivo e a conta mostra de onde vem o número", async () => {
+    const { freiosDeDemanda, parecerDoPonto, contaDoPonto, avaliarPonto } = await import("@/lib/estudoPonto");
+    const f = freiosDeDemanda({ modelo: "pro", refs, meta: 460_000, moradores: 30_000, ab: 0.2, alunosNecessarios: 2200 });
+    const pr = parecerDoPonto({ veredito: "reprovado", provavel: 530_000, meta: 460_000, payback: 28, mesesAprovado: 36, mesesAtencao: 48, freios: f.freios });
+    expect(pr.rotulo).toBe("Não aprova");
+    expect(pr.porque).toContain("A conta do dinheiro fecha");
+    expect(pr.porque).toContain("Mas o ponto não aprova");
+    expect(pr.condicoes.join(" ")).toContain("mais renda");
+    const r = avaliarPonto({ m2: 2000, modelo: "pro" }, PREMISSAS, { p25: 160, mediana: 200, p75: 226, n: 3 });
+    const conta = contaDoPonto({ m2: 2000, modelo: "pro" }, r, PREMISSAS, { p25: 160, mediana: 200, p75: 226, n: 3 }, { min: 130, max: 220, n: 3 });
+    expect(conta.join(" ")).toMatch(/R\$ 200 por m² × 2\.000 m²/);
+    expect(conta.join(" ")).toContain("é uma premissa"); // a mediana é igual à premissa do modelo
+    expect(conta.join(" ")).toContain("de R$ 130 a R$ 220 por m²");
+  });
+});

@@ -21,7 +21,7 @@ import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamada
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -121,7 +121,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const avisoCenso = semCenso && !carregandoCenso; // o aviso só aparece depois de tentar buscar o município
   const moradores10 = area10 && !semCenso ? moradoresNaArea(dados.censo!, area10) : null;
   // população recomendada calibrada com a rede (moradores na área de 10 min de cada unidade madura do modelo)
-  const refsPop = useReferenciaPopulacao(dados.unidades!, dados.censo, atual?.modelo ?? null);
+  const refsTodas = useReferenciaPopulacao(dados.unidades!, dados.censo, atual?.modelo ?? null);
+  const refsPop = useMemo(() => (atual ? refsParaModelo(refsTodas, atual.modelo)?.refs ?? null : null), [refsTodas, atual?.modelo]); // eslint-disable-line react-hooks/exhaustive-deps
+  // do modelo; com poucas unidades, a rede toda
   const ex = atual ? extras.get(atual.id) ?? null : null;
   const pop = r && refsPop ? populacaoRecomendada(r.meta, moradores10, refsPop) : null;
   // Totais da área para a legenda (rosca das classes de renda e valor do potencial de consumo)
@@ -139,8 +141,33 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const faixaFatia = faixaDaFatia(refsPop);
   const potencial10 = resumoCenso?.potencial?.total ?? null;
   const fatiaPonto = r && potencial10 ? r.provavel / potencial10 : null;
-  const vfBase = vereditoComFatia(ex?.veredito ?? r?.veredito ?? null, fatiaPonto, faixaFatia);
+  // freios da demanda (população, renda e alunos contra a rede): valem para qualquer modelo (decisão do dono, 24/11/2026)
+  const ab10 = area10 ? resumoCenso?.renda?.ab ?? null : null;
+  const freios = useMemo(() => (r && atual ? freiosDeDemanda({ modelo: atual.modelo, refs: refsTodas, meta: r.meta, moradores: moradores10, ab: ab10, alunosNecessarios: ex?.alunos ?? null, semCenso }).freios : []),
+    [r, atual?.modelo, refsTodas, moradores10, ab10, ex?.alunos, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
+  const vfBase = aplicarFreios(vereditoComFatia(ex?.veredito ?? r?.veredito ?? null, fatiaPonto, faixaFatia), freios);
   const vf = limitarSemCenso(vfBase, semCenso); // sem Censo nunca passa de "com condicionantes" (decisão do dono, 24/11/2026)
+  // os dois modelos lado a lado, com os m² e a posição do imóvel (a troca de modelo não muda o imóvel); o Atlas recomenda o que passa melhor
+  const compModelos = useMemo(() => {
+    if (!atual || !dados.premissas || !dados.vendasPorM2 || !dados.unidades || !dados.censo) return null;
+    const rank: Record<Veredito, number> = { aprovado: 2, atencao: 1, reprovado: 0 };
+    const itens = (["low", "pro"] as Modelo[]).flatMap((m) => {
+      const faixa = dados.vendasPorM2![m];
+      if (!faixa) return [];
+      const pm: Ponto = { ...atual, modelo: m };
+      const rm = avaliarPonto(pm, dados.premissas!, faixa);
+      const tk = ticketSugerido(m, dados.unidades!, parecidas(pm, dados.censo!, dados.unidades!));
+      const alunos = tk ? alunosDoPonto(rm, tk.preco) : null;
+      const vagas = alunos ? vagasDoPonto(alunos, atual.imovel) : null;
+      const fm = freiosDeDemanda({ modelo: m, refs: refsTodas, meta: rm.meta, moradores: moradores10, ab: ab10, alunosNecessarios: alunos, semCenso });
+      const fat = potencial10 ? rm.provavel / potencial10 : null;
+      const v = limitarSemCenso(aplicarFreios(vereditoComFatia(vereditoFinal(rm.veredito, vagas), fat, fm.faixaFatia), fm.freios) as Veredito, semCenso);
+      return [{ modelo: m, nome: dados.premissas!.modelos[m].nome, r: rm, veredito: v, freios: fm.freios }];
+    });
+    if (itens.length < 2) return null;
+    const melhor = [...itens].sort((a, b) => rank[b.veredito] - rank[a.veredito] || (a.r.payback === b.r.payback ? 0 : a.r.payback < b.r.payback ? -1 : 1))[0];
+    return { itens, recomendado: melhor.veredito === "reprovado" ? null : melhor.modelo };
+  }, [atual?.id, atual?.m2, atual?.imovel, atual?.c, dados, refsTodas, moradores10, ab10, potencial10, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
   const candidatasPerto = useMemo(() => (atual && dados.censo && !semCenso && dados.premissas
     ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva, { n: 8 })
@@ -358,7 +385,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
         populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
         ticket: ex?.ticket ?? null, alunos: ex?.alunos ?? null, vagas: ex?.vagas ?? null,
-        faixaFatia,
+        faixaFatia, freios,
         pontos: pontos.map((p, i) => {
           const rr = resultados.get(p.id) ?? null;
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
@@ -458,7 +485,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             }} />
             <div className="flex gap-1.5" role="group" aria-label="Modelo">
               {(["low", "pro"] as Modelo[]).map((m) => (
-                <Pilula key={m} ativo={atual.modelo === m} onClick={() => mudar(atual.id, { modelo: m, m2: dados.premissas!.modelos[m].padraoM2 })}>{dados.premissas!.modelos[m].nome}</Pilula>
+                <Pilula key={m} ativo={atual.modelo === m} onClick={() => mudar(atual.id, { modelo: m })}>{dados.premissas!.modelos[m].nome}</Pilula>
               ))}
             </div>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -466,6 +493,24 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                 className="w-20 rounded-md border bg-white px-2 py-1 text-right text-sm tabular-nums text-foreground" aria-label="Tamanho do imóvel em m²" /> m²
             </label>
           </div>
+
+          {compModelos && (
+            <div className="rounded-xl border bg-white p-3" role="region" aria-label="Modelo recomendado">
+              <p className="text-[13px]"><b className="font-semibold">Modelo recomendado:</b> {compModelos.recomendado ? dados.premissas!.modelos[compModelos.recomendado].nome : "nenhum dos dois aprova este ponto"}</p>
+              <p className="text-[11px] text-muted-foreground">Os dois modelos avaliados com o mesmo imóvel ({atual.m2.toLocaleString("pt-BR")} m²). Clique para ver o estudo no outro modelo.</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {compModelos.itens.map((it) => (
+                  <button key={it.modelo} type="button" aria-pressed={atual.modelo === it.modelo} onClick={() => mudar(atual.id, { modelo: it.modelo })}
+                    className="rounded-lg border px-3 py-2 text-left text-[12px] hover:bg-muted aria-pressed:border-foreground aria-pressed:ring-1 aria-pressed:ring-foreground">
+                    <span className="flex items-center justify-between gap-2"><b className="text-[13px]">{it.nome}</b><span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${FUNDO_VEREDITO[it.veredito]}`}>{VEREDITO_ROTULO[it.veredito]}</span></span>
+                    <span className="mt-0.5 block text-muted-foreground">{reais(it.r.provavel)} por mês · payback {meses(it.r.payback)}</span>
+                    {it.freios.length > 0 && <span className="mt-0.5 block text-destructive">{it.freios.map((f) => ({ populacao: "população abaixo do mínimo da rede", renda: "renda abaixo da rede", alunos: "alunos acima da rede" }[f.id])).join(" · ")}</span>}
+                  </button>
+                ))}
+              </div>
+              {atual.m2 < dados.premissas!.modelos[atual.modelo].padraoM2 * 0.75 && <p className="mt-2 text-[11px] text-muted-foreground">O imóvel ({atual.m2.toLocaleString("pt-BR")} m²) é menor que o padrão do {dados.premissas!.modelos[atual.modelo].nome} ({dados.premissas!.modelos[atual.modelo].padraoM2.toLocaleString("pt-BR")} m²). A conta usa o tamanho real.</p>}
+            </div>
+          )}
 
           <Faixa tom={vf === "aprovado" ? "bom" : vf === "atencao" ? "atencao" : "ruim"}>
             Parecer do Atlas: {PARECER_ROTULO[vf ?? r.veredito]} · payback {meses(r.payback)}{ex?.vagas?.situacao === "insuficiente" ? " · estacionamento insuficiente" : ""}
@@ -508,7 +553,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             <Secao icone={Gavel} titulo="Parecer do Atlas">
               {(() => {
                 const pr = parecerDoPonto({ veredito: vfBase ?? r.veredito, provavel: r.provavel, meta: r.meta, payback: r.payback, mesesAprovado: dados.premissas!.regua.mesesAprovado, mesesAtencao: dados.premissas!.regua.mesesAtencao,
-                  vagas: ex?.vagas ?? null, populacao: pop ? { situacao: pop.situacao, recomendada: pop.recomendada } : null, divideCom: semCenso ? [] : cap?.divideCom, semCenso,
+                  vagas: ex?.vagas ?? null, populacao: pop ? { situacao: pop.situacao, recomendada: pop.recomendada } : null, divideCom: semCenso ? [] : cap?.divideCom, semCenso, freios,
                   fatia: fatiaPonto != null && faixaFatia && potencial10 ? { valor: fatiaPonto, potencial: potencial10, comum: faixaFatia.comum, maxima: faixaFatia.maxima } : null });
                 const tom = (vf ?? r.veredito) === "aprovado" ? "text-success" : (vf ?? r.veredito) === "atencao" ? "text-warning" : "text-destructive";
                 return <>
@@ -518,6 +563,14 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                     <p className="mt-2 text-[12px] font-semibold text-foreground">{(vf ?? r.veredito) === "reprovado" ? "O que mudaria a conclusão" : "Condições para seguir"}</p>
                     <ul className="mt-1 space-y-1 text-[13px]">{pr.condicoes.map((c) => <li key={c} className="flex gap-2"><span className="flex-none text-muted-foreground">•</span>{c}</li>)}</ul>
                   </>}
+                  {(() => {
+                    const faixaM = dados.vendasPorM2![atual.modelo];
+                    if (!faixaM) return null;
+                    const reaisM2 = dados.unidades!.filter((u) => u.madura && u.modelo === atual.modelo && u.vendas && u.m2).map((u) => (u.vendas as number) / (u.m2 as number));
+                    const linhasConta = contaDoPonto(atual, r, dados.premissas!, faixaM, reaisM2.length ? { min: Math.min(...reaisM2), max: Math.max(...reaisM2), n: reaisM2.length } : null);
+                    return <details className="mt-3 rounded-lg border bg-muted/40 px-2.5 py-1.5"><summary className="cursor-pointer text-xs font-medium text-muted-foreground">Como o Atlas chegou nesse número</summary>
+                      <ul className="mt-1.5 space-y-1.5 text-[12px] text-muted-foreground">{linhasConta.map((l) => <li key={l}>{l}</li>)}</ul></details>;
+                  })()}
                 </>;
               })()}
               <details className="mt-3 rounded-lg border bg-muted/40 px-2.5 py-1.5" open={(atual.decisao?.status ?? "analise") !== "analise"}>

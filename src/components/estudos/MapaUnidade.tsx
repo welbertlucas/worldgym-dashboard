@@ -14,7 +14,7 @@ export { LegendaRenda };
 import { REGRAS_NOVA_UNIDADE, SecaoSugestoes, type ResultadoSugestoes, desenharSugestoes, enderecoCurto, textoParecerSugestao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
 import { buscarFotosDaRua, comFotosDaRegiao, paginaDeFotos } from "@/components/estudos/fotosRua";
-import { avaliarPonto, faixaDaFatia, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { avaliarPonto, faixaDaFatia, refsParaModelo, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "oportunidade";
@@ -79,7 +79,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       { raioKm: 10, n: 8, separacaoKm: 2.5, ganhoMinimo: -0.3, ...REGRAS_NOVA_UNIDADE })
     : null), [u?.nome, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   // parecer de cada posição sugerida: o mesmo do estudo de ponto, com o tamanho padrão do modelo e a fatia do potencial contra a rede
-  const refsModelo = useReferenciaPopulacao(dados.unidades ?? SEM_UNIDADES, dados.censo, candidatasNova && u ? u.modelo : null);
+  const refsTodas = useReferenciaPopulacao(dados.unidades ?? SEM_UNIDADES, dados.censo, candidatasNova && u ? u.modelo : null);
+  const refsModelo = useMemo(() => (u ? refsParaModelo(refsTodas, u.modelo)?.refs ?? null : null), [refsTodas, u?.modelo]); // do modelo; com poucas unidades, a rede toda // eslint-disable-line react-hooks/exhaustive-deps
   const avaliacaoNova = useMemo(() => {
     const faixaM2 = u ? dados.vendasPorM2?.[u.modelo] : null;
     if (!u || !dados.premissas || !faixaM2 || !refsModelo) return null;

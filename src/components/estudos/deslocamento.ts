@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import type { Leaflet } from "@/components/estudos/mapaComum";
-import { MINUTOS_PADRAO, moradoresNaArea, potencialNaArea, type Censo, type Deslocamento, type Geometria, type Modelo, type RefPopulacao, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { MINUTOS_PADRAO, classesNaArea, moradoresNaArea, potencialNaArea, type Censo, type Deslocamento, type Geometria, type Modelo, type RefPopulacao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // Azul-marinho com borda branca (decisão do dono, 24/11/2026): o verde-azulado anterior sumia no verde dos parques do mapa.
 export const COR_DESLOCAMENTO = "#1e3a8a";
@@ -92,7 +92,8 @@ export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo |
   useEffect(() => {
     setRefs(null);
     if (!modelo || !censo) return;
-    const alvo = unidades.filter((u) => u.madura && u.modelo === modelo && u.c && u.vendas);
+    // todas as unidades maduras (de qualquer modelo): cada freio escolhe a régua do modelo e, com poucas unidades, usa a rede toda (refsParaModelo)
+    const alvo = unidades.filter((u) => u.madura && u.c && u.vendas);
     let vivo = true;
     (async () => {
       const out: RefPopulacao[] = [];
@@ -100,7 +101,7 @@ export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo |
         const lote = await Promise.all(alvo.slice(i, i + 4).map(async (u) => {
           try {
             const g = (await buscarDeslocamento(u.c as [number, number], "carro")).contornos[String(MINUTOS_PADRAO)];
-            return g ? ({ nome: u.nome, vendas: u.vendas as number, moradores: moradoresNaArea(censo, g), potencial: potencialNaArea(censo, g)?.total } as RefPopulacao) : null;
+            return g ? ({ nome: u.nome, vendas: u.vendas as number, moradores: moradoresNaArea(censo, g), potencial: potencialNaArea(censo, g)?.total, modelo: u.modelo, ab: classesNaArea(censo, g)?.ab ?? null, alunos: u.alunos } as RefPopulacao) : null;
           } catch { return null; }
         }));
         out.push(...lote.filter((x): x is RefPopulacao => !!x));
@@ -109,6 +110,6 @@ export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo |
       if (vivo) setRefs(out);
     })();
     return () => { vivo = false; };
-  }, [modelo, censo, unidades]);
+  }, [!!modelo, censo, unidades]);
   return refs;
 }

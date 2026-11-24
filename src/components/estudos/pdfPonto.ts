@@ -4,7 +4,7 @@
 // Os textos são montados por regras fixas a partir dos números da tela; o que é estimativa ou premissa aparece escrito como tal.
 import type { ConteudoPdf, PaginaDoEstudo, Secao } from "@/lib/estudoPdf";
 import { nomeDoArquivo, ALT_FOTO_MAPA } from "@/lib/estudoPdf";
-import { DECISAO_ROTULO, PARECER_ROTULO, vereditoComFatia, limitarSemCenso, compararComParecidas, leituraParecidas, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { DECISAO_ROTULO, PARECER_ROTULO, aplicarFreios, vereditoComFatia, limitarSemCenso, compararComParecidas, leituraParecidas, ESTACIONAMENTO, PARTICIPACAO_CANVA, SITUACAO_POPULACAO, SITUACAO_VAGAS, VEREDITO_ROTULO, meses, populacaoCanva, reais, vereditoFinal, type Freio, type Captacao, type Fator, type Ponto, type Premissas, type Resultado, type SituacaoPopulacao, type SituacaoVagas, type UnidadeEstudo } from "@/lib/estudoPonto";
 import { PENETRACAO_MERCADO, resumoMercado, secoesDeMercado, separarConcorrencia, type DadosMercado } from "@/components/estudos/pdfUnidade";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
@@ -35,6 +35,8 @@ export interface DadosPdfPonto {
   vagas?: { min: number; max: number; informadas: number | null; proprias: number | null; perto: number | null; situacao: SituacaoVagas } | null;
   /** Faixa da fatia do potencial de consumo nas unidades maduras do modelo (faixaDaFatia). */
   faixaFatia?: { comum: number; maxima: number; mediana: number; unidades: number } | null;
+  /** Freios da demanda do ponto aberto (população, renda e alunos contra a rede): entram no parecer e na conclusão. */
+  freios?: Freio[];
   comparacao?: { foto: string | null };
   itensImovel: { k: keyof Ponto["imovel"]; rotulo: string }[];
   hoje?: Date;
@@ -183,13 +185,14 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       if (cap.divideCom.length) conc.push(`Dentro da rede, o ponto dividiria ${pct(cap.divideCom.reduce((a, x) => a + x.parte, 0))} do público com ${cap.divideCom.map((x) => x.nome).join(" e ")}.`);
       if (pp?.situacao) conc.push(`A população da área (${mil(pp.moradores)} moradores) está ${SITUACAO_POPULACAO[pp.situacao]} para a meta: a rede recomendaria cerca de ${mil(pp.recomendada)}.`);
       if (d.ticket && d.alunos) conc.push(`Com ticket sugerido de ${preco(d.ticket.preco)}, o ponto precisa atender cerca de ${num(d.alunos)} alunos${d.vagas ? ` e de ${d.vagas.min} a ${d.vagas.max} vagas de estacionamento (${d.vagas.situacao === "sem-dado" ? "vagas ainda não informadas" : `informadas ${d.vagas.informadas}, ${SITUACAO_VAGAS[d.vagas.situacao]}`})` : ""}.`);
-      const vfin = r ? limitarSemCenso(vereditoComFatia(vereditoFinal(r.veredito, d.vagas ?? null), fatia, ff), d.semCenso) : null;
+      const vfin = r ? limitarSemCenso(aplicarFreios(vereditoComFatia(vereditoFinal(r.veredito, d.vagas ?? null), fatia, ff), d.freios ?? []), d.semCenso) : null;
+      for (const f of d.freios ?? []) conc.push(f.texto);
       if (d.semCenso) conc.push("O Atlas não tem os dados do Censo desta região (a malha cobre só a região das unidades): população, renda, idade, potencial de consumo e divisão com a rede não foram medidos. O parecer vale só pela estimativa de vendas por m² da rede; a demanda precisa ser conferida antes da decisão.");
       if (r) conc.push(`Diante desse cenário, o estudo ${vfin === "aprovado" ? "aprova" : vfin === "atencao" ? "aprova com condicionantes" : "não aprova"} o ponto para o ${modelo}: vendas previstas de ${reais(r.provavel)} por mês, lucro de ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} e payback de ${meses(r.payback)}${vfin !== r.veredito ? ", mas o estacionamento não atende o mínimo, critério eliminatório da rede" : ""}.${d.sugestoes?.sugestoes.length ? ` Há posições até ${pct(d.sugestoes.sugestoes[0].ganho)} melhores em público a até ${d.sugestoes.sugestoes[0].distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, que valem uma busca de imóveis antes de fechar.` : ""} A visibilidade da fachada e o acesso devem ser conferidos na visita.`);
       conc.push(`Situação no comitê de expansão: ${DECISAO_ROTULO[p.decisao?.status ?? "analise"]}${p.decisao?.unidade ? ` (${p.decisao.unidade})` : ""}${p.decisao?.em ? `, em ${new Date(p.decisao.em).toLocaleDateString("pt-BR")}` : ""}.${p.decisao?.comentario ? ` Comentário: ${p.decisao.comentario}` : ""}`);
       secoes.push({
         titulo: "Conclusão e Recomendação Final", novaPagina: true, linhas: [],
-        faixa: vfin ? `Parecer do Atlas: ${PARECER_ROTULO[vfin]} · modelo ${modelo}${vfin !== r?.veredito ? (d.vagas?.situacao === "insuficiente" ? " (estacionamento)" : d.semCenso && r?.veredito === "aprovado" ? " (sem Censo da região)" : " (mercado da região)") : ""}` : undefined,
+        faixa: vfin ? `Parecer do Atlas: ${PARECER_ROTULO[vfin]} · modelo ${modelo}${vfin !== r?.veredito ? (d.vagas?.situacao === "insuficiente" ? " (estacionamento)" : d.semCenso && r?.veredito === "aprovado" ? " (sem Censo da região)" : d.freios?.length ? " (população, renda ou alunos contra a rede)" : " (mercado da região)") : ""}` : undefined,
         texto: conc,
         paragrafo: `Premissas: vendas por m² das unidades maduras da rede, penetração de mercado de ${pct(PENETRACAO_MERCADO)}, população recomendada e ticket calibrados com as unidades da rede, estacionamento com 8% a 12% no pico e 20% a 30% de carro, classes de renda estimadas pela média e pela variação da renda de cada setor do Censo e gasto da POF corrigido pela inflação. Os números de mercado devem ser lidos como ordem de grandeza.`,
       });

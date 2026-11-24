@@ -488,7 +488,7 @@ function percentilDe(valores: number[], p: number): number | null {
 }
 
 /** Referência de uma unidade madura da rede: vendas por mês e moradores na própria área de 10 min de carro. */
-export interface RefPopulacao { nome: string; vendas: number; moradores: number; /** Gasto mensal com esportes na área de 10 min (potencial de consumo). */ potencial?: number }
+export interface RefPopulacao { nome: string; vendas: number; moradores: number; /** Gasto mensal com esportes na área de 10 min (potencial de consumo). */ potencial?: number; /** Modelo da unidade (a referência de cada modelo sai daqui). */ modelo?: Modelo; /** Parte dos moradores das classes AA, A e B na área de 10 min. */ ab?: number | null; /** Alunos ativos da unidade. */ alunos?: number | null }
 /**
  * Fatia do potencial de consumo (decisão do dono, 23/11/2026): vendas ÷ o que os moradores da área de 10 min gastam com esportes.
  * A faixa vem das unidades maduras do mesmo modelo: `comum` = 3 em cada 4 unidades ficam até ela; `maxima` = a maior da rede.
@@ -523,6 +523,90 @@ export function populacaoRecomendada(meta: number, moradores: number | null, ref
   return { recomendada, minima, vendasPorMorador: med, n: porMorador.length, situacao };
 }
 export const SITUACAO_POPULACAO: Record<SituacaoPopulacao, string> = { adequada: "adequada", limite: "no limite", abaixo: "abaixo do recomendado" };
+
+// ---------- Freios da demanda para qualquer modelo (decisão do dono, 24/11/2026) ----------
+// Antes, o Pro (só 3 unidades) ficava sem população recomendada, sem fatia do potencial e sem unidades parecidas: passava só pela conta
+// do dinheiro (R$ por m² × m²), que não olha o lugar. Agora cada freio usa as unidades maduras do próprio modelo e, quando elas são
+// poucas, a rede toda (avisado no texto). Renda e alunos têm limites próprios, tirados das unidades que a rede já tem.
+
+/** Unidades do modelo com dado suficiente para servir de régua (a fatia do potencial pede ao menos MIN_UNIDADES_FATIA). */
+export function refsParaModelo(refs: RefPopulacao[] | null | undefined, modelo: Modelo): { refs: RefPopulacao[]; daRede: boolean } | null {
+  if (!refs) return null;
+  const doModelo = refs.filter((x) => x.modelo === modelo);
+  return doModelo.length >= MIN_UNIDADES_FATIA ? { refs: doModelo, daRede: false } : { refs, daRede: true };
+}
+
+/** Renda: o ponto não pode ter menos moradores AA+A+B que a unidade do modelo com menos (abaixo disso, com condicionantes; abaixo da metade, não aprova). */
+export const FATOR_RENDA_REPROVA = 0.5;
+/** Alunos: o ponto não pode exigir mais alunos que a maior base real do modelo (acima, com condicionantes; acima de 1,5 vez, não aprova). */
+export const FATOR_ALUNOS_REPROVA = 1.5;
+export const MIN_UNIDADES_LIMITE = 2;
+
+export interface Freio { id: "populacao" | "renda" | "alunos"; nivel: "atencao" | "reprovado"; /** Frase do parecer. */ texto: string; /** O que mudaria a conclusão. */ condicao: string }
+const pctF = (x: number) => `${Math.round(x * 100)}%`;
+const milF = (v: number) => `${Math.round(v / 1000).toLocaleString("pt-BR")} mil`;
+
+export function freiosDeDemanda(o: {
+  modelo: Modelo; refs: RefPopulacao[] | null | undefined; meta: number; moradores: number | null; ab: number | null; alunosNecessarios: number | null; semCenso?: boolean;
+}) {
+  const sel = refsParaModelo(o.refs, o.modelo);
+  const freios: Freio[] = [];
+  const nome = o.modelo === "pro" ? "Pro" : "Low Cost";
+  const pop = sel && !o.semCenso ? populacaoRecomendada(o.meta, o.moradores, sel.refs) : null;
+  const daRede = sel?.daRede ? " (referência da rede toda: o modelo tem poucas unidades)" : "";
+  if (pop?.situacao === "abaixo" && o.moradores != null) freios.push({ id: "populacao", nivel: "atencao",
+    texto: `A área de 10 min tem ${milF(o.moradores)} moradores, abaixo dos ${milF(pop.minima)} que a rede precisa no mínimo para chegar a essa venda${daRede}.`,
+    condicao: `Procurar um ponto com mais moradores na área de 10 min (a rede pede ${milF(pop.recomendada)}; o mínimo é ${milF(pop.minima)})${daRede}.` });
+  // renda: só vale com a régua do próprio modelo e para quem vende mais caro (Pro): é onde a renda decide
+  const doModelo = (o.refs ?? []).filter((x) => x.modelo === o.modelo && x.ab != null);
+  if (o.modelo === "pro" && !o.semCenso && o.ab != null && doModelo.length >= MIN_UNIDADES_LIMITE) {
+    const piso = Math.min(...doModelo.map((x) => x.ab as number));
+    if (o.ab < piso * FATOR_RENDA_REPROVA) freios.push({ id: "renda", nivel: "reprovado",
+      texto: `Só ${pctF(o.ab)} dos moradores da área estão nas classes A e B; a ${nome} com menos tem ${pctF(piso)}. A renda da área é muito menor que a de qualquer ${nome} da rede.`,
+      condicao: `Procurar uma área com mais renda (classes A e B acima de ${pctF(piso)}) ou avaliar o ponto como Low Cost.` });
+    else if (o.ab < piso) freios.push({ id: "renda", nivel: "atencao",
+      texto: `${pctF(o.ab)} dos moradores da área estão nas classes A e B; a ${nome} com menos tem ${pctF(piso)}.`,
+      condicao: `Conferir a renda da área: está abaixo da de qualquer ${nome} da rede (A e B: ${pctF(piso)}).` });
+  }
+  const comAlunos = (o.refs ?? []).filter((x) => x.modelo === o.modelo && (x.alunos ?? 0) > 0);
+  let maxAlunos: number | null = null;
+  if (comAlunos.length >= MIN_UNIDADES_LIMITE && o.alunosNecessarios != null) {
+    maxAlunos = Math.max(...comAlunos.map((x) => x.alunos as number));
+    if (o.alunosNecessarios > maxAlunos * FATOR_ALUNOS_REPROVA) freios.push({ id: "alunos", nivel: "reprovado",
+      texto: `Para vender isso o ponto precisaria de ${o.alunosNecessarios.toLocaleString("pt-BR")} alunos; a maior ${nome} da rede tem ${maxAlunos.toLocaleString("pt-BR")}.`,
+      condicao: `Esperar menos alunos: a maior ${nome} da rede tem ${maxAlunos.toLocaleString("pt-BR")}. Um imóvel menor ou outro modelo pede uma base mais realista.` });
+    else if (o.alunosNecessarios > maxAlunos) freios.push({ id: "alunos", nivel: "atencao",
+      texto: `O ponto precisaria de ${o.alunosNecessarios.toLocaleString("pt-BR")} alunos, mais que a maior ${nome} da rede (${maxAlunos.toLocaleString("pt-BR")}).`,
+      condicao: `Conferir a base de alunos: a meta pede mais que a maior ${nome} da rede (${maxAlunos.toLocaleString("pt-BR")}).` });
+  }
+  return { freios, pop, daRede: !!sel?.daRede, faixaFatia: sel ? faixaDaFatia(sel.refs) : null, maxAlunos };
+}
+/**
+ * A conta do estudo em linhas, para o parecer explicar de onde sai o número (pedido do dono, 24/11/2026): vendas = R$ por m² × m²;
+ * mínimo = investimento ÷ meses + custo fixo, descontada a parte variável. `real`: R$ por m² das unidades maduras do modelo.
+ */
+export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, premissas: Premissas, faixa: FaixaM2, real: { min: number; max: number; n: number } | null): string[] {
+  const p = premissas.modelos[ponto.modelo], rg = premissas.regua;
+  const num = (v: number) => Math.round(v).toLocaleString("pt-BR");
+  const mi = (v: number) => `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  const ehPremissa = p.vendasPorM2 != null && faixa.mediana === p.vendasPorM2;
+  const linhas: string[] = [];
+  linhas.push(`Vendas previstas: R$ ${num(faixa.mediana)} por m² × ${num(r.m2Efetivo)} m² = ${reais(r.provavel)} por mês.${ponto.m2 > p.limiteM2 ? ` Acima de ${num(p.limiteM2)} m², cada m² a mais conta só ${Math.round(p.pesoAcima * 100)}%.` : ""}`);
+  linhas.push(ehPremissa
+    ? `O R$ ${num(faixa.mediana)} por m² do ${p.nome} é uma premissa: a rede tem poucas unidades maduras do modelo.${real ? ` As ${real.n} que existem vendem de R$ ${num(real.min)} a R$ ${num(real.max)} por m².` : ""}`
+    : `O R$ ${num(faixa.mediana)} por m² é a mediana de ${faixa.n} unidades maduras do ${p.nome}${real ? ` (de R$ ${num(real.min)} a R$ ${num(real.max)} por m²)` : ""}.`);
+  linhas.push(`Mínimo para pagar o investimento em ${rg.mesesAprovado / 12} anos: ${mi(r.investimento)} ÷ ${rg.mesesAprovado - rg.maturacaoMeses} meses + custo fixo de ${reais(r.custoFixo)}, descontando ${Math.round(p.variavel * 1000) / 10}% de custo variável = ${reais(r.meta)} por mês.`);
+  linhas.push(`Lucro esperado: ${reais(r.provavel)} × (1 − ${Math.round(p.variavel * 1000) / 10}%) − ${reais(r.custoFixo)} = ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} por mês.`);
+  linhas.push("Essa conta não olha o lugar: população, renda, potencial de consumo e alunos entram como freios do parecer, e não nas vendas previstas.");
+  return linhas;
+}
+/** Aplica os freios ao veredito: um que reprova reprova; um de atenção tira o "aprova". */
+export function aplicarFreios(v: Veredito | null, freios: Freio[]): Veredito | null {
+  if (!v) return v;
+  if (freios.some((f) => f.nivel === "reprovado")) return "reprovado";
+  if (freios.length && v === "aprovado") return "atencao";
+  return v;
+}
 
 /** Referência dos estudos de geomarketing antigos (Canva): alunos ÷ (penetração × participação de 15% a 20%). */
 export const PARTICIPACAO_CANVA = [0.15, 0.2] as const;
@@ -569,6 +653,8 @@ export function parecerDoPonto(o: {
   semCenso?: boolean;
   /** Fatia do potencial que o ponto precisaria, o potencial da área e a faixa da rede (faixaDaFatia). */
   fatia?: { valor: number; potencial: number; comum: number; maxima: number } | null;
+  /** Freios da demanda (população, renda, alunos contra a rede), já aplicados ao `veredito` recebido. */
+  freios?: Freio[];
 }) {
   // sem Censo, "aprova" vira "com condicionantes" (limitarSemCenso); o texto continua dizendo os números do modelo
   const limitado = o.semCenso && o.veredito === "aprovado";
@@ -583,18 +669,26 @@ export function parecerDoPonto(o: {
     : `Deve vender cerca de ${r(o.provavel)} por mês, abaixo do mínimo para o investimento voltar em ${anos(o.mesesAtencao)}${pb}.`;
   const pf = (x: number) => `${Math.round(x * 100)}%`;
   const fatiaAlta = o.fatia && o.fatia.valor > o.fatia.maxima;
-  const porqueFinal = fatiaAlta && o.vagas?.situacao !== "insuficiente"
+  const freioReprova = (o.freios ?? []).find((f) => f.nivel === "reprovado");
+  const textosFreios = (o.freios ?? []).map((f) => f.texto).join(" ");
+  const contaFecha = o.provavel >= o.meta ? `A conta do dinheiro fecha: deve vender cerca de ${r(o.provavel)} por mês com a unidade madura, acima dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}. ` : "";
+  const porqueFinal = freioReprova && o.vagas?.situacao !== "insuficiente" && !fatiaAlta
+    ? (contaFecha ? `${contaFecha}Mas o ponto não aprova: ${textosFreios}` : `${porque} Além disso: ${textosFreios}`)
+    : (o.freios ?? []).length && o.veredito === "atencao" && o.provavel >= o.meta && o.vagas?.situacao !== "insuficiente" && !fatiaAlta
+    ? `${contaFecha}O parecer fica com condicionantes: ${textosFreios}`
+    : fatiaAlta && o.vagas?.situacao !== "insuficiente"
     ? `Para vender ${r(o.provavel)} por mês, o ponto precisaria de ${pf(o.fatia!.valor)} de tudo o que os moradores da área de 10 min gastam com esportes (${r(o.fatia!.potencial)} por mês). Nenhuma unidade da rede tira tanto do seu mercado: a maior fica em ${pf(o.fatia!.maxima)}.`
     : porque;
   const condicoes: string[] = [];
   if (o.semCenso) condicoes.push("Medir a demanda antes de decidir: o Atlas não tem o Censo desta região (a malha cobre só a região das unidades), então moradores, renda, idade e divisão com a rede não entraram. O parecer vale só pela estimativa de vendas por m² da rede.");
   if (fatiaAlta) condicoes.push("Procurar um ponto com mais gente e mais renda em volta, ou um imóvel menor, até a fatia do mercado ficar dentro do que a rede já faz.");
   else if (o.fatia && o.fatia.valor > o.fatia.comum) condicoes.push(`O ponto precisa tirar ${pf(o.fatia.valor)} do mercado de esportes da região, mais que 3 em cada 4 unidades da rede (até ${pf(o.fatia.comum)}): só as mais fortes conseguem.`);
-  if (o.veredito === "atencao" && o.vagas?.situacao !== "insuficiente") condicoes.push("Baixar o investimento ou o aluguel (carência, imóvel menor, obra mais barata) até a conta fechar na régua.");
+  if (o.veredito === "atencao" && o.provavel < o.meta && o.vagas?.situacao !== "insuficiente") condicoes.push("Baixar o investimento ou o aluguel (carência, imóvel menor, obra mais barata) até a conta fechar na régua.");
   if (o.vagas?.situacao === "limite") condicoes.push(`Garantir mais vagas: as informadas estão no limite (o ideal são ${o.vagas.max}).`);
   if (o.vagas?.situacao === "sem-dado") condicoes.push(`Confirmar o estacionamento: o ponto precisa de ${o.vagas.min} a ${o.vagas.max} vagas (próprias ou bem perto).`);
-  if (o.populacao?.situacao === "abaixo" || o.populacao?.situacao === "limite") condicoes.push(`Conferir o público na visita: a área de 10 min tem menos moradores que os ${Math.round(o.populacao.recomendada / 1000).toLocaleString("pt-BR")} mil recomendados.`);
+  if (!(o.freios ?? []).some((f) => f.id === "populacao") && (o.populacao?.situacao === "abaixo" || o.populacao?.situacao === "limite")) condicoes.push(`Conferir o público na visita: a área de 10 min tem menos moradores que os ${Math.round(o.populacao.recomendada / 1000).toLocaleString("pt-BR")} mil recomendados.`);
   for (const d of o.divideCom ?? []) if (Math.round(d.parte * 100) >= 20) condicoes.push(`Aceitar dividir ${Math.round(d.parte * 100)}% do público com ${/^World Gym /.test(d.nome) ? `a ${d.nome}` : `o ponto "${d.nome}", também em estudo`}.`);
+  for (const f of o.freios ?? []) condicoes.push(f.condicao);
   return { rotulo: PARECER_ROTULO[o.vagas?.situacao === "insuficiente" ? "reprovado" : limitarSemCenso(o.veredito, o.semCenso)], porque: porqueFinal, condicoes };
 }
 /** Veredito final: o do modelo, mas estacionamento insuficiente reprova (critério eliminatório). */
