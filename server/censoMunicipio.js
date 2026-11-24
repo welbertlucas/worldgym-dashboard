@@ -39,7 +39,7 @@ export function dentroDaCaixa(c, caixa, folgaKm = FOLGA_KM) {
   return c[0] >= la0 - dLat && c[0] <= la1 + dLat && c[1] >= ln0 - dLng && c[1] <= ln1 + dLng;
 }
 
-/** Hexágonos dos municípios que cobrem o ponto: { municipios: [{ cod, nome, uf, celulas }] } (vazio quando nenhum foi gerado). */
+/** Hexágonos dos municípios que cobrem o ponto: { municipios: [{ cod, nome, uf, celulas, fatorPadrao? }] } (vazio quando nenhum foi gerado). */
 export async function censoDoPonto(pedido) {
   const c = Array.isArray(pedido?.c) ? pedido.c.map(Number) : [];
   if (c.length !== 2 || !c.every(Number.isFinite) || Math.abs(c[0]) > 90 || Math.abs(c[1]) > 180) throw new ErroCensoMun("Posição inválida.");
@@ -48,7 +48,7 @@ export async function censoDoPonto(pedido) {
   const municipios = [];
   for (const m of alvos) {
     const arq = await lerJson(arquivoCensoMun(m.cod));
-    if (arq?.celulas?.length) municipios.push({ cod: m.cod, nome: m.nome, uf: m.uf, celulas: arq.celulas });
+    if (arq?.celulas?.length) municipios.push({ cod: m.cod, nome: m.nome, uf: m.uf, celulas: arq.celulas, ...(m.fatorPadrao ? { fatorPadrao: m.fatorPadrao } : {}) });
   }
   return { municipios };
 }

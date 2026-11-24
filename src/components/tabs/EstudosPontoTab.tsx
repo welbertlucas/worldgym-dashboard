@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
-import { useCensoCompleto } from "@/components/estudos/censoMunicipio";
+import { useCensoCompleto, usaFatorPadrao } from "@/components/estudos/censoMunicipio";
+import { PedirCenso } from "@/components/estudos/PedirCenso";
 import { ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
@@ -61,10 +62,12 @@ interface PropsMapa {
   iniciarAdicionando: boolean; comparando: Set<string> | null; voltar: () => void; salvo: string; editavel: boolean;
   /** O Censo de um município de fora da malha principal ainda está chegando. */
   carregandoCenso: boolean;
+  /** Busca o Censo dos municípios de novo (depois de pedir o de uma cidade nova). */
+  recarregarCenso: () => void;
 }
 
 /** O mapa do estudo: painel com os pontos (todos, ou só os escolhidos para comparar), a conta e a decisão; lentes e ferramentas. */
-function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo, editavel, carregandoCenso }: PropsMapa) {
+function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo, editavel, carregandoCenso, recarregarCenso }: PropsMapa) {
   const [lente, setLente] = useState<Lente>("captacao");
   const cartaoAberto = useRef<string | null>(null);
   // o mapa vai do topo dele até o fim da tela, sem precisar rolar
@@ -318,7 +321,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         : { perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10), densidade: densidadeNaArea(censo, area10), pois: poisAntes, fotos }) : null;
       const paginasRua = await ruaP;
       await gerarPdfDoEstudo(comFotosDaRegiao(montarPdfPonto({
-        premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado, semCenso,
+        premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado, semCenso, fatorPadrao: !!atual && !semCenso && usaFatorPadrao(atual.c),
         fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
         populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
         ticket: ex?.ticket ?? null, alunos: ex?.alunos ?? null, vagas: ex?.vagas ?? null,
@@ -432,7 +435,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           <Faixa tom={vf === "aprovado" ? "bom" : vf === "atencao" ? "atencao" : "ruim"}>
             Parecer do Atlas: {PARECER_ROTULO[vf ?? r.veredito]} · payback {meses(r.payback)}{ex?.vagas?.situacao === "insuficiente" ? " · estacionamento insuficiente" : ""}
           </Faixa>
-          {avisoCenso && <Nota><b>Sem dados do Censo nesta região.</b> O Atlas guarda o Censo só da região das unidades (Distrito Federal e entorno, Goiânia e Salvador). Moradores, renda, idade, potencial de consumo e divisão com a rede não foram medidos, e o parecer vale só pela estimativa de vendas por m² da rede.</Nota>}
+          {avisoCenso && <Nota><b>Sem dados do Censo nesta região.</b> O Atlas ainda não tem o Censo desta cidade. Moradores, renda, idade, potencial de consumo e divisão com a rede não foram medidos, e o parecer vale só pela estimativa de vendas por m² da rede.
+            {editavel && atual && <div className="mt-2"><PedirCenso c={atual.c} aoChegar={recarregarCenso} /></div>}</Nota>}
+          {atual && !semCenso && usaFatorPadrao(atual.c) && <Nota><b>Renda estimada com o fator nacional.</b> Para passar da renda do responsável à renda do domicílio, o estado desta cidade ainda não tem o fator próprio, então vale o padrão do país (1,50). A renda e o consumo podem variar uns 3%.</Nota>}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Secao icone={TrendingUp} titulo="Estimativa de vendas">
@@ -573,7 +578,7 @@ export function EstudosPontoTab() {
 
   // Censo dos municípios de fora da malha principal (ex.: Jataí, Rio Verde): vem do servidor para os pontos que a malha principal não cobre
   // e entra na mesma malha, então lista, mapa e PDF usam `dados.censo` como sempre
-  const { censo: censoCompleto, carregando: carregandoCenso } = useCensoCompleto(dadosApi?.censo, pontos);
+  const { censo: censoCompleto, carregando: carregandoCenso, recarregar: recarregarCenso } = useCensoCompleto(dadosApi?.censo, pontos);
   const dados = useMemo(() => (dadosApi && censoCompleto ? { ...dadosApi, censo: censoCompleto } : dadosApi), [dadosApi, censoCompleto]);
 
   // grava os pontos no servidor um instante depois da última mudança
@@ -624,7 +629,7 @@ export function EstudosPontoTab() {
         comparar={(ids) => setVisao({ tela: "mapa", atualId: ids[0] ?? null, novo: false, comparando: new Set(ids) })} />
     );
   return (
-    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={editavel} carregandoCenso={carregandoCenso} iniciarAdicionando={visao.novo} comparando={visao.comparando}
+    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={editavel} carregandoCenso={carregandoCenso} recarregarCenso={recarregarCenso} iniciarAdicionando={visao.novo} comparando={visao.comparando}
       atualId={visao.atualId} setAtualId={(id) => setVisao((v) => (v.tela === "mapa" ? { ...v, atualId: id, comparando: v.comparando && id && !v.comparando.has(id) ? new Set([...v.comparando, id]) : v.comparando } : v))}
       voltar={() => setVisao({ tela: "lista" })} />
   );

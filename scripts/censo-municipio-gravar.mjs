@@ -3,13 +3,15 @@
 // Cada município tem o seu arquivo (estudos/censo-mun/<código IBGE>.json); gravar de novo o mesmo município troca só o arquivo dele.
 // NÃO mexe na malha principal (estudos/censo.json). Só grava com a confirmação do dono (regra: gravação no Blob é caso a caso).
 //
-// Uso: node --env-file=.env.local scripts/censo-municipio-gravar.mjs [--simular] malha1.json [malha2.json ...]
+// Uso: node --env-file=.env.local scripts/censo-municipio-gravar.mjs [--simular] [--quieto] malha1.json [malha2.json ...]
+// --quieto: não escreve nome nem código de município (a rotina do GitHub roda num repositório público, e os logs também são públicos).
 import { readFileSync } from "node:fs";
 import { lerJson, gravarJson } from "../server/armazem.js";
 import { ARQUIVO_INDICE_CENSO_MUN, arquivoCensoMun, blocosUrbanos } from "../server/censoMunicipio.js";
 
 const args = process.argv.slice(2);
 const simular = args.includes("--simular");
+const quieto = args.includes("--quieto");
 const arquivos = args.filter((a) => !a.startsWith("--"));
 if (!arquivos.length) { console.error("Uso: node --env-file=.env.local scripts/censo-municipio-gravar.mjs [--simular] malha.json [...]"); process.exit(1); }
 
@@ -23,14 +25,16 @@ for (const arq of arquivos) {
   const linha = {
     cod, nome: m.municipio.nome, uf: m.municipio.uf, celulas: m.celulas.length, versao: m.versao,
     caixa: [Math.min(...lats), Math.max(...lats), Math.min(...lngs), Math.max(...lngs)], blocos: blocosUrbanos(m.celulas), em: new Date().toISOString(),
+    // renda do domicílio com o fator padrão nacional (o estado ainda não tem o próprio): a tela avisa
+    ...(m.fator?.origem === "padrao" ? { fatorPadrao: m.fator.valor } : {}),
   };
   const moradores = m.celulas.reduce((a, c) => a + c[2], 0);
-  console.log(`${simular ? "[simulação] " : ""}${linha.nome}/${linha.uf} (${cod}): ${linha.celulas} hexágonos, ${moradores.toLocaleString("pt-BR")} moradores, ${Math.round(readFileSync(arq).length / 1024)} KB`);
+  console.log(`${simular ? "[simulação] " : ""}${quieto ? "município" : `${linha.nome}/${linha.uf} (${cod})`}: ${linha.celulas} hexágonos, ${moradores.toLocaleString("pt-BR")} moradores, ${Math.round(readFileSync(arq).length / 1024)} KB${linha.fatorPadrao ? ", fator padrão nacional" : ""}`);
   if (simular) continue;
   await gravarJson(arquivoCensoMun(cod), { rk: m.rk, lat0: m.lat0, lng0: m.lng0, kLat: m.kLat, kLng: m.kLng, versao: m.versao, municipio: m.municipio, celulas: m.celulas });
   indice.municipios = [...indice.municipios.filter((x) => x.cod !== cod), linha].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 if (!simular) {
   await gravarJson(ARQUIVO_INDICE_CENSO_MUN, indice);
-  console.log(`índice com ${indice.municipios.length} município(s): ${indice.municipios.map((x) => `${x.nome}/${x.uf}`).join(", ")}`);
+  console.log(quieto ? `índice com ${indice.municipios.length} município(s)` : `índice com ${indice.municipios.length} município(s): ${indice.municipios.map((x) => `${x.nome}/${x.uf}`).join(", ")}`);
 }

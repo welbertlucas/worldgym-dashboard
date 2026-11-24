@@ -25,6 +25,8 @@ export interface DadosPdfPonto {
   atualId: string | null; mercado: Omit<DadosMercado, "tipo" | "nome" | "area" | "vendas" | "alunosNaArea"> | null;
   /** O ponto aberto está fora da malha do Censo do Atlas (foraDaMalhaDoCenso): sem páginas e frases que dependam de moradores. */
   semCenso?: boolean;
+  /** A renda do ponto aberto usa o fator nacional (o estado ainda não tem o próprio): vira nota na metodologia. */
+  fatorPadrao?: boolean;
   fotoCaptacao: string | null; fotoRede: string | null; fotoSugestoes?: string | null; sugestoes: ResultadoSugestoes | null;
   /** População recomendada calibrada com a rede (só com a área de 10 min). */
   populacao?: { moradores: number; recomendada: number; minima: number; n: number; situacao: SituacaoPopulacao | null } | null;
@@ -64,7 +66,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
         "Vendas previstas pelo tamanho do imóvel e pelas vendas por m² das unidades maduras da rede (EVO)",
         `Régua de retorno da rede: payback em até ${pr.regua.mesesAprovado} meses aprova; até ${pr.regua.mesesAtencao} meses pede atenção`,
       ],
-      paragrafo: "Os dados do Censo são agregados em hexágonos de cerca de 200 m e contados quando o centro do hexágono cai dentro da área.",
+      paragrafo: `Os dados do Censo são agregados em hexágonos de cerca de 200 m e contados quando o centro do hexágono cai dentro da área.${d.fatorPadrao ? " Nesta cidade a renda do domicílio usa o fator nacional (1,50) no lugar do fator do estado, que ainda não foi calculado: a renda e o consumo são estimativas com margem de até uns 3%." : ""}`,
     }],
   });
 

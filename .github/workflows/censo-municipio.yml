@@ -1,0 +1,102 @@
+name: Censo de um município (Estudos de ponto)
+
+# Gera a malha do Censo 2022 de UM município (dados públicos do IBGE) e grava no Blob privado, para os Estudos de ponto fora da região das
+# unidades. Quem chama é o botão "Buscar o Censo desta cidade" do Atlas: ele manda só um CÓDIGO de pedido; a posição do ponto e o estado ficam
+# num arquivo privado do Blob (scripts/censo-municipio-pedido.mjs). Este repositório é público e as páginas das rotinas também, então nada
+# sobre onde o dono está estudando pode aparecer aqui: sem nome de cidade, sem coordenadas, sem estado nos logs (--quieto).
+#
+# À mão (testes, sem ligação com estudo real): informe `uf` e `municipio` (código IBGE de 7 dígitos) e deixe `gravar` desmarcado para só conferir.
+# Não use `municipio` para uma cidade onde o dono está estudando: os dados da execução ficam públicos.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pedido:
+        description: "Código do pedido feito pelo Atlas (deixe vazio nos testes à mão)"
+        required: false
+      uf:
+        description: "Só nos testes à mão: sigla do estado (ex.: GO)"
+        required: false
+      municipio:
+        description: "Só nos testes à mão: código IBGE do município (7 dígitos)"
+        required: false
+      gravar:
+        description: "Gravar no Blob (desmarque para só gerar e conferir)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: censo-municipio
+  cancel-in-progress: false
+
+jobs:
+  censo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+
+      - name: Ler o pedido
+        env:
+          PEDIDO: ${{ github.event.inputs.pedido }}
+          UF_MANUAL: ${{ github.event.inputs.uf }}
+          MUNICIPIO_MANUAL: ${{ github.event.inputs.municipio }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PEDIDO" ]; then
+            node scripts/censo-municipio-pedido.mjs ler "$PEDIDO"
+          else
+            [[ "$UF_MANUAL" =~ ^[A-Za-z]{2}$ ]] || { echo "Informe o estado (2 letras) ou o código do pedido."; exit 1; }
+            [[ "$MUNICIPIO_MANUAL" =~ ^[0-9]{7}$ ]] || { echo "Informe o código IBGE do município (7 dígitos) ou o código do pedido."; exit 1; }
+            echo "UF=$(echo "$UF_MANUAL" | tr a-z A-Z)" >> "$GITHUB_ENV"
+            echo "MUNICIPIO=$MUNICIPIO_MANUAL" >> "$GITHUB_ENV"
+          fi
+
+      - name: Baixar os dados do IBGE
+        run: |
+          set -euo pipefail
+          [[ "$UF" =~ ^[A-Z]{2}$ ]]
+          R=https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022
+          mkdir -p ibge/gpkg ibge/basico ibge/demografia ibge/dom1 ibge/renda
+          # os nomes dos arquivos de tabelas levam a data da versão: acha pelo índice da pasta
+          acha() { curl -fsSL --retry 3 "$1/" | grep -o "$2" | head -1; }
+          baixa() { curl -fsSL --retry 3 -o "$2" "$1"; }
+          baixa "$R/Agregados_por_Setores_Censitarios/malha_com_atributos/setores/gpkg/UF/$UF/${UF}_setores_CD2022.gpkg" ibge/gpkg/setores.gpkg
+          P="$R/Agregados_por_Setores_Censitarios/Agregados_por_Setor_csv"
+          for par in "basico:Agregados_por_setores_basico_BR[^\"]*\.zip" "demografia:Agregados_por_setores_demografia_BR[^\"]*\.zip" "dom1:Agregados_por_setores_caracteristicas_domicilio1_BR[^\"]*\.zip"; do
+            pasta="${par%%:*}"; padrao="${par#*:}"
+            arq=$(acha "$P" "$padrao"); [ -n "$arq" ] || { echo "Arquivo $pasta não encontrado no IBGE."; exit 1; }
+            baixa "$P/$arq" "ibge/$pasta/$pasta.zip"; unzip -oq "ibge/$pasta/$pasta.zip" -d "ibge/$pasta"
+          done
+          PR="$R/Agregados_por_Setores_Censitarios_Rendimento_do_Responsavel"
+          arq=$(acha "$PR" "Agregados_por_setores_renda_responsavel_BR_[0-9]*_csv\.zip"); [ -n "$arq" ] || { echo "Arquivo de renda não encontrado no IBGE."; exit 1; }
+          baixa "$PR/$arq" ibge/renda/renda.zip; unzip -oq ibge/renda/renda.zip -d ibge/renda
+          echo "Dados do IBGE baixados."
+
+      - name: Gerar a malha do município
+        run: |
+          set -euo pipefail
+          if [ -n "${PONTO:-}" ]; then ALVO=(--ponto "$PONTO"); else ALVO=(--mun "$MUNICIPIO"); fi
+          python3 -I scripts/censo-municipio.py --gpkg ibge/gpkg/setores.gpkg --pasta ibge "${ALVO[@]}" --quieto --comercio --saida malha.json
+
+      - name: Gravar no Blob
+        env:
+          GRAVAR: ${{ github.event.inputs.gravar }}
+        run: |
+          set -euo pipefail
+          if [ "$GRAVAR" = "false" ]; then node scripts/censo-municipio-gravar.mjs --simular --quieto malha.json; else node scripts/censo-municipio-gravar.mjs --quieto malha.json; fi
+
+      - name: Apagar o pedido
+        if: ${{ always() && github.event.inputs.pedido != '' }}
+        env:
+          PEDIDO: ${{ github.event.inputs.pedido }}
+        run: node scripts/censo-municipio-pedido.mjs concluir "$PEDIDO"

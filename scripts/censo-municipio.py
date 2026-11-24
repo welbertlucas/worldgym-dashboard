@@ -8,7 +8,8 @@ Roda no computador de quem gera (nunca em função serverless); a gravação no 
 
 Uso:
   python3 -I scripts/censo-municipio.py --gpkg GO_setores_CD2022.gpkg --pasta ibge --mun 5211909 --saida jatai.json [--comercio]
-  (--pasta tem as subpastas basico/, demografia/, dom1/ e renda/ com os CSVs descompactados)
+  python3 -I scripts/censo-municipio.py --gpkg ... --pasta ibge --ponto -17.88,-51.72 --saida x.json   (acha o município pelo ponto)
+  (--pasta tem as subpastas basico/, demografia/, dom1/ e renda/ com os CSVs descompactados; --quieto não escreve nome de município)
 
 Método (o mesmo da malha v6):
   - reticulado: hexágonos "pointy-top" de raio 0,2 km, ancorados em (-15,8; -47,9), com 110,6 km por grau de latitude e 107,1141 km por grau
@@ -25,6 +26,12 @@ RK, LAT0, LNG0, KLAT, KLNG = 0.2, -15.8, -47.9, 110.6, 107.1141
 S3 = math.sqrt(3)
 SM_CENSO = 1212
 FATOR_DOMICILIO = {"GO": 1.457, "DF": 1.49, "BA": 1.548}  # relação renda do domicílio / renda do responsável, por estado
+# Estado sem fator próprio usa o padrão nacional (média dos três acima, 1,50: eles variam só de 1,46 a 1,55, o que muda a renda do
+# domicílio em no máximo uns 3%). O arquivo gerado marca "padrao" e a tela avisa.
+FATOR_PADRAO = 1.50
+UF_DO_CODIGO = {"11": "RO", "12": "AC", "13": "AM", "14": "RR", "15": "PA", "16": "AP", "17": "TO", "21": "MA", "22": "PI", "23": "CE", "24": "RN", "25": "PB",
+                "26": "PE", "27": "AL", "28": "SE", "29": "BA", "31": "MG", "32": "ES", "33": "RJ", "35": "SP", "41": "PR", "42": "SC", "43": "RS",
+                "50": "MS", "51": "MT", "52": "GO", "53": "DF"}
 CLASSES_SM = [15, 10, 5, 2, 1]  # AA acima de 15 SM, A 10-15, B 5-10, C 2-5, D 1-2, E até 1
 POF = [(2, 3.94), (3, 6.43), (6, 14.41), (10, 34.11), (15, 49.75), (25, 87.96), (math.inf, 155.75)]  # gasto/mês com recreação e esportes (R$ 2018)
 CORRECAO_POF = 1.56
@@ -84,6 +91,46 @@ def poligonos(blob):
             return todos, o
         raise ValueError(f"geometria {tipo} não prevista")
     return le(0)[0]
+
+
+def envelope(blob):
+    """Caixa (min x, max x, min y, max y) da geometria do GeoPackage: do cabeçalho, ou calculada quando ele não traz."""
+    ind = (blob[3] >> 1) & 7
+    if ind in (1, 2, 3, 4):
+        return struct.unpack_from("<4d", blob, 8)
+    xs = [x for p in poligonos(blob) for a in p for x, _ in a]; ys = [y for p in poligonos(blob) for a in p for _, y in a]
+    return min(xs), max(xs), min(ys), max(ys)
+
+
+def ponto_no_setor(x, y, polis):
+    """O ponto (lng, lat) está dentro do setor? Par-ímpar sobre todos os anéis (buracos descontados)."""
+    for aneis in polis:
+        dentro = False
+        for a in aneis:
+            for k in range(len(a) - 1):
+                (x1, y1), (x2, y2) = a[k], a[k + 1]
+                if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
+                    dentro = not dentro
+        if dentro:
+            return True
+    return False
+
+
+def municipio_do_ponto(con, tab, lat, lng):
+    """Código e nome do município do ponto: o do setor que contém o ponto; sem setor (ex.: em cima de um rio), o do setor mais perto, até 3 km."""
+    perto = []
+    for cod, nome, geom in con.execute(f'select CD_MUN, NM_MUN, geom from "{tab}"'):
+        x0, x1, y0, y1 = envelope(geom)
+        if x0 <= lng <= x1 and y0 <= lat <= y1:
+            if ponto_no_setor(lng, lat, poligonos(geom)):
+                return cod, nome
+        dx = max(x0 - lng, 0, lng - x1) * 107.0  # km por grau de longitude (basta para o limite de 3 km)
+        dy = max(y0 - lat, 0, lat - y1) * KLAT
+        perto.append((math.hypot(dx, dy), cod, nome))
+    perto.sort()
+    if perto and perto[0][0] <= 3.0:
+        return perto[0][1], perto[0][2]
+    sys.exit("O ponto não cai em nenhum setor do Censo desse estado.")
 
 
 def para_km(pol):
@@ -286,24 +333,35 @@ def comercio_osm(celulas_por_hex):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gpkg", required=True); ap.add_argument("--pasta", required=True); ap.add_argument("--mun", required=True)
+    ap.add_argument("--gpkg", required=True); ap.add_argument("--pasta", required=True)
+    ap.add_argument("--mun", help="código IBGE de 7 dígitos"); ap.add_argument("--ponto", help="lat,lng: acha o município do ponto")
+    ap.add_argument("--quieto", action="store_true", help="não escreve o nome do município nem o estado (rotina em repositório público)")
     ap.add_argument("--saida", required=True); ap.add_argument("--comercio", action="store_true")
     ap.add_argument("--alocacao", choices=["area", "centro"], default="area")
     ap.add_argument("--moradores-de", choices=["demografia", "basico"], default="demografia")
     ap.add_argument("--domicilios-de", choices=["dppo", "ocupados"], default="dppo")
     a = ap.parse_args()
-    mun = a.mun.strip()
-
     con = sqlite3.connect(f"file:{a.gpkg}?mode=ro", uri=True)
     tab = con.execute("select table_name from gpkg_contents").fetchone()[0]
+    if a.ponto:
+        lat, lng = (float(v) for v in a.ponto.split(","))
+        mun, _ = municipio_do_ponto(con, tab, lat, lng)
+    elif a.mun:
+        mun = a.mun.strip()
+    else:
+        sys.exit("Informe --mun (código IBGE) ou --ponto (lat,lng).")
     linhas = con.execute(f'select CD_SETOR, NM_MUN, NM_UF, CD_SIT, AREA_KM2, geom from "{tab}" where CD_MUN = ?', (mun,)).fetchall()
     if not linhas:
         sys.exit(f"Município {mun} não está nesse GeoPackage.")
-    uf = {"Goiás": "GO", "Distrito Federal": "DF", "Bahia": "BA"}.get(linhas[0][2])
-    if uf not in FATOR_DOMICILIO:
-        sys.exit(f"O fator domicílio/responsável de {linhas[0][2]} ainda não foi cadastrado (só GO, DF e BA): peça ao dono antes de gerar.")
-    fator = FATOR_DOMICILIO[uf]
-    print(f"{linhas[0][1]}/{uf}: {len(linhas)} setores; fator {fator}")
+    uf = UF_DO_CODIGO.get(mun[:2])
+    if not uf:
+        sys.exit(f"Código de município desconhecido: {mun}")
+    fator_proprio = uf in FATOR_DOMICILIO
+    fator = FATOR_DOMICILIO.get(uf, FATOR_PADRAO)
+    if a.quieto:
+        print(f"{len(linhas)} setores; fator {'do estado' if fator_proprio else 'padrão nacional'} {fator}")
+    else:
+        print(f"{linhas[0][1]}/{uf}: {len(linhas)} setores; fator {fator}{'' if fator_proprio else ' (padrão nacional: o estado ainda não tem o próprio)'}")
 
     bas = ler_csv(f"{a.pasta}/basico", mun, "CD_SETOR")
     dem = ler_csv(f"{a.pasta}/demografia", mun, "CD_setor")
@@ -378,13 +436,14 @@ def main():
             cel.append(com.get((r, c), 0))
         saida.append(cel)
     meta = {"rk": RK, "lat0": LAT0, "lng0": LNG0, "kLat": KLAT, "kLng": KLNG, "versao": 6,
-            "municipio": {"cod": mun, "nome": linhas[0][1], "uf": uf}, "celulas": saida}
+            "municipio": {"cod": mun, "nome": linhas[0][1], "uf": uf}, "fator": {"valor": fator, "origem": "estado" if fator_proprio else "padrao"}, "celulas": saida}
     with open(a.saida, "w") as f:
         json.dump(meta, f, separators=(",", ":"), ensure_ascii=False)
     lat_min, lat_max = min(c[0] for c in saida), max(c[0] for c in saida)
     lng_min, lng_max = min(c[1] for c in saida), max(c[1] for c in saida)
     print(f"{len(saida)} hexágonos | moradores {round(total_mor)} (na malha {sum(c[2] for c in saida)}) | domicílios {round(total_dom)} | setores sem renda: {sem_renda}")
-    print(f"caixa: lat {lat_min:.3f} a {lat_max:.3f}, lng {lng_min:.3f} a {lng_max:.3f}")
+    if not a.quieto:
+        print(f"caixa: lat {lat_min:.3f} a {lat_max:.3f}, lng {lng_min:.3f} a {lng_max:.3f}")
 
 
 if __name__ == "__main__":
