@@ -392,12 +392,26 @@ export function parecidas(ponto: Ponto, censo: Censo, unidades: UnidadeEstudo[],
     .sort((x, y) => x.d - y.d).slice(0, n).map((x) => x.u);
 }
 
+/**
+ * O ponto está fora da malha do Censo do Atlas (nenhum hexágono a até `raioKm`)? A malha cobre só a região das unidades (DF e entorno,
+ * Goiânia, Salvador); fora dela, população, renda, idade, potencial e divisão com a rede dão zero por falta de dado, não porque ninguém
+ * mora ali (visto em 24/11/2026 num estudo em Jataí-GO, a 277 km do hexágono mais perto).
+ */
+export function foraDaMalhaDoCenso(c: [number, number], censo: Censo | null | undefined, raioKm = 5): boolean {
+  if (!censo?.celulas?.length) return true;
+  return !censo.celulas.some(([la, ln]) => km([la, ln], c) <= raioKm);
+}
+
 export interface Fator { positivo: boolean; texto: string }
 /** O que pesa a favor e contra, em frases curtas. */
-export function fatoresDe(ponto: Ponto, r: Resultado, cap: Captacao, unidades: UnidadeEstudo[], censo: Censo, premissas: Premissas): Fator[] {
+export function fatoresDe(ponto: Ponto, r: Resultado, cap: Captacao, unidades: UnidadeEstudo[], censo: Censo, premissas: Premissas, semCenso = false): Fator[] {
   const f: Fator[] = [];
   const p = premissas.modelos[ponto.modelo];
   if (r.foraDaFaixa) f.push({ positivo: false, texto: `Imóvel acima de ${p.limiteM2.toLocaleString("pt-BR")} m²: a rede não tem experiência nesse tamanho, o excedente conta pela metade` });
+  if (semCenso) {
+    f.push({ positivo: false, texto: "Sem dados do Censo nesta região: população, renda e divisão com a rede não foram medidas" });
+    return f;
+  }
   const maduras = unidades.filter((u) => u.madura && u.c && u.modelo === ponto.modelo).map((u) => arredores(u.c as [number, number], censo).pop).sort((a, b) => a - b);
   if (maduras.length) {
     const med = maduras[Math.floor(maduras.length / 2)];
@@ -540,6 +554,8 @@ export function parecerDoPonto(o: {
   veredito: Veredito; provavel: number; meta: number; payback: number | null; mesesAprovado: number; mesesAtencao: number;
   vagas?: { situacao: SituacaoVagas; min: number; max: number } | null; populacao?: { situacao: SituacaoPopulacao | null; recomendada: number } | null;
   divideCom?: { nome: string; parte: number }[];
+  /** O ponto está fora da malha do Censo: a demanda não foi medida (foraDaMalhaDoCenso). */
+  semCenso?: boolean;
   /** Fatia do potencial que o ponto precisaria, o potencial da área e a faixa da rede (faixaDaFatia). */
   fatia?: { valor: number; potencial: number; comum: number; maxima: number } | null;
 }) {
@@ -557,6 +573,7 @@ export function parecerDoPonto(o: {
     ? `Para vender ${r(o.provavel)} por mês, o ponto precisaria de ${pf(o.fatia!.valor)} de tudo o que os moradores da área de 10 min gastam com esportes (${r(o.fatia!.potencial)} por mês). Nenhuma unidade da rede tira tanto do seu mercado: a maior fica em ${pf(o.fatia!.maxima)}.`
     : porque;
   const condicoes: string[] = [];
+  if (o.semCenso) condicoes.push("Medir a demanda antes de decidir: o Atlas não tem o Censo desta região (a malha cobre só a região das unidades), então moradores, renda, idade e divisão com a rede não entraram. O parecer vale só pela estimativa de vendas por m² da rede.");
   if (fatiaAlta) condicoes.push("Procurar um ponto com mais gente e mais renda em volta, ou um imóvel menor, até a fatia do mercado ficar dentro do que a rede já faz.");
   else if (o.fatia && o.fatia.valor > o.fatia.comum) condicoes.push(`O ponto precisa tirar ${pf(o.fatia.valor)} do mercado de esportes da região, mais que 3 em cada 4 unidades da rede (até ${pf(o.fatia.comum)}): só as mais fortes conseguem.`);
   if (o.veredito === "atencao" && o.vagas?.situacao !== "insuficiente") condicoes.push("Baixar o investimento ou o aluguel (carência, imóvel menor, obra mais barata) até a conta fechar na régua.");

@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { aplicarFundo, bolinha, cartaoDoLugar, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { ZOOMS_DO_SATELITE, aplicarFundo, bolinha, cartaoDoLugar, primeiraComImagem, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
@@ -225,7 +225,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       for (const [, la, ln, n] of u.bairros ?? []) if (n >= alunosBairro * 0.02 && km([la, ln], u.c) <= raioAlunos * 2) areaAlunos.extend([la, ln]);
       const temIdade = !!dados.censo?.celulas.some((c) => c[5]?.length), temDom = !!dados.censo?.celulas.some((c) => c[4]);
       const fotos = {
-        sat: await foto("limpa", { centro: u.c, zoom: 18 }, true),
+        sat: await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => foto("limpa", { centro: u.c as [number, number], zoom: z }, true)),
         alunos: await foto("alunos", { limites: areaAlunos }),
         oportunidade: cap ? await foto("oportunidade", { limites: areaAlunos }) : null,
         idade: temIdade ? await foto("idade", { limites: areaLim }) : null,

@@ -252,3 +252,45 @@ export function cartaoDoLugar(titulo: string, c: [number, number], endereco: str
   if (nota) caixa.appendChild(el("p", "text-[11px] text-muted-foreground", nota));
   return caixa;
 }
+
+/**
+ * O aviso cinza liso "Map data not yet available" que o Esri devolve onde não tem imagem de satélite naquele zoom (visto em Jataí-GO,
+ * em 24/11/2026: zoom 18 sem imagem, 17 com). Medido nas telhas: o aviso tem quase nenhuma variação de brilho (desvio 4) e nenhuma cor;
+ * imagem de verdade tem desvio de 35 a 70 e alguma cor.
+ */
+export const ehAvisoSemImagem = (desvio: number, saturacao: number) => desvio < 12 && saturacao < 0.03;
+
+/** A foto (data URL) é só o aviso cinza do Esri? Em caso de dúvida (imagem não abre), devolve false. */
+export async function fotoSemImagem(dataUrl: string | null): Promise<boolean> {
+  if (!dataUrl || typeof document === "undefined") return false;
+  try {
+    const img = new Image();
+    await new Promise<void>((ok, falha) => { img.onload = () => ok(); img.onerror = () => falha(new Error("imagem")); img.src = dataUrl; });
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const x = c.getContext("2d");
+    if (!x) return false;
+    x.drawImage(img, 0, 0, 64, 64);
+    const d = x.getImageData(0, 0, 64, 64).data;
+    let soma = 0, soma2 = 0, cor = 0; const n = d.length / 4;
+    for (let i = 0; i < d.length; i += 4) {
+      const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      soma += l; soma2 += l * l;
+      cor += (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2])) / 255;
+    }
+    const media = soma / n;
+    return ehAvisoSemImagem(Math.sqrt(Math.max(0, soma2 / n - media * media)), cor / n);
+  } catch { return false; }
+}
+
+/**
+ * Foto de satélite o mais perto possível: tenta os zooms em ordem (18, 17, 16) e fica com o primeiro em que o Esri tem imagem. Cidades
+ * menores só têm imagem até o zoom 17. Sem imagem em nenhum, devolve null (o PDF sai sem a foto, e não com um quadrado cinza).
+ */
+export async function primeiraComImagem(zooms: number[], tirar: (zoom: number) => Promise<string | null>): Promise<string | null> {
+  for (const z of zooms) {
+    const f = await tirar(z);
+    if (f && !(await fotoSemImagem(f))) return f;
+  }
+  return null;
+}
+export const ZOOMS_DO_SATELITE = [18, 17, 16];

@@ -21,6 +21,8 @@ export interface DadosPdfPonto {
   pontos: PontoNoPdf[]; premissas: Premissas; minutos: number; temArea: boolean;
   /** Só do ponto aberto na tela (as buscas e fotos da área são dele). */
   atualId: string | null; mercado: Omit<DadosMercado, "tipo" | "nome" | "area" | "vendas" | "alunosNaArea"> | null;
+  /** O ponto aberto está fora da malha do Censo do Atlas (foraDaMalhaDoCenso): sem páginas e frases que dependam de moradores. */
+  semCenso?: boolean;
   fotoCaptacao: string | null; fotoRede: string | null; fotoSugestoes?: string | null; sugestoes: ResultadoSugestoes | null;
   /** População recomendada calibrada com a rede (só com a área de 10 min). */
   populacao?: { moradores: number; recomendada: number; minima: number; n: number; situacao: SituacaoPopulacao | null } | null;
@@ -78,7 +80,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
 
     if (ehAtual) {
       const merc = d.mercado;
-      if (d.fotoCaptacao) {
+      if (d.fotoCaptacao && !d.semCenso) {
         secoes.push({
           titulo: "Área de Captação", novaPagina: true, linhas: [],
           texto: [`O mapa mostra onde estariam os alunos do ponto: cada hexágono pesa pela quantidade de moradores e pela distância até o imóvel, já descontado o que as World Gym e os outros pontos em volta dividem. 80% dos alunos esperados morariam a até ${cap.raio80.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km${merc?.perfil ? `, e ${area} vivem ${mil(merc.perfil.moradores)} pessoas` : ""}.`],
@@ -106,7 +108,9 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       if (merc) secoes.push(...secoesDeMercado({ ...merc, tipo: "ponto", nome: p.nome, area, vendas: r?.meta ?? null, alunosNaArea: null }));
       secoes.push({
         titulo: "Canibalização com a Rede", novaPagina: true, linhas: [],
-        texto: [cap.divideCom.length
+        texto: [d.semCenso
+          ? "Sem os dados do Censo desta região, o Atlas não calcula a divisão do público com a rede. No mapa aparecem as World Gym mais próximas e a área de cada uma."
+          : cap.divideCom.length
           ? `A área do ponto se sobrepõe à de unidades World Gym. Pelo modelo de captação, ${cap.divideCom.map((x) => `${pct(x.parte)} do público seria dividido com a ${x.nome}`).join(", ")}. ${cap.divideCom.reduce((a, x) => a + x.parte, 0) >= 0.25 ? "É uma sobreposição alta: a nova unidade tiraria alunos da rede, o que precisa entrar na decisão." : "É uma sobreposição moderada, aceitável em redes adensadas."}`
           : "Nenhuma World Gym divide de forma relevante a área do ponto: a nova unidade não tiraria alunos da rede."],
         ...(d.fotoRede ? { foto: { dados: d.fotoRede, legenda: "Pinos vermelhos pequenos: World Gym em operação. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA } : {}),
@@ -174,6 +178,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       if (pp?.situacao) conc.push(`A população da área (${mil(pp.moradores)} moradores) está ${SITUACAO_POPULACAO[pp.situacao]} para a meta: a rede recomendaria cerca de ${mil(pp.recomendada)}.`);
       if (d.ticket && d.alunos) conc.push(`Com ticket sugerido de ${preco(d.ticket.preco)}, o ponto precisa atender cerca de ${num(d.alunos)} alunos${d.vagas ? ` e de ${d.vagas.min} a ${d.vagas.max} vagas de estacionamento (${d.vagas.situacao === "sem-dado" ? "vagas ainda não informadas" : `informadas ${d.vagas.informadas}, ${SITUACAO_VAGAS[d.vagas.situacao]}`})` : ""}.`);
       const vfin = r ? vereditoComFatia(vereditoFinal(r.veredito, d.vagas ?? null), fatia, ff) : null;
+      if (d.semCenso) conc.push("O Atlas não tem os dados do Censo desta região (a malha cobre só a região das unidades): população, renda, idade, potencial de consumo e divisão com a rede não foram medidos. O parecer vale só pela estimativa de vendas por m² da rede; a demanda precisa ser conferida antes da decisão.");
       if (r) conc.push(`Diante desse cenário, o estudo ${vfin === "aprovado" ? "aprova" : vfin === "atencao" ? "aprova com condicionantes" : "não aprova"} o ponto para o ${modelo}: vendas previstas de ${reais(r.provavel)} por mês, lucro de ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} e payback de ${meses(r.payback)}${vfin !== r.veredito ? ", mas o estacionamento não atende o mínimo, critério eliminatório da rede" : ""}.${d.sugestoes?.sugestoes.length ? ` Há posições até ${pct(d.sugestoes.sugestoes[0].ganho)} melhores em público a até ${d.sugestoes.sugestoes[0].distanciaKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km, que valem uma busca de imóveis antes de fechar.` : ""} A visibilidade da fachada e o acesso devem ser conferidos na visita.`);
       conc.push(`Situação no comitê de expansão: ${DECISAO_ROTULO[p.decisao?.status ?? "analise"]}${p.decisao?.unidade ? ` (${p.decisao.unidade})` : ""}${p.decisao?.em ? `, em ${new Date(p.decisao.em).toLocaleDateString("pt-BR")}` : ""}.${p.decisao?.comentario ? ` Comentário: ${p.decisao.comentario}` : ""}`);
       secoes.push({

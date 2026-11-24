@@ -56,6 +56,8 @@ export interface DadosMercado {
   tipo: "unidade" | "ponto"; nome: string; area: string; vendas: number | null; alunosNaArea: number | null;
   perfil: ReturnType<typeof perfilNaArea> | null; renda: ReturnType<typeof classesNoRaio> | null; potencial: ReturnType<typeof potencialNaArea> | null;
   densidade?: ReturnType<typeof densidadeNaArea> | null; pois: ResultadoPois | null;
+  /** O ponto está fora da malha do Censo do Atlas: as seções de gente, renda e consumo não existem e uma página explica por quê. */
+  semCenso?: boolean;
   fotos: { idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; pois: string | null };
 }
 /** Números de mercado da área: concorrência classificada, praticantes, habitantes por academia e participação. */
@@ -75,6 +77,14 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
   const { perfil, renda, area } = m;
   const { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado(m);
   const secoes: Secao[] = [];
+  if (m.semCenso) secoes.push({
+    titulo: "Dados do Censo indisponíveis", novaPagina: true, linhas: [],
+    texto: [
+      "O Atlas guarda o Censo 2022 do IBGE só para a região das unidades da rede (Distrito Federal e entorno, Goiânia e Salvador). Este ponto está fora dessa região, então não há dados de moradores, renda, idade e domicílios para a área de deslocamento.",
+      "Por isso este estudo não traz as páginas de População por Faixa Etária, Domicílios e Densidade, Perfil Socioeconômico e Potencial de Consumo, nem a população recomendada e a divisão do público com a rede. Zero moradores nesses números seria falta de dado, não a realidade do lugar.",
+      "A estimativa de faturamento, o retorno e o parecer pelo que a rede vende por m² continuam valendo. A demanda precisa ser conferida de outra forma antes da decisão.",
+    ],
+  });
   // ---------- Perfil etário ----------
   if (perfil?.idade && perfil.parte20a49 != null) {
     const tot = perfil.idade.reduce((a, b) => a + b, 0);

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
-import { aplicarFundo, cartaoDoLugar, fotoNoPadrao, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
+import { ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
@@ -20,7 +20,7 @@ import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa }
 import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
   comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
-  SITUACAO_POPULACAO, SITUACAO_VAGAS, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
+  SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
@@ -104,13 +104,15 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   // área de 10 min de carro do ponto aberto (pergunta antes de mandar a posição ao Mapbox)
   const areas = useDeslocamento(atual?.c, true);
   const area10 = areaOficial(areas);
-  const moradores10 = area10 ? moradoresNaArea(dados.censo!, area10) : null;
+  // ponto fora da malha do Censo (ex.: Jataí-GO): moradores, renda, idade e potencial dariam zero por falta de dado, e o parecer não pode usá-los
+  const semCenso = useMemo(() => (atual ? foraDaMalhaDoCenso(atual.c, dados.censo) : false), [atual?.c[0], atual?.c[1], dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const moradores10 = area10 && !semCenso ? moradoresNaArea(dados.censo!, area10) : null;
   // população recomendada calibrada com a rede (moradores na área de 10 min de cada unidade madura do modelo)
   const refsPop = useReferenciaPopulacao(dados.unidades!, dados.censo, atual?.modelo ?? null);
   const ex = atual ? extras.get(atual.id) ?? null : null;
   const pop = r && refsPop ? populacaoRecomendada(r.meta, moradores10, refsPop) : null;
   // Totais da área para a legenda (rosca das classes de renda e valor do potencial de consumo)
-  const resumoCenso = useMemo(() => (atual && dados.censo ? {
+  const resumoCenso = useMemo(() => (atual && dados.censo && !semCenso ? {
     renda: area10 ? classesNaArea(dados.censo, area10) : classesNoRaio(atual.c, dados.censo, 5),
     potencial: area10 ? potencialNaArea(dados.censo, area10) : null,
     rendaTotal: rendaTotalEm(dados.censo, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5)),
@@ -119,16 +121,16 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     domicilios: densidadeEm(dados.censo, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5)),
     moradores: area10 ? moradoresNaArea(dados.censo, area10) : dados.censo.celulas.reduce((a, [la, ln, p]) => a + (km([la, ln], atual.c) < 5 ? p : 0), 0),
     onde: area10 ? `em ${MINUTOS_PADRAO} min de carro` : "num raio de 5 km",
-  } : undefined), [atual?.id, atual?.c[0], atual?.c[1], area10, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
+  } : undefined), [atual?.id, atual?.c[0], atual?.c[1], area10, dados.censo, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
   // fatia do potencial de consumo que o ponto precisaria (vendas previstas ÷ gasto com esportes na área de 10 min), contra a faixa da rede
   const faixaFatia = faixaDaFatia(refsPop);
   const potencial10 = resumoCenso?.potencial?.total ?? null;
   const fatiaPonto = r && potencial10 ? r.provavel / potencial10 : null;
   const vf = vereditoComFatia(ex?.veredito ?? r?.veredito ?? null, fatiaPonto, faixaFatia);
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
-  const candidatasPerto = useMemo(() => (atual && dados.censo && dados.premissas
+  const candidatasPerto = useMemo(() => (atual && dados.censo && !semCenso && dados.premissas
     ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva, { n: 8 })
-    : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.m2, todos.length, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+    : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.m2, todos.length, dados, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
   // as posições melhores passam pelo mesmo parecer do ponto (decisão do dono, 23/11/2026): saturadas de academias ou "Não aprova" saem
   const avaliacaoPerto = useMemo(() => (r && atual && refsPop ? { provavel: r.provavel, veredito: (ex?.veredito ?? r.veredito), faixa: faixaFatia } : null),
     [r?.provavel, r?.veredito, ex?.veredito, atual?.id, refsPop, faixaFatia?.comum, faixaFatia?.maxima]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -253,8 +255,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   useEffect(() => { setPois(null); }, [atualId]);
 
   const idx = atual ? pontos.findIndex((p) => p.id === atual.id) : -1;
-  const compParec = useMemo(() => (atual ? compararComParecidas(atual.c, atual.modelo, dados.censo!, dados.unidades!) : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.modelo, dados]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fatores = atual && r && cap ? fatoresDe(atual, r, cap, dados.unidades!, dados.censo!, dados.premissas!) : [];
+  const compParec = useMemo(() => (atual && !semCenso ? compararComParecidas(atual.c, atual.modelo, dados.censo!, dados.unidades!) : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.modelo, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fatores = atual && r && cap ? fatoresDe(atual, r, cap, dados.unidades!, dados.censo!, dados.premissas!, semCenso) : [];
 
   const exportar = async () => {
     const m = mapaRef.current;
@@ -280,7 +282,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       const fotoGeral = pontos.length > 1 ? await fotoNoPadrao(m, fundo) : null;
       setPois(null); // as academias só aparecem na foto delas
       const sats = new Map<string, string | null>();
-      for (const p of pontos) sats.set(p.id, await tirar("limpa", { centro: p.c, zoom: 18 }, true));
+      for (const p of pontos) sats.set(p.id, await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => tirar("limpa", { centro: p.c, zoom: z }, true)));
       const censo = dados.censo!;
       const areaLim = atual ? (area10 ? limitesDaArea(m.L, area10).pad(0.1) : m.L.latLng(atual.c).toBounds(Math.max(2.5, cap?.raio80 ?? 3) * 2000)) : null;
       const temIdade = censo.celulas.some((c) => c[5]?.length), temDom = censo.celulas.some((c) => c[4]);
@@ -304,13 +306,12 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         fotos.pois = await tirar("limpa", { limites: poisAntes.areaRotulo && area10 ? limitesDaArea(m.L, area10).pad(0.08) : m.L.latLng(poisAntes.c).toBounds(poisAntes.raioKm * 2000) });
       }
       setLente(lenteAntes);
-      const mercado = atual && area10 ? {
-        perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10),
-        densidade: densidadeNaArea(censo, area10), pois: poisAntes, fotos,
-      } : null;
+      const mercado = atual && area10 ? (semCenso
+        ? { perfil: null, renda: null, potencial: null, densidade: null, pois: poisAntes, fotos, semCenso: true }
+        : { perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10), densidade: densidadeNaArea(censo, area10), pois: poisAntes, fotos }) : null;
       const paginasRua = await ruaP;
       await gerarPdfDoEstudo(comFotosDaRegiao(montarPdfPonto({
-        premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado,
+        premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado, semCenso,
         fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
         populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
         ticket: ex?.ticket ?? null, alunos: ex?.alunos ?? null, vagas: ex?.vagas ?? null,
@@ -319,7 +320,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           const rr = resultados.get(p.id) ?? null;
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
           return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp,
-            fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!) : [], parecidas: compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
+            fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!, foraDaMalhaDoCenso(p.c, censo)) : [],
+            parecidas: foraDaMalhaDoCenso(p.c, censo) ? { ...compararComParecidas(p.c, p.modelo, censo, dados.unidades!), itens: [] } : compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
         }),
       }), ...paginasRua));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
@@ -352,6 +354,11 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       mapa={<>
         <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
         <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
+        {semCenso && !(adicionando || verRua || achado) && (
+          <div role="status" className="absolute left-1/2 top-3 z-[456] max-w-[calc(100%-34rem)] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-center text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
+            Sem dados do Censo nesta região: as camadas de população, renda, idade e consumo ficam vazias.
+          </div>
+        )}
         {(adicionando || verRua || achado) && (
           <div className="absolute left-1/2 top-3 z-[456] flex max-w-[calc(100%-34rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
             {adicionando ? "Clique no mapa onde fica o imóvel" : verRua ? "Clique no mapa onde quer ver a rua" : <span className="truncate">{achado!.nome}</span>}
@@ -418,6 +425,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           <Faixa tom={vf === "aprovado" ? "bom" : vf === "atencao" ? "atencao" : "ruim"}>
             Parecer do Atlas: {PARECER_ROTULO[vf ?? r.veredito]} · payback {meses(r.payback)}{ex?.vagas?.situacao === "insuficiente" ? " · estacionamento insuficiente" : ""}
           </Faixa>
+          {semCenso && <Nota><b>Sem dados do Censo nesta região.</b> O Atlas guarda o Censo só da região das unidades (Distrito Federal e entorno, Goiânia e Salvador). Moradores, renda, idade, potencial de consumo e divisão com a rede não foram medidos, e o parecer vale só pela estimativa de vendas por m² da rede.</Nota>}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Secao icone={TrendingUp} titulo="Estimativa de vendas">
@@ -453,7 +461,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             <Secao icone={Gavel} titulo="Parecer do Atlas">
               {(() => {
                 const pr = parecerDoPonto({ veredito: vf ?? r.veredito, provavel: r.provavel, meta: r.meta, payback: r.payback, mesesAprovado: dados.premissas!.regua.mesesAprovado, mesesAtencao: dados.premissas!.regua.mesesAtencao,
-                  vagas: ex?.vagas ?? null, populacao: pop ? { situacao: pop.situacao, recomendada: pop.recomendada } : null, divideCom: cap?.divideCom,
+                  vagas: ex?.vagas ?? null, populacao: pop ? { situacao: pop.situacao, recomendada: pop.recomendada } : null, divideCom: semCenso ? [] : cap?.divideCom, semCenso,
                   fatia: fatiaPonto != null && faixaFatia && potencial10 ? { valor: fatiaPonto, potencial: potencial10, comum: faixaFatia.comum, maxima: faixaFatia.maxima } : null });
                 const tom = (vf ?? r.veredito) === "aprovado" ? "text-success" : (vf ?? r.veredito) === "atencao" ? "text-warning" : "text-destructive";
                 return <>
