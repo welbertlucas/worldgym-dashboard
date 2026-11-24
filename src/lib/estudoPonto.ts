@@ -399,7 +399,18 @@ export function parecidas(ponto: Ponto, censo: Censo, unidades: UnidadeEstudo[],
  */
 export function foraDaMalhaDoCenso(c: [number, number], censo: Censo | null | undefined, raioKm = 5): boolean {
   if (!censo?.celulas?.length) return true;
-  return !censo.celulas.some(([la, ln]) => km([la, ln], c) <= raioKm);
+  const dLat = raioKm / 110.6, dLng = raioKm / (111.32 * Math.cos((c[0] * Math.PI) / 180));
+  return !censo.celulas.some(([la, ln]) => Math.abs(la - c[0]) <= dLat && Math.abs(ln - c[1]) <= dLng && km([la, ln], c) <= raioKm);
+}
+
+/**
+ * Sem o Censo da região a demanda não foi medida: o parecer nunca passa de "com condicionantes" (decisão do dono, 24/11/2026: "nunca
+ * passar se não tiver o Censo"). "Não aprova" continua não aprovando.
+ */
+export function limitarSemCenso(v: Veredito, semCenso?: boolean): Veredito;
+export function limitarSemCenso(v: Veredito | null, semCenso?: boolean): Veredito | null;
+export function limitarSemCenso(v: Veredito | null, semCenso?: boolean): Veredito | null {
+  return semCenso && v === "aprovado" ? "atencao" : v;
 }
 
 export interface Fator { positivo: boolean; texto: string }
@@ -559,12 +570,15 @@ export function parecerDoPonto(o: {
   /** Fatia do potencial que o ponto precisaria, o potencial da área e a faixa da rede (faixaDaFatia). */
   fatia?: { valor: number; potencial: number; comum: number; maxima: number } | null;
 }) {
+  // sem Censo, "aprova" vira "com condicionantes" (limitarSemCenso); o texto continua dizendo os números do modelo
+  const limitado = o.semCenso && o.veredito === "aprovado";
   const r = (v: number) => `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`;
   const anos = (m: number) => `${(m / 12).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} anos`;
   const pb = o.payback != null && Number.isFinite(o.payback) ? ` (o investimento volta em ${Math.round(o.payback)} meses)` : "";
   const porque = o.vagas?.situacao === "insuficiente"
     ? `O estacionamento não comporta o movimento previsto (precisa de ${o.vagas.min} a ${o.vagas.max} vagas). Estacionamento é critério eliminatório.`
-    : o.veredito === "aprovado" ? `Deve vender cerca de ${r(o.provavel)} por mês com a unidade madura, acima dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}${pb}.`
+    : o.veredito === "aprovado" ? `Deve vender cerca de ${r(o.provavel)} por mês com a unidade madura, acima dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}${pb}.${limitado ? " Mesmo assim o parecer não passa de \"com condicionantes\": sem o Censo desta região, a demanda não foi medida." : ""}`
+    : o.veredito === "atencao" && o.provavel >= o.meta ? `Deve vender cerca de ${r(o.provavel)} por mês com a unidade madura, acima dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}${pb}. O parecer fica com condicionantes pelo que está listado abaixo.`
     : o.veredito === "atencao" ? `Deve vender cerca de ${r(o.provavel)} por mês, abaixo dos ${r(o.meta)} que pagam o investimento em ${anos(o.mesesAprovado)}, mas dentro do limite de ${anos(o.mesesAtencao)}${pb}. A margem é apertada.`
     : `Deve vender cerca de ${r(o.provavel)} por mês, abaixo do mínimo para o investimento voltar em ${anos(o.mesesAtencao)}${pb}.`;
   const pf = (x: number) => `${Math.round(x * 100)}%`;
@@ -581,7 +595,7 @@ export function parecerDoPonto(o: {
   if (o.vagas?.situacao === "sem-dado") condicoes.push(`Confirmar o estacionamento: o ponto precisa de ${o.vagas.min} a ${o.vagas.max} vagas (próprias ou bem perto).`);
   if (o.populacao?.situacao === "abaixo" || o.populacao?.situacao === "limite") condicoes.push(`Conferir o público na visita: a área de 10 min tem menos moradores que os ${Math.round(o.populacao.recomendada / 1000).toLocaleString("pt-BR")} mil recomendados.`);
   for (const d of o.divideCom ?? []) if (Math.round(d.parte * 100) >= 20) condicoes.push(`Aceitar dividir ${Math.round(d.parte * 100)}% do público com ${/^World Gym /.test(d.nome) ? `a ${d.nome}` : `o ponto "${d.nome}", também em estudo`}.`);
-  return { rotulo: PARECER_ROTULO[o.vagas?.situacao === "insuficiente" ? "reprovado" : o.veredito], porque: porqueFinal, condicoes };
+  return { rotulo: PARECER_ROTULO[o.vagas?.situacao === "insuficiente" ? "reprovado" : limitarSemCenso(o.veredito, o.semCenso)], porque: porqueFinal, condicoes };
 }
 /** Veredito final: o do modelo, mas estacionamento insuficiente reprova (critério eliminatório). */
 export const vereditoFinal = (v: Veredito, vagas: { situacao: SituacaoVagas } | null): Veredito => (vagas?.situacao === "insuficiente" ? "reprovado" : v);

@@ -294,7 +294,10 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
           fonte("corpo", 8); doc.setTextColor(...TEXTO);
           let x = x0;
           linha.forEach((c, j) => {
-            const dir = numerica && j === linha.length - 1 && j > 0, txt = doc.splitTextToSize(t(c), cw[j] - 2)[0] as string;
+            const partes = doc.splitTextToSize(t(c), cw[j] - 2) as string[];
+            const dir = numerica && j === linha.length - 1 && j > 0;
+            // número (primeira coluna e coluna numérica) nunca é cortado; texto que não cabe leva reticências
+            const txt = j === 0 || dir ? t(c) : partes.length > 1 ? `${partes[0].trimEnd()}…` : partes[0];
             doc.text(txt, dir ? x + cw[j] - 1.5 : x + 1.5, y + 3.5, dir ? { align: "right" } : undefined); x += cw[j];
           });
         }
@@ -359,11 +362,13 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       faixaVermelha(s.faixa);
       textoAnalise(s.texto);
       lista(s.lista);
-      // o mapa diminui o necessário para os números e o gráfico da seção caberem na mesma página (pedido do dono, 23/11/2026: o gráfico
+      // o mapa diminui o necessário para os números, o gráfico e a tabela da seção caberem na mesma página (pedido do dono, 23/11/2026: o gráfico
       // de Domicílios ia sozinho para a página seguinte); nunca abaixo de 80 mm
       const depois = (s.destaques?.length ? 31 : 0) + (s.legenda?.length ? Math.ceil(s.legenda.length / 2) * 5.5 + 3 : 0)
         + (s.grafico?.tipo === "rosca" ? Math.max(56, s.grafico.fatias.length * 7 + 10) + 3 + (s.grafico.titulo ? 7 : 0)
-          : s.grafico?.tipo === "barras" ? s.grafico.itens.length * 8.6 + 2 + (s.grafico.titulo ? 9 : 3) : 0);
+          : s.grafico?.tipo === "barras" ? s.grafico.itens.length * 8.6 + 2 + (s.grafico.titulo ? 9 : 3) : 0)
+        // a tabela da seção também fica na mesma página (Base de Clientes: a tabela de bairros ia sozinha para a página seguinte)
+        + (s.tabela ? 7.4 + Math.ceil(s.tabela.linhas.length / Math.max(1, s.tabela.blocos ?? 1)) * 5.2 + 3 : 0);
       const cabeAte = FIM - y - depois - (s.foto?.legenda ? 12 : 7);
       figura(s.foto, depois && cabeAte >= 80 ? Math.min(s.altFoto ?? 120, cabeAte) : s.altFoto ?? 120);
       legenda(s.legenda);

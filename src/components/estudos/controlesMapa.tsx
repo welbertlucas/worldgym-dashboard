@@ -18,7 +18,7 @@ export interface Sobreposicao { id: string; rotulo: string; ativo: boolean; alte
 export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3", sobre = [], vazia, abaExtra, naColuna = false }: { itens: ItemCamada[]; atual: string; escolher: (id: string) => void; legenda?: ReactNode; topo?: string; sobre?: Sobreposicao[]; vazia?: string;
   /** Dentro da coluna da esquerda da TelaDeMapa (embaixo do cartão do título, com a mesma largura): sem posição própria. */
   naColuna?: boolean;
-  /** Segunda aba do painel (ex.: "Lugares por perto", com a busca de academias concorrentes), para nada ficar por cima das camadas. */
+  /** Segunda aba do painel (ex.: "Academias concorrentes", com a busca de academias e de outros lugares), para nada ficar por cima das camadas. */
   abaExtra?: { rotulo: string; conteudo: ReactNode } }) {
   const [aberto, setAberto] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
   const [aba, setAba] = useState<"camadas" | "extra">("camadas");

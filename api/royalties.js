@@ -11,6 +11,7 @@
 //     POST { acao: "deslocamento", c, modo: "carro" | "pe" } -> áreas de deslocamento do Mapbox (mesma regra de acesso dos pois).
 //     POST { acao: "contar-academias", c, raioKm } -> quantas academias (categoria principal) no raio; fora do modo unidade.
 //     POST { acao: "fotos-rua", c } -> fotos do Street View em volta da posição, para o último slide do PDF (mesma regra de acesso dos pois).
+//     POST { acao: "censo-municipio", c } -> hexágonos do Censo dos municípios gerados que cobrem a posição (pontos fora da malha principal); fora do modo unidade.
 //     POST { acao: "endereco", q, perto } -> busca de endereço (Mapbox), para quem vê estudos de pontos novos (não para unidades).
 // Dado sensível: sem cache no navegador e permissão conferida a cada pedido.
 import { lerRoyalties } from "../server/royalties.js";
@@ -22,6 +23,7 @@ import { enderecoDe } from "../server/freio.js";
 import { ErroEstudos, lerEstudos, modoDe, podeEditar, salvarPontos } from "../server/estudos.js";
 import { ErroPois, buscarPois, contarAcademias } from "../server/pois.js";
 import { ErroFotosRua, fotosDaRua } from "../server/fotosRua.js";
+import { ErroCensoMun, censoDoPonto } from "../server/censoMunicipio.js";
 import { ErroDeslocamento, buscarDeslocamento, buscarEndereco, enderecoDaPosicao } from "../server/deslocamento.js";
 import { COORDENADAS_UNIDADES, UNIT_NAMES } from "../server/units.js";
 const COORDENADAS_POR_NOME = Object.fromEntries(Object.entries(UNIT_NAMES).map(([id, n]) => [n, COORDENADAS_UNIDADES[id]]));
@@ -47,6 +49,11 @@ async function estudos(req, res, sessao) {
   if (c.acao === "contar-academias") {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json(await contarAcademias(c));
+  }
+  // Censo de um município de fora da malha principal: estudos de pontos novos, fora do modo unidade
+  if (c.acao === "censo-municipio") {
+    if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
+    return res.status(200).json(await censoDoPonto(c));
   }
   if (c.acao === "pois" || c.acao === "deslocamento" || c.acao === "fotos-rua") {
     if (modoDe(sessao) === "unidade") {
@@ -166,7 +173,7 @@ export default async function handler(req, res) {
     if (!dados) return res.status(200).json({ disponivel: false });
     return res.status(200).json({ disponivel: true, ...dados });
   } catch (e) {
-    if (e instanceof ErroQualidade || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroDeslocamento || e instanceof ErroFotosRua) return res.status(e.status).json({ error: e.message });
+    if (e instanceof ErroQualidade || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroDeslocamento || e instanceof ErroFotosRua || e instanceof ErroCensoMun) return res.status(e.status).json({ error: e.message });
     return res.status(503).json({ error: `não consegui ler ${modulo === "juridico" ? "o jurídico" : modulo === "qualidade" ? "a qualidade" : modulo === "estudos" ? "os estudos de ponto" : "os royalties"} agora` });
   }
 }

@@ -73,6 +73,19 @@ export function resumoMercado(m: Pick<DadosMercado, "perfil" | "renda" | "pois" 
   return { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda };
 }
 /** Seções de mercado: faixa etária, domicílios, perfil socioeconômico, potencial de consumo e concorrência. */
+/** Cabem 3 colunas de 40 linhas numa página. */
+export const MAX_LISTA_ACADEMIAS = 120;
+/**
+ * Nome resumido para a lista em 3 colunas: o que vem depois de " - ", " | " ou vírgula (filial, bairro, modalidades) sai; o nome da rede
+ * é acrescentado só quando o resumo não o traz. O endereço completo continua no mapa e na busca do Atlas.
+ */
+export function nomeNaLista(nome: string, rede: string | null): string {
+  const limpo = nome.replace(/\s+/g, " ").trim();
+  const corte = limpo.split(/\s[-–—|]\s|,\s/)[0].trim();
+  const curto = corte.length >= 5 ? corte : limpo;
+  const sem = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return rede && !sem(curto).includes(sem(rede)) ? `${curto} (${rede})` : curto;
+}
 export function secoesDeMercado(m: DadosMercado): Secao[] {
   const { perfil, renda, area } = m;
   const { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado(m);
@@ -152,7 +165,17 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       titulo: "Composição da Concorrência", novaPagina: true, linhas: [],
       texto: [`Dos ${conc.total} lugares, ${conc.diretos} disputam diretamente o aluno da World Gym (grandes redes e academias independentes). Os studios e modalidades atendem nichos e entram só em parte na disputa.`],
       grafico: { tipo: "rosca", fatias: [{ rotulo: "Grandes redes", valor: conc.redes.length, cor: "#1b2130" }, { rotulo: "Academias independentes", valor: conc.independentes.length, cor: "#1f5f8b" }, { rotulo: "Studios e modalidades", valor: conc.modalidades.length, cor: "#b9c3d0" }], centro: String(conc.total), rotuloCentro: "lugares" },
-      tabela: { colunas: ["Nº", "Academia", "km"], larguras: [0.35, 3, 0.55], blocos: 2, linhas: m.pois.lugares.map((l, i) => [String(i + 1), l.rede ? `${l.nome} (${l.rede})` : l.nome, l.km.toLocaleString("pt-BR")]) },
+    });
+    // Lista numa página só, em 3 colunas lidas de cima para baixo (decisão do dono, 24/11/2026): 1 a 40 | 41 a 80 | 81 a 120. Passando de
+    // MAX_LISTA_ACADEMIAS, ficam as mais próximas e uma frase conta quantas ficaram de fora.
+    // as unidades da própria World Gym não entram: o mesmo critério da rosca e do total (conc.total)
+    const todos = m.pois.lugares.filter((l) => l.rede !== "World Gym");
+    const lista = todos.slice(0, MAX_LISTA_ACADEMIAS), fora = todos.length - lista.length;
+    secoes.push({
+      titulo: "Academias da Área", novaPagina: true, linhas: [],
+      texto: [`Os ${todos.length} lugares em ordem de distância ${m.tipo === "unidade" ? "da unidade" : "do ponto"}, em quilômetros. Os nomes aparecem resumidos.`],
+      tabela: { colunas: ["Nº", "Academia", "km"], larguras: [6.5, 38.5, 9], blocos: 3, linhas: lista.map((l, i) => [String(i + 1), nomeNaLista(l.nome, l.rede), l.km.toLocaleString("pt-BR")]) },
+      ...(fora > 0 ? { paragrafo: `A lista mostra os ${lista.length} lugares mais próximos; outros ${fora} mais distantes ficaram de fora.` } : {}),
     });
   }
 
@@ -210,8 +233,8 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     if (d.parteNaArea != null) texto.push(`${pct(d.parteNaArea, 0)} da base mora ${area} e 80% dos alunos moram a até ${d.onde80}. ${d.parteNaArea >= 0.8 ? "A área de 10 minutos explica quase toda a base: é nela que se concentram as ações de marketing e as parcerias." : "Uma parte relevante da base vem de fora da área de 10 minutos: vale entender o que atrai esses alunos (trabalho, estudo ou trajeto) e reforçar esse canal."}`);
     secoes.push({
       titulo: "Base de Clientes Ativos", novaPagina: true, linhas: [], texto,
-      foto: { dados: d.fotos.alunos, legenda: `Bolha maior = mais alunos no bairro.${d.temArea ? ` Linha verde: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: ALT_FOTO_MAPA,
-      grafico: d.parteNaArea != null ? { tipo: "rosca", fatias: [{ rotulo: `Moram ${area}`, valor: d.parteNaArea, cor: "#0f8a8a" }, { rotulo: "Moram fora da área", valor: 1 - d.parteNaArea, cor: "#d6d9e0" }], centro: pct(d.parteNaArea, 0), rotuloCentro: "na área" } : undefined,
+      foto: { dados: d.fotos.alunos, legenda: `Bolha maior = mais alunos no bairro.${d.temArea ? ` Linha azul-marinho: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: ALT_FOTO_MAPA,
+      grafico: d.parteNaArea != null ? { tipo: "rosca", fatias: [{ rotulo: `Moram ${area}`, valor: d.parteNaArea, cor: "#1e3a8a" }, { rotulo: "Moram fora da área", valor: 1 - d.parteNaArea, cor: "#d6d9e0" }], centro: pct(d.parteNaArea, 0), rotuloCentro: "na área" } : undefined,
       tabela: { colunas: ["Bairro", "Alunos", "%"], larguras: [2.4, 0.8, 0.6], blocos: 2, linhas: d.topBairros.map(([b, , , n]) => [b, num(n), pct(n / Math.max(1, d.alunosBairro), 0)]) },
     });
   }

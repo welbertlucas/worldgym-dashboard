@@ -5,7 +5,8 @@ import { API_BASE, authFetch } from "@/lib/auth";
 import type { Leaflet } from "@/components/estudos/mapaComum";
 import { MINUTOS_PADRAO, moradoresNaArea, potencialNaArea, type Censo, type Deslocamento, type Geometria, type Modelo, type RefPopulacao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
-export const COR_DESLOCAMENTO = "#0f8a8a";
+// Azul-marinho com borda branca (decisão do dono, 24/11/2026): o verde-azulado anterior sumia no verde dos parques do mapa.
+export const COR_DESLOCAMENTO = "#1e3a8a";
 const guardados = new Map<string, Promise<Deslocamento>>();
 let avisado = false;
 
@@ -59,7 +60,11 @@ const comoLeaflet = (g: Geometria): [number, number][][][] => (g.type === "Polyg
 /** Desenha o contorno da área de 10 min de carro no grupo de camadas. */
 export function desenharDeslocamento(L: Leaflet, grupo: import("leaflet").LayerGroup, areas: Areas | null) {
   const carro = areaOficial(areas);
-  if (carro) L.polygon(comoLeaflet(carro), { color: COR_DESLOCAMENTO, weight: 1.4, opacity: 0.95, fill: false, interactive: false }).addTo(grupo);
+  if (carro) {
+    const pols = comoLeaflet(carro);
+    L.polygon(pols, { color: "#ffffff", weight: 5, opacity: 0.95, fill: false, interactive: false }).addTo(grupo); // borda branca, por baixo
+    L.polygon(pols, { color: COR_DESLOCAMENTO, weight: 2, opacity: 1, fill: false, interactive: false }).addTo(grupo);
+  }
 }
 
 /** Limites da área (para enquadrar a foto do PDF). */
@@ -76,7 +81,7 @@ export function raioQueCobre(c: [number, number], g: Geometria) {
 }
 
 /** Legenda curta do contorno. */
-export const LEGENDA_DESLOCAMENTO = "linha verde: área de até 10 min de carro";
+export const LEGENDA_DESLOCAMENTO = "linha azul-marinho: área de até 10 min de carro";
 
 /**
  * Referência da rede para a população recomendada: moradores na área de 10 min de carro de cada unidade madura do modelo (endereços

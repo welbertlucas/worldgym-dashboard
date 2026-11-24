@@ -120,7 +120,7 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
   centro: [number, number] | null; aviso: boolean; aoResultado: (r: ResultadoPois | null) => void; modo: ModoPois; setModo: (m: ModoPois) => void; temResultado: boolean;
   /** O resultado mostrado (para o cartão com o total, como no Mapfry). */
   res?: ResultadoPois | null;
-  /** Dentro da aba "Lugares por perto" do painel de camadas: o formulário fica aberto, sem botão flutuante sobre o mapa. */
+  /** Dentro da aba "Academias concorrentes" do painel de camadas: o formulário fica aberto, sem botão flutuante sobre o mapa. */
   embutido?: boolean;
   /** Área de deslocamento: a busca cobre a área e só ficam os lugares de dentro (sem escolher raio). */
   area?: { geometria: Geometria; rotulo: string } | null;
@@ -152,7 +152,7 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
           {CATEGORIAS_POIS.map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
         </select>
       </label>
-      {area ? <p className="text-xs text-muted-foreground">Onde: <b className="text-foreground">área de {area.rotulo}</b> (a linha verde do mapa)</p> : (
+      {area ? <p className="text-xs text-muted-foreground">Onde: <b className="text-foreground">área de {area.rotulo}</b> (a linha azul-marinho do mapa)</p> : (
         <label className="block text-xs font-medium text-muted-foreground">Raio: <b className="text-foreground">{raio.toLocaleString("pt-BR")} km</b>
           <input type="range" min={0.5} max={5} step={0.5} value={raio} onChange={(e) => setRaio(Number(e.target.value))} className="mt-1 w-full accent-primary" />
         </label>
@@ -191,7 +191,7 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
               {CATEGORIAS_POIS.map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
             </select>
           </label>
-          {area ? <p className="text-xs text-muted-foreground">Onde: <b className="text-foreground">área de {area.rotulo}</b> (a linha verde do mapa)</p> : (
+          {area ? <p className="text-xs text-muted-foreground">Onde: <b className="text-foreground">área de {area.rotulo}</b> (a linha azul-marinho do mapa)</p> : (
             <label className="block text-xs font-medium text-muted-foreground">Raio: <b className="text-foreground">{raio.toLocaleString("pt-BR")} km</b>
               <input type="range" min={0.5} max={5} step={0.5} value={raio} onChange={(e) => setRaio(Number(e.target.value))} className="mt-1 w-full accent-primary" />
             </label>

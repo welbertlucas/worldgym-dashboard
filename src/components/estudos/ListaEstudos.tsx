@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarPonto, meses, raio80Real, reais, regiaoDe,
+  DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarPonto, foraDaMalhaDoCenso, limitarSemCenso, meses, raio80Real, reais, regiaoDe,
   type DadosEstudos, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
@@ -105,7 +105,10 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
   const linhas: Linha[] = useMemo(() => pontos.map((p) => {
     const faixa = dados.vendasPorM2?.[p.modelo];
     const u = p.decisao?.status === "unidade" ? dados.unidades?.find((x) => x.nome === p.decisao?.unidade) : undefined;
-    return { p, r: faixa && dados.premissas ? avaliarPonto(p, dados.premissas, faixa) : null, regiao: regiaoDe(p, dados.unidades ?? []), real: u?.madura ? u.vendas : null };
+    // sem Censo na região do ponto, o veredito nunca passa de "com condicionantes" (decisão do dono, 24/11/2026)
+    const r0 = faixa && dados.premissas ? avaliarPonto(p, dados.premissas, faixa) : null;
+    const r = r0 ? { ...r0, veredito: limitarSemCenso(r0.veredito, foraDaMalhaDoCenso(p.c, dados.censo)) } : null;
+    return { p, r, regiao: regiaoDe(p, dados.unidades ?? []), real: u?.madura ? u.vendas : null };
   }).sort((a, b) => (b.p.criadoEm ?? "").localeCompare(a.p.criadoEm ?? "")), [pontos, dados]);
   const autores = [...new Set(pontos.map((p) => p.autor?.nome).filter(Boolean))] as string[];
   const agora = Date.now();

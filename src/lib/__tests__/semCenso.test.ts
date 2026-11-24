@@ -49,3 +49,19 @@ describe("foto de satélite sem imagem (Esri)", () => {
     expect(ehAvisoSemImagem(47.4, 0.119)).toBe(false); // Gama
   });
 });
+
+import { MAX_LISTA_ACADEMIAS, nomeNaLista } from "@/components/estudos/pdfUnidade";
+describe("lista de academias do PDF (3 colunas, numa página)", () => {
+  it("resume o nome e só acrescenta a rede quando o resumo não a traz", () => {
+    expect(nomeNaLista("Academia Smart Fit - Manhattan Shopping", "Smart Fit")).toBe("Academia Smart Fit");
+    expect(nomeNaLista("STUDIO PERSONAL FAST TRAINING - Metropole", null)).toBe("STUDIO PERSONAL FAST TRAINING");
+    expect(nomeNaLista("Academia Águas Claras III | Bluefit", "Bluefit")).toBe("Academia Águas Claras III (Bluefit)"); // o nome da rede estava depois do corte
+    expect(nomeNaLista("Academia Águas Claras III - Unidade Sul", "Bluefit")).toBe("Academia Águas Claras III (Bluefit)");
+    expect(nomeNaLista("Corpo & Saúde, Arniqueira", "Corpo e Saúde")).toBe("Corpo & Saúde (Corpo e Saúde)");
+    expect(nomeNaLista("A - B", null)).toBe("A - B"); // resumo curto demais: fica o nome inteiro
+    expect(nomeNaLista("Academia Evolve - Águas Claras 2", "Evolve")).toBe("Academia Evolve");
+  });
+  it("a lista cabe em 3 colunas de 40 linhas", () => {
+    expect(MAX_LISTA_ACADEMIAS).toBe(120);
+  });
+});

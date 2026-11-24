@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
+import { useCensoCompleto } from "@/components/estudos/censoMunicipio";
 import { ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
@@ -20,7 +21,7 @@ import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa }
 import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
   comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
-  SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
+  SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
 
@@ -58,10 +59,12 @@ function Regua({ r }: { r: Resultado }) {
 interface PropsMapa {
   dados: DadosEstudos; pontos: Ponto[]; setPontos: Dispatch<SetStateAction<Ponto[]>>; atualId: string | null; setAtualId: (id: string | null) => void;
   iniciarAdicionando: boolean; comparando: Set<string> | null; voltar: () => void; salvo: string; editavel: boolean;
+  /** O Censo de um município de fora da malha principal ainda está chegando. */
+  carregandoCenso: boolean;
 }
 
 /** O mapa do estudo: painel com os pontos (todos, ou só os escolhidos para comparar), a conta e a decisão; lentes e ferramentas. */
-function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo, editavel }: PropsMapa) {
+function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, iniciarAdicionando, comparando, voltar, salvo, editavel, carregandoCenso }: PropsMapa) {
   const [lente, setLente] = useState<Lente>("captacao");
   const cartaoAberto = useRef<string | null>(null);
   // o mapa vai do topo dele até o fim da tela, sem precisar rolar
@@ -89,6 +92,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const pronto = true;
   const avaliar = (p: Ponto) => (dados.vendasPorM2![p.modelo] ? avaliarPonto(p, dados.premissas!, dados.vendasPorM2![p.modelo]!) : null);
   const resultados = useMemo(() => new Map(pontos.map((p) => [p.id, avaliar(p)])), [pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
+  // pontos fora da malha do Censo (ex.: Jataí-GO, antes de o município ser gerado): zero moradores é falta de dado, e o parecer não passa de "com condicionantes"
+  const semCensoPorPonto = useMemo(() => new Map(todos.map((p) => [p.id, foraDaMalhaDoCenso(p.c, dados.censo)])), [todos, dados.censo]);
   // ticket sugerido, alunos e vagas de cada ponto (estacionamento insuficiente reprova: critério eliminatório)
   const extras = useMemo(() => new Map(pontos.map((p) => {
     const rr = resultados.get(p.id) ?? null;
@@ -104,8 +109,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   // área de 10 min de carro do ponto aberto (pergunta antes de mandar a posição ao Mapbox)
   const areas = useDeslocamento(atual?.c, true);
   const area10 = areaOficial(areas);
-  // ponto fora da malha do Censo (ex.: Jataí-GO): moradores, renda, idade e potencial dariam zero por falta de dado, e o parecer não pode usá-los
-  const semCenso = useMemo(() => (atual ? foraDaMalhaDoCenso(atual.c, dados.censo) : false), [atual?.c[0], atual?.c[1], dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ponto aberto fora da malha do Censo: moradores, renda, idade e potencial dariam zero por falta de dado, e o parecer não pode usá-los
+  const semCenso = atual ? semCensoPorPonto.get(atual.id) ?? false : false;
+  const avisoCenso = semCenso && !carregandoCenso; // o aviso só aparece depois de tentar buscar o município
   const moradores10 = area10 && !semCenso ? moradoresNaArea(dados.censo!, area10) : null;
   // população recomendada calibrada com a rede (moradores na área de 10 min de cada unidade madura do modelo)
   const refsPop = useReferenciaPopulacao(dados.unidades!, dados.censo, atual?.modelo ?? null);
@@ -126,7 +132,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const faixaFatia = faixaDaFatia(refsPop);
   const potencial10 = resumoCenso?.potencial?.total ?? null;
   const fatiaPonto = r && potencial10 ? r.provavel / potencial10 : null;
-  const vf = vereditoComFatia(ex?.veredito ?? r?.veredito ?? null, fatiaPonto, faixaFatia);
+  const vfBase = vereditoComFatia(ex?.veredito ?? r?.veredito ?? null, fatiaPonto, faixaFatia);
+  const vf = limitarSemCenso(vfBase, semCenso); // sem Censo nunca passa de "com condicionantes" (decisão do dono, 24/11/2026)
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
   const candidatasPerto = useMemo(() => (atual && dados.censo && !semCenso && dados.premissas
     ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva, { n: 8 })
@@ -321,7 +328,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
           return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp,
             fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!, foraDaMalhaDoCenso(p.c, censo)) : [],
-            parecidas: foraDaMalhaDoCenso(p.c, censo) ? { ...compararComParecidas(p.c, p.modelo, censo, dados.unidades!), itens: [] } : compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null };
+            parecidas: foraDaMalhaDoCenso(p.c, censo) ? { ...compararComParecidas(p.c, p.modelo, censo, dados.unidades!), itens: [] } : compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null, semCenso: foraDaMalhaDoCenso(p.c, censo) };
         }),
       }), ...paginasRua));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
@@ -334,11 +341,11 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       navegacao={<Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={voltar}>Todos os estudos</Button>}
       acoes={<>
         {editavel && <Button size="sm" className="h-7 px-2.5 text-[12px]" variant={adicionando ? "secondary" : "outline"} onClick={() => { setVista("mapa"); setAdicionando((a) => !a); }} aria-pressed={adicionando}>{adicionando ? "Clique no mapa…" : "Adicionar ponto"}</Button>}
-        <Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
+        <Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando || carregandoCenso || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
         <span className="text-[11px] text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
       </>}
       painel={<PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" naColuna
-          abaExtra={{ rotulo: "Lugares por perto", conteudo: <ControlePois embutido centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
+          abaExtra={{ rotulo: "Academias concorrentes", conteudo: <ControlePois embutido centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
@@ -354,9 +361,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       mapa={<>
         <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
         <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
-        {semCenso && !(adicionando || verRua || achado) && (
+        {(avisoCenso || (semCenso && carregandoCenso)) && !(adicionando || verRua || achado) && (
           <div role="status" className="absolute left-1/2 top-3 z-[456] max-w-[calc(100%-34rem)] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-center text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
-            Sem dados do Censo nesta região: as camadas de população, renda, idade e consumo ficam vazias.
+            {carregandoCenso ? "Buscando o Censo desta região…" : "Sem dados do Censo nesta região: as camadas de população, renda, idade e consumo ficam vazias."}
           </div>
         )}
         {(adicionando || verRua || achado) && (
@@ -377,7 +384,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <div className="flex gap-2.5 overflow-x-auto pb-1" role="tablist" aria-label="Pontos em estudo">
           {pontos.map((p, i) => {
             const rr = resultados.get(p.id);
-            const vv = p.id === atual?.id ? vf ?? rr?.veredito : extras.get(p.id)?.veredito ?? rr?.veredito; // o ponto aberto já com a fatia do potencial
+            const vv = limitarSemCenso(p.id === atual?.id ? vf ?? rr?.veredito ?? null : extras.get(p.id)?.veredito ?? rr?.veredito ?? null, semCensoPorPonto.get(p.id)); // o ponto aberto já com a fatia do potencial
             return (
               <button key={p.id} type="button" role="tab" aria-selected={p.id === atualId} onClick={() => setAtualId(p.id)}
                 className="flex min-w-[230px] items-center gap-2.5 rounded-xl border bg-white px-3 py-2.5 text-left hover:bg-muted/40 aria-selected:border-foreground aria-selected:ring-1 aria-selected:ring-foreground">
@@ -425,7 +432,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           <Faixa tom={vf === "aprovado" ? "bom" : vf === "atencao" ? "atencao" : "ruim"}>
             Parecer do Atlas: {PARECER_ROTULO[vf ?? r.veredito]} · payback {meses(r.payback)}{ex?.vagas?.situacao === "insuficiente" ? " · estacionamento insuficiente" : ""}
           </Faixa>
-          {semCenso && <Nota><b>Sem dados do Censo nesta região.</b> O Atlas guarda o Censo só da região das unidades (Distrito Federal e entorno, Goiânia e Salvador). Moradores, renda, idade, potencial de consumo e divisão com a rede não foram medidos, e o parecer vale só pela estimativa de vendas por m² da rede.</Nota>}
+          {avisoCenso && <Nota><b>Sem dados do Censo nesta região.</b> O Atlas guarda o Censo só da região das unidades (Distrito Federal e entorno, Goiânia e Salvador). Moradores, renda, idade, potencial de consumo e divisão com a rede não foram medidos, e o parecer vale só pela estimativa de vendas por m² da rede.</Nota>}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Secao icone={TrendingUp} titulo="Estimativa de vendas">
@@ -460,7 +467,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             </Secao>
             <Secao icone={Gavel} titulo="Parecer do Atlas">
               {(() => {
-                const pr = parecerDoPonto({ veredito: vf ?? r.veredito, provavel: r.provavel, meta: r.meta, payback: r.payback, mesesAprovado: dados.premissas!.regua.mesesAprovado, mesesAtencao: dados.premissas!.regua.mesesAtencao,
+                const pr = parecerDoPonto({ veredito: vfBase ?? r.veredito, provavel: r.provavel, meta: r.meta, payback: r.payback, mesesAprovado: dados.premissas!.regua.mesesAprovado, mesesAtencao: dados.premissas!.regua.mesesAtencao,
                   vagas: ex?.vagas ?? null, populacao: pop ? { situacao: pop.situacao, recomendada: pop.recomendada } : null, divideCom: semCenso ? [] : cap?.divideCom, semCenso,
                   fatia: fatiaPonto != null && faixaFatia && potencial10 ? { valor: fatiaPonto, potencial: potencial10, comum: faixaFatia.comum, maxima: faixaFatia.maxima } : null });
                 const tom = (vf ?? r.veredito) === "aprovado" ? "text-success" : (vf ?? r.veredito) === "atencao" ? "text-warning" : "text-destructive";
@@ -549,7 +556,7 @@ type Visao = { tela: "lista" } | { tela: "rede" } | { tela: "unidade"; nome: str
 
 /** Estudos de ponto: abre na lista (carteira de estudos); o mapa abre num estudo, num estudo novo ou na comparação. */
 export function EstudosPontoTab() {
-  const [dados, setDados] = useState<DadosEstudos | null>(null);
+  const [dadosApi, setDados] = useState<DadosEstudos | null>(null);
   const [erro, setErro] = useState("");
   const [pontos, setPontos] = useState<Ponto[]>([]);
   const [salvo, setSalvo] = useState<"" | "salvando" | "salvo" | "erro">("");
@@ -563,6 +570,11 @@ export function EstudosPontoTab() {
       setDados(d); setPontos(d.pontos ?? []);
     }).catch((e) => setErro(e.message));
   }, []);
+
+  // Censo dos municípios de fora da malha principal (ex.: Jataí, Rio Verde): vem do servidor para os pontos que a malha principal não cobre
+  // e entra na mesma malha, então lista, mapa e PDF usam `dados.censo` como sempre
+  const { censo: censoCompleto, carregando: carregandoCenso } = useCensoCompleto(dadosApi?.censo, pontos);
+  const dados = useMemo(() => (dadosApi && censoCompleto ? { ...dadosApi, censo: censoCompleto } : dadosApi), [dadosApi, censoCompleto]);
 
   // grava os pontos no servidor um instante depois da última mudança
   useEffect(() => {
@@ -612,7 +624,7 @@ export function EstudosPontoTab() {
         comparar={(ids) => setVisao({ tela: "mapa", atualId: ids[0] ?? null, novo: false, comparando: new Set(ids) })} />
     );
   return (
-    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={editavel} iniciarAdicionando={visao.novo} comparando={visao.comparando}
+    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={editavel} carregandoCenso={carregandoCenso} iniciarAdicionando={visao.novo} comparando={visao.comparando}
       atualId={visao.atualId} setAtualId={(id) => setVisao((v) => (v.tela === "mapa" ? { ...v, atualId: id, comparando: v.comparando && id && !v.comparando.has(id) ? new Set([...v.comparando, id]) : v.comparando } : v))}
       voltar={() => setVisao({ tela: "lista" })} />
   );
