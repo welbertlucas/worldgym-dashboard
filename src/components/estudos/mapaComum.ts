@@ -206,3 +206,14 @@ export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, numbe
     m.mapa.setView(centro, zoom, { animate: false });
   }
 }
+
+/**
+ * Foto do mapa como está enquadrado na tela, mas sempre no fundo padrão (decisão do dono, 23/11/2026: o PDF sai no padrão, qualquer que
+ * seja o fundo escolhido na tela). Troca o fundo só durante a foto e devolve o que a pessoa tinha marcado.
+ */
+export async function fotoNoPadrao(m: MapaBase, fundoDaTela: Fundo): Promise<string | null> {
+  if (fundoDaTela === "padrao") return fotoDoMapa(m.mapa);
+  aplicarFundo(m, "padrao");
+  try { await esperarAzulejos(m); return await fotoDoMapa(m.mapa); }
+  finally { aplicarFundo(m, fundoDaTela); }
+}

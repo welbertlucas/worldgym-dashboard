@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
-import { aplicarFundo, fotoDoMapa, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
+import { aplicarFundo, fotoNoPadrao, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
@@ -276,7 +276,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     // fotos para o PDF: o mapa como está na tela, o satélite de cada ponto e, do ponto aberto, uma foto por tema na área de 10 min
     const tirar = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
-      const fotoGeral = pontos.length > 1 ? await fotoDoMapa(m.mapa) : null;
+      const fotoGeral = pontos.length > 1 ? await fotoNoPadrao(m, fundo) : null;
       setPois(null); // as academias só aparecem na foto delas
       const sats = new Map<string, string | null>();
       for (const p of pontos) sats.set(p.id, await tirar("limpa", { centro: p.c, zoom: 18 }, true));

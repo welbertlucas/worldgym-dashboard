@@ -21,7 +21,11 @@ const REDES = [
   [/smart\s*fit/i, "Smart Fit"], [/blue\s*fit/i, "Bluefit"], [/selfit/i, "Selfit"], [/panobianco/i, "Panobianco"], [/bodytech/i, "Bodytech"],
   [/bio\s*ritmo/i, "Bio Ritmo"], [/sky\s*fit/i, "Skyfit"], [/pratique/i, "Pratique"], [/contorno do corpo/i, "Contorno do Corpo"],
   [/just\s*fit/i, "Justfit"], [/i9\s*fit/i, "i9 Fit"], [/world\s*gym/i, "World Gym"],
+  // pedido do dono, 23/11/2026: Evolve, Corpo e Saúde e Ultra também são redes
+  [/evolve/i, "Evolve"], [/corpo\s*(e|&)\s*sa[uú]de/i, "Corpo e Saúde"], [/\bultra\b/i, "Ultra"],
 ];
+/** A rede de cada academia é recalculada também nas buscas guardadas, para a lista de redes valer sem esperar o cache vencer. */
+const comRedes = (r) => (r.categoria === "academias" ? { ...r, lugares: r.lugares.map((l) => ({ ...l, rede: redeDe(l.nome) })) } : r);
 export const redeDe = (nome) => REDES.find(([r]) => r.test(String(nome ?? "")))?.[1] ?? null;
 
 const km = (a, b) => Math.hypot((a[0] - b[0]) * 110.6, (a[1] - b[1]) * 111.32 * Math.cos(((a[0] + b[0]) / 2) * Math.PI / 180));
@@ -82,7 +86,7 @@ export async function buscarPois(pedido, { chave = process.env.GOOGLE_PLACES_KEY
   const { c, raioKm, categoria } = pedidoValido(pedido);
   const arquivo = chaveDaBusca(c, raioKm, categoria);
   const guardado = await lerJson(arquivo);
-  if (guardado && agora - Date.parse(guardado.em) < VALIDADE_DIAS * 864e5) return { ...guardado, doCache: true };
+  if (guardado && agora - Date.parse(guardado.em) < VALIDADE_DIAS * 864e5) return { ...comRedes(guardado), doCache: true };
   if (!chave) throw new ErroPois("A busca de pontos de interesse ainda não foi configurada no servidor.", 503);
   const ids = [...new Set(await lugaresNoCirculo(chave, c, raioKm * 1000, CATEGORIAS[categoria].tipos, fetcher))];
   const lugares = [];

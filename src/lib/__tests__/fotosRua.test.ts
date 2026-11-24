@@ -105,3 +105,16 @@ describe("fotos de rua (Street View) do último slide", () => {
     expect(comFotosDaRegiao(base, pg).fotosDaRegiao).toHaveLength(1);
   });
 });
+
+describe("redes de academia", () => {
+  it("reconhece Evolve, Corpo e Saúde e Ultra (pedido do dono, 23/11/2026), sem pegar nomes parecidos", async () => {
+    // @ts-expect-error módulo JS do servidor
+    const { redeDe } = await import("../../../server/pois.js");
+    expect(redeDe("Academia Evolve - Unidade Centro")).toBe("Evolve");
+    expect(redeDe("Corpo & Saúde Academia")).toBe("Corpo e Saúde");
+    expect(redeDe("Academia Corpo e Saude")).toBe("Corpo e Saúde");
+    expect(redeDe("Ultra Academia")).toBe("Ultra");
+    expect(redeDe("Clínica Ultrassom")).toBeNull();
+    expect(redeDe("Academia do Bairro")).toBeNull();
+  });
+});
