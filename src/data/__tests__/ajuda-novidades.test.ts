@@ -40,7 +40,7 @@ describe("central de ajuda", () => {
     const ids = new Set(ARTIGOS.map((a) => a.id));
     expect(SECOES.some((s) => ids.has(s.id))).toBe(false);
     expect(ondeFica("gerencial/oportunidades")).toBe("Menu › Gerencial › Oportunidades");
-    expect(ondeFica("riscos/mes")).toBe("Botão Alertas, no cabeçalho › Mês em andamento");
+    expect(ondeFica("riscos/mes")).toBe("Menu › Alertas › Mês em andamento");
     expect(ondeFica("novidades")).toBe("Novidades, no rodapé do menu");
   });
 });

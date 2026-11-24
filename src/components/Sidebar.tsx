@@ -10,6 +10,7 @@ interface NavProps {
   active: string;
   onChange: (id: string) => void;
   /** Alertas críticos, exibido junto de "Alertas". */
+  criticalCount?: number;
 }
 
 /**
@@ -67,7 +68,7 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
 /** Estudos de ponto: todos veem (a unidade, só o estudo dela). Unidades em obra (ainda "Em breve"): o dono e quem ele liberou. */
 const emBreveLiberado = () => (ehDono() ? true : { estudos: true, obras: podeVerObras() });
 
-function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: NavItem; active: string; onChange: (id: string) => void; collapsed: boolean; numero?: number }) {
+function ItemDoMenu({ item, active, onChange, collapsed, numero = 0, criticos = 0 }: { item: NavItem; active: string; onChange: (id: string) => void; collapsed: boolean; numero?: number; criticos?: number }) {
   const Icon = item.icon;
   const isActive = active === item.id;
   return (
@@ -92,6 +93,14 @@ function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: N
         {MENUS_NOVIDADE.has(item.id) && !collapsed && (
           <span className="text-[10px] font-semibold leading-none text-primary-ink">Novidade</span>
         )}
+        {criticos > 0 && (
+          <span
+            className={cn("rounded-full bg-primary text-center text-[11px] font-semibold leading-none text-primary-foreground", collapsed ? "absolute right-1.5 top-1 px-1.5 py-1" : "px-2 py-1")}
+            aria-label={`${criticos} ${criticos === 1 ? "alerta crítico" : "alertas críticos"}`}
+          >
+            {criticos}
+          </span>
+        )}
         {numero > 0 && (
           <span
             className={cn("rounded-full bg-primary text-center text-[10px] font-semibold leading-none text-primary-foreground", collapsed ? "absolute right-1.5 top-1 h-2 w-2" : "min-w-[1.1rem] px-1.5 py-0.5")}
@@ -106,7 +115,7 @@ function ItemDoMenu({ item, active, onChange, collapsed, numero = 0 }: { item: N
 }
 
 /** Telas de trabalho em cima; Novidades e Central de ajuda no rodapé do menu. */
-function NavList({ active, onChange, collapsed = false }: NavProps & { collapsed?: boolean }) {
+function NavList({ active, onChange, criticalCount = 0, collapsed = false }: NavProps & { collapsed?: boolean }) {
   const itens = itensDoMenu(podeGerirAcessos(), false, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), emBreveLiberado());
   const novas = useNovidadesNaoVistas();
   return (
@@ -114,7 +123,7 @@ function NavList({ active, onChange, collapsed = false }: NavProps & { collapsed
     {!collapsed && <BuscaMenu onChange={onChange} />}
     <nav aria-label="Seções do dashboard" className="flex flex-1 flex-col overflow-y-auto px-3 py-2">
       <ul className="space-y-0.5">
-        {itens.map((item) => <ItemDoMenu key={item.id} item={item} active={active} onChange={onChange} collapsed={collapsed} />)}
+        {itens.map((item) => <ItemDoMenu key={item.id} item={item} active={active} onChange={onChange} collapsed={collapsed} criticos={item.id === "riscos" ? criticalCount : 0} />)}
       </ul>
       <ul className="mt-auto space-y-0.5 border-t border-border pt-2" aria-label="Novidades e ajuda">
         {NAV_RODAPE.map((item) => <ItemDoMenu key={item.id} item={item} active={active} onChange={onChange} collapsed={collapsed} numero={item.id === "novidades" ? novas : 0} />)}
@@ -167,7 +176,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, ...nav }: SidebarProps) 
 interface DrawerProps extends NavProps { open: boolean; onClose: () => void }
 
 /** Drawer de navegação para telas menores que lg: Esc fecha, foco fica preso e volta ao botão de origem. */
-export function MobileDrawer({ open, onClose, active, onChange }: DrawerProps) {
+export function MobileDrawer({ open, onClose, active, onChange, criticalCount }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -216,7 +225,7 @@ export function MobileDrawer({ open, onClose, active, onChange }: DrawerProps) {
             <X className="w-5 h-5" aria-hidden />
           </button>
         </div>
-        <NavList active={active} onChange={(id) => { onChange(id); onClose(); }} />
+        <NavList active={active} criticalCount={criticalCount} onChange={(id) => { onChange(id); onClose(); }} />
       </div>
     </div>
   );

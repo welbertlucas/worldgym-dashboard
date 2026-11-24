@@ -2,16 +2,17 @@ import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Users, UserC
 
 import type { Aba } from "@/components/Abas";
 
-/** `oculto`: a tela existe (endereço, busca) mas não aparece na barra lateral; é aberta por outro lugar (o ícone de alertas no cabeçalho). */
+/** `oculto`: a tela existe (endereço, busca) mas não aparece na barra lateral; é aberta por outro lugar. Hoje nenhum item usa. */
 export interface NavItem { id: string; label: string; icon: LucideIcon; oculto?: boolean }
 
 // Fonte única da navegação: a sidebar (desktop) e o drawer (celular) leem esta lista, numa sequência só (sem títulos de grupo).
 // Os ids ficam como eram (o endereço #id não muda); só os nomes e a ordem mudaram.
 export const NAV_ITEMS: NavItem[] = [
   { id: "executiva", label: "Overview", icon: LayoutDashboard },
+  // Alertas voltou para o menu, logo abaixo de Overview, com o número de críticos ao lado (pedido do dono, 24/11/2026); saiu do cabeçalho
+  { id: "riscos", label: "Alertas", icon: ShieldAlert },
   { id: "plano", label: "Plano de ação", icon: ListChecks },
   { id: "metas", label: "Metas", icon: Target },
-  { id: "riscos", label: "Alertas", icon: ShieldAlert, oculto: true },
   // Gerencial (decisão do dono, 23/11/2026): junta o antigo Comercial e o antigo Financeiro, sem as abas Resumo
   { id: "gerencial", label: "Gerencial", icon: TrendingUp },
   { id: "alunos", label: "Alunos", icon: Users },
@@ -64,10 +65,9 @@ export function nomeDaTela(tela: string): string {
   return item ? (sub ? `${item.label} › ${sub.rotulo}` : item.label) : tela;
 }
 
-/** Onde a tela fica, para quem procura: os Alertas não estão no menu, e sim no botão do cabeçalho. */
+/** Onde a tela fica, para quem procura. */
 export function ondeFica(tela: string): string {
   const nome = nomeDaTela(tela);
-  if (tela.split("/")[0] === "riscos") return `Botão ${nome.replace(/^Alertas/, "Alertas, no cabeçalho")}`;
   if (NAV_RODAPE.some((i) => i.id === tela.split("/")[0])) return `${nome}, no rodapé do menu`;
   return `Menu › ${nome}`;
 }

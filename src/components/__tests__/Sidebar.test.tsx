@@ -7,7 +7,7 @@ const noop = () => {};
 
 describe("navegação", () => {
   it("menu numa sequência só (os ids antigos continuam, o mapa virou aba de Alunos)", () => {
-    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "plano", "metas", "riscos", "gerencial", "alunos", "catraca", "retencao", "campanhas", "benchmark"]);
+    expect(NAV_ITEMS.map((i) => i.id)).toEqual(["executiva", "riscos", "plano", "metas", "gerencial", "alunos", "catraca", "retencao", "campanhas", "benchmark"]);
   });
 
   it("endereços antigos levam para o lugar novo", () => {
@@ -23,10 +23,12 @@ describe("navegação", () => {
     expect(enderecoAtual("financeiro/resumo")).toBe("gerencial/recebimento");
   });
 
-  it("sidebar lista as seções (Alertas fica no cabeçalho, não na barra) e marca a ativa", () => {
+  it("sidebar lista as seções (Alertas logo abaixo de Overview) e marca a ativa", () => {
     const html = renderToString(<Sidebar active="riscos" onChange={noop} collapsed={false} onToggleCollapsed={noop} />);
     for (const item of NAV_ITEMS.filter((i) => !i.oculto)) expect(html).toContain(item.label);
-    expect(html).not.toContain(">Alertas<");
+    expect(html).toContain(">Alertas<");
+    expect(html.indexOf(">Alertas<")).toBeGreaterThan(html.indexOf(">Overview<"));
+    expect(html.indexOf(">Alertas<")).toBeLessThan(html.indexOf(">Plano de ação<"));
     expect(html).toContain("Recolher menu");
     for (const g of ["Painel", "Áreas", "Administração"]) expect(html).not.toContain(`>${g}<`); // sem títulos de grupo
   });
@@ -46,30 +48,29 @@ describe("navegação", () => {
   });
 });
 
-import { AlertasNoTopo, maisCriticos } from "@/components/AlertasNoTopo";
-import type { Alert } from "@/data/alerts";
-
-describe("alertas no cabeçalho", () => {
-  const alerta = (id: string, severity: Alert["severity"], weight: number, unit = "Gama"): Alert =>
-    ({ id, unit, kind: "faturamento", severity, month: "2026-10", fact: `fato ${id}`, rule: "r", weight }) as unknown as Alert;
-  const lista = [alerta("a", "critical", 0.02), alerta("b", "attention", 0.5), alerta("c", "critical", 0.09, "Asa Norte"), alerta("d", "critical", 0.05)];
-
-  it("o painel traz só críticos, os de maior peso primeiro, no máximo 5", () => {
-    expect(maisCriticos(lista).map((a) => a.id)).toEqual(["c", "d", "a"]);
-    const muitos = Array.from({ length: 9 }, (_, i) => alerta(`x${i}`, "critical", i / 100));
-    expect(maisCriticos(muitos)).toHaveLength(5);
+describe("alertas no menu", () => {
+  it("Alertas é o segundo item do menu, logo abaixo de Overview, e não está escondido", async () => {
+    const { itensDoMenu } = await import("@/components/nav");
+    expect(itensDoMenu(false).slice(0, 2).map((i) => i.id)).toEqual(["executiva", "riscos"]);
   });
 
-  it("o botão mostra o número de críticos e fica com rótulo acessível", () => {
-    const html = renderToString(<AlertasNoTopo alertas={lista} onVerTodos={noop} />);
-    expect(html).toContain('aria-label="Alertas: 3 críticos"');
-    expect(html).toContain(">3<");
-    expect(renderToString(<AlertasNoTopo alertas={[]} onVerTodos={noop} />)).toContain('aria-label="Alertas: nenhum crítico"');
+  it("o número de alertas críticos aparece ao lado de Alertas, com rótulo acessível; sem críticos, não aparece", () => {
+    const com = renderToString(<Sidebar active="executiva" onChange={noop} collapsed={false} onToggleCollapsed={noop} criticalCount={3} />);
+    expect(com).toContain('aria-label="3 alertas críticos"');
+    const um = renderToString(<Sidebar active="executiva" onChange={noop} collapsed={false} onToggleCollapsed={noop} criticalCount={1} />);
+    expect(um).toContain('aria-label="1 alerta crítico"');
+    const sem = renderToString(<Sidebar active="executiva" onChange={noop} collapsed={false} onToggleCollapsed={noop} criticalCount={0} />);
+    expect(sem).not.toContain("alerta crítico");
+    expect(sem).not.toContain("alertas críticos");
   });
 
-  it("a busca do menu ainda acha Alertas, mesmo fora da barra lateral", async () => {
+  it("o drawer do celular também mostra o número", () => {
+    const html = renderToString(<MobileDrawer open onClose={noop} active="executiva" onChange={noop} criticalCount={2} />);
+    expect(html).toContain('aria-label="2 alertas críticos"');
+  });
+
+  it("a busca do menu acha Alertas", async () => {
     const { itensDoMenu, itensDeBusca, buscarNoMenu } = await import("@/components/nav");
-    expect(itensDoMenu(false).some((i) => i.id === "riscos")).toBe(false);
-    expect(buscarNoMenu(itensDeBusca(itensDoMenu(false, true)), "alertas").map((r) => r.destino)).toContain("riscos");
+    expect(buscarNoMenu(itensDeBusca(itensDoMenu(false)), "alertas").map((r) => r.destino)).toContain("riscos");
   });
 });

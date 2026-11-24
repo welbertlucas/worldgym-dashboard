@@ -14,7 +14,6 @@ import InadimplenciaChart from "@/components/InadimplenciaChart";
 import { BotaoUnidade, DateFilter } from "@/components/DateFilter";
 import { ComparisonCard } from "@/components/ComparisonCard";
 import { TrocarSenha } from "@/components/TrocarSenha";
-import { AlertasNoTopo } from "@/components/AlertasNoTopo";
 import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import { PerfilOportunidades } from "@/components/PerfilOportunidades";
 import { OrigemOportunidades } from "@/components/OrigemOportunidades";
@@ -222,8 +221,9 @@ const Index = () => {
   const alerts = soAsProprias
     ? computeAlerts(dashboardData, metasData.filter((m) => m.unit !== "TOTAL")).filter((a) => a.unit !== "Rede")
     : computeAlerts(dashboardData, metasData);
-  // Alertas do mês em andamento (o que fazer agora): base do Plano de ação, do Overview e do botão de alertas do topo.
+  // Alertas do mês em andamento (o que fazer agora): base do Plano de ação, do Overview e do número ao lado de "Alertas" no menu.
   const vigentes = computeAlertasVigentes(dashboardData, soAsProprias ? metasData.filter((m) => m.unit !== "TOTAL") : metasData, { atualizadoEm: evoAtualizadoEm, incluirRede: !soAsProprias });
+  const criticosDoMes = vigentes.alertas.filter((a) => a.severity === "critical").length;
   // A Visão Executiva e o Benchmark olham a rede inteira (para quem tem acesso só a algumas unidades, as outras vêm com o nome escondido).
   const monthsRede = dashboardDataRede.map((d) => d.month);
   const evalMonthRede = getLastClosedMonth(monthsRede);
@@ -275,11 +275,12 @@ const Index = () => {
       <Sidebar
         active={activeTab}
         onChange={changeTab}
+        criticalCount={criticosDoMes}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
       />
       {trocandoSenha && <TrocarSenha onFeito={() => setTrocandoSenha(false)} onCancelar={() => setTrocandoSenha(false)} />}
-      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} />
+      <MobileDrawer open={drawerOpen} onClose={closeDrawer} active={activeTab} onChange={changeTab} criticalCount={criticosDoMes} />
 
       <div className="flex-1 min-w-0">
         <div role="note" className="flex items-center justify-center gap-2 border-b border-border px-3 py-1.5 text-center text-xs text-muted-foreground sm:text-sm">
@@ -313,7 +314,6 @@ const Index = () => {
             {/* Unidade ou rede: um botão só, no canto do cabeçalho, para todas as telas que filtram por unidade. */}
             {comBotaoDeUnidade && <BotaoUnidade id="filtro-unidade" className="hidden sm:flex" value={selectedUnit} onChange={setSelectedUnit} />}
             <VerComo className="hidden xl:flex" />
-            <AlertasNoTopo alertas={vigentes.alertas} mes={vigentes.month} onVerTodos={() => changeTab("riscos/mes")} />
             {getUsuario() && !getUsuario()!.legado && (
               <button
                 type="button"

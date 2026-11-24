@@ -81,7 +81,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "A meta é da unidade inteira, dividida entre a equipe.",
   ], { tela: "metas" }),
   a("telas", "tela-alertas", "Alertas", "O que pede atenção, no mês em andamento e no último fechamento.", [
-    "O botão Alertas no cabeçalho mostra quantos alertas críticos existem e os mais importantes. \"Ver todos\" abre a tela completa.",
+    "O menu Alertas, logo abaixo de Overview, mostra ao lado do nome quantos alertas críticos existem no mês em andamento.",
     "A aba Mês em andamento mostra o que fazer agora. A aba Fechamento conta o que aconteceu no mês anterior.",
   ], { tela: "riscos/mes", imagem: "alertas" }),
   a("telas", "tela-gerencial", "Gerencial", "Vendas, oportunidades, receitas complementares, recebimentos, inadimplência e notas fiscais (o antigo Comercial e o antigo Financeiro, num menu só).", [
