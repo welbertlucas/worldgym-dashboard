@@ -45,7 +45,7 @@ function MiniMapa({ linhas, abrir }: { linhas: Linha[]; abrir: (id: string) => v
     }
     if (linhas.length) m.mapa.fitBounds(m.grupo.getBounds(), { padding: [24, 24], maxZoom: 13 });
   }, [linhas, pronto, abrir]);
-  return <div ref={el} className="mapa-cinza h-[300px]" aria-label="Mapa dos estudos" />;
+  return <div ref={el} className="h-[300px]" aria-label="Mapa dos estudos" />; // fundo padrão (colorido), como nos outros mapas (pedido do dono, 23/11/2026)
 }
 
 /** As unidades que já funcionam, em cards: vendas reais contra a mediana da rede (R$/m²) e contra o que o modelo preveria pelo tamanho. */
@@ -121,7 +121,6 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
 
   return (
     <div className="space-y-4 pb-20">
-      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h2 className="font-display text-2xl font-medium">Estudos de ponto</h2><p className="text-sm text-muted-foreground">As unidades em operação e cada imóvel avaliado, com a previsão do modelo e a decisão.</p></div>
         <div className="flex items-center gap-2">
