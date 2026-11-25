@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CREDITO_DO_MAPA, camadaRuas, ZOOMS_DO_SATELITE, gradienteArco, aplicarFundo, bolinha, cartaoDoLugar, primeiraComImagem, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
-import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
-import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, raioQueCobre, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
+import { CSS_POIS, AcoesPois, ControlePois, SecaoPois, buscarPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { Barras, Destaque, Linha, Nota, Partes, ReguaSimples, Secao } from "@/components/estudos/blocos";
@@ -49,6 +49,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const [pois, setPois] = useState<ResultadoPois | null>(null);
   const [modoPois, setModoPois] = useState<ModoPois>("nomes");
   const [verPois, setVerPois] = useState(true);
+  const [buscandoAcademias, setBuscandoAcademias] = useState(false);
   const [verNova, setVerNova] = useState(true);
   const [verParec, setVerParec] = useState(false);
   // contagem de alunos ativos por hexágono do Censo, feita pela rotina noturna a partir do CEP (só totais; some se a rotina ainda não rodou)
@@ -223,6 +224,16 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
   const aoPois = (r: ResultadoPois | null) => { setPois(r); setVerPois(true); };
+  // Academias concorrentes como camada do painel, igual ao estudo de ponto novo; a busca só roda quando a pessoa liga a camada (o servidor guarda cada busca por 90 dias)
+  const refazerAcademias = async () => {
+    if (!u?.c || !area10) return;
+    setBuscandoAcademias(true);
+    try {
+      const r = await buscarPois(u.c as [number, number], raioQueCobre(u.c as [number, number], area10), "academias");
+      const lugares = r.lugares.filter((l) => dentroDaArea(l.c[0], l.c[1], area10));
+      setPois({ ...r, lugares, total: lugares.length, areaRotulo: `${MINUTOS_PADRAO} min de carro` }); setVerPois(true);
+    } catch { /* sem resposta: a camada continua desligada e dá para tentar de novo */ } finally { setBuscandoAcademias(false); }
+  };
 
   if (!u) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">Nenhuma unidade para mostrar.</p>;
 
@@ -302,7 +313,6 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         </>}
         acoes={<Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>}
         painel={<PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" naColuna
-          abaExtra={{ rotulo: "Academias concorrentes", conteudo: <ControlePois embutido centro={u.c} aviso={false} area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
           legenda={lente === "modelo" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">Onde o modelo espera alunos, pela gente que mora perto e pelas outras World Gym. {area10 ? LEGENDA_DESLOCAMENTO : ""}</p>
@@ -321,7 +331,11 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             : lente === "rede" ? <p>O círculo cheio é a área desta unidade; os tracejados, a de cada vizinha. Quanto do público ela divide com cada uma está na aba Estudo.</p>
             : null}
           sobre={[
-            ...(pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []),
+            { id: "pois", rotulo: pois ? rotuloPois(pois) : `Academias concorrentes${buscandoAcademias ? " · buscando…" : area10 ? "" : " · aguardando a área de 10 min"}`, ativo: !!pois && verPois,
+              alternar: () => { if (!pois) void refazerAcademias(); else setVerPois((v) => !v); },
+              legenda: pois ? `${totalPois(pois)} ${ondePois(pois)}` : undefined, remover: pois ? () => setPois(null) : undefined,
+              acoes: pois ? <AcoesPois modo={modoPois} setModo={setModoPois} categoria={pois.categoria} atualizar={() => void refazerAcademias()} buscando={buscandoAcademias}
+                outros={<ControlePois embutido centro={u.c} aviso={false} area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} />} /> : undefined },
             ...(compParec?.itens.length ? [{ id: "parecidas", rotulo: "Unidades parecidas", ativo: verParec, alternar: () => {
               if (!verParec) { const m = ref.current; if (m && u.c) m.mapa.fitBounds(m.L.latLngBounds([u.c, ...compParec.itens.flatMap((x) => (x.u.c ? [x.u.c] : []))]).pad(0.2)); }
               setVerParec((v) => !v);
