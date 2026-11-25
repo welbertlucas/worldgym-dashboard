@@ -21,7 +21,7 @@ import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamada
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -613,7 +613,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             </Secao>
             <Secao icone={Building2} titulo="O imóvel">
               {(editavel || atual.origem) && (() => {
-                const alug = atual.origem?.aluguel ?? null, fixoM2 = dados.premissas!.modelos[atual.modelo].fixoPorM2;
+                const alug = atual.origem?.aluguel ?? null;
                 const porM2 = alug && atual.m2 ? alug / atual.m2 : null;
                 return <div className="mb-3 rounded-lg border bg-muted/40 px-3 py-2 text-[12px]">
                   <p className="mb-1 font-medium text-foreground">Dados do anúncio</p>
@@ -622,11 +622,18 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                       onChange={(e) => { const t = e.target.value; const n = t === "" ? 0 : Math.max(0, Math.min(4999999, Math.round(Number(t) || 0))); const o = { ...atual.origem, ...(n > 0 ? { aluguel: n } : {}) }; if (n <= 0) delete o.aluguel; mudar(atual.id, { origem: Object.keys(o).length ? o : undefined }); }}
                       className="mt-1 w-40 rounded-md border bg-white px-2 py-1 text-right text-sm tabular-nums text-foreground" />
                   </label> : alug ? <p>Aluguel pedido: <b className="tabular-nums">{reais(alug)}</b> por mês</p> : null}
-                  {porM2 != null ? <p className="mt-1">R$ {porM2.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m². {porM2 > fixoM2
-                    ? <span className="text-warning">Só o aluguel já passa dos R$ {fixoM2.toLocaleString("pt-BR")} por m² de custo fixo que a premissa considera: o custo real tende a ser maior que o da conta.</span>
-                    : <>Dentro dos R$ {fixoM2.toLocaleString("pt-BR")} por m² de custo fixo que a premissa considera.</>}</p>
-                    : <p className="mt-1 text-muted-foreground">Sem o aluguel, o payback usa o custo fixo padrão da rede.</p>}
-                  <p className="mt-1 text-muted-foreground">O aluguel ainda não corrige o payback: aparece aqui só para comparar imóveis.</p>
+                  {(() => {
+                    if (porM2 == null) return <p className="mt-1 text-muted-foreground">Sem o aluguel, o payback usa o custo fixo padrão da rede.</p>;
+                    const ag = aluguelDoPonto(atual), faixaA = dados.vendasPorM2![atual.modelo], baseA = aluguelBaseDe(dados.premissas!.modelos[atual.modelo]);
+                    const sem = faixaA ? avaliarPonto({ m2: atual.m2, modelo: atual.modelo }, dados.premissas!, faixaA, ajusteDe(atual)?.fator ?? 1) : null;
+                    return <>
+                      <p className="mt-1">R$ {porM2.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m². {ag.ignorado
+                        ? <span className="text-warning">Fora do esperado (R$ {ALUGUEL_M2_MIN} a R$ {ALUGUEL_M2_MAX} por m²): ignorei na conta. Confira o valor.</span>
+                        : baseA != null ? <>A premissa considera R$ {baseA.toLocaleString("pt-BR")} por m² de aluguel.</> : <>A premissa deste modelo ainda não separa o aluguel do custo fixo.</>}</p>
+                      {!ag.ignorado && baseA != null && sem && r ? <p className="mt-1">Com o aluguel real o payback é de <b>{meses(r.payback)}</b>{Number.isFinite(sem.payback) && Math.round(sem.payback) === Math.round(r.payback) ? "" : <> (com o custo fixo padrão seria {meses(sem.payback)})</>}.</p> : null}
+                    </>;
+                  })()}
+                  <p className="mt-1 text-muted-foreground">{aluguelBaseDe(dados.premissas!.modelos[atual.modelo]) != null ? "O aluguel real troca a parte de aluguel do custo fixo da conta. Sem ele, vale o custo fixo padrão da rede." : "Neste modelo o aluguel aparece só para comparar imóveis: a conta usa o custo fixo padrão da rede."}</p>
                   {atual.origem?.link && /^https?:\/\//i.test(atual.origem.link) ? <p className="mt-1"><a href={atual.origem.link} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">Abrir o anúncio</a></p> : null}
                   {atual.origem?.obs ? <p className="mt-1 text-muted-foreground">{atual.origem.obs}</p> : null}
                 </div>;

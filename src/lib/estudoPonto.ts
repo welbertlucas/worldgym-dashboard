@@ -2,7 +2,7 @@
 // mapa de calor da captação e unidades parecidas. As premissas (números) vêm do servidor; aqui só as fórmulas.
 
 export type Modelo = "low" | "pro";
-export interface PremissaModelo { nome: string; padraoM2: number; investimento: number; fixoBase: number; fixoPorM2: number; variavel: number; limiteM2: number; pesoAcima: number; vendasPorM2?: number }
+export interface PremissaModelo { nome: string; padraoM2: number; investimento: number; fixoBase: number; fixoPorM2: number; /** Aluguel por m² que está dentro do custo fixo por m². O aluguel real do ponto troca esta parte; sem ele (premissa não separa o aluguel), o aluguel só informa. */ aluguelPorM2?: number; variavel: number; limiteM2: number; pesoAcima: number; vendasPorM2?: number }
 export interface Premissas {
   regua: { mesesAprovado: number; mesesAtencao: number; maturacaoMeses: number; maturidadeMeses?: number };
   modelos: Record<Modelo, PremissaModelo>;
@@ -164,6 +164,7 @@ export type Veredito = "aprovado" | "atencao" | "reprovado";
 export interface Resultado {
   pessimista: number; provavel: number; otimista: number;
   investimento: number; custoFixo: number; lucro: number; payback: number;
+  /** Aluguel real que entrou no custo fixo (null: custo fixo padrão da rede). */ aluguel: number | null;
   meta: number; limiteAtencao: number; veredito: Veredito; foraDaFaixa: boolean; m2Efetivo: number;
 }
 
@@ -177,28 +178,41 @@ export function km(a: [number, number], b: [number, number]): number {
 /** Até o limite do modelo o m² conta inteiro; acima dele, cada m² a mais conta só uma parte (a rede não tem experiência ali). */
 export const m2Efetivo = (m2: number, p: PremissaModelo) => (m2 <= p.limiteM2 ? m2 : p.limiteM2 + (m2 - p.limiteM2) * p.pesoAcima);
 export const investimentoDe = (m2: number, p: PremissaModelo) => (p.investimento * m2) / p.padraoM2;
-export const custoFixoDe = (m2: number, p: PremissaModelo) => p.fixoBase + p.fixoPorM2 * m2;
-export const lucroDe = (vendas: number, m2: number, p: PremissaModelo) => vendas * (1 - p.variavel) - custoFixoDe(m2, p);
+/** Aluguel por m² que a premissa já considera dentro do custo fixo por m² (null: a premissa não separa o aluguel, e o aluguel real não corrige a conta). */
+export const aluguelBaseDe = (p: PremissaModelo): number | null => (p.aluguelPorM2 != null && p.aluguelPorM2 >= 0 && p.aluguelPorM2 <= p.fixoPorM2 ? p.aluguelPorM2 : null);
+/** Faixa de aluguel por m² que a conta aceita (R$ por m² por mês): fora dela é digitação errada e o valor é ignorado. */
+export const ALUGUEL_M2_MIN = 5, ALUGUEL_M2_MAX = 150;
+/** Aluguel informado no estudo, se servir para a conta: `ignorado` quando está fora da faixa (o custo fixo fica o padrão). */
+export function aluguelDoPonto(ponto: { m2: number; origem?: { aluguel?: number } }): { valor: number | null; porM2: number | null; ignorado: boolean } {
+  const a = ponto.origem?.aluguel;
+  if (!a || !(a > 0) || !(ponto.m2 > 0)) return { valor: null, porM2: null, ignorado: false };
+  const porM2 = a / ponto.m2;
+  return porM2 < ALUGUEL_M2_MIN || porM2 > ALUGUEL_M2_MAX ? { valor: null, porM2, ignorado: true } : { valor: a, porM2, ignorado: false };
+}
+/** Custo fixo do mês. Com o aluguel real (e a premissa separando o aluguel), ele troca a parte de aluguel que a premissa já tinha no valor por m². */
+export const custoFixoDe = (m2: number, p: PremissaModelo, aluguel: number | null = null) => p.fixoBase + p.fixoPorM2 * m2 + (aluguel != null && aluguelBaseDe(p) != null ? aluguel - (aluguelBaseDe(p) as number) * m2 : 0);
+export const lucroDe = (vendas: number, m2: number, p: PremissaModelo, aluguel: number | null = null) => vendas * (1 - p.variavel) - custoFixoDe(m2, p, aluguel);
 /** Meses para o investimento voltar, contando a maturação. Infinity quando não dá lucro. */
-export function paybackDe(vendas: number, m2: number, p: PremissaModelo, maturacao: number): number {
-  const l = lucroDe(vendas, m2, p);
+export function paybackDe(vendas: number, m2: number, p: PremissaModelo, maturacao: number, aluguel: number | null = null): number {
+  const l = lucroDe(vendas, m2, p, aluguel);
   return l > 0 ? maturacao + investimentoDe(m2, p) / l : Infinity;
 }
 /** Vendas por mês que fazem o investimento voltar em `meses` (contando a maturação). */
-export const vendasParaPayback = (meses: number, m2: number, p: PremissaModelo, maturacao: number) =>
-  (investimentoDe(m2, p) / Math.max(1, meses - maturacao) + custoFixoDe(m2, p)) / (1 - p.variavel);
+export const vendasParaPayback = (meses: number, m2: number, p: PremissaModelo, maturacao: number, aluguel: number | null = null) =>
+  (investimentoDe(m2, p) / Math.max(1, meses - maturacao) + custoFixoDe(m2, p, aluguel)) / (1 - p.variavel);
 
-export function avaliarPonto(ponto: Pick<Ponto, "m2" | "modelo">, premissas: Premissas, faixa: FaixaM2, fator = 1): Resultado {
+export function avaliarPonto(ponto: Pick<Ponto, "m2" | "modelo"> & { origem?: { aluguel?: number } }, premissas: Premissas, faixa: FaixaM2, fator = 1): Resultado {
   const p = premissas.modelos[ponto.modelo], r = premissas.regua;
   const ef = m2Efetivo(ponto.m2, p);
   // `fator`: ajuste pela captação do ponto (ajusteDeCaptacao); 1 = só o m² e o modelo
   const provavel = faixa.mediana * ef * fator, pessimista = faixa.p25 * ef * fator, otimista = faixa.p75 * ef * fator;
-  const meta = vendasParaPayback(r.mesesAprovado, ponto.m2, p, r.maturacaoMeses);
-  const limiteAtencao = vendasParaPayback(r.mesesAtencao, ponto.m2, p, r.maturacaoMeses);
+  const aluguel = aluguelBaseDe(p) != null ? aluguelDoPonto(ponto).valor : null; // aluguel real informado no estudo (fora da faixa de bom senso é ignorado; sem a premissa separar o aluguel, não corrige)
+  const meta = vendasParaPayback(r.mesesAprovado, ponto.m2, p, r.maturacaoMeses, aluguel);
+  const limiteAtencao = vendasParaPayback(r.mesesAtencao, ponto.m2, p, r.maturacaoMeses, aluguel);
   return {
     pessimista, provavel, otimista,
-    investimento: investimentoDe(ponto.m2, p), custoFixo: custoFixoDe(ponto.m2, p),
-    lucro: lucroDe(provavel, ponto.m2, p), payback: paybackDe(provavel, ponto.m2, p, r.maturacaoMeses),
+    investimento: investimentoDe(ponto.m2, p), custoFixo: custoFixoDe(ponto.m2, p, aluguel), aluguel,
+    lucro: lucroDe(provavel, ponto.m2, p, aluguel), payback: paybackDe(provavel, ponto.m2, p, r.maturacaoMeses, aluguel),
     meta, limiteAtencao,
     veredito: provavel >= meta ? "aprovado" : provavel >= limiteAtencao ? "atencao" : "reprovado",
     foraDaFaixa: ponto.m2 > p.limiteM2, m2Efetivo: ef,
@@ -728,9 +742,14 @@ export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, 
     ? `O R$ ${num(faixa.mediana)} por m² do ${p.nome} é uma premissa: a rede tem poucas unidades maduras do modelo.${real ? ` As ${real.n} que existem vendem de R$ ${num(real.min)} a R$ ${num(real.max)} por m².` : ""}`
     : `O R$ ${num(faixa.mediana)} por m² é a mediana de ${faixa.n} unidades maduras do ${p.nome}${real ? ` (de R$ ${num(real.min)} a R$ ${num(real.max)} por m²)` : ""}.`);
   linhas.push(`Mínimo para pagar o investimento em ${rg.mesesAprovado / 12} anos: ${mi(r.investimento)} ÷ ${rg.mesesAprovado - rg.maturacaoMeses} meses + custo fixo de ${reais(r.custoFixo)}, descontando ${Math.round(p.variavel * 1000) / 10}% de custo variável = ${reais(r.meta)} por mês.`);
-  linhas.push(aluguel
-    ? `Aluguel pedido: ${reais(aluguel)} por mês (R$ ${(aluguel / ponto.m2).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m²); a premissa considera R$ ${p.fixoPorM2.toLocaleString("pt-BR")} por m² de custo fixo. Ele ainda não corrige o payback: serve para comparar imóveis.`
-    : "Aluguel não informado: o custo fixo é o padrão da rede (a base mais o valor por m² acima). Informe o aluguel do imóvel para comparar com ele.");
+  const ag = aluguelDoPonto({ m2: ponto.m2, origem: aluguel ? { aluguel } : undefined }), base = aluguelBaseDe(p);
+  linhas.push(r.aluguel != null && base != null
+    ? `Aluguel real: ${reais(r.aluguel)} por mês (R$ ${(r.aluguel / ponto.m2).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m²). A premissa considera R$ ${base.toLocaleString("pt-BR")} por m² de aluguel dentro do custo fixo; nesta conta ele é trocado pelo aluguel real, e o custo fixo fica em ${reais(r.custoFixo)}.`
+    : aluguel && ag.ignorado
+      ? `O aluguel informado (R$ ${(aluguel / ponto.m2).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m²) está fora do esperado (de R$ ${ALUGUEL_M2_MIN} a R$ ${ALUGUEL_M2_MAX} por m²): ignorei e usei o custo fixo padrão da rede. Confira o valor.`
+      : aluguel && base == null
+        ? `Aluguel informado: ${reais(aluguel)} por mês (R$ ${(aluguel / ponto.m2).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m²). A premissa deste modelo ainda não separa o aluguel do custo fixo, então ele não corrige o payback: serve para comparar imóveis.`
+        : "Aluguel não informado: o custo fixo é o padrão da rede (a base mais o valor por m² acima). Informe o aluguel do imóvel para uma conta mais real.");
   linhas.push(`Lucro esperado: ${reais(r.provavel)} × (1 − ${Math.round(p.variavel * 1000) / 10}%) − ${reais(r.custoFixo)} = ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} por mês.`);
   linhas.push(ajuste
     ? `Ajuste pelo lugar: o público alcançável do ponto (moradores pesados pela distância, já descontadas as World Gym em volta) é ${Math.round(ajuste.razao * 100)}% da mediana das ${ajuste.n} unidades maduras do modelo. Na rede, cada 10% a mais de público veio com cerca de ${(ajuste.elasticidade * 10).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% a mais de vendas por m²: o lugar explica pouco, então o ajuste é pequeno (limitado a ${Math.round((FATOR_AJUSTE_MIN - 1) * 100)}% a +${Math.round((FATOR_AJUSTE_MAX - 1) * 100)}%). População, renda, potencial de consumo e alunos continuam como freios do parecer.`
