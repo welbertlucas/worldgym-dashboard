@@ -74,7 +74,7 @@ export function ondeFica(tela: string): string {
 
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
 export const SUBMENUS: Record<string, Aba[]> = {
-  franqueadora: [{ id: "royalties", rotulo: "Royalties" }, { id: "juridico", rotulo: "Jurídico" }],
+  franqueadora: [{ id: "royalties", rotulo: "Royalties" }, { id: "juridico", rotulo: "Jurídico" }, { id: "unidades", rotulo: "Unidades" }],
   gerencial: [
     { id: "vendas", rotulo: "Vendas" }, { id: "oportunidades", rotulo: "Oportunidades" }, { id: "complementares", rotulo: "Receitas complementares" },
     { id: "recebimento", rotulo: "Recebimentos" }, { id: "despesas", rotulo: "Despesas" }, { id: "cobranca", rotulo: "Inadimplência" }, { id: "notas", rotulo: "Notas fiscais" },

@@ -267,6 +267,12 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Você pode liberar um Master para gerenciar acessos, liberar o menu Relatórios (Pode gerar relatórios) para qualquer Master ou gestor de unidades e ligar ou desligar o resumo diário de cada pessoa.",
     "Clique no nome de um usuário para ver o último acesso e as telas que ele abriu.",
   ], { tela: "acessos", atualizadoEm: "2026-11-17" }),
+  a("dono", "dono-fichas-unidades", "Ficha da unidade: aluguel e fim do contrato", "Onde informar o aluguel de cada unidade e o que o Atlas calcula.", [
+    "A aba Unidades, no menu Franqueadora, é só sua. Cada unidade em operação tem um card com o modelo, o m² e a abertura (vêm das premissas dos Estudos de ponto, só para leitura) e com o que você informa aqui: o aluguel mensal, a data em que o contrato de locação termina e observações.",
+    "Com o aluguel, o card calcula o aluguel por m² (aluguel mensal dividido pelo m² da unidade) e a parte das vendas mensais que ele representa (média dos últimos meses fechados). Contrato que vence em até 6 meses, ou já vencido, aparece em vermelho.",
+    "No alto da tela, quantas unidades já têm o aluguel levantado e, por modelo, a mediana, o menor e o maior valor por m². A mediana é o número que corrige o aluguel real no payback dos Estudos de ponto; o Atlas só a usa nas contas depois de você confirmar o valor, e nada é gravado nas premissas sozinho.",
+    "Aluguel é dado comercial: fica guardado só no Atlas, com acesso do dono, e não vai para o repositório. Os cards das unidades sem aluguel levantado aparecem primeiro.",
+  ], { tela: "franqueadora/unidades", atualizadoEm: "2026-11-26" }),
   a("dono", "dono-unidades-em-obra", "Unidades em obra: como cadastrar e acompanhar", "Marcos, atrasos e quem pode ver.", [
     "O menu Unidades em obra acompanha as unidades em construção até a inauguração. Só você cadastra e muda as obras; quem você liberar em Usuários (Pode ver unidades em obra) consulta.",
     "Nova obra: informe a unidade, a cidade, o modelo, a área e o responsável. A obra já nasce com oito marcos: contrato do ponto assinado, projeto aprovado, alvará, início da obra, fim da obra, equipamentos instalados, vistoria da franqueadora e inauguração. Dá para renomear, apagar e acrescentar marcos, e a ordem da lista é a ordem da obra.",

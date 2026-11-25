@@ -34,6 +34,7 @@ import { UnitNavProvider } from "@/components/UnitLink";
 import { ABAS_SO_DONO, enderecoAtual, SUBMENUS, TODOS_OS_MENUS } from "@/components/nav";
 import { EmBreve } from "@/components/EmBreve";
 import { ObrasTab } from "@/components/tabs/ObrasTab";
+import { FichasTab } from "@/components/tabs/FichasTab";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
@@ -543,13 +544,13 @@ const Index = () => {
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
 
         {activeTab === "franqueadora" && (podeVerRoyalties() || podeVerJuridico()) && (() => {
-          const abasF = SUBMENUS.franqueadora.filter((a) => (a.id === "royalties" ? podeVerRoyalties() : podeVerJuridico()));
+          const abasF = SUBMENUS.franqueadora.filter((a) => (a.id === "royalties" ? podeVerRoyalties() : a.id === "juridico" ? podeVerJuridico() : ehDono()));
           const aba = abaAtiva(abasF, subAba);
           return (
             <section className="space-y-4">
               <SectionTitle level="page"><span className="inline-flex items-center gap-2"><Landmark className="h-6 w-6" aria-hidden />Franqueadora</span></SectionTitle>
               {abasF.length > 1 && <Abas tela="franqueadora" titulo="Franqueadora" abas={abasF} ativa={aba} onChange={(s) => changeTab(`franqueadora/${s}`)} />}
-              {aba === "royalties" ? <RoyaltiesTab semTitulo /> : <JuridicoTab semTitulo />}
+              {aba === "royalties" ? <RoyaltiesTab semTitulo /> : aba === "juridico" ? <JuridicoTab semTitulo /> : <FichasTab />}
             </section>
           );
         })()}

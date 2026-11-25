@@ -1,5 +1,6 @@
 // Royalties, Jurídico, Qualidade, Estudos de ponto, Escalas e Obras (passam por aqui para caber no limite de funções da Vercel; /api/juridico, /api/qualidade,
-// /api/estudos, /api/escalas e /api/obras são rewrites).
+// /api/estudos, /api/escalas e /api/obras e /api/fichas são rewrites).
+//   GET /api/fichas -> { unidades: [{ nome, modelo, m2, abertura, vendas, alunos, ficha }] }; POST { acao: "salvar", unidade, ficha } (só o dono: aluguel é dado comercial).
 //   GET /api/obras -> { obras, podeEditar }; POST { acao: "salvar", obra } | { acao: "apagar", id } (só o dono muda; quem foi liberado em verObras consulta).
 //   GET /api/escalas -> { unidades, prazo, mudaRegras, papel }: as unidades que a pessoa enxerga (dono e Master, todas; unidades, só as suas, e só com a marca verEscalas).
 //   POST /api/escalas { acao: "listar" | "ler" | "achar" | "ultima" | "mes" | "salvar" | "apagar" | "versoes" | "restaurar" | "equipe-ler" | "equipe-salvar" |
@@ -29,6 +30,7 @@ import { enderecoDe } from "../server/freio.js";
 import { ErroEstudos, lerEstudos, modoDe, podeEditar, salvarPontos } from "../server/estudos.js";
 import { ErroPois, buscarPois, contarAcademias } from "../server/pois.js";
 import { lerAlunosHex } from "../server/alunosHex.js";
+import { ErroFichas, lerFichas, salvarFicha } from "../server/fichas.js";
 import { ErroObras, apagarObra, lerObras, salvarObra } from "../server/obras.js";
 import { ErroEscalas, UNIDADES_ESCALA, acharEscala, apagarEscala, escalasDoMes, importarDoSistemaAntigo, lerConfigUnidade, lerEquipe, lerEscala, lerPrazo, listarEscalas, restaurarVersao, salvarConfigUnidade, salvarEquipe, salvarEscala, salvarPrazo, ultimaEscala, unidadesDaSessao, versoesDaEscala } from "../server/escalas.js";
 import { ErroFotosRua, fotosDaRua } from "../server/fotosRua.js";
@@ -178,6 +180,14 @@ async function qualidade(req, res, sessao) {
   return res.status(400).json({ error: "ação inválida" });
 }
 
+async function fichas(req, res, sessao) {
+  if (req.method === "GET") return res.status(200).json(await lerFichas(sessao, loadAll, mesDeHoje()));
+  if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
+  const { acao, ...c } = doCorpo(req);
+  if (acao === "salvar") return res.status(200).json({ ficha: await salvarFicha(sessao, String(c.unidade ?? ""), c.ficha) });
+  return res.status(400).json({ error: "ação inválida" });
+}
+
 async function obras(req, res, sessao) {
   if (req.method === "GET") return res.status(200).json({ obras: await lerObras(), podeEditar: sessao.papel === "dono" });
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
@@ -221,22 +231,23 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method === "OPTIONS") return res.status(204).end();
   const modulo = req.query?.modulo;
-  if (modulo !== "qualidade" && modulo !== "estudos" && modulo !== "escalas" && modulo !== "obras" && req.method !== "GET") return res.status(405).json({ error: "método não permitido" });
+  if (modulo !== "qualidade" && modulo !== "estudos" && modulo !== "escalas" && modulo !== "obras" && modulo !== "fichas" && req.method !== "GET") return res.status(405).json({ error: "método não permitido" });
   const sessao = await exigirLogin(req, res);
   if (!sessao) return;
-  const permitido = modulo === "estudos" ? true : modulo === "escalas" ? sessao.verEscalas : modulo === "obras" ? sessao.verObras : modulo === "juridico" ? sessao.verJuridico : modulo === "qualidade" ? sessao.verQualidade || sessao.preencheChecklist : sessao.verRoyalties;
+  const permitido = modulo === "estudos" ? true : modulo === "escalas" ? sessao.verEscalas : modulo === "obras" ? sessao.verObras : modulo === "fichas" ? sessao.papel === "dono" : modulo === "juridico" ? sessao.verJuridico : modulo === "qualidade" ? sessao.verQualidade || sessao.preencheChecklist : sessao.verRoyalties;
   if (!permitido) return res.status(403).json({ error: "sem permissão" });
   try {
     if (modulo === "qualidade") return await qualidade(req, res, sessao);
     if (modulo === "estudos") return await estudos(req, res, sessao);
     if (modulo === "escalas") return await escalas(req, res, sessao);
     if (modulo === "obras") return await obras(req, res, sessao);
+    if (modulo === "fichas") return await fichas(req, res, sessao);
     const juridico = modulo === "juridico";
     const dados = await (juridico ? lerJuridico() : lerRoyalties());
     if (!dados) return res.status(200).json({ disponivel: false });
     return res.status(200).json({ disponivel: true, ...dados });
   } catch (e) {
-    if (e instanceof ErroQualidade || e instanceof ErroEscalas || e instanceof ErroObras || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroDeslocamento || e instanceof ErroFotosRua || e instanceof ErroCensoMun || e instanceof ErroCensoPedido) return res.status(e.status).json({ error: e.message });
-    return res.status(503).json({ error: `não consegui ler ${modulo === "juridico" ? "o jurídico" : modulo === "qualidade" ? "a qualidade" : modulo === "estudos" ? "os estudos de ponto" : modulo === "escalas" ? "as escalas" : modulo === "obras" ? "as obras" : "os royalties"} agora` });
+    if (e instanceof ErroQualidade || e instanceof ErroEscalas || e instanceof ErroObras || e instanceof ErroFichas || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroDeslocamento || e instanceof ErroFotosRua || e instanceof ErroCensoMun || e instanceof ErroCensoPedido) return res.status(e.status).json({ error: e.message });
+    return res.status(503).json({ error: `não consegui ler ${modulo === "juridico" ? "o jurídico" : modulo === "qualidade" ? "a qualidade" : modulo === "estudos" ? "os estudos de ponto" : modulo === "escalas" ? "as escalas" : modulo === "obras" ? "as obras" : modulo === "fichas" ? "as fichas das unidades" : "os royalties"} agora` });
   }
 }
