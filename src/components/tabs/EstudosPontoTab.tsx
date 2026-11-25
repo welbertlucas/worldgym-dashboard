@@ -17,11 +17,11 @@ import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { montarPdfPonto } from "@/components/estudos/pdfPonto";
 import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
-import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
+import { LegendaAtratividade, LegendaCenso, RoscaComLegenda, desenharAtratividade, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, scoreDeAtratividade, PESOS_ATRATIVIDADE_PADRAO, type PesosAtratividade, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -33,9 +33,9 @@ const ITENS: { k: "fachada" | "polo" | "aPe"; rotulo: string }[] = [
   { k: "polo", rotulo: "Polo comercial" }, { k: "aPe", rotulo: "Bom acesso a pé" },
 ];
 // "limpa": só os pinos (usada nas fotos de satélite do PDF); "sugestoes": pinos, área e posições sugeridas (foto do PDF)
-type Lente = "captacao" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "sugestoes";
+type Lente = "captacao" | "atratividade" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "sugestoes";
 const LENTES: { id: Lente; rotulo: string }[] = [
-  { id: "captacao", rotulo: "Captação estimada" }, { id: "pessoas", rotulo: "População" }, { id: "domicilios", rotulo: "Domicílios" }, { id: "idade", rotulo: "Idade" },
+  { id: "captacao", rotulo: "Captação estimada" }, { id: "atratividade", rotulo: "Score de atratividade" }, { id: "pessoas", rotulo: "População" }, { id: "domicilios", rotulo: "Domicílios" }, { id: "idade", rotulo: "Idade" },
   { id: "renda", rotulo: "Renda" }, { id: "rendaTotal", rotulo: "Renda total" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "comercio", rotulo: "Concentração comercial" }, { id: "rede", rotulo: "Canibalização" },
 ];
 const FUNDO_VEREDITO: Record<Veredito, string> = { aprovado: "bg-success/10 text-success", atencao: "bg-warning/10 text-warning", reprovado: "bg-destructive/10 text-destructive" };
@@ -96,6 +96,12 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const pontos = comparando ? todos.filter((p) => comparando.has(p.id)) : todos;
 
   const atual = pontos.find((p) => p.id === atualId) ?? null;
+  // score de atratividade: pesos de cada variável (mexe quem olha; guardados só neste navegador)
+  const [pesosAtr, setPesosAtr] = useState<PesosAtratividade>(() => {
+    try { const j = JSON.parse(localStorage.getItem("atlas-pesos-atratividade") ?? "null"); if (j && Object.keys(PESOS_ATRATIVIDADE_PADRAO).every((k) => Number.isFinite(j[k]))) return j as PesosAtratividade; } catch { /* sem armazenamento: pesos padrão */ }
+    return { ...PESOS_ATRATIVIDADE_PADRAO };
+  });
+  const mudarPesosAtr = (p: PesosAtratividade) => { setPesosAtr(p); try { localStorage.setItem("atlas-pesos-atratividade", JSON.stringify(p)); } catch { /* sem armazenamento */ } };
   const pronto = true;
   // ajuste da previsão pelo lugar (só com Censo na região do ponto e unidades maduras suficientes do modelo)
   const ajusteDe = (p: Ponto) => (foraDaMalhaDoCenso(p.c, dados.censo) ? null : ajusteDeCaptacao(p, dados.premissas!, dados.censo, dados.unidades!));
@@ -118,6 +124,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   // área de 10 min de carro do ponto aberto (pergunta antes de mandar a posição ao Mapbox)
   const areas = useDeslocamento(atual?.c, true);
   const area10 = areaOficial(areas);
+  // score de atratividade dos hexágonos da área do ponto aberto (só calculado com a lente ligada)
+  const atratividade = useMemo(() => (lente === "atratividade" && atual && dados.censo && dados.premissas?.curva
+    ? scoreDeAtratividade(dados.censo, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5), pesosAtr, dados.unidades ?? [], dados.premissas.curva.meiaDistanciaKm, atual.c) : null),
+  [lente, atual?.id, atual?.c, area10, pesosAtr, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
   // ponto aberto fora da malha do Censo: moradores, renda, idade e potencial dariam zero por falta de dado, e o parecer não pode usá-los
   const semCenso = atual ? semCensoPorPonto.get(atual.id) ?? false : false;
   const avisoCenso = semCenso && !carregandoCenso; // o aviso só aparece depois de tentar buscar o município
@@ -243,6 +253,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (lente === "captacao" && cap && capMapa && atual) {
       desenharDemanda(L, camadas, censo, capMapa, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5), "quente", area10);
       if (cap.raio80 && !area10) L.circle(atual.c, { radius: cap.raio80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
+    } else if (lente === "atratividade" && atratividade) {
+      desenharAtratividade(L, camadas, censo, atratividade, area10);
     } else if (ehCamadaCenso(lente) && atual) {
       desenharCenso(L, camadas, censo, lente, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5), area10);
     }
@@ -271,7 +283,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (rua) L.marker(rua, { icon: L.divIcon({ className: "", iconSize: [14, 14], iconAnchor: [7, 7], html: '<div style="width:14px;height:14px;border-radius:50%;background:#f59e0b;border:2px solid #fff"></div>' }) }).addTo(camadas);
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
     if (lente !== "limpa") desenharSugestoes(L, camadas, sugestoes);
-  }, [lente, cap, capMapa, pontos, atualId, desenho, rua, areas, sugestoes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lente, cap, capMapa, atratividade, pontos, atualId, desenho, rua, areas, sugestoes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(desenho ? mapaRef.current : null, verPois ? pois : null, modoPois);
   const aoPois = (res: ResultadoPois | null) => { setPois(res); setVerPois(true); };
@@ -428,7 +440,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
-          </> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} /> : lente === "rede" ? <>
+          </> : lente === "atratividade" ? <LegendaAtratividade pesos={pesosAtr} setPesos={mudarPesosAtr} resultado={atratividade} /> : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} /> : lente === "rede" ? <>
             {cap?.divideCom.length ? (() => {
               const so = Math.max(0, 1 - cap.divideCom.reduce((x, d) => x + d.parte, 0));
               return <RoscaComLegenda soPercentual total={100} centro={{ valor: `${Math.round(so * 100)}%`, rotulo: "exclusivo" }}

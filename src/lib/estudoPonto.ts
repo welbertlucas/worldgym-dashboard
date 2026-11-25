@@ -552,6 +552,87 @@ export function acertoDoModelo(pontos: Ponto[], unidades: UnidadeEstudo[]) {
   return { n: casos.length, dentro, erroMedio: erro };
 }
 
+// ---------- Score de atratividade por hexágono (25/11/2026) ----------
+// Cada hexágono recebe de 0 a 100 pela posição dele, entre os hexágonos da área, em cada variável (percentil), somadas com pesos visíveis e editáveis.
+// Os números do Censo são suavizados em volta (como no mapa de calor) para a mancha não ficar quebrada. É uma nota para COMPARAR lugares na mesma
+// região; não é previsão de vendas (na rede, nenhuma variável sozinha explicou bem as vendas das unidades).
+export const ATRATIVIDADE_VARIAVEIS = [
+  { id: "moradores", rotulo: "Moradores", padrao: 25 },
+  { id: "alvo", rotulo: "Moradores de 20 a 49 anos", padrao: 20 },
+  { id: "consumo", rotulo: "Potencial de consumo", padrao: 25 },
+  { id: "comercio", rotulo: "Concentração comercial", padrao: 15 },
+  { id: "livre", rotulo: "Longe das World Gym", padrao: 15 },
+] as const;
+export type VariavelAtratividade = (typeof ATRATIVIDADE_VARIAVEIS)[number]["id"];
+export type PesosAtratividade = Record<VariavelAtratividade, number>;
+export const PESOS_ATRATIVIDADE_PADRAO = Object.fromEntries(ATRATIVIDADE_VARIAVEIS.map((v) => [v.id, v.padrao])) as PesosAtratividade;
+
+/** Soma de cada valor espalhada pelos vizinhos até `raio` km, com peso gaussiano (`sigma` km). Só olha os próprios pontos da lista. */
+function suavizarSelecao(pos: [number, number][], valores: number[], sigma = 0.35, raio = 1.2): number[] {
+  if (!pos.length) return [];
+  const kLat = 110.6, kLng = 111.32 * Math.cos((pos[0][0] * Math.PI) / 180);
+  const pts = pos.map((p, i) => ({ y: p[0] * kLat, x: p[1] * kLng, i })).sort((a, b) => a.y - b.y);
+  const out = new Array<number>(pos.length).fill(0), dois = 2 * sigma * sigma, r2 = raio * raio;
+  let lo = 0;
+  for (const p of pts) {
+    while (lo < pts.length && pts[lo].y < p.y - raio) lo++;
+    let v = 0;
+    for (let k = lo; k < pts.length && pts[k].y <= p.y + raio; k++) {
+      const dx = pts[k].x - p.x, dy = pts[k].y - p.y, d2 = dx * dx + dy * dy;
+      if (d2 <= r2) v += valores[pts[k].i] * Math.exp(-d2 / dois);
+    }
+    out[p.i] = v;
+  }
+  return out;
+}
+/** Posição de cada valor entre todos (0 a 1; empate fica no meio do grupo). */
+function percentis(v: number[]): number[] {
+  if (v.length < 2) return v.map(() => 0.5);
+  const s = [...v].sort((a, b) => a - b);
+  const abaixo = (x: number) => { let lo = 0, hi = s.length; while (lo < hi) { const m = (lo + hi) >> 1; if (s[m] < x) lo = m + 1; else hi = m; } return lo; };
+  const ate = (x: number) => { let lo = 0, hi = s.length; while (lo < hi) { const m = (lo + hi) >> 1; if (s[m] <= x) lo = m + 1; else hi = m; } return lo; };
+  return v.map((x) => ((abaixo(x) + ate(x) - 1) / 2) / (s.length - 1));
+}
+export interface ScoreAtratividade {
+  indices: number[]; score: number[];
+  /** Variáveis que entraram (as que o Censo e a rede têm), com o peso já normalizado (soma 1). */
+  usadas: { id: VariavelAtratividade; peso: number }[];
+  /** Nota do hexágono onde está o ponto e a parte dos hexágonos da área com nota menor que a dele. */
+  doPonto: { score: number; melhorQue: number } | null;
+}
+/**
+ * Score de atratividade (0 a 100) dos hexágonos escolhidos por `dentro`. `unidades`: World Gym que já existem (a variável "Longe das World Gym"
+ * cai perto delas). Variável sem dado (idade, comércio, sem unidades) sai e os pesos das outras são refeitos. Sem hexágonos ou com todos os pesos em zero, null.
+ */
+export function scoreDeAtratividade(censo: Censo, dentro: (lat: number, lng: number) => boolean, pesos: PesosAtratividade, unidades: { c: [number, number] | null }[], meiaDistanciaKm: number, ponto?: [number, number] | null): ScoreAtratividade | null {
+  const indices: number[] = [];
+  censo.celulas.forEach((c, i) => { if (c[2] > 0 && dentro(c[0], c[1])) indices.push(i); });
+  if (indices.length < 2) return null;
+  const cel = indices.map((i) => censo.celulas[i]), pos = cel.map((c) => [c[0], c[1]] as [number, number]);
+  const temIdade = cel.some((c) => c[5]?.length), temComercio = cel.some((c) => c[10] !== undefined);
+  const ucs = unidades.filter((u) => u.c).map((u) => u.c as [number, number]);
+  const valores: Partial<Record<VariavelAtratividade, number[]>> = {
+    moradores: suavizarSelecao(pos, cel.map((c) => c[2])),
+    consumo: suavizarSelecao(pos, cel.map((c) => gastoDoHexagono(c))),
+  };
+  if (temIdade) valores.alvo = suavizarSelecao(pos, cel.map((c) => (c[5] ? (c[5][2] ?? 0) + (c[5][3] ?? 0) + (c[5][4] ?? 0) : 0)));
+  if (temComercio) valores.comercio = suavizarSelecao(pos, cel.map((c) => c[10] ?? 0));
+  if (ucs.length) valores.livre = pos.map((p) => 1 - Math.min(1, ucs.reduce((a, u) => a + atracao(km(p, u), meiaDistanciaKm), 0)));
+  const ativas = ATRATIVIDADE_VARIAVEIS.filter((v) => valores[v.id] && pesos[v.id] > 0);
+  const soma = ativas.reduce((a, v) => a + pesos[v.id], 0);
+  if (!soma) return null;
+  const score = new Array<number>(indices.length).fill(0);
+  const usadas = ativas.map((v) => ({ id: v.id, peso: pesos[v.id] / soma }));
+  for (const u of usadas) { const p = percentis(valores[u.id]!); p.forEach((x, k) => { score[k] += 100 * u.peso * x; }); }
+  let doPonto: ScoreAtratividade["doPonto"] = null;
+  if (ponto) {
+    let melhor = -1, dm = 0.3;
+    pos.forEach((p, k) => { const d = km(p, ponto); if (d < dm) { dm = d; melhor = k; } });
+    if (melhor >= 0) doPonto = { score: score[melhor], melhorQue: score.filter((x) => x < score[melhor]).length / score.length };
+  }
+  return { indices, score, usadas, doPonto };
+}
+
 /**
  * Canibalização observada (só com a contagem real de alunos por hexágono, em linha reta): para cada World Gym vizinha, que parte dos alunos desta
  * unidade mora mais perto da vizinha do que daqui, e que parte dos alunos da vizinha mora mais perto daqui. `algumaOutra` = parte dos alunos desta unidade

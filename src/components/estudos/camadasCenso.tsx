@@ -2,8 +2,8 @@
 // e concentração comercial (OpenStreetMap), só nos hexágonos de dentro da área (`dentro`), recortados na borda dela como no Mapfry.
 // E as legendas de cada uma, para o painel de camadas.
 import type { Leaflet } from "@/components/estudos/mapaComum";
-import { arco, hexagono, rampa, recortarNaArea } from "@/components/estudos/mapaComum";
-import { SALARIO_MINIMO, CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, TAMANHOS_DOMICILIO, classeDaRenda, classeDensidade, dentroDaArea, faixaPredominante, gastoDoHexagono, tamanhoPredominante, type Censo, type Geometria } from "@/lib/estudoPonto";
+import { arco, gradienteArco, hexagono, rampa, recortarNaArea } from "@/components/estudos/mapaComum";
+import { SALARIO_MINIMO, CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, TAMANHOS_DOMICILIO, classeDaRenda, classeDensidade, dentroDaArea, faixaPredominante, gastoDoHexagono, tamanhoPredominante, ATRATIVIDADE_VARIAVEIS, PESOS_ATRATIVIDADE_PADRAO, type Censo, type Geometria, type PesosAtratividade, type ScoreAtratividade } from "@/lib/estudoPonto";
 
 export type CamadaCenso = "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio";
 export const ehCamadaCenso = (x: string): x is CamadaCenso => ["pessoas", "idade", "domicilios", "renda", "rendaTotal", "consumo", "comercio"].includes(x);
@@ -140,6 +140,39 @@ export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup,
       ? { color: "#fff", weight: 0.6, opacity: 0.6, fillColor: rampa(0.15 + 0.85 * t ** 0.7), fillOpacity: 0.5 + 0.3 * t, interactive: false }
       : { color: "#fff", weight: 0.6, opacity: 0.6, fillColor: AZUL(0.12 + 0.88 * t ** 0.7), fillOpacity: 0.72, interactive: false }).addTo(grupo);
   }
+}
+
+/** Score de atratividade: cada hexágono na cor da nota (0 a 100), com a nota na dica. */
+export function desenharAtratividade(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, r: Pick<ScoreAtratividade, "indices" | "score">, area?: Geometria | null) {
+  desenharVazios(L, grupo, censo, area);
+  r.indices.forEach((i, k) => {
+    const c = censo.celulas[i], nota = r.score[k];
+    const ps = poligonos(censo, [c[0], c[1]], area);
+    if (ps.length) L.polygon(ps, { color: "#fff", weight: 0.5, opacity: 0.6, fillColor: arco(nota / 100), fillOpacity: 0.6 }).bindTooltip(`Score ${Math.round(nota)} de 100`, { sticky: true }).addTo(grupo);
+  });
+}
+
+/** Legenda do score: os pesos de cada variável (editáveis, só para quem está olhando) e a nota do ponto aberto. */
+export function LegendaAtratividade({ pesos, setPesos, resultado }: { pesos: PesosAtratividade; setPesos: (p: PesosAtratividade) => void; resultado: ScoreAtratividade | null }) {
+  const soma = ATRATIVIDADE_VARIAVEIS.reduce((a, v) => a + pesos[v.id], 0);
+  const usada = (id: string) => resultado?.usadas.some((u) => u.id === id);
+  return (
+    <div className="text-foreground">
+      <div className="flex items-center gap-2">baixo<span className="h-1.5 flex-1 rounded" style={{ background: gradienteArco }} />alto</div>
+      {resultado?.doPonto && <p className="mt-1.5 text-[12px]">Este ponto: <b className="tabular-nums">{Math.round(resultado.doPonto.score)}</b> de 100, acima de {Math.round(resultado.doPonto.melhorQue * 100)}% da área.</p>}
+      <p className="mb-1 mt-2 text-[11px] font-medium">Pesos (mude para testar)</p>
+      <ul className="space-y-1.5 text-[11px]">
+        {ATRATIVIDADE_VARIAVEIS.map((v) => (
+          <li key={v.id}>
+            <label className="flex items-baseline justify-between gap-2"><span>{v.rotulo}</span><span className="tabular-nums text-muted-foreground">{soma ? Math.round((pesos[v.id] / soma) * 100) : 0}%{resultado && !usada(v.id) && pesos[v.id] > 0 ? " · sem dado" : ""}</span></label>
+            <input type="range" min={0} max={40} step={5} value={pesos[v.id]} aria-label={`Peso: ${v.rotulo}`} className="w-full" onChange={(e) => setPesos({ ...pesos, [v.id]: Number(e.target.value) })} />
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="mt-1 text-[11px] font-medium underline underline-offset-2" onClick={() => setPesos({ ...PESOS_ATRATIVIDADE_PADRAO })}>Voltar aos pesos padrão</button>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">Cada hexágono recebe a posição dele entre os da área em cada variável (Censo 2022 suavizado em volta, comércio do OpenStreetMap, distância das World Gym), somadas com os pesos. É uma nota para comparar lugares na mesma região, não uma previsão de vendas.</p>
+    </div>
+  );
 }
 
 /** Totais da área para mostrar junto da legenda (rosca das classes de renda, valor do potencial de consumo). */
