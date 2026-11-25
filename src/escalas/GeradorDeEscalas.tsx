@@ -10,6 +10,8 @@ import './escalas-atlas.css';
 import { API_BASE, authFetch } from '@/lib/auth';
 import { Abas } from '@/components/Abas';
 import { SectionTitle } from '@/components/SectionTitle';
+import { Select } from '@/components/ui/select';
+import { CalendarDays } from 'lucide-react';
 import type { Schedule, Team } from './domain/types';
 import { ApiScheduleRepository } from './storage/apiRepository';
 import { UNIDADES, type Unidade } from './config/unidades';
@@ -19,7 +21,6 @@ import { RosterPage } from './ui/RosterPage';
 import { PainelPage } from './ui/PainelPage';
 import { RelatorioPage } from './ui/RelatorioPage';
 import { Notificacoes } from './ui/Notificacoes';
-import { UnitPicker } from './ui/UnitSidebar';
 import type { UnitTab } from './ui/steps/MonthSteps';
 import { setUsuarioAtual } from './ui/usuarioAtual';
 
@@ -87,11 +88,22 @@ export default function GeradorDeEscalas() {
     setPage(id as 'escalas' | 'painel' | 'relatorio');
   };
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <SectionTitle hint={nomeDaUnidade ? `${nomeDaUnidade} • escala 5x2 da equipe` : 'Escala 5x2 da equipe: folgas, jornada, coberturas e PDF'}>Gerador de Escalas</SectionTitle>
+    <div>
+      <SectionTitle level="page"><span className="inline-flex items-center gap-2"><CalendarDays className="h-6 w-6" aria-hidden />Gerador de Escalas</span></SectionTitle>
+      {/* A unidade fica à vista, com rótulo, como nos outros menus; o sino das notificações fica ao lado. */}
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <label className="block text-sm">
+          <span className="block text-xs text-muted-foreground">Unidade</span>
+          {units.length > 1 ? (
+            <Select aria-label="Unidade" className="mt-1 h-9 w-64" value={activeUnit ?? ''} onChange={(e) => e.target.value && chooseUnit(e.target.value)}>
+              {!activeUnit && <option value="" disabled>Escolha…</option>}
+              {units.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+            </Select>
+          ) : (
+            <span className="mt-1 flex h-9 items-center text-sm font-medium text-foreground">{nomeDaUnidade}</span>
+          )}
+        </label>
         <div className="escalas escalas-barra">
-          {units.length > 1 && <UnitPicker units={units} value={activeUnit} onChange={chooseUnit} />}
           <Notificacoes repo={repo} unitId={activeUnit} usuario={perfilNome} atualizar={`${homeKey}-${schedule?.id ?? ''}-${schedule?.status ?? ''}-${page}`}
             onAbrirEscala={async (id) => { const s = await repo.getSchedule(id); if (s) { setRosterCtx(null); setPage('escalas'); openSchedule(s); } }}
             onIrEscalas={() => { setSchedule(null); setRosterCtx(null); setPage('escalas'); }} />
@@ -109,7 +121,7 @@ export default function GeradorDeEscalas() {
               {!activeUnit && (
                 <div className="card center choose-unit">
                   <h2>Escolha a unidade</h2>
-                  <p className="muted">Selecione a unidade no alto da tela para criar ou abrir as escalas dela.</p>
+                  <p className="muted">Selecione a unidade no campo acima para criar ou abrir as escalas dela.</p>
                 </div>
               )}
               {ready && !schedule && rosterCtx && activeUnit && (

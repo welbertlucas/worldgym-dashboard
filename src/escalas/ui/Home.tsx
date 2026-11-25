@@ -106,11 +106,7 @@ export function Home({ repo, unitId, onOpen, managerName, onRoster }: { repo: Sc
 
   return (
     <section className="unit-home">
-      <div className="home-head">
-        <div>
-          <h1>{unitId ? UNIDADES.find((u) => u.id === unitId)?.nome ?? 'Unidade' : 'Escalas'}</h1>
-          <p className="muted">Escalas e equipe da unidade</p>
-        </div>
+      <div className="home-head" style={{ justifyContent: 'flex-end' }}>
         <button type="button" className="btn primary big" onClick={() => { setError(null); setNova(true); }}>Criar escala</button>
       </div>
       {error && !nova && <div className="banner danger left" role="alert">{error}</div>}
