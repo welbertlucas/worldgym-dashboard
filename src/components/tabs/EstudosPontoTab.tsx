@@ -723,6 +723,7 @@ export function EstudosPontoTab() {
     return (
       <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })} verRede={() => setVisao({ tela: "rede" })}
         apagar={editavel ? (id: string) => setPontos((ps) => ps.filter((x) => x.id !== id)) : undefined}
+        importar={editavel ? (novos: Ponto[]) => setPontos((ps) => [...ps, ...novos]) : undefined}
         abrir={(id) => setVisao({ tela: "mapa", atualId: id, novo: false, comparando: null })}
         novo={() => setVisao({ tela: "mapa", atualId: null, novo: true, comparando: null })}
         comparar={(ids) => setVisao({ tela: "mapa", atualId: ids[0] ?? null, novo: false, comparando: new Set(ids) })} />

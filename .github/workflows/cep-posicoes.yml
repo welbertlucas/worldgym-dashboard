@@ -1,0 +1,60 @@
+name: Posição dos CEPs (mapa dos alunos)
+
+# Monta a tabela CEP -> posição de cada estado a partir do CNEFE 2022 do IBGE (dado público) e grava no Blob privado (estudos/cep/<UF>.json).
+# A rotina noturna dos alunos usa essas tabelas para contar os alunos por hexágono do Censo (só contagens; nenhum CEP de aluno é guardado).
+# Rode uma vez por estado onde a rede tem unidade (DF, GO e BA hoje) e de novo só se o IBGE publicar um CNEFE novo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ufs:
+        description: "Siglas dos estados separadas por espaço (ex.: DF GO BA)"
+        required: true
+        default: "DF GO BA"
+      gravar:
+        description: "Gravar no Blob (desmarque para só gerar e conferir)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cep-posicoes
+  cancel-in-progress: false
+
+jobs:
+  cep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+
+      - name: Montar a tabela de cada estado
+        env:
+          UFS: ${{ github.event.inputs.ufs }}
+        run: |
+          set -euo pipefail
+          declare -A COD=( [RO]=11 [AC]=12 [AM]=13 [RR]=14 [PA]=15 [AP]=16 [TO]=17 [MA]=21 [PI]=22 [CE]=23 [RN]=24 [PB]=25 [PE]=26 [AL]=27 [SE]=28 [BA]=29 [MG]=31 [ES]=32 [RJ]=33 [SP]=35 [PR]=41 [SC]=42 [RS]=43 [MS]=50 [MT]=51 [GO]=52 [DF]=53 )
+          mkdir -p ibge saida
+          for UF in $UFS; do
+            UF=$(echo "$UF" | tr a-z A-Z)
+            [[ "$UF" =~ ^[A-Z]{2}$ ]] || { echo "Sigla inválida: $UF"; exit 1; }
+            C="${COD[$UF]:-}"; [ -n "$C" ] || { echo "Estado desconhecido: $UF"; exit 1; }
+            curl -fsSL --retry 3 -o "ibge/${C}_${UF}.zip" "https://ftp.ibge.gov.br/Cadastro_Nacional_de_Enderecos_para_Fins_Estatisticos/Censo_Demografico_2022/Arquivos_CNEFE/CSV/UF/${C}_${UF}.zip"
+            python3 -I scripts/cep-posicoes.py --uf "$UF" --fonte "ibge/${C}_${UF}.zip" --saida "saida/cep_${UF}.json"
+            rm -f "ibge/${C}_${UF}.zip"
+          done
+
+      - name: Gravar no Blob
+        env:
+          GRAVAR: ${{ github.event.inputs.gravar }}
+        run: |
+          set -euo pipefail
+          if [ "$GRAVAR" = "false" ]; then node scripts/cep-posicoes-gravar.mjs --simular saida/*.json; else node scripts/cep-posicoes-gravar.mjs saida/*.json; fi

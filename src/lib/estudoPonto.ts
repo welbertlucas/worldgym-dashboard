@@ -154,7 +154,7 @@ export interface ImovelItens { fachada: boolean; estacionamento: boolean; polo: 
 export type StatusDecisao = "analise" | "aprovado" | "recusado" | "unidade";
 /** Sua decisão sobre o estudo. `previsao` guarda a conta do dia da decisão, para comparar depois com o real. */
 export interface Decisao { status: StatusDecisao; em: string; comentario?: string; unidade?: string; previsao?: { provavel: number; pessimista: number; otimista: number } }
-export interface Ponto { id: string; nome: string; regiao?: string; /** Endereço aproximado da posição (some quando o ponto é arrastado). */ endereco?: string; c: [number, number]; modelo: Modelo; m2: number; imovel: ImovelItens; autor?: { id: string; nome: string }; criadoEm?: string; atualizadoEm?: string; decisao?: Decisao }
+export interface Ponto { id: string; nome: string; regiao?: string; /** Endereço aproximado da posição (some quando o ponto é arrastado). */ endereco?: string; c: [number, number]; modelo: Modelo; m2: number; imovel: ImovelItens; autor?: { id: string; nome: string }; criadoEm?: string; atualizadoEm?: string; decisao?: Decisao; /** Vindo da planilha de imóveis: aluguel pedido (R$/mês), link do anúncio e observações. */ origem?: { aluguel?: number; link?: string; obs?: string } }
 export const DECISAO_ROTULO: Record<StatusDecisao, string> = { analise: "Em análise", aprovado: "Aprovado", recusado: "Recusado", unidade: "Virou unidade" };
 /** completo: dono e liberados (criam e decidem); consulta: Master (vê tudo, não edita); unidade: só a própria unidade, sem premissas. */
 export type ModoEstudos = "completo" | "consulta" | "unidade";
@@ -484,6 +484,26 @@ export function acertoDoModelo(pontos: Ponto[], unidades: UnidadeEstudo[]) {
   return { n: casos.length, dentro, erroMedio: erro };
 }
 
+/**
+ * Suaviza uma contagem por hexágono para o mapa de calor: o valor de cada hexágono do Censo vira a soma da contagem dos hexágonos em volta, com peso
+ * que cai com a distância (gaussiana de `sigmaKm`, até `raioKm`). O mapa fica preenchido e contínuo, sem hexágonos soltos, e um hexágono com 1 ou 2
+ * alunos deixa de aparecer sozinho. Só entram hexágonos com moradores, até `maxKm` de `c`. Devolve no formato de `desenharDemanda`.
+ */
+export function suavizarContagem(censo: Censo, indices: number[], pesos: number[], c: [number, number], { sigmaKm = 0.35, raioKm = 1.2, maxKm = 6 } = {}): { indices: number[]; pesos: number[] } {
+  const kLat = 110.6, kLng = 111.32 * Math.cos((c[0] * Math.PI) / 180);
+  const fontes = indices.map((i, k) => ({ la: censo.celulas[i][0] * kLat, ln: censo.celulas[i][1] * kLng, w: pesos[k] })).filter((f) => f.w > 0);
+  const out = { indices: [] as number[], pesos: [] as number[] };
+  const dois = 2 * sigmaKm * sigmaKm, r2 = raioKm * raioKm;
+  censo.celulas.forEach(([la, ln, pop], j) => {
+    if (!pop) return;
+    const y = la * kLat, x = ln * kLng;
+    if (km(c, [la, ln]) > maxKm) return;
+    let v = 0;
+    for (const f of fontes) { const dy = f.la - y; if (dy > raioKm || dy < -raioKm) continue; const d2 = dy * dy + (f.ln - x) * (f.ln - x); if (d2 <= r2) v += f.w * Math.exp(-d2 / dois); }
+    if (v > 0) { out.indices.push(j); out.pesos.push(v); }
+  });
+  return out;
+}
 /** Até onde moram 80% dos alunos de verdade (pelos bairros), em km. */
 export function raio80Real(u: UnidadeEstudo): number | null {
   if (!u.c || !u.bairros?.length) return null;

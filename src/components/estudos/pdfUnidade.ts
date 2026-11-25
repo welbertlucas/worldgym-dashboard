@@ -232,8 +232,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     if (d.parteNaArea != null) texto.push(`${pct(d.parteNaArea, 0)} da base mora ${area} e 80% dos alunos moram a até ${d.onde80}. ${d.parteNaArea >= 0.8 ? "A área de 10 minutos explica quase toda a base: é nela que se concentram as ações de marketing e as parcerias." : "Uma parte relevante da base vem de fora da área de 10 minutos: vale entender o que atrai esses alunos (trabalho, estudo ou trajeto) e reforçar esse canal."}`);
     secoes.push({
       titulo: "Base de Clientes Ativos", novaPagina: true, linhas: [], texto,
-      foto: { dados: d.fotos.alunos, legenda: `Bolha maior = mais alunos no bairro.${d.temArea ? ` Linha azul-marinho: área de até ${d.minutos} min de carro.` : ""}` }, altFoto: ALT_FOTO_MAPA,
-      grafico: d.parteNaArea != null ? { tipo: "rosca", fatias: [{ rotulo: `Moram ${area}`, valor: d.parteNaArea, cor: "#1e3a8a" }, { rotulo: "Moram fora da área", valor: 1 - d.parteNaArea, cor: "#d6d9e0" }], centro: pct(d.parteNaArea, 0), rotuloCentro: "na área" } : undefined,
+      ...(d.fotos.alunos ? { foto: { dados: d.fotos.alunos, legenda: "Alunos por bairro." }, altFoto: ALT_FOTO_MAPA } : {}),      grafico: d.parteNaArea != null ? { tipo: "rosca", fatias: [{ rotulo: `Moram ${area}`, valor: d.parteNaArea, cor: "#1e3a8a" }, { rotulo: "Moram fora da área", valor: 1 - d.parteNaArea, cor: "#d6d9e0" }], centro: pct(d.parteNaArea, 0), rotuloCentro: "na área" } : undefined,
       tabela: { colunas: ["Bairro", "Alunos", "%"], larguras: [2.4, 0.8, 0.6], blocos: 2, linhas: d.topBairros.map(([b, , , n]) => [b, num(n), pct(n / Math.max(1, d.alunosBairro), 0)]) },
     });
   }

@@ -6,6 +6,13 @@ export function rampa(t: number) {
   const x = Math.min(0.999, Math.max(0, t)) * (RAMPA.length - 1), i = Math.floor(x), f = x - i, a = RAMPA[i], b = RAMPA[i + 1];
   return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(",")})`;
 }
+/** Rampa de vários tons para mapas de calor suavizados (azul → verde → amarelo → laranja → vermelho), como a do GeoFusion. */
+export const RAMPA_ARCO = [[43, 131, 186], [102, 194, 165], [171, 221, 164], [255, 255, 191], [253, 174, 97], [215, 25, 28]];
+export const arco = (t: number) => {
+  const x = Math.min(0.999, Math.max(0, t)) * (RAMPA_ARCO.length - 1), i = Math.floor(x), f = x - i, a = RAMPA_ARCO[i], b = RAMPA_ARCO[i + 1];
+  return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(",")})`;
+};
+export const gradienteArco = `linear-gradient(90deg,${RAMPA_ARCO.map((c) => `rgb(${c})`).join(",")})`;
 export const gradienteRampa = `linear-gradient(90deg,${RAMPA.map((c) => `rgb(${c})`).join(",")})`;
 
 /** Vértices de um hexágono de raio `rk` km centrado em (lat, lng). */

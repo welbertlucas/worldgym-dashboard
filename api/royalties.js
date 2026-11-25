@@ -11,6 +11,7 @@
 //     POST { acao: "deslocamento", c, modo: "carro" | "pe" } -> áreas de deslocamento do Mapbox (mesma regra de acesso dos pois).
 //     POST { acao: "contar-academias", c, raioKm } -> quantas academias (categoria principal) no raio; fora do modo unidade.
 //     POST { acao: "fotos-rua", c } -> fotos do Street View em volta da posição, para o último slide do PDF (mesma regra de acesso dos pois).
+//     POST { acao: "alunos-hex", unidade } -> alunos ativos da unidade por hexágono do Censo, só contagens (do CEP); unidade só a própria.
 //     POST { acao: "censo-municipio", c } -> hexágonos do Censo dos municípios gerados que cobrem a posição (pontos fora da malha principal); fora do modo unidade.
 //     POST { acao: "pedir-censo", c } -> pede a geração do Censo do município do ponto (rotina do GitHub; só quem edita estudos); { estado: "pronto" | "em-andamento" | "pedido" }.
 //     POST { acao: "endereco", q, perto } -> busca de endereço (Mapbox), para quem vê estudos de pontos novos (não para unidades).
@@ -23,10 +24,11 @@ import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
 import { ErroEstudos, lerEstudos, modoDe, podeEditar, salvarPontos } from "../server/estudos.js";
 import { ErroPois, buscarPois, contarAcademias } from "../server/pois.js";
+import { lerAlunosHex } from "../server/alunosHex.js";
 import { ErroFotosRua, fotosDaRua } from "../server/fotosRua.js";
 import { ErroCensoMun, censoDoPonto } from "../server/censoMunicipio.js";
 import { ErroCensoPedido, pedirCenso } from "../server/censoPedido.js";
-import { ErroDeslocamento, buscarDeslocamento, buscarEndereco, enderecoDaPosicao } from "../server/deslocamento.js";
+import { ErroDeslocamento, buscarDeslocamento, buscarEndereco, enderecoDaPosicao, geocodificarLote } from "../server/deslocamento.js";
 import { COORDENADAS_UNIDADES, UNIT_NAMES } from "../server/units.js";
 const COORDENADAS_POR_NOME = Object.fromEntries(Object.entries(UNIT_NAMES).map(([id, n]) => [n, COORDENADAS_UNIDADES[id]]));
 import { loadAll } from "../server/store.js";
@@ -42,6 +44,11 @@ async function estudos(req, res, sessao) {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "busca de endereço só nos estudos de pontos novos" });
     return res.status(200).json(await buscarEndereco(c));
   }
+  // Posição de vários endereços de uma planilha de imóveis (importação em lote): só estudos de pontos novos
+  if (c.acao === "geocodificar-lote") {
+    if (modoDe(sessao) !== "completo") return res.status(403).json({ error: "importar imóveis é só para quem faz estudos" });
+    return res.status(200).json(await geocodificarLote(c));
+  }
   // Endereço aproximado de uma posição sugerida (nova unidade, posição melhor): estratégia de expansão, fora do modo unidade
   if (c.acao === "endereco-posicao") {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
@@ -51,6 +58,12 @@ async function estudos(req, res, sessao) {
   if (c.acao === "contar-academias") {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json(await contarAcademias(c));
+  }
+  // Alunos por hexágono de uma unidade (só contagens, do CEP): dono e Master veem qualquer unidade; quem tem acesso a unidades, só as próprias
+  if (c.acao === "alunos-hex") {
+    const minhas = new Set(sessao?.unidades ?? []);
+    const d = await lerAlunosHex(String(c.unidade ?? ""), (nome) => modoDe(sessao) !== "unidade" || minhas.has(nome));
+    return res.status(200).json(d ?? { celulas: [], ausente: true });
   }
   // Censo de um município de fora da malha principal: estudos de pontos novos, fora do modo unidade
   if (c.acao === "censo-municipio") {

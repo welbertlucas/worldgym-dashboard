@@ -109,6 +109,14 @@ export function pontoValido(p) {
     criadoEm: dataISO(p?.criadoEm) ?? agora, atualizadoEm: dataISO(p?.atualizadoEm) ?? agora, ...(autor ? { autor } : {}) };
   const d = decisaoValida(p?.decisao);
   if (d) out.decisao = d;
+  // dados que vieram da planilha de imóveis (aluguel pedido, link do anúncio, observações)
+  const o = p?.origem;
+  if (o && typeof o === "object") {
+    const aluguel = Math.round(Number(o.aluguel));
+    const link = /^https?:\/\//i.test(String(o.link ?? "")) ? String(o.link).slice(0, 300) : "";
+    const obs = String(o.obs ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
+    if ((Number.isFinite(aluguel) && aluguel > 0 && aluguel < 5e6) || link || obs) out.origem = { ...(Number.isFinite(aluguel) && aluguel > 0 && aluguel < 5e6 ? { aluguel } : {}), ...(link ? { link } : {}), ...(obs ? { obs } : {}) };
+  }
   return out;
 }
 

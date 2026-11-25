@@ -6,6 +6,7 @@ import {
   DECISAO_ROTULO, VEREDITO_ROTULO, acertoDoModelo, avaliarCompleto, foraDaMalhaDoCenso, meses, raio80Real, reais, regiaoDe,
   type DadosEstudos, type Ponto, type Resultado, type StatusDecisao, type UnidadeEstudo, type Veredito,
 } from "@/lib/estudoPonto";
+import { ImportarImoveis } from "@/components/estudos/ImportarImoveis";
 import { useAreasEmCache, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 
 const SEM_UNIDADES: UnidadeEstudo[] = [];
@@ -110,12 +111,14 @@ function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nom
   );
 }
 
-export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar, verRede }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void; verRede?: () => void }) {
+export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar, verRede, importar }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void; verRede?: () => void; importar?: (novos: Ponto[]) => void }) {
+  const [importando, setImportando] = useState(false);
   const [busca, setBusca] = useState("");
   const [veredito, setVeredito] = useState<Veredito | "">("");
   const [decisao, setDecisao] = useState<StatusDecisao | "">("");
   const [modelo, setModelo] = useState("");
   const [periodo, setPeriodo] = useState(0);
+  const [ordem, setOrdem] = useState<"recentes" | "parecer" | "payback" | "venda">("recentes");
   const [autor, setAutor] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [filtros, setFiltros] = useState(false);
@@ -132,16 +135,24 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
   }).sort((a, b) => (b.p.criadoEm ?? "").localeCompare(a.p.criadoEm ?? "")), [pontos, dados, refsTodas, areas]);
   const autores = [...new Set(pontos.map((p) => p.autor?.nome).filter(Boolean))] as string[];
   const agora = Date.now();
-  const filtradas = linhas.filter(({ p, r, regiao }) =>
+  const filtradas0 = linhas.filter(({ p, r, regiao }) =>
     (!veredito || r?.veredito === veredito) && (!decisao || (p.decisao?.status ?? "analise") === decisao) && (!modelo || p.modelo === modelo)
     && (!autor || p.autor?.nome === autor) && (!periodo || (p.criadoEm && agora - Date.parse(p.criadoEm) <= periodo * 864e5))
     && (!busca || semAcento(`${p.nome} ${regiao}`).includes(semAcento(busca))));
+  // ordem da lista: os mais recentes (padrão) ou o ranking dos candidatos (parecer, depois payback; payback; venda esperada)
+  const PESO_VEREDITO = { aprovado: 0, atencao: 1, reprovado: 2 } as const;
+  const filtradas = ordem === "recentes" ? filtradas0 : [...filtradas0].sort((a, b) => {
+    if (!a.r || !b.r) return a.r ? -1 : b.r ? 1 : 0;
+    if (ordem === "venda") return b.r.provavel - a.r.provavel;
+    if (ordem === "payback") return (a.r.payback || 1e9) - (b.r.payback || 1e9);
+    return PESO_VEREDITO[a.r.veredito] - PESO_VEREDITO[b.r.veredito] || (a.r.payback || 1e9) - (b.r.payback || 1e9);
+  });
   const conta = (v: Veredito) => linhas.filter((l) => l.r?.veredito === v).length;
   const acerto = acertoDoModelo(pontos, dados.unidades ?? []);
   const alternar = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const limpar = () => { setBusca(""); setVeredito(""); setDecisao(""); setModelo(""); setPeriodo(0); setAutor(""); };
+  const limpar = () => { setBusca(""); setVeredito(""); setDecisao(""); setModelo(""); setPeriodo(0); setAutor(""); setOrdem("recentes"); };
   const selecionar = "h-9 rounded-xl border bg-white px-2.5 text-[13px]";
-  const nFiltros = [decisao, modelo, periodo, autor].filter(Boolean).length;
+  const nFiltros = [decisao, modelo, periodo, autor, ordem !== "recentes" ? ordem : ""].filter(Boolean).length;
 
   return (
     <div className="space-y-4 pb-20">
@@ -149,10 +160,12 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
         <div><h2 className="font-display text-2xl font-medium">Estudos de ponto</h2><p className="text-sm text-muted-foreground">As unidades em operação e cada imóvel avaliado, com a previsão do modelo e a decisão.</p></div>
         <div className="flex items-center gap-2">
           {verRede && <Button variant="outline" onClick={verRede}>Mapa da rede</Button>}
+          {editavel && importar && <Button variant="outline" onClick={() => setImportando(true)}>Importar imóveis</Button>}
           {editavel && <Button onClick={novo}>Novo estudo</Button>}
         </div>
       </div>
 
+      {importando && importar && <ImportarImoveis dados={dados} pontos={pontos} criar={importar} fechar={() => setImportando(false)} />}
       {abrirUnidade && <UnidadesEmOperacao dados={dados} abrir={abrirUnidade} />}
 
       <div className="flex items-baseline gap-2 pt-2"><h3 className="text-base font-semibold">Pontos estudados</h3><span className="text-xs text-muted-foreground">{linhas.length === 1 ? "1 estudo" : `${linhas.length} estudos`}</span></div>
@@ -177,6 +190,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
       {refsTodas && linhas.some((l) => !l.completo) && <p className="text-[11px] text-muted-foreground">Em {linhas.filter((l) => !l.completo).length === 1 ? "1 estudo" : `${linhas.filter((l) => !l.completo).length} estudos`}, o parecer ainda não inclui população, renda e alunos: a área de 10 min só é guardada quando o estudo é aberto. Abra o estudo para completar.</p>}
       {filtros && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-white p-2.5">
+          <select value={ordem} onChange={(e) => setOrdem(e.target.value as typeof ordem)} aria-label="Ordem" className={selecionar}><option value="recentes">Mais recentes</option><option value="parecer">Melhor parecer</option><option value="payback">Menor payback</option><option value="venda">Maior venda esperada</option></select>
           <select value={decisao} onChange={(e) => setDecisao(e.target.value as StatusDecisao | "")} aria-label="Decisão" className={selecionar}>
             <option value="">Todas as decisões</option>{(Object.keys(DECISAO_ROTULO) as StatusDecisao[]).map((d) => <option key={d} value={d}>{DECISAO_ROTULO[d]}</option>)}
           </select>

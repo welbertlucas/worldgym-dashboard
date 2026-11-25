@@ -2,7 +2,7 @@
 // e concentração comercial (OpenStreetMap), só nos hexágonos de dentro da área (`dentro`), recortados na borda dela como no Mapfry.
 // E as legendas de cada uma, para o painel de camadas.
 import type { Leaflet } from "@/components/estudos/mapaComum";
-import { hexagono, rampa, recortarNaArea } from "@/components/estudos/mapaComum";
+import { arco, hexagono, rampa, recortarNaArea } from "@/components/estudos/mapaComum";
 import { SALARIO_MINIMO, CLASSES_DENSIDADE, CLASSES_RENDA, CORES_IDADE, FAIXAS_IDADE, TAMANHOS_DOMICILIO, classeDaRenda, classeDensidade, dentroDaArea, faixaPredominante, gastoDoHexagono, tamanhoPredominante, type Censo, type Geometria } from "@/lib/estudoPonto";
 
 export type CamadaCenso = "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio";
@@ -120,7 +120,7 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
  * outras camadas. A cor é medida pelo hexágono no topo da faixa comum (95% dos hexágonos abaixo dele), e não pelo maior, para um hexágono muito
  * forte não deixar os outros quase transparentes. `pesos`/`indices` vêm de captacaoDe (calculada com raio que cubra a área).
  */
-export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, cap: { pesos: number[]; indices: number[] }, dentro: (lat: number, lng: number) => boolean, cor: "quente" | "azul" | "vermelho", area?: Geometria | null) {
+export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup, censo: Censo, cap: { pesos: number[]; indices: number[] }, dentro: (lat: number, lng: number) => boolean, cor: "quente" | "azul" | "vermelho" | "arco", area?: Geometria | null) {
   const vis: [number, number][] = [];
   cap.indices.forEach((i, k) => { const c = censo.celulas[i]; if (cap.pesos[k] > 0 && c[2] >= MIN_MORADORES_NO_MAPA && (dentro(c[0], c[1]) || pertoDaBorda(censo, c[0], c[1], area))) vis.push([i, cap.pesos[k]]); });
   desenharVazios(L, grupo, censo, area);
@@ -130,6 +130,7 @@ export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup,
     const c = censo.celulas[i], t = Math.min(1, w / ref);
     const ps = poligonos(censo, [c[0], c[1]], area);
     if (!ps.length) continue;
+    if (cor === "arco") { if (t < 0.06) continue; /* valor quase zero não vira cor: não afirma aluno onde não há */ L.polygon(ps, { color: "#fff", weight: 0.4, opacity: 0.45, fillColor: arco(t ** 0.75), fillOpacity: 0.58, interactive: false }).addTo(grupo); continue; }
     if (cor === "vermelho") { L.polygon(ps, { color: "#fff", weight: 0.6, opacity: 0.7, fillColor: "#c41230", fillOpacity: 0.06 + 0.6 * t ** 0.8, interactive: false }).addTo(grupo); continue; }
     L.polygon(ps, cor === "quente"
       // cor mínima visível: o hexágono de demanda baixa não some sobre o mapa cinza

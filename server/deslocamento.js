@@ -76,6 +76,37 @@ export async function buscarEndereco(pedido, { chave = process.env.MAPBOX_TOKEN,
   };
 }
 
+export const MAX_ENDERECOS_LOTE = 40;
+/**
+ * Posição de vários endereços de uma vez (importação de imóveis por planilha). Usa a mesma busca de `buscarEndereco` e fica com o 1º resultado de
+ * cada texto. Devolve { resultados: [{ i, lugar }] } na ordem do pedido; `lugar` é null quando nada foi achado ou a busca falhou naquele endereço.
+ * Os textos não são guardados. A rota só atende estudos de pontos novos (fora do modo unidade).
+ */
+export async function geocodificarLote(pedido, deps = {}) {
+  const itens = (Array.isArray(pedido?.itens) ? pedido.itens : []).slice(0, MAX_ENDERECOS_LOTE + 1);
+  if (!itens.length) throw new ErroDeslocamento("Nenhum endereço para buscar.");
+  if (itens.length > MAX_ENDERECOS_LOTE) throw new ErroDeslocamento(`No máximo ${MAX_ENDERECOS_LOTE} endereços por vez.`);
+  const perto = pedido?.perto;
+  const resultados = new Array(itens.length);
+  let proximo = 0;
+  const trabalhador = async () => {
+    while (proximo < itens.length) {
+      const k = proximo++;
+      const q = String(itens[k]?.q ?? "").trim();
+      try {
+        const r = await buscarEndereco({ q, perto }, deps);
+        resultados[k] = { i: itens[k]?.i ?? k, lugar: r.lugares[0] ?? null };
+      } catch (e) {
+        // sem chave configurada ou serviço fora do ar: interrompe o lote inteiro; erro só deste texto (curto demais): vira "não achei"
+        if (e instanceof ErroDeslocamento && e.status >= 500) throw e;
+        resultados[k] = { i: itens[k]?.i ?? k, lugar: null };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, itens.length) }, trabalhador));
+  return { resultados };
+}
+
 /**
  * Endereço aproximado de uma posição (rua, bairro e cidade), para as posições sugeridas pelo Atlas (Mapbox Geocoding v6, reverso).
  * Só para quem vê estudos de pontos novos; a posição sai do servidor e o texto não é guardado.

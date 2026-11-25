@@ -1,20 +1,21 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ZOOMS_DO_SATELITE, aplicarFundo, bolinha, cartaoDoLugar, fraseDosBairros, raioDaBolha, primeiraComImagem, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { ZOOMS_DO_SATELITE, gradienteArco, aplicarFundo, bolinha, cartaoDoLugar, primeiraComImagem, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, ControlePois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { API_BASE, authFetch } from "@/lib/auth";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { Barras, Destaque, Linha, Nota, Partes, ReguaSimples, Secao } from "@/components/estudos/blocos";
-import { MapPin, Network, TrendingUp, Users } from "lucide-react";
-import { COR_OUTROS_BAIRROS, CORES_BAIRROS, LegendaCenso, type ResumoCenso, LegendaRenda, RoscaBairros, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
+import { ChevronsUpDown, MapPin, Network, TrendingUp, Users } from "lucide-react";
+import { LegendaCenso, type ResumoCenso, LegendaRenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 export { LegendaRenda };
 import { REGRAS_NOVA_UNIDADE, SecaoSugestoes, type ResultadoSugestoes, desenharSugestoes, enderecoCurto, textoParecerSugestao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
 import { buscarFotosDaRua, comFotosDaRegiao, paginaDeFotos } from "@/components/estudos/fotosRua";
-import { avaliarPonto, faixaDaFatia, refsParaModelo, unidadesMaisProximas, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { avaliarPonto, faixaDaFatia, refsParaModelo, suavizarContagem, unidadesMaisProximas, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "oportunidade";
@@ -50,6 +51,18 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const [verPois, setVerPois] = useState(true);
   const [verNova, setVerNova] = useState(true);
   const [verParec, setVerParec] = useState(false);
+  // contagem de alunos ativos por hexágono do Censo, feita pela rotina noturna a partir do CEP (só totais; some se a rotina ainda não rodou)
+  const [alunosHex, setAlunosHex] = useState<{ celulas: [number, number, number][]; total: number; comPosicao: number } | null>(null);
+  useEffect(() => {
+    setAlunosHex(null);
+    if (!nome) return;
+    let vivo = true;
+    authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "alunos-hex", unidade: nome }) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (vivo && j && !j.ausente && Array.isArray(j.celulas) && j.celulas.length) setAlunosHex({ celulas: j.celulas, total: j.total ?? 0, comPosicao: j.comPosicao ?? 0 }); })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [nome]);
   const el = useRef<HTMLDivElement>(null);
   const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; camadas: import("leaflet").LayerGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
   const [pronto, setPronto] = useState(false);
@@ -62,6 +75,16 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const mediana = u ? dados.vendasPorM2?.[u.modelo]?.mediana ?? null : null;
   const porM2 = u?.vendas && u.m2 ? u.vendas / u.m2 : null;
   const alunosBairro = (u?.bairros ?? []).reduce((a, b) => a + b[3], 0);
+  // contagem do CEP -> hexágonos do Censo desta tela (mesmas posições) -> suavizada para o mapa de calor
+  const calorAlunos = useMemo(() => {
+    const censo = dados.censo;
+    if (!alunosHex || !censo || !u?.c) return null;
+    const porPosicao = new Map<string, number>();
+    censo.celulas.forEach((c, i) => porPosicao.set(`${c[0]},${c[1]}`, i));
+    const indices: number[] = [], pesos: number[] = [];
+    for (const [la, ln, n] of alunosHex.celulas) { const i = porPosicao.get(`${la},${ln}`); if (i !== undefined) { indices.push(i); pesos.push(n); } }
+    return indices.length ? suavizarContagem(censo, indices, pesos, u.c as [number, number]) : null;
+  }, [alunosHex, dados.censo, u?.nome]); // eslint-disable-line react-hooks/exhaustive-deps
   const topBairros = [...(u?.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 5);
   const moradores80 = u?.c && r80 && dados.censo ? dados.censo.celulas.reduce((a, [la, ln, p]) => a + (km([la, ln], u.c as [number, number]) <= r80 ? p : 0), 0) : null;
   const comparado = porM2 && mediana ? porM2 / mediana - 1 : null;
@@ -152,19 +175,17 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     const dentroDoEstudo = (la: number, ln: number) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5);
     if (lente === "alunos" || lente === "oportunidade") {
       if (lente === "oportunidade" && capMapa && censo) desenharDemanda(L, camadas, censo, capMapa, dentroDoEstudo, "vermelho", area10);
-      const mx = Math.max(1, ...(u.bairros ?? []).map((b) => b[3]));
-      const totalB = Math.max(1, (u.bairros ?? []).reduce((t, b) => t + b[3], 0));
-      // a cor de cada bolha é a do bairro na rosca do painel (os 5 maiores); os outros ficam em cinza
-      const corBairro = new Map(topBairros.map(([b], i) => [b, CORES_BAIRROS[i]] as [string, string]));
-      for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3])) {
-        const raio = lente === "oportunidade" ? 4 + 20 * Math.sqrt(n / mx) : raioDaBolha(n, mx);
-        L.circleMarker([lat, lng], lente === "oportunidade"
-          ? { radius: raio, color: "#1b2130", weight: 1.6, fillColor: "#ffffff", fillOpacity: 0.35 }
-          : { radius: raio, color: "#fff", weight: 1, fillColor: corBairro.get(bairro) ?? COR_OUTROS_BAIRROS, fillOpacity: 0.55 })
-          .bindTooltip(`<strong>${bairro}</strong><br/>${n.toLocaleString("pt-BR")} ${n === 1 ? "aluno" : "alunos"} (${Math.round((n / totalB) * 100)}%)`).addTo(camadas);
-        // nos bairros que têm pelo menos 3% dos alunos, o número fica escrito na bolha
-        if (lente === "alunos" && n / totalB >= 0.03)
-          L.marker([lat, lng], { interactive: false, icon: L.divIcon({ className: "", iconSize: [44, 16], iconAnchor: [22, 8], html: `<div style="text-align:center;font:700 11px/16px Inter,sans-serif;color:#fff;text-shadow:0 0 3px rgba(0,0,0,.65),0 0 2px rgba(0,0,0,.65)">${n.toLocaleString("pt-BR")}</div>` }) }).addTo(camadas);
+      // Base de clientes: o mapa não marca os bairros (dono, 25/11/2026). A posição que o Atlas tem de cada bairro é aproximada (vem do OpenStreetMap) e
+      // pode cair longe do bairro de verdade; a camada só lista a quantidade de alunos por bairro no painel. Só as Oportunidades de captação ainda
+      // desenham um círculo por bairro, para cruzar com a demanda.
+      if (lente === "alunos" && calorAlunos && censo) desenharDemanda(L, camadas, censo, calorAlunos, dentroDoEstudo, "arco", area10);
+      if (lente === "oportunidade") {
+        const mx = Math.max(1, ...(u.bairros ?? []).map((b) => b[3]));
+        const totalB = Math.max(1, (u.bairros ?? []).reduce((t, b) => t + b[3], 0));
+        for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3])) {
+          L.circleMarker([lat, lng], { radius: 4 + 20 * Math.sqrt(n / mx), color: "#1b2130", weight: 1.6, fillColor: "#ffffff", fillOpacity: 0.35 })
+            .bindTooltip(`<strong>${bairro}</strong><br/>${n.toLocaleString("pt-BR")} ${n === 1 ? "aluno" : "alunos"} (${Math.round((n / totalB) * 100)}%)`).addTo(camadas);
+        }
       }
       if (r80 && !area10) L.circle(u.c, { radius: r80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
     } else if (lente === "modelo" && cap && capMapa && censo) {
@@ -197,7 +218,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       L.circleMarker(it.u.c, { radius: 13, color: it.parecida ? "#127a3a" : "#8a93a3", weight: 3, fill: false, interactive: false }).addTo(camadas);
       L.marker(it.u.c, { interactive: false, icon: L.divIcon({ className: "", iconSize: [140, 16], iconAnchor: [-14, 8], html: `<div style="font:700 11px/16px Inter,sans-serif;color:${it.parecida ? "#127a3a" : "#5b6577"};text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;white-space:nowrap">${it.u.nome}</div>` }) }).addTo(camadas);
     }
-  }, [lente, u, cap, capMapa, pronto, rua, areas, novaUnidade, verNova, verParec, compParec]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lente, u, cap, capMapa, pronto, rua, areas, novaUnidade, verNova, verParec, calorAlunos, compParec]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
   const aoPois = (r: ResultadoPois | null) => { setPois(r); setVerPois(true); };
@@ -227,7 +248,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       const temIdade = !!dados.censo?.celulas.some((c) => c[5]?.length), temDom = !!dados.censo?.celulas.some((c) => c[4]);
       const fotos = {
         sat: await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => foto("limpa", { centro: u.c as [number, number], zoom: z }, true)),
-        alunos: await foto("alunos", { limites: areaAlunos }),
+        alunos: calorAlunos ? await foto("alunos", { limites: areaAlunos }) : null, // sem a contagem por CEP a camada só lista bairros: sem foto no PDF
         oportunidade: cap ? await foto("oportunidade", { limites: areaAlunos }) : null,
         idade: temIdade ? await foto("idade", { limites: areaLim }) : null,
         domicilios: temDom ? await foto("domicilios", { limites: areaLim }) : null,
@@ -265,9 +286,14 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       <TelaDeMapa caixaRef={caixaMapa} altura={alturaMapa} vista={vista} setVista={setVista}
         subtitulo={`Estudo da unidade${u.m2 ? `, ${u.m2.toLocaleString("pt-BR")} m²` : ""}`}
         titulo={unidades.length > 1
-          ? <select value={u.nome} onChange={(e) => setNome(e.target.value)} aria-label="Unidade" className="-ml-1 max-w-[16rem] truncate rounded-md bg-transparent pr-1 font-display text-lg font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
-              {unidades.map((x) => <option key={x.nome} value={x.nome}>World Gym {x.nome}</option>)}
-            </select>
+          ? <label className="relative block max-w-full" title="Trocar de unidade">
+              <span className="sr-only">Trocar de unidade</span>
+              {/* controle visível (borda e seta), e não texto solto: antes parecia só o título e ninguém via que dava para trocar (dono, 25/11/2026) */}
+              <select value={u.nome} onChange={(e) => setNome(e.target.value)} aria-label="Unidade" className="w-full cursor-pointer appearance-none truncate rounded-lg border bg-white py-1.5 pl-2.5 pr-8 font-display text-lg font-medium shadow-sm outline-none hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring">
+                {unidades.map((x) => <option key={x.nome} value={x.nome}>World Gym {x.nome}</option>)}
+              </select>
+              <ChevronsUpDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            </label>
           : `World Gym ${u.nome}`}
         navegacao={<>
           {voltar && <Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={voltar}>Todos os estudos</Button>}
@@ -284,7 +310,13 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             <p className="mt-1">Vermelho: onde o modelo espera alunos. Círculos escuros: onde eles moram hoje. Vermelho forte sem círculo é onde vale fazer marketing.</p>
           </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
-            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><RoscaBairros total={alunosBairro} bairros={topBairros.map(([b, , , n]) => ({ nome: b.replace(/\s*\([^)]*\)/, ""), n }))} /></div>}<p className="mb-1">{fraseDosBairros((u.bairros ?? []).map(([b, , , n]) => ({ nome: b, n })))}</p>{area10 ? "" : "Tracejado: onde moram 80%."}</>
+            : lente === "alunos" ? <>
+              {calorAlunos && alunosHex ? <div className="mb-2">
+                <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteArco }} />mais alunos</div>
+                <p className="mt-1">Mapa suavizado a partir do CEP de {alunosHex.comPosicao.toLocaleString("pt-BR")} alunos ativos{alunosHex.total ? ` (${Math.round((alunosHex.comPosicao / alunosHex.total) * 100)}% da base)` : ""}. Só a contagem por região é guardada, nunca o endereço.</p>
+              </div> : null}
+              <ListaDeBairros bairros={u?.bairros ?? []} total={alunosBairro} ativos={u?.alunos ?? null} />
+            </>
             : lente === "rede" ? <p>O círculo cheio é a área desta unidade; os tracejados, a de cada vizinha. Quanto do público ela divide com cada uma está na aba Estudo.</p>
             : null}
           sobre={[
@@ -321,6 +353,29 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
  * Aba Estudo da unidade em operação (pedido do dono, 23/11/2026): os números reais em cards, no padrão do estudo de ponto, sem previsão nem
  * parecer (a unidade já tem o resultado do EVO). As legendas do mapa ficam só com a chave de cores; o detalhe mora aqui.
  */
+/** Legenda da camada "Base de clientes": só a quantidade de alunos por bairro, sem gráfico nem marcas no mapa. */
+function ListaDeBairros({ bairros, total, ativos }: { bairros: [string, number, number, number][]; total: number; ativos: number | null }) {
+  const [todos, setTodos] = useState(false);
+  const v = [...bairros].sort((a, b) => b[3] - a[3]);
+  const mostrar = todos ? v : v.slice(0, 8);
+  const resto = v.slice(8).reduce((a, b) => a + b[3], 0);
+  const pct = (n: number) => `${Math.round((n / Math.max(1, total)) * 100)}%`;
+  if (!v.length) return <p>Sem alunos com bairro identificado.</p>;
+  return (
+    <div className="text-foreground">
+      <p className="mb-1.5 text-[11px] text-muted-foreground">Alunos ativos por bairro (quantidade · %)</p>
+      <ul className={`space-y-1 text-[11px] ${todos ? "max-h-52 overflow-y-auto pr-1" : ""}`}>
+        {mostrar.map(([b, , , n]) => (
+          <li key={b} className="flex items-baseline gap-2"><span className="min-w-0 flex-1 break-words">{b.replace(/\s*\([^)]*\)/, "")}</span><span className="whitespace-nowrap tabular-nums"><b>{n.toLocaleString("pt-BR")}</b> · {pct(n)}</span></li>
+        ))}
+        {!todos && v.length > 8 && <li className="flex items-baseline gap-2 text-muted-foreground"><span className="flex-1">Outros {v.length - 8} bairros</span><span className="whitespace-nowrap tabular-nums"><b>{resto.toLocaleString("pt-BR")}</b> · {pct(resto)}</span></li>}
+      </ul>
+      {v.length > 8 && <button type="button" onClick={() => setTodos((t) => !t)} className="mt-1 block font-medium underline underline-offset-2">{todos ? "Mostrar só os 8 maiores" : `Ver os ${v.length} bairros`}</button>}
+      <p className="mt-1.5 text-[11px] text-muted-foreground">{total.toLocaleString("pt-BR")} alunos com bairro identificado{ativos ? `, de ${ativos.toLocaleString("pt-BR")} ativos` : ""}. É o bairro do cadastro no EVO. O mapa não marca os bairros: a posição que o Atlas tem de cada um é aproximada e pode cair longe do bairro de verdade.</p>
+    </div>
+  );
+}
+
 function EstudoDaUnidade({ u, porM2, mediana, area10, parte10, onde80, moradoresArea, resumo, topBairros, alunosBairro, divideCom, compParec, faixaFatia, novaUnidade, pois, aoEstudar, aoVerNoMapa }: {
   u: UnidadeEstudo; porM2: number | null; mediana: number | null; area10: boolean; parte10: number | null; onde80: string;
   moradoresArea: number | null; resumo: ResumoCenso | undefined; topBairros: [string, number, number, number][]; alunosBairro: number;

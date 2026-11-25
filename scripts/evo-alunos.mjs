@@ -4,15 +4,19 @@
 //  - os contratos ativos de hoje: especiais/VIP, personal, local × rede (como evo-contratos.mjs);
 //  - o saldo devedor em aberto no fim de cada mês (títulos "Balance due", cruzados com quem é aluno ativo);
 //  - o ritmo do mês em andamento (cancelados e renovações até hoje, o mesmo dia dos 3 meses anteriores e o que vence em 7 dias);
-//  - o mapa temporário "aluno → unidade de origem" para a etapa das entradas (server/origem.js; não vai para o painel).
+//  - o mapa temporário "aluno → unidade de origem" para a etapa das entradas (server/origem.js; não vai para o painel);
+//  - a contagem de alunos ativos por hexágono do Censo, pelo CEP (server/alunosHex.js): só contagens; sem as tabelas de CEP no Blob (rotina cep-posicoes.yml), é pulada.
 // Antes eram duas varreduras completas dos alunos (cerca de 75 minutos cada).
 // Uso: node --env-file=.env.local scripts/evo-alunos.mjs 2026-10 2026-11
 import { consumoEntre, consumoEvo, fetchAll, hojeBR, listBranches } from "../server/evo.js";
-import { ativosDaUnidade, resumoAluno, UNIDADES } from "../server/ativos.js";
+import { ativoNoDia, ativosDaUnidade, resumoAluno, UNIDADES } from "../server/ativos.js";
 import { inadimplenciaPorPerfil, lerPagadores } from "../server/inadPerfil.js";
 import { titulosDeSaldo } from "../server/saldo.js";
 import { anotarOrigem, salvarMapa } from "../server/origem.js";
 import { aplicarBairros, fotoDosAlunos } from "../server/bairros.js";
+import { arquivoAlunosHex, contarAlunosPorHexagono, indiceDeHexagonos, lerTabelasCep } from "../server/alunosHex.js";
+import { gravarJson, lerJson } from "../server/armazem.js";
+import { ARQUIVO_CENSO } from "../server/estudos.js";
 import { contratosUnidade } from "../server/contratos.js";
 import { relatorioNaoRenovados } from "../server/renovacao.js";
 import { ritmoAlunosDoMes } from "../server/ritmoAlunos.js";
@@ -33,6 +37,11 @@ const pagadores = Object.fromEntries(meses.map((ym) => [ym, lerPagadores(ym)]));
 const naoRenov = Object.fromEntries(await Promise.all(meses.map(async (ym) => [ym, await relatorioNaoRenovados(ym, hoje)])));
 const geo = await loadGeo();
 const locais = new Map((await listBranches()).map((b) => [b.idBranch, [b.latitude, b.longitude]]));
+// Mapa de alunos por CEP: precisa das tabelas CEP -> posição dos estados (rotina cep-posicoes.yml) e da malha do Censo; sem elas, a etapa é pulada.
+const tabelasCep = await lerTabelasCep(["DF", "GO", "BA"]);
+const censoDosHexagonos = Object.keys(tabelasCep).length ? await lerJson(ARQUIVO_CENSO) : null;
+const indiceHex = censoDosHexagonos?.celulas?.length ? indiceDeHexagonos(censoDosHexagonos.celulas) : null;
+console.log(indiceHex ? `Mapa por CEP: tabelas de ${Object.keys(tabelasCep).join(", ")}` : "Mapa por CEP: sem tabelas de CEP no Blob (etapa pulada)");
 
 const mapaOrigem = {};
 // Gravações (meses e mapa de bairros) uma de cada vez: com várias unidades lendo juntas, duas não gravam o mesmo arquivo ao mesmo tempo.
@@ -105,6 +114,16 @@ async function lerUnidade([id, nome]) {
     console.log(nome, falhou ? `bairros PULADOS — ${falhou} (a próxima carga tenta de novo)` : `${u.bairros.length} bairros, ${u.semBairro} sem localização`);
   } catch (e) {
     console.log(nome, `bairros com erro: ${e.message}`); // não derruba os ativos
+  }
+  try {
+    if (indiceHex) {
+      // só contagens por hexágono; nenhum CEP, nome ou endereço de aluno é guardado nem impresso
+      const r = contarAlunosPorHexagono(membros.filter((m) => ativoNoDia(resumoAluno(m).c, hoje)), tabelasCep, indiceHex);
+      await trava(() => gravarJson(arquivoAlunosHex(id), { em: lidaEm, ...r }));
+      console.log(nome, `mapa por CEP: ${r.comPosicao}/${r.total} alunos em ${r.celulas.length} hexágonos (${r.foraDaTabela} fora da tabela, ${r.baixaPrecisao} de CEP rural, ${r.semCep} sem CEP)`);
+    }
+  } catch (e) {
+    console.log(nome, `mapa por CEP com erro: ${e.message}`); // não derruba o resto
   }
   fase("contratos e bairros");
   fim();
