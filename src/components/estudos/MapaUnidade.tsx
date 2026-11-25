@@ -372,8 +372,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
 function ListaDeBairros({ bairros, total, ativos }: { bairros: [string, number, number, number][]; total: number; ativos: number | null }) {
   const [todos, setTodos] = useState(false);
   const v = [...bairros].sort((a, b) => b[3] - a[3]);
-  const mostrar = todos ? v : v.slice(0, 8);
-  const resto = v.slice(8).reduce((a, b) => a + b[3], 0);
+  const mostrar = todos ? v : v.slice(0, 5);
+  const resto = v.slice(5).reduce((a, b) => a + b[3], 0);
   const pct = (n: number) => `${Math.round((n / Math.max(1, total)) * 100)}%`;
   if (!v.length) return <p>Sem alunos com bairro identificado.</p>;
   return (
@@ -383,10 +383,10 @@ function ListaDeBairros({ bairros, total, ativos }: { bairros: [string, number, 
         {mostrar.map(([b, , , n]) => (
           <li key={b} className="flex items-baseline gap-2"><span className="min-w-0 flex-1 break-words">{b.replace(/\s*\([^)]*\)/, "")}</span><span className="whitespace-nowrap tabular-nums"><b>{n.toLocaleString("pt-BR")}</b> · {pct(n)}</span></li>
         ))}
-        {!todos && v.length > 8 && <li className="flex items-baseline gap-2 text-muted-foreground"><span className="flex-1">Outros {v.length - 8} bairros</span><span className="whitespace-nowrap tabular-nums"><b>{resto.toLocaleString("pt-BR")}</b> · {pct(resto)}</span></li>}
+        {!todos && v.length > 5 && <li className="flex items-baseline gap-2 text-muted-foreground"><span className="flex-1">Outros {v.length - 5} bairros</span><span className="whitespace-nowrap tabular-nums"><b>{resto.toLocaleString("pt-BR")}</b> · {pct(resto)}</span></li>}
       </ul>
-      {v.length > 8 && <button type="button" onClick={() => setTodos((t) => !t)} className="mt-1 block font-medium underline underline-offset-2">{todos ? "Mostrar só os 8 maiores" : `Ver os ${v.length} bairros`}</button>}
-      <p className="mt-1.5 text-[11px] text-muted-foreground">{total.toLocaleString("pt-BR")} alunos com bairro identificado{ativos ? `, de ${ativos.toLocaleString("pt-BR")} ativos` : ""}. É o bairro do cadastro no EVO. O mapa não marca os bairros: a posição que o Atlas tem de cada um é aproximada e pode cair longe do bairro de verdade.</p>
+      {v.length > 5 && <button type="button" onClick={() => setTodos((t) => !t)} className="mt-1 block font-medium underline underline-offset-2">{todos ? "Mostrar só os 5 maiores" : `Ver mais bairros`}</button>}
+      <p className="mt-1.5 text-[11px] text-muted-foreground">{total.toLocaleString("pt-BR")} alunos com bairro identificado{ativos ? `, de ${ativos.toLocaleString("pt-BR")} ativos` : ""}, pelo bairro do cadastro no EVO. O mapa não marca os bairros (posição aproximada).</p>
     </div>
   );
 }
