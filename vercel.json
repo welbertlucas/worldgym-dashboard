@@ -21,7 +21,8 @@
   "rewrites": [
     { "source": "/api/juridico", "destination": "/api/royalties?modulo=juridico" },
     { "source": "/api/qualidade", "destination": "/api/royalties?modulo=qualidade" },
-    { "source": "/api/estudos", "destination": "/api/royalties?modulo=estudos" }
+    { "source": "/api/estudos", "destination": "/api/royalties?modulo=estudos" },
+    { "source": "/api/escalas", "destination": "/api/royalties?modulo=escalas" }
   ],
   "headers": [
     {
