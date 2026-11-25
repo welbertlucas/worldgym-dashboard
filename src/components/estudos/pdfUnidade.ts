@@ -239,22 +239,24 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     });
   }
 
-  // ---------- Oportunidades de captação ----------
-  if (d.fotos.oportunidade) {
-    const texto = [`O mapa compara duas medidas, cada uma como a parte que o local tem do total da área: onde o modelo da rede espera alunos (moradores, distância até a unidade e outras World Gym por perto) e onde os alunos ativos moram de verdade (CEP do cadastro). Em magenta fica a lacuna, onde o esperado é maior que o real: são as prioridades para panfletagem, parcerias com empresas e mídia geolocalizada. Sem cor, a unidade já capta o esperado.`];
-    if (d.esperadoNaArea != null && d.parteNaArea != null) texto.push(`Pelo modelo, ${pct(d.esperadoNaArea, 0)} dos alunos deveriam morar ${area}; na prática são ${pct(d.parteNaArea, 0)}. ${d.parteNaArea < d.esperadoNaArea - 0.05 ? "A unidade capta abaixo do esperado no entorno imediato: o maior potencial de crescimento está perto da porta, e não em bairros distantes." : d.parteNaArea > d.esperadoNaArea + 0.05 ? "A unidade já domina o entorno imediato: o crescimento passa por atrair público de fora da área (trajeto casa-trabalho, empresas e faculdades)." : "A captação no entorno está em linha com o esperado; o ganho vem de aumentar a participação nos bairros com mais moradores."}`);
-    secoes.push({ titulo: "Lacuna de Captação", novaPagina: true, linhas: [], texto, foto: { dados: d.fotos.oportunidade, legenda: "Magenta: onde o modelo espera mais alunos do que a unidade tem (mais forte = maior lacuna). Anéis tracejados: zona primária (vermelho) e secundária (laranja). Sem cor: a unidade já capta o esperado." } });
-  }
-
-  // ---------- Zonas de captação ----------
-  if (d.fotos.zonas && d.zonas && d.zonas.lista.length >= 3) {
-    const [z1, z2, z3] = d.zonas.lista, km1 = (v: number) => `${dec(v, 1)} km`;
-    const texto = [`As zonas mostram até onde a unidade chega, pela contagem real de alunos ativos por CEP (${num(d.zonas.total)} alunos com CEP localizado). Cada zona é o menor círculo, em linha reta, que reúne uma fatia dos alunos: 70% na primária, 90% na secundária e 98% na terciária.`];
-    texto.push(`${pct(z1.parte, 0)} dos alunos moram a até ${km1(z1.r)} da unidade (zona primária) e ${pct(z2.parte, 0)} a até ${km1(z2.r)}; os últimos alunos, até ${pct(z3.parte, 0)}, ficam em um raio de ${km1(z3.r)}.${d.zonas.na10 != null ? ` A área de 10 minutos de carro reúne ${pct(d.zonas.na10, 0)} dos alunos.` : ""} Dentro da zona primária a unidade já tem ${pct(z1.moradores ? z1.alunos / z1.moradores : null, 1)} dos moradores como alunos; entre a primária e a secundária a presença cai, e é aí que a captação tem mais espaço para crescer.`);
+  // ---------- Lacuna e zonas de captação (uma página só: a foto da lacuna já leva os anéis das zonas) ----------
+  const zonasOk = !!d.zonas && d.zonas.lista.length >= 3;
+  if (d.fotos.oportunidade || zonasOk) {
+    const texto: string[] = [];
+    if (d.fotos.oportunidade) {
+      texto.push(`O mapa compara duas medidas, cada uma como a parte que o local tem do total da área: onde o modelo da rede espera alunos (moradores, distância até a unidade e outras World Gym por perto) e onde os alunos ativos moram de verdade (CEP do cadastro). Em magenta fica a lacuna, onde o esperado é maior que o real: são as prioridades para panfletagem, parcerias com empresas e mídia geolocalizada. Sem cor, a unidade já capta o esperado.`);
+      if (d.esperadoNaArea != null && d.parteNaArea != null) texto.push(`Pelo modelo, ${pct(d.esperadoNaArea, 0)} dos alunos deveriam morar ${area}; na prática são ${pct(d.parteNaArea, 0)}. ${d.parteNaArea < d.esperadoNaArea - 0.05 ? "A unidade capta abaixo do esperado no entorno imediato: o maior potencial de crescimento está perto da porta, e não em bairros distantes." : d.parteNaArea > d.esperadoNaArea + 0.05 ? "A unidade já domina o entorno imediato: o crescimento passa por atrair público de fora da área (trajeto casa-trabalho, empresas e faculdades)." : "A captação no entorno está em linha com o esperado; o ganho vem de aumentar a participação nos bairros com mais moradores."}`);
+    }
+    let tabela: Secao["tabela"];
+    if (zonasOk) {
+      const [z1, z2, z3] = d.zonas!.lista, km1 = (v: number) => `${dec(v, 1)} km`;
+      texto.push(`As zonas mostram até onde a unidade chega, pela contagem real de alunos ativos por CEP (${num(d.zonas!.total)} alunos com CEP localizado). Cada zona é o menor círculo, em linha reta, que reúne uma fatia dos alunos: 70% na primária, 90% na secundária e 98% na terciária. ${pct(z1.parte, 0)} dos alunos moram a até ${km1(z1.r)} da unidade e ${pct(z2.parte, 0)} a até ${km1(z2.r)}; os últimos, até ${pct(z3.parte, 0)}, ficam em um raio de ${km1(z3.r)}.${d.zonas!.na10 != null ? ` A área de 10 minutos de carro reúne ${pct(d.zonas!.na10, 0)} dos alunos.` : ""}${d.fotos.oportunidade ? " Magenta dentro do anel da zona primária é a lacuna mais fácil de captar, porque o aluno já costuma vir dali; magenta além da secundária pede mais esforço." : ""}`);
+      tabela = { colunas: ["Zona", "Distância", "% dos alunos", "Moradores no raio", "Alunos entre os moradores"], larguras: [1.1, 1.3, 1.1, 1.4, 1.6], linhas: d.zonas!.lista.map((z, i) => [["Primária", "Secundária", "Terciária"][i] ?? "", i === 0 ? `até ${km1(z.r)}` : `${km1(d.zonas!.lista[i - 1].r)} a ${km1(z.r)}`, pct(z.parte - (d.zonas!.lista[i - 1]?.parte ?? 0), 0), num(z.moradores), pct(z.moradores ? z.alunos / z.moradores : null, 1)]) };
+    }
     secoes.push({
-      titulo: "Zonas de Captação", novaPagina: true, linhas: [], texto,
-      foto: { dados: d.fotos.zonas, legenda: "Círculos em linha reta: primária (vermelho), secundária (laranja) e terciária (amarelo)." },
-      tabela: { colunas: ["Zona", "Distância", "% dos alunos", "Moradores no raio", "Alunos entre os moradores"], larguras: [1.1, 1.3, 1.1, 1.4, 1.6], linhas: d.zonas.lista.map((z, i) => [["Primária", "Secundária", "Terciária"][i] ?? "", i === 0 ? `até ${km1(z.r)}` : `${km1(d.zonas!.lista[i - 1].r)} a ${km1(z.r)}`, pct(z.parte - (d.zonas!.lista[i - 1]?.parte ?? 0), 0), num(z.moradores), pct(z.moradores ? z.alunos / z.moradores : null, 1)]) },
+      titulo: d.fotos.oportunidade && zonasOk ? "Lacuna e Zonas de Captação" : zonasOk ? "Zonas de Captação" : "Lacuna de Captação", novaPagina: true, linhas: [], texto,
+      ...(d.fotos.oportunidade ? { foto: { dados: d.fotos.oportunidade, legenda: `Magenta: onde o modelo espera mais alunos do que a unidade tem (mais forte = maior lacuna). ${zonasOk ? "Anéis tracejados: zona primária (vermelho) e secundária (laranja). " : ""}Sem cor: a unidade já capta o esperado.` } } : {}),
+      ...(tabela ? { tabela } : {}),
     });
   }
 

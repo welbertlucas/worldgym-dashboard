@@ -11,16 +11,18 @@ const base = {
 const zonas = { lista: [{ r: 2.2, parte: 0.7, alunos: 1280, moradores: 153000 }, { r: 3.9, parte: 0.9, alunos: 1640, moradores: 378000 }, { r: 12, parte: 0.98, alunos: 1790, moradores: 1189000 }], na10: 0.9, total: 1824 };
 const titulos = (d: DadosPdfUnidade) => JSON.stringify(montarPdfUnidade(d));
 
-describe("PDF da unidade: Zonas de Captação", () => {
-  it("entra com a foto, a tabela e o texto quando há as zonas e a foto", () => {
-    const j = titulos({ ...base, zonas, fotos: { ...base.fotos, zonas: "data:image/jpeg;base64,AAAA" } });
-    expect(j).toContain("Zonas de Captação");
-    expect(j).toContain("até 2,2 km");
-    expect(j).toContain("2,2 km a 3,9 km");
-    expect(j).toContain("90%");
+describe("PDF da unidade: Lacuna e Zonas de Captação (uma página só)", () => {
+  const foto = "data:image/jpeg;base64,AAAA";
+  it("junta a foto da lacuna, o texto e a tabela das zonas numa seção", () => {
+    const j = titulos({ ...base, zonas, fotos: { ...base.fotos, oportunidade: foto } });
+    expect(j).toContain("Lacuna e Zonas de Captação");
+    expect(j).not.toContain("\"Zonas de Captação\""); // não há mais uma página separada
+    expect(j).toContain("até 2,2 km"); expect(j).toContain("2,2 km a 3,9 km"); expect(j).toContain("90%");
   });
-  it("não entra sem a contagem por CEP (sem zonas ou sem foto)", () => {
-    expect(titulos({ ...base, zonas: null })).not.toContain("Zonas de Captação");
-    expect(titulos({ ...base, zonas })).not.toContain("Zonas de Captação");
+  it("sem a contagem por CEP, fica só a lacuna; sem lacuna, só as zonas; sem nenhuma, nada", () => {
+    const so = titulos({ ...base, zonas: null, fotos: { ...base.fotos, oportunidade: foto } });
+    expect(so).toContain("Lacuna de Captação"); expect(so).not.toContain("Zonas");
+    expect(titulos({ ...base, zonas })).toContain("\"Zonas de Captação\"");
+    expect(titulos({ ...base, zonas: null })).not.toMatch(/Lacuna|Zonas de/);
   });
 });

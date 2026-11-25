@@ -18,9 +18,9 @@ import { buscarFotosDaRua, comFotosDaRegiao, paginaDeFotos } from "@/components/
 import { avaliarPonto, faixaDaFatia, refsParaModelo, suavizarContagem, lacunaDeCaptacao, zonasDeCaptacao, unidadesMaisProximas, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
-type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "oportunidade" | "zonas";
+type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "oportunidade";
 const LENTES: { id: Lente; rotulo: string }[] = [
-  { id: "alunos", rotulo: "Base de clientes" }, { id: "modelo", rotulo: "Demanda potencial" }, { id: "oportunidade", rotulo: "Lacuna de captação" }, { id: "zonas", rotulo: "Zonas de captação" },
+  { id: "alunos", rotulo: "Base de clientes" }, { id: "modelo", rotulo: "Demanda potencial" }, { id: "oportunidade", rotulo: "Lacuna de captação" },
   { id: "pessoas", rotulo: "População" }, { id: "idade", rotulo: "Idade" }, { id: "domicilios", rotulo: "Domicílios" },
   { id: "renda", rotulo: "Renda" }, { id: "rendaTotal", rotulo: "Renda total" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "comercio", rotulo: "Concentração comercial" }, { id: "rede", rotulo: "Canibalização" },
 ];
@@ -202,18 +202,12 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     const dentroDoEstudo = (la: number, ln: number) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5);
     if (lente === "alunos" || lente === "oportunidade") {
       if (lente === "oportunidade" && lacuna && censo) desenharDemanda(L, camadas, censo, lacuna, dentroDoEstudo, "vermelho", area10);
-      // anéis finos das zonas primária e secundária por cima da lacuna: magenta dentro do anel menor é o mais fácil de captar (números na camada Zonas)
+      // anéis finos das zonas primária e secundária por cima da lacuna: magenta dentro do anel menor é o mais fácil de captar (números na legenda da camada)
       if (lente === "oportunidade" && zonas) zonas.lista.slice(0, 2).forEach((z, i) => L.circle(u.c as [number, number], { radius: z.r * 1000, color: ZONAS_COR[i], weight: 2, dashArray: "6 5", fill: false, interactive: false }).addTo(camadas));
       // Base de clientes: o mapa não marca os bairros (dono, 25/11/2026). A posição que o Atlas tem de cada bairro é aproximada (vem do OpenStreetMap) e
       // pode cair longe do bairro de verdade; a camada só lista a quantidade de alunos por bairro no painel. A Lacuna de captação usa a contagem por CEP.
       if (lente === "alunos" && calorAlunos && censo) desenharDemanda(L, camadas, censo, calorAlunos, dentroDoEstudo, "arco", area10);
       if (r80 && !area10) L.circle(u.c, { radius: r80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
-    } else if (lente === "zonas" && zonas) {
-      // três círculos concêntricos, do maior (terciária) para o menor, para a zona de dentro ficar por cima
-      [...zonas.lista].reverse().forEach((z, i) => {
-        const cor = ZONAS_COR[2 - i];
-        L.circle(u.c as [number, number], { radius: z.r * 1000, color: cor, weight: 2, fillColor: cor, fillOpacity: [0.12, 0.2, 0.3][i], interactive: false }).addTo(camadas);
-      });
     } else if (lente === "modelo" && cap && capMapa && censo) {
       desenharDemanda(L, camadas, censo, capMapa, dentroDoEstudo, "quente", area10);
       if (cap.raio80 && !area10) L.circle(u.c, { radius: cap.raio80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
@@ -286,7 +280,6 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         sat: await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => foto("limpa", { centro: u.c as [number, number], zoom: z }, true)),
         alunos: calorAlunos ? await foto("alunos", { limites: areaAlunos }) : null, // sem a contagem por CEP a camada só lista bairros: sem foto no PDF
         oportunidade: lacuna ? await foto("oportunidade", { limites: areaAlunos }) : null,
-        zonas: zonas ? await foto("zonas", { limites: m.L.latLng(u.c as [number, number]).toBounds(zonas.lista[1].r * 1000 * 2 * 1.3) }) : null, // enquadra até a zona secundária; a terciária sai pela borda
         idade: temIdade ? await foto("idade", { limites: areaLim }) : null,
         domicilios: temDom ? await foto("domicilios", { limites: areaLim }) : null,
         renda: dados.censo ? await foto("renda", { limites: areaLim }) : null,
@@ -343,7 +336,22 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             <p className="mt-1">Onde o modelo espera alunos, pela gente que mora perto e pelas outras World Gym. {area10 ? LEGENDA_DESLOCAMENTO : ""}</p>
           </> : lente === "oportunidade" ? <>
             <div className="flex items-center gap-2">menor<span className="h-1.5 flex-1 rounded" style={{ background: "linear-gradient(90deg,rgba(157,42,107,.08),#9d2a6b)" }} />maior lacuna</div>
-            <p className="mt-1">{lacuna ? <>Magenta forte: o modelo espera mais alunos do que a unidade tem ali, o melhor lugar para panfletagem, parcerias e mídia. Sem cor: a unidade já capta o esperado (ou mais).{zonas ? " Os anéis tracejados são as zonas primária (vermelho) e secundária (laranja): magenta dentro do anel menor é o mais fácil de captar; os números estão em Zonas de captação." : ""}</> : "Aguardando a contagem de alunos por CEP (rotina noturna) para comparar com o que o modelo espera."}</p>
+            <p className="mt-1">{lacuna ? <>Magenta forte: o modelo espera mais alunos do que a unidade tem ali, o melhor lugar para panfletagem, parcerias e mídia. Sem cor: a unidade já capta o esperado (ou mais).{zonas ? " Os anéis tracejados são as zonas primária (vermelho) e secundária (laranja): magenta dentro do anel menor é o mais fácil de captar." : ""}</> : "Aguardando a contagem de alunos por CEP (rotina noturna) para comparar com o que o modelo espera."}</p>
+              {zonas && <div className="mt-2.5 border-t pt-2 text-foreground">
+                <p className="mb-1.5 text-[11px] font-medium">Zonas de captação (de onde vêm os alunos)</p>
+                <ul className="space-y-1.5 text-[11px]">
+                  {zonas.lista.map((z, i) => {
+                    const ant = zonas.lista[i - 1];
+                    return <li key={i} className="flex gap-2">
+                      <span className="mt-0.5 h-3 w-3 flex-none rounded-full" style={{ background: ZONAS_COR[i] }} />
+                      <span className="min-w-0 flex-1"><b>{ZONAS_NOME[i]}</b>{ant ? ` (${fmtKm(ant.r)} a ${fmtKm(z.r)})` : ` (até ${fmtKm(z.r)})`}: {Math.round((z.parte - (ant?.parte ?? 0)) * 100)}% dos alunos<br />
+                        <span className="text-muted-foreground">{z.moradores.toLocaleString("pt-BR")} moradores dentro de {fmtKm(z.r)}{z.moradores ? `, ${((z.alunos / z.moradores) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% são alunos` : ""}</span></span>
+                    </li>;
+                  })}
+                </ul>
+                {zonas.na10 != null && <p className="mt-1.5 text-[11px]">A área de {MINUTOS_PADRAO} min de carro reúne {Math.round(zonas.na10 * 100)}% dos alunos.</p>}
+                <p className="mt-1 text-[11px] text-muted-foreground">Raios em linha reta, pelo CEP de {zonas.total.toLocaleString("pt-BR")} alunos ativos (só os com CEP localizado). Cada zona é o menor círculo com 70% (primária), 90% (secundária) e 98% (terciária) dos alunos. No mapa só os anéis da primária e da secundária.</p>
+              </div>}
           </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
             : lente === "alunos" ? <>
@@ -353,21 +361,6 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
               </div> : null}
               <ListaDeBairros bairros={u?.bairros ?? []} total={alunosBairro} ativos={u?.alunos ?? null} />
             </>
-            : lente === "zonas" ? (zonas ? <div className="text-foreground">
-              <ul className="space-y-2 text-[11px]">
-                {zonas.lista.map((z, i) => {
-                  const ant = zonas.lista[i - 1];
-                  const parteDaZona = z.parte - (ant?.parte ?? 0);
-                  return <li key={i} className="flex gap-2">
-                    <span className="mt-0.5 h-3 w-3 flex-none rounded-full" style={{ background: ZONAS_COR[i] }} />
-                    <span className="min-w-0 flex-1"><b>{ZONAS_NOME[i]}</b>{ant ? ` (${fmtKm(ant.r)} a ${fmtKm(z.r)})` : ` (até ${fmtKm(z.r)})`}<br />
-                      <span className="text-muted-foreground">{Math.round(parteDaZona * 100)}% dos alunos · {z.moradores.toLocaleString("pt-BR")} moradores dentro de {fmtKm(z.r)}{z.moradores ? `, ${((z.alunos / z.moradores) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% são alunos` : ""}</span></span>
-                  </li>;
-                })}
-              </ul>
-              {zonas.na10 != null && <p className="mt-2 text-[11px]">A área de {MINUTOS_PADRAO} min de carro reúne {Math.round(zonas.na10 * 100)}% dos alunos.</p>}
-              <p className="mt-1.5 text-[11px] text-muted-foreground">Raios em linha reta, pela contagem do CEP de {zonas.total.toLocaleString("pt-BR")} alunos ativos (só os que têm CEP localizado). A zona é o menor círculo que reúne 70% (primária), 90% (secundária) e 98% (terciária) deles.</p>
-            </div> : <p>Aguardando a contagem de alunos por CEP (rotina noturna) para traçar as zonas.</p>)
             : lente === "rede" ? <p>O círculo cheio é a área desta unidade; os tracejados, a de cada vizinha. Quanto do público ela divide com cada uma está na aba Estudo.</p>
             : null}
           sobre={[
