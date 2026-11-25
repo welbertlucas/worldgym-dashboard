@@ -553,6 +553,28 @@ export function acertoDoModelo(pontos: Ponto[], unidades: UnidadeEstudo[]) {
 }
 
 /**
+ * Canibalização observada (só com a contagem real de alunos por hexágono, em linha reta): para cada World Gym vizinha, que parte dos alunos desta
+ * unidade mora mais perto da vizinha do que daqui, e que parte dos alunos da vizinha mora mais perto daqui. `algumaOutra` = parte dos alunos desta unidade
+ * que mora mais perto de alguma das vizinhas informadas. Os números por vizinha não somam (um aluno pode estar mais perto de duas). Sem alunos, null.
+ */
+export interface CanibalObservada { itens: { nome: string; km: number; meusPertoDela: number; delaPertoDaqui: number }[]; algumaOutra: number; alunos: number }
+export function canibalizacaoObservada(
+  minha: { c: [number, number]; celulas: [number, number, number][] },
+  vizinhas: { nome: string; c: [number, number]; celulas: [number, number, number][] }[],
+): CanibalObservada | null {
+  const total = (cs: [number, number, number][]) => cs.reduce((a, x) => a + (x[2] > 0 ? x[2] : 0), 0);
+  const meus = total(minha.celulas);
+  if (!meus || !vizinhas.length) return null;
+  const parte = (cs: [number, number, number][], de: [number, number], para: [number, number]) => {
+    const t = total(cs);
+    return t ? cs.reduce((a, [la, ln, n]) => a + (n > 0 && km([la, ln], para) < km([la, ln], de) ? n : 0), 0) / t : 0;
+  };
+  const itens = vizinhas.map((v) => ({ nome: v.nome, km: km(minha.c, v.c), meusPertoDela: parte(minha.celulas, minha.c, v.c), delaPertoDaqui: parte(v.celulas, v.c, minha.c) })).sort((a, b) => a.km - b.km);
+  const algumaOutra = minha.celulas.reduce((a, [la, ln, n]) => a + (n > 0 && vizinhas.some((v) => km([la, ln], v.c) < km([la, ln], minha.c)) ? n : 0), 0) / meus;
+  return { itens, algumaOutra, alunos: meus };
+}
+
+/**
  * Zonas de captação (primária, secundária, terciária) pela contagem real de alunos por hexágono: ordena os hexágonos pela distância em linha reta até
  * a unidade e acha o menor raio que reúne cada fatia dos alunos (padrão 70%, 90% e 98%). Devolve os raios em km, a parte dos alunos dentro de cada
  * um (um pouco acima do corte, porque o hexágono não se divide) e o total contado. Sem alunos, null.

@@ -26,3 +26,13 @@ describe("PDF da unidade: Lacuna e Zonas de Captação (uma página só)", () =>
     expect(titulos({ ...base, zonas: null })).not.toMatch(/Lacuna|Zonas de/);
   });
 });
+
+describe("PDF da unidade: canibalização observada", () => {
+  it("entra no texto da canibalização quando há a contagem das vizinhas", () => {
+    const obs = { itens: [{ nome: "World Gym Vizinha", km: 3.8, meusPertoDela: 0.05, delaPertoDaqui: 0.08 }], algumaOutra: 0.09, alunos: 1800 };
+    const j = titulos({ ...base, canibalObservada: obs });
+    expect(j).toContain("9% dos alunos moram mais perto de outra World Gym");
+    expect(j).toContain("5% dos alunos daqui moram mais perto da Vizinha (3,8 km)");
+    expect(titulos({ ...base })).not.toContain("moram mais perto de outra World Gym");
+  });
+});

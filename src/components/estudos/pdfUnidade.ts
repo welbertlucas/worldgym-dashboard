@@ -34,6 +34,8 @@ export interface DadosPdfUnidade {
   /** As outras World Gym mais próximas desta unidade (km em linha reta). */
   proximas?: { nome: string; km: number }[];
   /** Zonas de captação (70/90/98% dos alunos pelo CEP): raio em km, parte acumulada dos alunos, alunos e moradores dentro do raio. */
+  /** Canibalização observada: alunos que moram mais perto de outra World Gym (contagem por CEP). */
+  canibalObservada?: { itens: { nome: string; km: number; meusPertoDela: number; delaPertoDaqui: number }[]; algumaOutra: number; alunos: number } | null;
   zonas?: { lista: { r: number; parte: number; alunos: number; moradores: number }[]; na10: number | null; total: number } | null;
   fotos: { sat: string | null; alunos: string | null; oportunidade: string | null; zonas?: string | null; idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; nova?: string | null; pois: string | null; rede: string | null };
   hoje?: Date;
@@ -270,7 +272,8 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     texto: [d.divideCom.length
       ? `A área da unidade se sobrepõe à de outras World Gym. Pelo modelo de captação, ${d.divideCom.map((x) => `${pct(x.parte, 0)} do potencial é disputado com a ${x.nome}`).join(", ")}. ${perda >= 0.25 ? "É uma sobreposição alta: ações comerciais devem ser coordenadas entre as unidades para não disputar o mesmo aluno com desconto, e novas aberturas nessa direção pedem cuidado." : "É uma sobreposição moderada, comum em redes adensadas; vale combinar campanhas entre as unidades para cobrir os bairros de fronteira."}`
       : "Nenhuma outra World Gym divide de forma relevante a área desta unidade: não há canibalização dentro da rede, e o crescimento depende só da disputa com a concorrência externa.",
-      ...(fraseUnidadesProximas(d.proximas, "unidade") ? [fraseUnidadesProximas(d.proximas, "unidade")] : [])],
+      ...(fraseUnidadesProximas(d.proximas, "unidade") ? [fraseUnidadesProximas(d.proximas, "unidade")] : []),
+      ...(d.canibalObservada ? [`Pelos alunos de verdade (CEP): ${pct(d.canibalObservada.algumaOutra, 0)} dos alunos moram mais perto de outra World Gym do que da ${u.nome}. ${d.canibalObservada.itens.map((x) => `${pct(x.meusPertoDela, 0)} dos alunos daqui moram mais perto da ${x.nome.replace("World Gym ", "")} (${dec(x.km, 1)} km), e ${pct(x.delaPertoDaqui, 0)} dos alunos dela moram mais perto daqui`).join("; ")}. Distâncias em linha reta; os percentuais por vizinha não somam.`] : [])],
     foto: { dados: d.fotos.rede, legenda: "Pinos vermelhos pequenos: outras World Gym. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA,
     grafico: d.divideCom.length ? { tipo: "rosca", titulo: "Potencial de captação da unidade", fatias: [{ rotulo: `Só da World Gym ${u.nome}`, valor: Math.max(0, 1 - perda), cor: "#c41230" }, ...d.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } : undefined,
   });

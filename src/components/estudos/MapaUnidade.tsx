@@ -15,7 +15,7 @@ export { LegendaRenda };
 import { REGRAS_NOVA_UNIDADE, SecaoSugestoes, type ResultadoSugestoes, desenharSugestoes, enderecoCurto, textoParecerSugestao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
 import { buscarFotosDaRua, comFotosDaRegiao, paginaDeFotos } from "@/components/estudos/fotosRua";
-import { avaliarPonto, faixaDaFatia, refsParaModelo, suavizarContagem, lacunaDeCaptacao, zonasDeCaptacao, unidadesMaisProximas, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { avaliarPonto, faixaDaFatia, refsParaModelo, suavizarContagem, lacunaDeCaptacao, zonasDeCaptacao, canibalizacaoObservada, unidadesMaisProximas, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "oportunidade";
@@ -88,6 +88,20 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     for (const [la, ln, n] of alunosHex.celulas) { const i = porPosicao.get(`${la},${ln}`); if (i !== undefined) { indices.push(i); pesos.push(n); } }
     return indices.length ? suavizarContagem(censo, indices, pesos, u.c as [number, number]) : null;
   }, [alunosHex, dados.censo, u?.nome]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Canibalização observada: contagem de alunos por hexágono das vizinhas (até 4, a até 12 km). Só dono e Master leem as outras unidades; para quem tem só a própria, vem vazio.
+  const [vizHex, setVizHex] = useState<{ nome: string; c: [number, number]; celulas: [number, number, number][] }[]>([]);
+  useEffect(() => {
+    setVizHex([]);
+    if (!u?.c || !dados.unidades) return;
+    let vivo = true;
+    const centro = u.c as [number, number];
+    const perto = dados.unidades.filter((x) => x.nome !== u.nome && x.c && km(x.c as [number, number], centro) <= 12).sort((a, b) => km(a.c as [number, number], centro) - km(b.c as [number, number], centro)).slice(0, 4);
+    Promise.all(perto.map((x) => authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "alunos-hex", unidade: x.nome }) })
+      .then((r) => (r.ok ? r.json() : null)).then((j) => (j && !j.ausente && Array.isArray(j.celulas) && j.celulas.length ? { nome: x.nome, c: x.c as [number, number], celulas: j.celulas as [number, number, number][] } : null)).catch(() => null)))
+      .then((l) => { if (vivo) setVizHex(l.filter((x): x is NonNullable<typeof x> => !!x)); });
+    return () => { vivo = false; };
+  }, [u?.nome]); // eslint-disable-line react-hooks/exhaustive-deps
+  const observada = useMemo(() => (alunosHex && u?.c && vizHex.length ? canibalizacaoObservada({ c: u.c as [number, number], celulas: alunosHex.celulas }, vizHex) : null), [alunosHex, vizHex, u?.nome]); // eslint-disable-line react-hooks/exhaustive-deps
   const topBairros = [...(u?.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 5);
   const moradores80 = u?.c && r80 && dados.censo ? dados.censo.celulas.reduce((a, [la, ln, p]) => a + (km([la, ln], u.c as [number, number]) <= r80 ? p : 0), 0) : null;
   const comparado = porM2 && mediana ? porM2 / mediana - 1 : null;
@@ -306,7 +320,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         u, faixa: dados.vendasPorM2?.[u.modelo] ?? null, porM2, comparado, minutos: MINUTOS_PADRAO, temArea: !!area10,
         parteNaArea: parte10, min80, onde80, topBairros: [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8), alunosBairro,
         proximas: u.c ? unidadesMaisProximas(u.c, dados.unidades ?? [], 3, u.nome) : [],
-        esperadoNaArea, perfil, renda, novaUnidade, zonas: zonas ? { lista: zonas.lista, na10: zonas.na10, total: zonas.total } : null, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
+        esperadoNaArea, perfil, renda, novaUnidade, zonas: zonas ? { lista: zonas.lista, na10: zonas.na10, total: zonas.total } : null, canibalObservada: observada, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
       }), fotosRua));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };
@@ -389,7 +403,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         </>}
         estudo={<EstudoDaUnidade u={u} porM2={porM2} mediana={mediana} area10={!!area10} parte10={parte10} onde80={onde80}
           moradoresArea={moradoresArea} resumo={resumoCenso} topBairros={[...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8)} alunosBairro={alunosBairro}
-          divideCom={cap?.divideCom ?? null} compParec={compParec} faixaFatia={faixaDaFatia(refsModelo)} novaUnidade={candidatasNova ? novaUnidade : null} pois={pois}
+          divideCom={cap?.divideCom ?? null} observada={observada} compParec={compParec} faixaFatia={faixaDaFatia(refsModelo)} novaUnidade={candidatasNova ? novaUnidade : null} pois={pois}
           aoEstudar={estudarPosicao ? (s, i, e) => estudarPosicao(s.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u, e) : undefined}
           aoVerNoMapa={() => { setVista("mapa"); setVerNova(true); setTimeout(verNovaUnidade, 60); }} />}
       />
@@ -424,10 +438,10 @@ function ListaDeBairros({ bairros, total, ativos }: { bairros: [string, number, 
   );
 }
 
-function EstudoDaUnidade({ u, porM2, mediana, area10, parte10, onde80, moradoresArea, resumo, topBairros, alunosBairro, divideCom, compParec, faixaFatia, novaUnidade, pois, aoEstudar, aoVerNoMapa }: {
+function EstudoDaUnidade({ u, porM2, mediana, area10, parte10, onde80, moradoresArea, resumo, topBairros, alunosBairro, divideCom, observada, compParec, faixaFatia, novaUnidade, pois, aoEstudar, aoVerNoMapa }: {
   u: UnidadeEstudo; porM2: number | null; mediana: number | null; area10: boolean; parte10: number | null; onde80: string;
   moradoresArea: number | null; resumo: ResumoCenso | undefined; topBairros: [string, number, number, number][]; alunosBairro: number;
-  divideCom: { nome: string; parte: number }[] | null; compParec: ReturnType<typeof compararComParecidas> | null; faixaFatia: ReturnType<typeof faixaDaFatia>;
+  divideCom: { nome: string; parte: number }[] | null; observada: ReturnType<typeof canibalizacaoObservada>; compParec: ReturnType<typeof compararComParecidas> | null; faixaFatia: ReturnType<typeof faixaDaFatia>;
   novaUnidade: ResultadoSugestoes | null; pois: ResultadoPois | null; aoEstudar?: (s: Sugestao, i: number, endereco?: string | null) => void; aoVerNoMapa: () => void;
 }) {
   const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -496,6 +510,14 @@ function EstudoDaUnidade({ u, porM2, mediana, area10, parte10, onde80, moradores
           ? <><Partes partes={[{ rotulo: "Só desta unidade", parte: so, cor: "#8c0c22" }, ...divideCom.map((d, i) => ({ rotulo: `Divide com ${d.nome.replace("World Gym ", "")}`, parte: d.parte, cor: ["#e0475e", "#f6bcc5", "#cfd3d9"][i] ?? "#cfd3d9" }))]} />
               <p className="mt-2 text-[12px] text-muted-foreground">Parte do público da área que outras World Gym também atraem.</p></>
           : <p className="text-[13px]">Nenhuma World Gym divide a área desta unidade.</p>}
+        {observada && <div className="mt-3 border-t pt-3">
+          <p className="mb-1 text-[12px] font-medium text-foreground">Observado nos alunos</p>
+          <p className="text-[12px]"><b>{Math.round(observada.algumaOutra * 100)}%</b> dos alunos moram mais perto de outra World Gym.</p>
+          <ul className="mt-1.5 space-y-1 text-[11.5px] text-muted-foreground">
+            {observada.itens.map((x) => <li key={x.nome}><b className="text-foreground">{x.nome.replace("World Gym ", "")}</b> ({fmtKm(x.km)}): {Math.round(x.meusPertoDela * 100)}% dos alunos daqui moram mais perto dela; {Math.round(x.delaPertoDaqui * 100)}% dos alunos dela moram mais perto daqui.</li>)}
+          </ul>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">Linha reta, pela contagem por CEP. O modelo acima estima o que cada vizinha atrai; aqui é onde os alunos moram de verdade. Os percentuais por vizinha não somam.</p>
+        </div>}
         {compParec && compParec.itens.length > 0 && <div className="mt-4">
           <p className="mb-1.5 text-[12px] font-medium text-foreground">Unidades parecidas</p>
           <Nota>{leituraParecidas(compParec, u.vendas)}</Nota>
