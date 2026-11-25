@@ -29,7 +29,7 @@ export interface DadosPdfPonto {
   semCenso?: boolean;
   /** A renda do ponto aberto usa o fator nacional (o estado ainda não tem o próprio): vira nota na metodologia. */
   fatorPadrao?: boolean;
-  fotoCaptacao: string | null; fotoRede: string | null; fotoSugestoes?: string | null; sugestoes: ResultadoSugestoes | null;
+  fotoCaptacao: string | null; fotoRede: string | null; fotoSugestoes?: string | null; sugestoes: ResultadoSugestoes | null; /** Endereço aproximado de cada posição sugerida, na ordem delas (null quando a busca não achou). */ enderecosSugestoes?: (string | null)[];
   /** População recomendada calibrada com a rede (só com a área de 10 min). */
   populacao?: { moradores: number; recomendada: number; minima: number; n: number; situacao: SituacaoPopulacao | null } | null;
   ticket?: { preco: number; realizado: number; p25: number; p75: number; n: number; dasParecidas: boolean } | null;
@@ -219,7 +219,7 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
       if (d.sugestoes) secoes.push({
         titulo: "Recomendação de Localização", novaPagina: true, linhas: [], texto: [textoSugestoes(d.sugestoes, "ponto", p.nome)], nota: LIMITES_SUGESTAO,
         ...(d.fotoSugestoes ? { foto: { dados: d.fotoSugestoes, legenda: `Pino com letra: o ponto estudado. Pinos cinza numerados: posições sugeridas (mesma numeração da tabela). Pinos vermelhos pequenos: World Gym.${d.temArea ? ` Linha azul-marinho: área de até ${d.minutos} min de carro do ponto.` : ""}` }, altFoto: ALT_FOTO_MAPA } : {}),
-        ...(d.sugestoes.sugestoes.length ? { tabela: { colunas: ["Posição", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.sugestoes) } } : {}),
+        ...(d.sugestoes.sugestoes.length ? { tabela: { colunas: ["Posição", "Endereço aproximado", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.55, 2.4, 0.8, 0.8, 0.95, 1.6], linhas: linhasSugestoes(d.sugestoes, d.enderecosSugestoes) } } : {}),
       });
       if (pt.parecidas.itens.length) secoes.push({
         titulo: "Unidades Parecidas na Rede", novaPagina: true, linhas: [],

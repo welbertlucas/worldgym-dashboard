@@ -12,7 +12,7 @@ import { Barras, Destaque, Linha, Nota, Partes, ReguaSimples, Secao } from "@/co
 import { ChevronsUpDown, MapPin, Network, TrendingUp, Users } from "lucide-react";
 import { LegendaCenso, type ResumoCenso, LegendaRenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 export { LegendaRenda };
-import { REGRAS_NOVA_UNIDADE, SecaoSugestoes, type ResultadoSugestoes, desenharSugestoes, enderecoCurto, textoParecerSugestao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
+import { REGRAS_NOVA_UNIDADE, SecaoSugestoes, type ResultadoSugestoes, desenharSugestoes, enderecoCurto, textoParecerSugestao, useEnderecos, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
 import { buscarFotosDaRua, comFotosDaRegiao, paginaDeFotos } from "@/components/estudos/fotosRua";
 import { avaliarPonto, faixaDaFatia, refsParaModelo, suavizarContagem, lacunaDeCaptacao, zonasDeCaptacao, canibalizacaoObservada, unidadesMaisProximas, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
@@ -246,14 +246,14 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
     // posições sugeridas para uma nova unidade e unidades parecidas: valem em qualquer camada, inclusive sem camada escolhida; só ficam de fora das fotos "limpas" do PDF (satélite e academias)
     const fotoLimpa = lente === "limpa" && gerando;
-    if (!fotoLimpa && verNova) desenharSugestoes(L, camadas, novaUnidade);
+    if (!fotoLimpa && verNova) desenharSugestoes(L, camadas, novaUnidade, endsNova);
     // unidades parecidas: anel verde (parecida) ou cinza (só referência) com o nome
     if (!fotoLimpa && verParec) for (const it of compParec?.itens ?? []) {
       if (!it.u.c) continue;
       L.circleMarker(it.u.c, { radius: 13, color: it.parecida ? "#127a3a" : "#8a93a3", weight: 3, fill: false, interactive: false }).addTo(camadas);
       L.marker(it.u.c, { interactive: false, icon: L.divIcon({ className: "", iconSize: [140, 16], iconAnchor: [-14, 8], html: `<div style="font:700 11px/16px Inter,sans-serif;color:${it.parecida ? "#127a3a" : "#5b6577"};text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;white-space:nowrap">${it.u.nome}</div>` }) }).addTo(camadas);
     }
-  }, [lente, u, cap, capMapa, lacuna, zonas, pronto, rua, areas, novaUnidade, verNova, verParec, calorAlunos, compParec, gerando]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lente, u, cap, capMapa, lacuna, zonas, pronto, rua, areas, novaUnidade, endsNova, verNova, verParec, calorAlunos, compParec, gerando]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
   const aoPois = (r: ResultadoPois | null) => { setPois(r); setVerPois(true); };
@@ -291,14 +291,18 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       const areaAlunos = area10 ? limitesDaArea(m.L, area10).pad(0.12) : m.L.latLng(u.c).toBounds(raioAlunos * 2000);
       for (const [, la, ln, n] of u.bairros ?? []) if (n >= alunosBairro * 0.02 && km([la, ln], u.c) <= raioAlunos * 2) areaAlunos.extend([la, ln]);
       const temIdade = !!dados.censo?.celulas.some((c) => c[5]?.length), temDom = !!dados.censo?.celulas.some((c) => c[4]);
+      const temRendaTotal = !!dados.censo?.celulas.some((c) => c[4] && c[8]), temComercio = !!dados.censo?.celulas.some((c) => c[10] !== undefined);
       const fotos = {
         sat: await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => foto("limpa", { centro: u.c as [number, number], zoom: z }, true)),
         alunos: calorAlunos ? await foto("alunos", { limites: areaAlunos }) : null, // sem a contagem por CEP a camada só lista bairros: sem foto no PDF
         oportunidade: lacuna ? await foto("oportunidade", { limites: areaAlunos }) : null,
+        pessoas: area10 && dados.censo ? await foto("pessoas", { limites: areaLim }) : null,
         idade: temIdade ? await foto("idade", { limites: areaLim }) : null,
         domicilios: temDom ? await foto("domicilios", { limites: areaLim }) : null,
         renda: dados.censo ? await foto("renda", { limites: areaLim }) : null,
+        rendaTotal: area10 && temRendaTotal ? await foto("rendaTotal", { limites: areaLim }) : null,
         consumo: temDom ? await foto("consumo", { limites: areaLim }) : null,
+        comercio: area10 && temComercio ? await foto("comercio", { limites: areaLim }) : null,
         rede: await foto("rede", { limites: m.L.latLng(u.c).toBounds(14000) }),
         nova: novaUnidade?.sugestoes.length ? await foto("rede", { limites: m.L.latLngBounds([u.c, ...novaUnidade.sugestoes.map((x) => x.c)]).pad(0.25) }) : null,
         pois: null as string | null,
@@ -321,7 +325,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         u, faixa: dados.vendasPorM2?.[u.modelo] ?? null, porM2, comparado, minutos: MINUTOS_PADRAO, temArea: !!area10,
         parteNaArea: parte10, min80, onde80, topBairros: [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8), alunosBairro,
         proximas: u.c ? unidadesMaisProximas(u.c, dados.unidades ?? [], 3, u.nome) : [],
-        esperadoNaArea, perfil, renda, novaUnidade, zonas: zonas ? { lista: zonas.lista, na10: zonas.na10, total: zonas.total } : null, canibalObservada: observada, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
+        esperadoNaArea, perfil, renda, rendaTotal: resumoCenso?.rendaTotal ?? null, comercio: resumoCenso?.comercio ?? null, novaUnidade, enderecosNova: novaUnidade?.sugestoes.length ? await Promise.all(novaUnidade.sugestoes.map((x) => enderecoDaPosicao(x.c))) : [], zonas: zonas ? { lista: zonas.lista, na10: zonas.na10, total: zonas.total } : null, canibalObservada: observada, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
       }), fotosRua));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };

@@ -25,8 +25,13 @@ export interface DadosPdfUnidade {
   renda: ReturnType<typeof classesNoRaio> | null;
   potencial: ReturnType<typeof potencialNaArea> | null;
   densidade?: ReturnType<typeof densidadeNaArea> | null;
+  /** Renda estimada dos domicílios e pontos de comércio da área (páginas Renda Total e Concentração Comercial). */
+  rendaTotal?: { total: number; domicilios: number; porDomicilio: number } | null;
+  comercio?: number | null;
   /** Onde abrir outra unidade na região (só para quem vê a estratégia de expansão). */
   novaUnidade?: ResultadoSugestoes | null;
+  /** Endereço aproximado de cada região sugerida, na ordem delas (null quando a busca não achou). */
+  enderecosNova?: (string | null)[];
   /** Unidades maduras do mesmo modelo com vizinhança parecida (moradores e renda a até 2 km). */
   parecidas?: ReturnType<typeof compararComParecidas> | null;
   pois: ResultadoPois | null;
@@ -37,13 +42,14 @@ export interface DadosPdfUnidade {
   /** Canibalização observada: alunos que moram mais perto de outra World Gym (contagem por CEP). */
   canibalObservada?: { itens: { nome: string; km: number; meusPertoDela: number; delaPertoDaqui: number }[]; algumaOutra: number; alunos: number } | null;
   zonas?: { lista: { r: number; parte: number; alunos: number; moradores: number }[]; na10: number | null; total: number } | null;
-  fotos: { sat: string | null; alunos: string | null; oportunidade: string | null; zonas?: string | null; idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; nova?: string | null; pois: string | null; rede: string | null };
+  fotos: { sat: string | null; alunos: string | null; oportunidade: string | null; zonas?: string | null; idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; pessoas?: string | null; rendaTotal?: string | null; comercio?: string | null; nova?: string | null; pois: string | null; rede: string | null };
   hoje?: Date;
 }
 
 const pct = (x: number | null | undefined, casas = 1) => (x == null ? "—" : `${(x * 100).toLocaleString("pt-BR", { maximumFractionDigits: casas })}%`);
 const mil = (x: number | null | undefined) => (x == null ? "—" : x >= 10000 ? `${Math.round(x / 1000).toLocaleString("pt-BR")} mil` : Math.round(x).toLocaleString("pt-BR"));
 const num = (x: number) => Math.round(x).toLocaleString("pt-BR");
+const curto = (v: number) => (v >= 1e9 ? `R$ ${(v / 1e9).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} bi` : v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mi` : `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`);
 const dec = (x: number, c = 2) => x.toLocaleString("pt-BR", { minimumFractionDigits: c, maximumFractionDigits: c });
 
 /** Separa os lugares do Google em grandes redes, academias independentes e studios/modalidades (lutas, dança, pilates...). */
@@ -66,7 +72,13 @@ export interface DadosMercado {
   densidade?: ReturnType<typeof densidadeNaArea> | null; pois: ResultadoPois | null;
   /** O ponto está fora da malha do Censo do Atlas: as seções de gente, renda e consumo não existem e uma página explica por quê. */
   semCenso?: boolean;
-  fotos: { idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; pois: string | null };
+  /** Renda estimada dos domicílios da área (soma, domicílios e média), para a página de Renda Total. */
+  rendaTotal?: { total: number; domicilios: number; porDomicilio: number } | null;
+  /** Pontos de comércio e serviços na área (OpenStreetMap), para a página de Concentração Comercial. */
+  comercio?: number | null;
+  /** Nota do ponto no score de atratividade (0 a 100), a parte da área com nota menor e as variáveis usadas com o peso normalizado (soma 1). */
+  atratividade?: { score: number; melhorQue: number; usadas: { rotulo: string; peso: number }[] } | null;
+  fotos: { idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; pois: string | null; pessoas?: string | null; rendaTotal?: string | null; comercio?: string | null; atratividade?: string | null };
 }
 /** Números de mercado da área: concorrência classificada, praticantes, habitantes por academia e participação. */
 export function resumoMercado(m: Pick<DadosMercado, "perfil" | "renda" | "pois" | "alunosNaArea">) {
@@ -106,6 +118,30 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       "A estimativa de faturamento, o retorno e o parecer pelo que a rede vende por m² continuam valendo. A demanda precisa ser conferida de outra forma antes da decisão.",
     ],
   });
+  // ---------- Score de atratividade ----------
+  if (m.atratividade && m.fotos.atratividade) {
+    const at = m.atratividade;
+    secoes.push({
+      titulo: "Score de Atratividade", novaPagina: true, linhas: [],
+      destaques: [{ valor: `${at.score}`, rotulo: "de 100 neste ponto" }, { valor: pct(at.melhorQue, 0), rotulo: "dos hexágonos da área têm nota menor" }],
+      texto: [
+        `Cada hexágono da área ${area} recebe uma nota de 0 a 100 pela posição dele, entre os hexágonos da área, em ${at.usadas.length} variáveis: ${at.usadas.map((u) => `${u.rotulo.toLowerCase()} (${pct(u.peso, 0)})`).join(", ")}. O hexágono onde fica ${m.tipo === "ponto" ? "o ponto" : "a unidade"} recebeu ${at.score}, acima de ${pct(at.melhorQue, 0)} dos hexágonos da área.`,
+        "A nota serve para comparar lugares na mesma região e mostra onde a combinação de gente, consumo, comércio e pouca concorrência é mais favorável. Não é previsão de vendas: na rede, nenhuma variável sozinha explicou bem as vendas das unidades.",
+      ],
+      foto: { dados: m.fotos.atratividade, legenda: "Cada hexágono na cor da nota de atratividade: mais escuro = nota mais alta. Os pesos são os padrões do Atlas."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
+    });
+  }
+
+  // ---------- População ----------
+  if (perfil?.moradores && m.fotos.pessoas) {
+    secoes.push({
+      titulo: "População da Área", novaPagina: true, linhas: [],
+      destaques: [{ valor: num(perfil.moradores), rotulo: `moradores ${area}` }, ...(perfil.domicilios ? [{ valor: num(perfil.domicilios), rotulo: "domicílios ocupados" }] : [])],
+      texto: [`A área ${area} reúne ${num(perfil.moradores)} moradores (Censo 2022 do IBGE). O mapa mostra onde eles estão: cada hexágono, de cerca de 200 m, fica mais azul quanto mais moradores tem.`],
+      foto: { dados: m.fotos.pessoas, legenda: "Azul mais forte = mais moradores no hexágono (Censo 2022)."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
+    });
+  }
+
   // ---------- Domicílios e densidade ----------
   if (perfil?.domicilios && perfil.porDomicilio) {
     const pd = perfil.porDomicilio;
@@ -142,6 +178,17 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
     });
   }
 
+  // ---------- Renda total ----------
+  if (m.rendaTotal && m.fotos.rendaTotal) {
+    const rt = m.rendaTotal;
+    secoes.push({
+      titulo: "Renda Total dos Domicílios", novaPagina: true, linhas: [],
+      destaques: [{ valor: curto(rt.total), rotulo: "renda dos domicílios por mês" }, { valor: num(rt.domicilios), rotulo: "domicílios" }, { valor: `R$ ${num(rt.porDomicilio)}`, rotulo: "renda média por domicílio" }],
+      texto: [`Somando a renda estimada de cada domicílio, a área ${area} reúne cerca de ${curto(rt.total)} por mês, em ${num(rt.domicilios)} domicílios (média de R$ ${num(rt.porDomicilio)} por domicílio). Mostra onde está o dinheiro da região, e não só onde há gente: um hexágono com poucas casas de renda alta pode pesar mais que outro com muitas de renda baixa.`, "A renda de cada domicílio é uma estimativa a partir do Censo 2022 (classes de renda do responsável), por isso o total é uma ordem de grandeza e não um valor exato."],
+      foto: { dados: m.fotos.rendaTotal, legenda: "Mais escuro = maior renda total dos domicílios do hexágono (estimada a partir do Censo 2022)."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
+    });
+  }
+
   // ---------- Potencial de consumo ----------
   if (m.potencial) {
     const pot = m.potencial, fatia = m.vendas != null && pot.total ? m.vendas / pot.total : null;
@@ -156,6 +203,16 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
         `Estimativa: gasto médio mensal das famílias com recreações e esportes por faixa de renda (IBGE, POF 2017-2018), corrigido pela inflação (×${dec(CORRECAO_POF)}) e aplicado à renda estimada dos domicílios de cada hexágono do Censo 2022 (a renda do responsável, a mais informada pelo IBGE, convertida em renda do domicílio pela relação média do estado e espalhada entre as faixas pela variação da renda em cada setor).`,
       ],
       foto: { dados: m.fotos.consumo, legenda: "Mais escuro = maior gasto estimado com recreações e esportes."+SEM_MORADORES }, altFoto: ALT_FOTO_MAPA,
+    });
+  }
+
+  // ---------- Concentração comercial ----------
+  if (m.comercio != null && m.fotos.comercio) {
+    secoes.push({
+      titulo: "Concentração Comercial", novaPagina: true, linhas: [],
+      destaques: [{ valor: num(m.comercio), rotulo: `pontos de comércio e serviços ${area}` }],
+      texto: [`Foram mapeados ${num(m.comercio)} pontos de comércio e serviços ${area}: lojas, escritórios, restaurantes, farmácias, bancos, escolas e clínicas (OpenStreetMap). O mapa mostra onde o comércio se concentra, o que costuma indicar movimento de pessoas e facilidade de acesso.`, "É uma aproximação: não é contagem de pessoas passando (dado de celular), e a cobertura do OpenStreetMap varia de cidade para cidade."],
+      foto: { dados: m.fotos.comercio, legenda: "Mais escuro = mais pontos de comércio e serviços no hexágono (OpenStreetMap)." }, altFoto: ALT_FOTO_MAPA,
     });
   }
 
@@ -262,7 +319,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     });
   }
 
-  const mercadoU = separarConcorrencia(secoesDeMercado({ tipo: "unidade", nome: u.nome, area, vendas: u.vendas, alunosNaArea, perfil, renda, potencial: d.potencial, densidade: d.densidade, pois: d.pois, fotos: d.fotos }));
+  const mercadoU = separarConcorrencia(secoesDeMercado({ tipo: "unidade", nome: u.nome, area, vendas: u.vendas, alunosNaArea, perfil, renda, potencial: d.potencial, densidade: d.densidade, rendaTotal: d.rendaTotal, comercio: d.comercio, pois: d.pois, fotos: d.fotos }));
   secoes.push(...mercadoU.antes);
 
   // ---------- Canibalização ----------
@@ -297,7 +354,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
       titulo: "Oportunidade de Nova Unidade", novaPagina: true, linhas: [],
       texto: [textoSugestoes(d.novaUnidade, "nova", u.nome), LIMITES_SUGESTAO],
       foto: d.fotos.nova ? { dados: d.fotos.nova, legenda: "Pinos cinza numerados: regiões sugeridas. Pinos vermelhos pequenos: World Gym em operação." } : undefined, altFoto: ALT_FOTO_MAPA,
-      ...(d.novaUnidade.sugestoes.length ? { tabela: { colunas: ["Região", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.6, 0.8, 0.8, 1, 2.2], linhas: linhasSugestoes(d.novaUnidade) } } : {}),
+      ...(d.novaUnidade.sugestoes.length ? { tabela: { colunas: ["Região", "Endereço aproximado", "Distância", "Público", "Renda média", "Divide com a rede"], larguras: [0.55, 2.4, 0.8, 0.8, 0.95, 1.6], linhas: linhasSugestoes(d.novaUnidade, d.enderecosNova) } } : {}),
     });
   }
 

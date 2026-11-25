@@ -20,9 +20,9 @@ import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import { classificarConcorrentes } from "@/components/estudos/pdfUnidade";
 import { LegendaAtratividade, LegendaCenso, RoscaComLegenda, desenharAtratividade, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
-import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
+import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, scoreDeAtratividade, PESOS_ATRATIVIDADE_PADRAO, type PesosAtratividade, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, scoreDeAtratividade, ATRATIVIDADE_VARIAVEIS, PESOS_ATRATIVIDADE_PADRAO, type PesosAtratividade, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -188,6 +188,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const avaliacaoPerto = useMemo(() => (r && atual && refsPop ? { provavel: r.provavel, veredito: (ex?.veredito ?? r.veredito), faixa: faixaFatia } : null),
     [r?.provavel, r?.veredito, ex?.veredito, atual?.id, refsPop, faixaFatia?.comum, faixaFatia?.maxima]); // eslint-disable-line react-hooks/exhaustive-deps
   const sugestoes = useSugestoesSemSaturacao(avaliacaoPerto ? candidatasPerto : null, dados.censo, 3, avaliacaoPerto);
+  const endsSug = useEnderecos(sugestoes);
 
   const mudar = (id: string, campos: Partial<Ponto>) => editavel && setPontos((ps) => ps.map((p) => (p.id === id ? { ...p, ...campos, atualizadoEm: new Date().toISOString() } : p)));
   const remover = (id: string) => { setPontos((ps) => ps.filter((p) => p.id !== id)); if (atualId === id) setAtualId(pontos.find((p) => p.id !== id)?.id ?? null); };
@@ -284,8 +285,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     });
     if (rua) L.marker(rua, { icon: L.divIcon({ className: "", iconSize: [14, 14], iconAnchor: [7, 7], html: '<div style="width:14px;height:14px;border-radius:50%;background:#f59e0b;border:2px solid #fff"></div>' }) }).addTo(camadas);
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
-    if (lente !== "limpa") desenharSugestoes(L, camadas, sugestoes);
-  }, [lente, cap, capMapa, atratividade, pontos, atualId, desenho, rua, areas, sugestoes]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (lente !== "limpa") desenharSugestoes(L, camadas, sugestoes, endsSug);
+  }, [lente, cap, capMapa, atratividade, pontos, atualId, desenho, rua, areas, sugestoes, endsSug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(desenho ? mapaRef.current : null, verPois ? pois : null, modoPois);
   const aoPois = (res: ResultadoPois | null) => { setPois(res); setVerPois(true); };
@@ -386,7 +387,18 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       const areaLim = atual ? (area10 ? limitesDaArea(m.L, area10).pad(0.1) : m.L.latLng(atual.c).toBounds(Math.max(2.5, cap?.raio80 ?? 3) * 2000)) : null;
       const temIdade = censo.celulas.some((c) => c[5]?.length), temDom = censo.celulas.some((c) => c[4]);
       const fotoCap = atual && cap && areaLim ? await tirar("captacao", { limites: areaLim }) : null;
+      // score de atratividade: calculado aqui (a tela só o calcula com a lente ligada), com as academias da busca como na tela; a foto sai com as academias escondidas
+      const temRendaTotal = censo.celulas.some((c) => c[4] && c[8]), temComercio = censo.celulas.some((c) => c[10] !== undefined);
+      const conc = classificarConcorrentes(poisUso);
+      const resAtr = atual && area10 && !semCenso && dados.premissas?.curva
+        ? scoreDeAtratividade(censo, (la, ln) => dentroDaArea(la, ln, area10), pesosAtr, dados.unidades ?? [], dados.premissas.curva.meiaDistanciaKm, atual.c, conc ? [...conc.redes, ...conc.independentes].map((l) => l.c) : null) : null;
+      let fotoAtr: string | null = null;
+      if (atual && area10 && resAtr?.doPonto) { setPois(poisUso); setVerPois(false); await pausa(300); fotoAtr = await tirar("atratividade", { limites: areaLim! }); setPois(null); }
       const fotos = {
+        atratividade: fotoAtr,
+        pessoas: atual && area10 && !semCenso ? await tirar("pessoas", { limites: areaLim! }) : null,
+        rendaTotal: atual && area10 && temRendaTotal ? await tirar("rendaTotal", { limites: areaLim! }) : null,
+        comercio: atual && area10 && temComercio ? await tirar("comercio", { limites: areaLim! }) : null,
         idade: atual && area10 && temIdade ? await tirar("idade", { limites: areaLim! }) : null,
         domicilios: atual && area10 && temDom ? await tirar("domicilios", { limites: areaLim! }) : null,
         renda: atual && area10 ? await tirar("renda", { limites: areaLim! }) : null,
@@ -407,11 +419,15 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       setLente(lenteAntes);
       const mercado = atual && area10 ? (semCenso
         ? { perfil: null, renda: null, potencial: null, densidade: null, pois: poisUso, fotos, semCenso: true }
-        : { perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10), densidade: densidadeNaArea(censo, area10), pois: poisUso, fotos }) : null;
+        : { perfil: perfilNaArea(censo, area10), renda: classesNaArea(censo, area10), potencial: potencialNaArea(censo, area10), densidade: densidadeNaArea(censo, area10), pois: poisUso, fotos,
+          rendaTotal: resumoCenso?.rendaTotal ?? null, comercio: resumoCenso?.comercio ?? null,
+          atratividade: resAtr?.doPonto ? { score: Math.round(resAtr.doPonto.score), melhorQue: resAtr.doPonto.melhorQue, usadas: resAtr.usadas.map((u) => ({ rotulo: ATRATIVIDADE_VARIAVEIS.find((v) => v.id === u.id)?.rotulo ?? u.id, peso: u.peso })) } : null }) : null;
       const paginasRua = await ruaP;
+      // endereço aproximado de cada posição sugerida (a busca é guardada em memória: normalmente já está pronta)
+      const enderecosSugestoes = sugestoes?.sugestoes.length ? await Promise.all(sugestoes.sugestoes.map((sg) => enderecoDaPosicao(sg.c))) : [];
       await gerarPdfDoEstudo(comFotosDaRegiao(montarPdfPonto({
         premissas: dados.premissas!, minutos: MINUTOS_PADRAO, temArea: !!area10, atualId: atual?.id ?? null, mercado, semCenso, fatorPadrao: !!atual && !semCenso && usaFatorPadrao(atual.c),
-        fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
+        fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, enderecosSugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
         populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
         ticket: ex?.ticket ?? null, alunos: ex?.alunos ?? null, vagas: ex?.vagas ?? null,
         faixaFatia, freios, alunosRede,

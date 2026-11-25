@@ -96,12 +96,12 @@ const km1 = (x: number) => `${x.toLocaleString("pt-BR", { maximumFractionDigits:
 const reaisRenda = (r: number | null) => (r == null ? "—" : `R$ ${(Math.round(r / 10) * 10).toLocaleString("pt-BR")}`);
 
 /** Pinos cinza numerados das posições sugeridas. */
-export function desenharSugestoes(L: Leaflet, grupo: import("leaflet").LayerGroup, res: ResultadoSugestoes | null) {
+export function desenharSugestoes(L: Leaflet, grupo: import("leaflet").LayerGroup, res: ResultadoSugestoes | null, ends: (string | null)[] = []) {
   res?.sugestoes.forEach((s, i) => {
     // clicar no pino abre o cartão com o endereço aproximado e as coordenadas (pedido do dono, 23/11/2026); o endereço é o mesmo dos cards
     const titulo = `Posição sugerida ${i + 1} (${pct(s.ganho)} de público)`;
     const mk = L.marker(s.c, { zIndexOffset: 1500, icon: pino(L, COR_SUGESTAO, 30, String(i + 1)) })
-      .bindTooltip(`Posição sugerida ${i + 1}: ${pct(s.ganho)} de público alcançável`)
+      .bindTooltip(`Posição sugerida ${i + 1}: ${pct(s.ganho)} de público alcançável${ends[i] ? `<br/>${enderecoCurto(ends[i])}` : ""}`)
       .bindPopup(() => cartaoDoLugar(titulo, s.c, null, "Buscando o endereço aproximado…"), { offset: [0, -24], minWidth: 240, maxWidth: 300 })
       .addTo(grupo);
     mk.on("popupopen", async () => {
@@ -129,10 +129,12 @@ export function textoSugestoes(res: ResultadoSugestoes, tipo: TipoSugestao, nome
 }
 
 /** Linhas da tabela (posição, distância, público, renda, divisão com a rede). */
-export const linhasSugestoes = (res: ResultadoSugestoes) => res.sugestoes.map((s, i) => [
-  String(i + 1), km1(s.distanciaKm), pct(s.ganho), reaisRenda(s.renda),
+export const linhasSugestoes = (res: ResultadoSugestoes, ends: (string | null | undefined)[] = []) => res.sugestoes.map((s, i) => [
+  String(i + 1), enderecoAproximado(s.c, ends[i]), km1(s.distanciaKm), pct(s.ganho), reaisRenda(s.renda),
   s.divideCom.length ? s.divideCom.map((d) => `${d.nome.replace("World Gym ", "")} ${Math.round(d.parte * 100)}%`).join(", ") : "nenhuma",
 ]);
+/** Endereço aproximado da posição para o PDF; sem endereço (a busca falhou), as coordenadas, para a posição não ficar sem referência. */
+export const enderecoAproximado = (c: [number, number], e?: string | null) => (e ? enderecoCurto(e) : `Sem endereço; coordenadas ${c[0].toFixed(5)}, ${c[1].toFixed(5)}`);
 
 /** Seção da tela com a recomendação e, nos pontos novos, o botão para estudar a posição sugerida. */
 export function SecaoSugestoes({ res, tipo, nome, aoEstudar, aoVerNoMapa }: { res: ResultadoSugestoes | null; tipo: TipoSugestao; nome: string; aoEstudar?: (s: Sugestao, i: number, endereco?: string | null) => void; aoVerNoMapa?: () => void }) {
