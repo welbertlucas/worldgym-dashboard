@@ -5,7 +5,7 @@
 // `artigo` liga ao artigo da Central de ajuda ("Saiba mais"); `tela` abre o lugar ("Ver na tela").
 
 /** "escalas": só quem vê o menu Gerador de escalas (dono, Master e quem o dono liberou). "royalties": só quem vê a aba Royalties, do menu Franqueadora, (dono, Master e quem o dono liberou); "juridico": só quem vê a aba Jurídico, do menu Franqueadora, (dono e quem ele liberou); "dono": só o dono. */
-export type Publico = "todos" | "dono" | "royalties" | "juridico" | "qualidade" | "escalas";
+export type Publico = "todos" | "dono" | "royalties" | "juridico" | "qualidade" | "escalas" | "franqueadora";
 export type TipoNovidade = "novo" | "melhoria";
 
 export interface Novidade {
@@ -35,6 +35,11 @@ export const NOVIDADES: Novidade[] = [
     id: "2026-11-25-onde-moram-calor", data: "2026-11-25", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "alunos/onde-moram", artigo: "tela-alunos",
     titulo: "Alunos › Onde moram: mapa de calor pelo CEP",
     texto: "O mapa mostrava uma bolha por bairro, no centro dele, e a bolha podia cair longe de onde os alunos realmente moram. Agora ele é um mapa de calor feito a partir do CEP dos alunos: as manchas mais quentes são onde moram mais alunos, para os ativos, para quem saiu nos últimos 12 meses e para os dois juntos. Só a contagem por região é guardada, nunca o endereço de ninguém. A lista dos bairros continua ao lado, e o mapa tem Street View e zoom.",
+  },
+  {
+    id: "2026-11-25-franqueadora", data: "2026-11-25", tipo: "melhoria", publico: "franqueadora", autora: AUTORA, tela: "franqueadora", artigo: "franqueadora-o-que-e",
+    titulo: "Franqueadora: Royalties e Jurídico num menu só",
+    texto: "Royalties e Jurídico eram dois menus lado a lado, e os dois tratam da relação da marca com as unidades. Agora existe o menu Franqueadora, e os dois viraram abas dele: Royalties, com os recebimentos da marca, e Jurídico, com os processos da rede. Cada pessoa vê só as abas que já tinha liberadas. O conteúdo é o mesmo de antes, e os links salvos de Royalties e de Jurídico continuam abrindo a aba certa.",
   },
   {
     id: "2026-11-25-estudos-unidade", data: "2026-11-25", tipo: "novo", publico: "todos", autora: AUTORA, tela: "estudos-de-ponto", artigo: "estudos-de-ponto-unidade",
@@ -267,7 +272,7 @@ export const NOVIDADES: Novidade[] = [
 
 /** Novidades que a pessoa pode ver, da mais nova para a mais antiga. */
 /** Quem vê cada novidade: todos veem as "todos"; o dono vê tudo; as de royalties só vão a quem pode ver a aba Royalties (`royalties`, por padrão igual ao dono). */
-export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono) => publico === "todos" || (publico === "royalties" ? royalties : publico === "juridico" ? juridico : publico === "qualidade" ? qualidade : publico === "escalas" ? escalas : dono);
+export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono) => publico === "todos" || (publico === "franqueadora" ? royalties || juridico : publico === "royalties" ? royalties : publico === "juridico" ? juridico : publico === "qualidade" ? qualidade : publico === "escalas" ? escalas : dono);
 export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono): Novidade[] =>
   lista.filter((n) => publicoVe(n.publico, dono, royalties, juridico, qualidade, escalas)).sort((a, b) => b.data.localeCompare(a.data));
 

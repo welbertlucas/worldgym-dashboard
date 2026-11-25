@@ -20,7 +20,7 @@ export interface ArtigoAjuda {
   atualizadoEm: string;
 }
 
-export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "royalties" | "juridico" | "qualidade" | "escalas" | "dono";
+export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "franqueadora" | "royalties" | "juridico" | "qualidade" | "escalas" | "dono";
 
 export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; publico: Publico }[] = [
   { id: "comecando", titulo: "Primeiros passos", descricao: "O que é o Atlas, como escolher a unidade e o mês e como achar uma tela.", publico: "todos" },
@@ -28,6 +28,7 @@ export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; public
   { id: "alertas", titulo: "Alertas e plano de ação", descricao: "Como os alertas são decididos e como usar o plano com a equipe.", publico: "todos" },
   { id: "duvidas", titulo: "Dúvidas frequentes", descricao: "Senha, números diferentes do EVO, resumo por e-mail e mais.", publico: "todos" },
   { id: "indicadores", titulo: "O que significa cada indicador", descricao: "Churn, inadimplência, ticket médio e os outros números do Atlas.", publico: "todos" },
+  { id: "franqueadora", titulo: "Franqueadora", descricao: "O menu que reúne Royalties e Jurídico, e quem vê cada aba.", publico: "franqueadora" },
   { id: "royalties", titulo: "Royalties", descricao: "Os recebimentos da marca, quem está devendo e como ler cada painel.", publico: "royalties" },
   { id: "juridico", titulo: "Jurídico", descricao: "Os processos da rede e como ler a tela.", publico: "juridico" },
   { id: "qualidade", titulo: "Qualidade", descricao: "Checklists, visitas às unidades e a nota de cada uma.", publico: "qualidade" },
@@ -37,7 +38,7 @@ export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; public
 
 const DATA = "2026-11-16";
 const a = (secao: SecaoAjuda, id: string, titulo: string, resumo: string, paragrafos: string[], extra: Partial<ArtigoAjuda> = {}): ArtigoAjuda =>
-  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : secao === "juridico" ? "juridico" : secao === "qualidade" ? "qualidade" : secao === "escalas" ? "escalas" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
+  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : secao === "juridico" ? "juridico" : secao === "qualidade" ? "qualidade" : secao === "escalas" ? "escalas" : secao === "franqueadora" ? "franqueadora" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
 
 const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   // Primeiros passos
@@ -181,6 +182,13 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Todo dia de manhã chega um resumo com o faturamento de ontem e do mês e os alertas que pedem atenção. Se não quiser receber, peça a quem liberou o seu acesso.",
     "Às vezes a atualização dos dados da madrugada não termina a tempo. Nesses dias o resumo traz um aviso no começo e mostra só o acumulado do mês, sem os números de ontem, que não chegaram. No dia seguinte, com os dados em dia, ele volta ao normal.",
   ], { atualizadoEm: "2026-11-17" }),
+
+  // Franqueadora (só quem vê Royalties ou Jurídico)
+  a("franqueadora", "franqueadora-o-que-e", "O que é o menu Franqueadora", "Royalties e Jurídico, agora como abas de um menu só.", [
+    "Franqueadora é o menu que reúne o que a marca acompanha da relação com as unidades. Ele absorveu os antigos menus Royalties e Jurídico, que agora são duas abas dele: Royalties, com os recebimentos da marca por unidade e quem está devendo, e Jurídico, com os processos da rede.",
+    "Quem vê o quê não mudou. A aba Royalties aparece para o dono, para todo Master e para quem o dono liberou; a aba Jurídico, para o dono e para quem ele liberou. Quem tem só uma das duas abre o menu direto nela, sem a faixa de abas. Quem tem as duas escolhe pela faixa no topo.",
+    "O conteúdo de cada aba é o mesmo de antes, e os artigos das seções Royalties e Jurídico, aqui na Central de ajuda, continuam valendo. Links salvos como #royalties e #juridico continuam funcionando e abrem a aba certa dentro da Franqueadora.",
+  ], { tela: "franqueadora", atualizadoEm: "2026-11-25" }),
 
   // Royalties (só quem vê o menu)
   a("royalties", "royalties-o-que-e", "O que é a aba Royalties", "Os recebimentos da marca, por unidade, e o que ainda falta entrar.", [

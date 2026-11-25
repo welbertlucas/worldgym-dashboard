@@ -138,3 +138,14 @@ describe("gerador de escalas: ajuda e novidade restritas", () => {
     expect(texto(a!)).not.toMatch(/payback|investimento|premissa|veredito/i);
   });
 });
+
+describe("franqueadora: ajuda e novidade", () => {
+  it("só quem vê Royalties ou Jurídico lê; quem vê um dos dois já lê", () => {
+    const nada = [artigosPara(false, undefined, false, false, false, false).some((a) => a.id === "franqueadora-o-que-e"), novidadesPara(false, undefined, false, false, false, false).some((n) => n.id === "2026-11-25-franqueadora")];
+    expect(nada).toEqual([false, false]);
+    for (const [r, j] of [[true, false], [false, true]] as const) {
+      expect(artigosPara(false, undefined, r, j, false, false).some((a) => a.id === "franqueadora-o-que-e")).toBe(true);
+      expect(novidadesPara(false, undefined, r, j, false, false).some((n) => n.id === "2026-11-25-franqueadora")).toBe(true);
+    }
+  });
+});

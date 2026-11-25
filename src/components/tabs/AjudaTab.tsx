@@ -52,7 +52,7 @@ function Avatar({ autora, tamanho }: { autora: string; tamanho: "p" | "g" }) {
 
 const dataLonga = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
 const foco = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const ICONE_DA_SECAO: Record<SecaoAjuda, LucideIcon> = { comecando: Rocket, telas: LayoutDashboard, alertas: ShieldAlert, duvidas: CircleHelp, indicadores: BookOpen, royalties: Landmark, juridico: Scale, qualidade: ClipboardCheck, escalas: CalendarDays, dono: KeyRound };
+const ICONE_DA_SECAO: Record<SecaoAjuda, LucideIcon> = { comecando: Rocket, telas: LayoutDashboard, alertas: ShieldAlert, duvidas: CircleHelp, indicadores: BookOpen, franqueadora: Landmark, royalties: Landmark, juridico: Scale, qualidade: ClipboardCheck, escalas: CalendarDays, dono: KeyRound };
 const secao = (id: SecaoAjuda) => SECOES.find((s) => s.id === id)!;
 
 /** Caminho no topo: Central de ajuda › Seção (cada parte volta para lá). */
@@ -103,6 +103,7 @@ function Artigo({ artigo, relacionados, onAba, onAbrirTela }: { artigo: ArtigoAj
             <span className="block font-medium text-foreground">Escrito por {artigo.autora}</span>
             Atualizado em {dataLonga(artigo.atualizadoEm)}
             {artigo.publico === "dono" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só você vê</span>}
+            {artigo.publico === "franqueadora" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só quem vê a Franqueadora</span>}
             {artigo.publico === "royalties" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só quem vê Royalties</span>}
             {artigo.publico === "juridico" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só quem vê o Jurídico</span>}
             {artigo.publico === "qualidade" && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium">Só quem usa Qualidade</span>}
@@ -214,7 +215,8 @@ export function AjudaTab({ aba, onAba, onAbrirTela }: { aba: string | null; onAb
                   <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
                     {s.titulo}
                     {s.publico === "dono" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só você vê</span>}
-                    {s.publico === "royalties" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem vê Royalties</span>}
+                    {s.publico === "franqueadora" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem vê a Franqueadora</span>}
+            {s.publico === "royalties" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem vê Royalties</span>}
                     {s.publico === "juridico" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem vê o Jurídico</span>}
                     {s.publico === "qualidade" && <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Só quem usa Qualidade</span>}
                   </span>
@@ -252,7 +254,8 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
         <span>· {dataLonga(n.data)}</span>
         <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", n.tipo === "novo" ? "bg-primary/10 text-primary-ink" : "bg-secondary text-foreground/70")}>{ROTULO_DO_TIPO[n.tipo]}</span>
         {n.publico === "dono" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só você vê</span>}
-        {n.publico === "royalties" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem vê Royalties</span>}
+        {n.publico === "franqueadora" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem vê a Franqueadora</span>}
+            {n.publico === "royalties" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem vê Royalties</span>}
         {n.publico === "juridico" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem vê o Jurídico</span>}
         {n.publico === "qualidade" && <span className="rounded-md bg-secondary px-1.5 py-0.5 font-medium">Só quem usa Qualidade</span>}
         {nova && <span className="ml-auto inline-flex items-center gap-1 font-medium text-primary-ink"><span className="h-2 w-2 rounded-full bg-primary" aria-hidden />Não lida</span>}
