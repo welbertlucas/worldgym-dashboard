@@ -440,7 +440,7 @@ export function ScheduleEditor({ repo, initial, onClose, onOpen, onOpenUnit, use
             <div className="card center">
               <h2>Montar escala livre</h2>
               <p className="muted">Você monta tudo à mão. O sistema só cria a grade, com todos de segunda a sexta no horário cadastrado de cada pessoa, e daí você troca qualquer dia e qualquer horário. Não há regra de folga, de cobertura, de turno nem de descanso.</p>
-              <p className="muted">A única trava: ninguém pode passar de {LIVRE_LIMITE_SEMANAL_HORAS} horas na semana.</p>
+              <p className="muted">A única trava: ninguém pode passar de {LIVRE_LIMITE_SEMANAL_HORAS} horas na semana (estagiários, 30 horas, pela Lei do Estágio).</p>
               {issues.length > 0 && (
                 <div className="banner warn left">
                   <strong>{issues.length} pendência(s) antes de montar:</strong>
@@ -468,7 +468,7 @@ export function ScheduleEditor({ repo, initial, onClose, onOpen, onOpenUnit, use
 
           {schedule.cells && analysis && (
             <>
-              {schedule.config.livre && <div className="banner info left" role="note"><strong>Escala livre.</strong> Sem regras de folga, cobertura, turnos ou descanso: você decide tudo. A única trava é o limite de {LIVRE_LIMITE_SEMANAL_HORAS} horas por semana para cada pessoa.</div>}
+              {schedule.config.livre && <div className="banner info left" role="note"><strong>Escala livre.</strong> Sem regras de folga, cobertura, turnos ou descanso: você decide tudo. A única trava é o limite de horas por semana: {LIVRE_LIMITE_SEMANAL_HORAS} para cada pessoa e 30 para estagiários (Lei do Estágio).</div>}
               <div className="toolbar card">
                 <div className="validity">
                   {analysis.valid ? (

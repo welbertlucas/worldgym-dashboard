@@ -188,7 +188,7 @@ export function Home({ repo, unitId, onOpen, managerName, onRoster }: { repo: Sc
               <Field label="Começar com">
                 <select className="input" aria-label="Começar com" value={modeloId} onChange={(e) => setModeloId(e.target.value)}>
                   <option value="">Pessoas e regras do cadastro da unidade</option>
-                  <option value="livre">Escala livre (sem regras, só o limite de 42h por semana)</option>
+                  <option value="livre">Escala livre (sem regras, só o limite de horas por semana)</option>
                   {MODELOS.filter((m) => m.team === team).map((m) => <option key={m.id} value={m.id}>Modelo: {m.nome}</option>)}
                 </select>
               </Field>
@@ -199,7 +199,7 @@ export function Home({ repo, unitId, onOpen, managerName, onRoster }: { repo: Sc
             )}
             {livre && (
               <div className="banner info left modelo-aviso">
-                <strong>Escala livre.</strong> Você monta tudo à mão: sem regras de folga, de cobertura, de turnos nem de descanso. As pessoas e os horários vêm do cadastro da unidade, e a escala começa com todos de segunda a sexta. A única trava é o limite de 42 horas por semana para cada pessoa.
+                <strong>Escala livre.</strong> Você monta tudo à mão: sem regras de folga, de cobertura, de turnos nem de descanso. As pessoas e os horários vêm do cadastro da unidade, e a escala começa com todos de segunda a sexta. A única trava é o limite de horas por semana: 42 para cada pessoa e 30 para estagiários (Lei do Estágio).
               </div>
             )}
             {modelo && (

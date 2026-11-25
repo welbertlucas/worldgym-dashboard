@@ -33,7 +33,7 @@ export function StepMes({ config, update, risks, weeklyOver, onBackToUnit, onOpe
     return (
       <div className="card">
         <h2>Mês</h2>
-        <p className="muted">Escala livre: nenhuma regra do mês é aplicada (folgas, coberturas, turnos de fim de semana, feriados e dias sem folga). Siga para montar a escala; a única trava é o limite de 42 horas por semana para cada pessoa.</p>
+        <p className="muted">Escala livre: nenhuma regra do mês é aplicada (folgas, coberturas, turnos de fim de semana, feriados e dias sem folga). Siga para montar a escala; a única trava é o limite de horas por semana: 42 para cada pessoa e 30 para estagiários (Lei do Estágio).</p>
       </div>
     );
   }

@@ -71,7 +71,7 @@ export function ModelosPage({ repo, unitId, onUsar, onUsarLivre, embutido }: { r
             <ul className="modelo-destaques">
               <li>Começa com todos de segunda a sexta, no horário cadastrado de cada um</li>
               <li>Você troca qualquer dia e qualquer horário, sem o sistema corrigir</li>
-              <li>A única trava: no máximo 42 horas por semana para cada pessoa</li>
+              <li>A única trava: no máximo 42 horas por semana para cada pessoa (30 horas para estagiários, pela Lei do Estágio)</li>
             </ul>
             <div className="modelo-acoes">
               <button type="button" className="btn primary small" disabled={!unitId} title={unitId ? '' : 'Escolha a unidade no alto da tela'} onClick={onUsarLivre}>

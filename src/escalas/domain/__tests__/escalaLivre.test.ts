@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { analyze, applyGeneration, createSchedule, setCell } from '../scheduleOps';
 import { gerarLivre, generateSchedule } from '../generator';
 import { configWith, THREE } from './fixtures';
-import { LIVRE_LIMITE_SEMANAL_HORAS } from '../validate';
+import { LIVRE_LIMITE_SEMANAL_HORAS, livreLimiteSemanal } from '../validate';
+import { newIntern } from '../defaults';
 
 // Pessoas e horários fictícios. Novembro de 2026: 1º/11 é domingo; as semanas vão de domingo a sábado.
 const livre = () => { const c = configWith(2026, 11, { recepcao: THREE, apoio: THREE }); c.livre = true; return c; };
@@ -52,6 +53,29 @@ describe('escala livre', () => {
     expect(a[0].severity).toBe('critico');
     expect(a[0].message).toContain(`${LIVRE_LIMITE_SEMANAL_HORAS}h`);
     expect(analyze(s)!.valid).toBe(false);
+  });
+
+  it('estagiários mantêm o limite de 30 horas por semana (Lei do Estágio); os demais, 42', () => {
+    const c = livre();
+    c.departments.estagiarios.enabled = true;
+    const est = newIntern();
+    est.id = 'estagiarios-1';
+    est.name = 'Est 1';
+    c.departments.estagiarios.employees = [est];
+    const base = createSchedule(2026, 11, c);
+    base.config.livre = true;
+    let s = applyGeneration(base, gerarLivre(base.config), 0);
+    // base: segunda a sexta; o estagiário tem turno de 5h por dia = 25h na semana: vale
+    expect(alertas(s, 'LIMITE_SEMANAL')).toEqual([]);
+    // sexta e sábado de 6h somam mais de 30h na semana de 8 a 14/11 só para ele: precisa estourar os 30h mas ficar abaixo de 42h
+    const seis = { start: '08:00', end: '14:15', breakStart: '11:00', breakEnd: '11:15' };
+    for (const dia of ['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14']) s = setCell(s, 'estagiarios-1', dia, { status: 'T', manualShift: seis });
+    const a = alertas(s, 'LIMITE_SEMANAL');
+    expect(a.length).toBeGreaterThan(0);
+    expect(a[0].message).toContain('limite 30h');
+    expect(a[0].message).toContain('Lei do Estágio');
+    expect(livreLimiteSemanal('estagiarios')).toBe(30);
+    expect(livreLimiteSemanal('recepcao')).toBe(42);
   });
 
   it('exatamente 42 horas na semana ainda vale', () => {
