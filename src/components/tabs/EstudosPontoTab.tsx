@@ -7,7 +7,7 @@ import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 import { useCensoCompleto, usaFatorPadrao } from "@/components/estudos/censoMunicipio";
 import { PedirCenso } from "@/components/estudos/PedirCenso";
-import { CREDITO_DO_MAPA, camadaRuas, ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, camadaRuas, ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, pinoUnidade, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, raioQueCobre, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, AcoesPois, ControlePois, buscarPois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
@@ -250,7 +250,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     for (const u of dados.unidades!) {
       if (!u.c) continue;
       // pino pequeno (pedido do dono, 23/11/2026): bolinha não lia como unidade quando o mapa está afastado
-      L.marker(u.c, { icon: pino(L, "#c41230", lente === "rede" ? 24 : 20) })
+      L.marker(u.c, { icon: pinoUnidade(L, "#c41230", lente === "rede" ? 24 : 22) })
         .bindPopup(() => cartaoDoLugar(`World Gym ${u.nome}`, u.c as [number, number], u.endereco, "Endereço não cadastrado."), { offset: [0, -16], minWidth: 240, maxWidth: 300 })
         .bindTooltip(`<strong>World Gym ${u.nome}</strong>${u.m2 ? `<br/>${u.m2.toLocaleString("pt-BR")} m²` : ""}${u.vendas ? `<br/>${reais(u.vendas)} por mês` : ""}${u.madura ? "" : "<br/><em>ainda amadurecendo</em>"}`).addTo(camadas);
       if (lente === "rede" && dados.premissas) L.circle(u.c, { radius: 2400, color: "#c41230", weight: 1, dashArray: "3 4", fillOpacity: 0.05, interactive: false }).addTo(camadas);

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import type { UnitData } from "@/data/dashboardData";
 import { somarBairros, type MapaDados, type Pino } from "@/data/mapaAlunos";
-import { CREDITO_DO_MAPA, URL_SAT, camadaRuas, carregarLeaflet, fraseDosBairros, gradienteArco, pino as pinoDoMapa, raioDaBolha, type Leaflet } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, URL_SAT, camadaRuas, carregarLeaflet, fraseDosBairros, gradienteArco, pinoUnidade, raioDaBolha, type Leaflet } from "@/components/estudos/mapaComum";
 import { BarraMapa } from "@/components/estudos/controlesMapa";
 import { StreetView } from "@/components/estudos/StreetView";
 import { desenharDemanda } from "@/components/estudos/camadasCenso";
@@ -108,7 +108,7 @@ function Mapa({ bairros, pinos, inativos, calor }: { bairros: Bairro[]; pinos: P
       }
     }
     // Pinos das unidades: sempre por cima.
-    for (const p of pinos) L.marker(p.pos, { icon: pinoDoMapa(L, "#c41230", 30), zIndexOffset: 1000, title: `World Gym ${p.nome}` }).bindTooltip(`<strong>World Gym ${p.nome}</strong><br/>localização da unidade`, { direction: "top", offset: [0, -30] }).addTo(grupo);
+    for (const p of pinos) L.marker(p.pos, { icon: pinoUnidade(L, "#c41230", 32), zIndexOffset: 1000, title: `World Gym ${p.nome}` }).bindTooltip(`<strong>World Gym ${p.nome}</strong><br/>localização da unidade`, { direction: "top", offset: [0, -30] }).addTo(grupo);
     // Enquadra o núcleo: o maior agrupamento de unidades (até 200 km entre si) e os bairros a até 60 km delas. Unidades e alunos
     // distantes (ex.: Salvador) seguem no mapa; é só dar zoom out.
     const grupos = pinos.map((c) => pinos.filter((p) => km(c.pos, p.pos) <= 200));

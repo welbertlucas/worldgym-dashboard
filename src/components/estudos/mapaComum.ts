@@ -98,6 +98,21 @@ export function pino(L: Leaflet, cor: string, alto = 34, letra = "") {
     html: `<div data-pino="${cor}" data-pino-letra="${letra}" style="width:${w}px;height:${alto}px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"><svg viewBox="0 0 24 32" width="${w}" height="${alto}" style="display:block"><path d="${PINO_D}" fill="${cor}" stroke="#fff" stroke-width="1.6"/>${miolo}</svg></div>` });
 }
 
+/** Globo da logomarca (branco, fundo transparente): em `public/`, então vale tanto no navegador quanto na foto do PDF. */
+const URL_GLOBO = `${(import.meta.env.BASE_URL as string | undefined) ?? "/"}globo-wg.png`;
+let contaPinos = 0;
+/**
+ * Pino das unidades World Gym: o mesmo alfinete com um disco branco e o globo da logomarca na cor do pino (pedido do dono, 25/11/2026).
+ * `data-pino-logo` avisa a foto do PDF para desenhar o globo também.
+ */
+export function pinoUnidade(L: Leaflet, cor: string, alto = 34) {
+  const w = Math.round(alto * 0.75), id = `pg${++contaPinos}`;
+  return L.divIcon({ className: "", iconSize: [w, alto], iconAnchor: [w / 2, alto],
+    html: `<div data-pino="${cor}" data-pino-letra="" data-pino-logo="1" style="width:${w}px;height:${alto}px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"><svg viewBox="0 0 24 32" width="${w}" height="${alto}" style="display:block"><defs><mask id="${id}" maskUnits="userSpaceOnUse" x="5" y="4.5" width="14" height="14"><image href="${URL_GLOBO}" x="5" y="4.5" width="14" height="14"/></mask></defs><path d="${PINO_D}" fill="${cor}" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="11.5" r="8.2" fill="#fff"/><rect x="5" y="4.5" width="14" height="14" fill="${cor}" mask="url(#${id})"/></svg></div>` });
+}
+let globoPronto: Promise<HTMLImageElement | null> | null = null;
+const carregarGlobo = () => (globoPronto ??= new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = URL_GLOBO; }));
+
 /** Chave do Street View embutido (Maps Embed API). Sem ela, "Ver a rua" abre o Google Maps em outra aba. */
 export const CHAVE_STREET_VIEW: string = (import.meta.env.VITE_GOOGLE_EMBED_KEY as string | undefined) ?? "";
 export const urlStreetView = (c: [number, number]) =>
@@ -111,6 +126,7 @@ export const urlStreetView = (c: [number, number]) =>
  */
 export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = false): Promise<string | null> {
   try {
+    const globo = await carregarGlobo();
     const el = mapa.getContainer(), caixa = el.getBoundingClientRect(), esc = 2;
     const c = document.createElement("canvas");
     c.width = Math.round(caixa.width * esc); c.height = Math.round(caixa.height * esc);
@@ -152,7 +168,14 @@ export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = false): Pr
         ctx.save(); ctx.translate(x, yy); ctx.scale(w / 24, h / 32);
         const forma = new Path2D(PINO_D);
         ctx.fillStyle = alvo.dataset.pino; ctx.fill(forma); ctx.lineWidth = 1.6; ctx.strokeStyle = "#fff"; ctx.stroke(forma);
-        if (alvo.dataset.pinoLetra) { ctx.fillStyle = "#fff"; ctx.font = "700 11px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(alvo.dataset.pinoLetra, 12, 12.5); }
+        if (alvo.dataset.pinoLogo && globo) {
+          // disco branco e o globo na cor do pino (a imagem é branca: pinta com a cor por cima dela)
+          ctx.beginPath(); ctx.arc(12, 11.5, 8.2, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+          const t = document.createElement("canvas"); t.width = t.height = 128;
+          const tc = t.getContext("2d");
+          if (tc) { tc.drawImage(globo, 0, 0, 128, 128); tc.globalCompositeOperation = "source-in"; tc.fillStyle = alvo.dataset.pino; tc.fillRect(0, 0, 128, 128); ctx.drawImage(t, 5, 4.5, 14, 14); }
+        }
+        else if (alvo.dataset.pinoLetra) { ctx.fillStyle = "#fff"; ctx.font = "700 11px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(alvo.dataset.pinoLetra, 12, 12.5); }
         else { ctx.beginPath(); ctx.arc(12, 12, 4.4, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill(); }
         ctx.restore();
         continue;

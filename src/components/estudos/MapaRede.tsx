@@ -2,7 +2,7 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CREDITO_DO_MAPA, camadaRuas, aplicarFundo, carregarLeaflet, pino, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, camadaRuas, aplicarFundo, carregarLeaflet, pinoUnidade, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { BarraMapa, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { StreetView } from "@/components/estudos/StreetView";
 import { reais, type UnidadeEstudo } from "@/lib/estudoPonto";
@@ -40,7 +40,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
     if (!m) return;
     m.grupo.clearLayers();
     for (const u of comPosicao) {
-      const mk = m.L.marker(u.c as [number, number], { title: u.nome, icon: pino(m.L, COR[u.modelo], 30) })
+      const mk = m.L.marker(u.c as [number, number], { title: u.nome, icon: pinoUnidade(m.L, COR[u.modelo], 30) })
         .bindTooltip(`<strong>World Gym ${u.nome}</strong><br/>${NOME[u.modelo]}${u.m2 ? ` · ${u.m2.toLocaleString("pt-BR")} m²` : ""}${u.vendas ? `<br/>${reais(u.vendas)} por mês` : ""}${u.alunos ? ` · ${u.alunos.toLocaleString("pt-BR")} alunos` : ""}${abrir ? "<br/><em>clique para abrir o estudo</em>" : ""}`, { direction: "top" })
         .addTo(m.grupo);
       if (abrir) mk.on("click", () => abrir(u.nome));
