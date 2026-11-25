@@ -192,4 +192,6 @@ export function useEnderecos(res: ResultadoSugestoes | null): (string | null)[] 
 }
 
 /** Endereço curto para usar como região do estudo (sem CEP nem "Brasil"). */
+/** O texto é um Plus Code (ex.: "VR2M+XX Jataí, GO")? Quem só tem o Plus Code não tem o endereço, e o estudo precisa buscá-lo. */
+export const ehPlusCode = (t: string | null | undefined) => /^\s*[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}(\s|,|$)/i.test(t ?? "");
 export const enderecoCurto = (e: string | null | undefined) => (e ? e.replace(/,\s*\d{5}(-\d{3})?/, "").replace(/,\s*Brasil$/, "").trim() : "");

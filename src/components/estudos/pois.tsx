@@ -115,6 +115,22 @@ export function desenharPois(L: Leaflet, mapa: import("leaflet").Map, grupo: imp
   return arrumar;
 }
 
+/** Controles do cartão "Academias concorrentes" no painel de camadas: modo do mapa, atualizar a busca e buscar outro tipo de lugar. */
+export function AcoesPois({ modo, setModo, categoria, atualizar, buscando, outros }: { modo: ModoPois; setModo: (m: ModoPois) => void; categoria: string; atualizar: () => void; buscando: boolean; outros: React.ReactNode }) {
+  return (
+    <>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Como mostrar os lugares">
+        {(["nomes", "numeros"] as ModoPois[]).map((m) => <Pilula key={m} ativo={modo === m} onClick={() => setModo(m)}>{m === "nomes" ? "Nomes no mapa" : "Números + lista"}</Pilula>)}
+      </div>
+      <Button size="sm" variant="outline" onClick={atualizar} disabled={buscando}>{buscando ? "Buscando…" : categoria === "academias" ? "Atualizar busca" : "Voltar às academias"}</Button>
+      <details className="rounded-lg border bg-muted/40 px-2 py-1.5">
+        <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Buscar outro tipo de lugar</summary>
+        <div className="mt-2">{outros}</div>
+      </details>
+    </>
+  );
+}
+
 /** Controle "Academias concorrentes" (no canto de baixo do mapa): categoria, raio e buscar. `aviso`: pergunta antes de mandar a posição ao Google (pontos novos). */
 export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado, area, res, embutido }: {
   centro: [number, number] | null; aviso: boolean; aoResultado: (r: ResultadoPois | null) => void; modo: ModoPois; setModo: (m: ModoPois) => void; temResultado: boolean;

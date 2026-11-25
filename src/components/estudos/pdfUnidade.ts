@@ -4,7 +4,7 @@
 // números da própria tela: nada inventado; o que é estimativa ou premissa de mercado aparece escrito como tal.
 import type { ConteudoPdf, Secao } from "@/lib/estudoPdf";
 import { nomeDoArquivo, ALT_FOTO_MAPA } from "@/lib/estudoPdf";
-import { compararComParecidas, leituraParecidas, CLASSES_RENDA, CORES_IDADE, CORRECAO_POF, FAIXAS_IDADE, reais, type densidadeNaArea, type UnidadeEstudo, type classesNoRaio, type perfilNaArea, type potencialNaArea, type FaixaM2 } from "@/lib/estudoPonto";
+import { compararComParecidas, fraseUnidadesProximas, leituraParecidas, CLASSES_RENDA, CORES_IDADE, CORRECAO_POF, FAIXAS_IDADE, reais, type densidadeNaArea, type UnidadeEstudo, type classesNoRaio, type perfilNaArea, type potencialNaArea, type FaixaM2 } from "@/lib/estudoPonto";
 import type { ResultadoPois } from "@/components/estudos/pois";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
@@ -31,6 +31,8 @@ export interface DadosPdfUnidade {
   parecidas?: ReturnType<typeof compararComParecidas> | null;
   pois: ResultadoPois | null;
   divideCom: { nome: string; parte: number }[];
+  /** As outras World Gym mais próximas desta unidade (km em linha reta). */
+  proximas?: { nome: string; km: number }[];
   fotos: { sat: string | null; alunos: string | null; oportunidade: string | null; idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; nova?: string | null; pois: string | null; rede: string | null };
   hoje?: Date;
 }
@@ -75,8 +77,8 @@ export function resumoMercado(m: Pick<DadosMercado, "perfil" | "renda" | "pois" 
   return { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda };
 }
 /** Seções de mercado: faixa etária, domicílios, perfil socioeconômico, potencial de consumo e concorrência. */
-/** Cabem 3 colunas de 40 linhas numa página. */
-export const MAX_LISTA_ACADEMIAS = 120;
+/** Cabem 3 colunas de 25 linhas embaixo da rosca, na mesma página. */
+export const MAX_LISTA_ACADEMIAS = 75;
 /**
  * Nome resumido para a lista em 3 colunas: o que vem depois de " - ", " | " ou vírgula (filial, bairro, modalidades) sai; o nome da rede
  * é acrescentado só quando o resumo não o traz. O endereço completo continua no mapa e na busca do Atlas.
@@ -89,7 +91,7 @@ export function nomeNaLista(nome: string, rede: string | null): string {
   return rede && !sem(curto).includes(sem(rede)) ? `${curto} (${rede})` : curto;
 }
 /** Páginas da concorrência: no PDF vêm depois da canibalização, como "Academias concorrentes" é a última camada do mapa (decisão do dono, 24/11/2026). */
-const TITULOS_CONCORRENCIA = ["Análise de Concorrência", "Composição da Concorrência", "Academias da Área"];
+const TITULOS_CONCORRENCIA = ["Análise de Concorrência", "Composição da Concorrência e Academias da Área"];
 export const separarConcorrencia = (secoes: Secao[]): { antes: Secao[]; concorrencia: Secao[] } => ({ antes: secoes.filter((x) => !TITULOS_CONCORRENCIA.includes(x.titulo)), concorrencia: secoes.filter((x) => TITULOS_CONCORRENCIA.includes(x.titulo)) });
 export function secoesDeMercado(m: DadosMercado): Secao[] {
   const { perfil, renda, area } = m;
@@ -166,21 +168,16 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       destaques: [{ valor: num(conc.diretos), rotulo: "concorrentes diretos" }, ...(habPorAcademia != null ? [{ valor: num(habPorAcademia), rotulo: "habitantes por academia" }] : []), ...(share != null ? [{ valor: pct(share, 0), rotulo: "participação no mercado da área" }] : [])],
       foto: { dados: m.fotos.pois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, altFoto: ALT_FOTO_MAPA,
     });
-    secoes.push({
-      titulo: "Composição da Concorrência", novaPagina: true, linhas: [],
-      texto: [`Dos ${conc.total} lugares, ${conc.diretos} disputam diretamente o aluno da World Gym (grandes redes e academias independentes). Os studios e modalidades atendem nichos e entram só em parte na disputa.`],
-      grafico: { tipo: "rosca", fatias: [{ rotulo: "Grandes redes", valor: conc.redes.length, cor: "#1b2130" }, { rotulo: "Academias independentes", valor: conc.independentes.length, cor: "#1f5f8b" }, { rotulo: "Studios e modalidades", valor: conc.modalidades.length, cor: "#b9c3d0" }], centro: String(conc.total), rotuloCentro: "lugares" },
-    });
-    // Lista numa página só, em 3 colunas lidas de cima para baixo (decisão do dono, 24/11/2026): 1 a 40 | 41 a 80 | 81 a 120. Passando de
-    // MAX_LISTA_ACADEMIAS, ficam as mais próximas e uma frase conta quantas ficaram de fora.
-    // as unidades da própria World Gym não entram: o mesmo critério da rosca e do total (conc.total)
+    // Composição e lista numa página só (decisão do dono, 24/11/2026): a lista mostra no máximo MAX_LISTA_ACADEMIAS lugares, o que cabe embaixo da rosca;
+    // passando disso ficam os mais próximos e uma frase conta quantos ficaram de fora. As World Gym não entram: o mesmo critério da rosca e do total.
     const todos = m.pois.lugares.filter((l) => l.rede !== "World Gym");
     const lista = todos.slice(0, MAX_LISTA_ACADEMIAS), fora = todos.length - lista.length;
     secoes.push({
-      titulo: "Academias da Área", novaPagina: true, linhas: [],
-      texto: [`Os ${todos.length} lugares em ordem de distância ${m.tipo === "unidade" ? "da unidade" : "do ponto"}, em quilômetros. Os nomes aparecem resumidos.`],
+      titulo: "Composição da Concorrência e Academias da Área", novaPagina: true, linhas: [],
+      texto: [`Dos ${conc.total} lugares, ${conc.diretos} disputam diretamente o aluno da World Gym (grandes redes e academias independentes). Os studios e modalidades atendem nichos e entram só em parte na disputa.`],
+      grafico: { tipo: "rosca", fatias: [{ rotulo: "Grandes redes", valor: conc.redes.length, cor: "#1b2130" }, { rotulo: "Academias independentes", valor: conc.independentes.length, cor: "#1f5f8b" }, { rotulo: "Studios e modalidades", valor: conc.modalidades.length, cor: "#b9c3d0" }], centro: String(conc.total), rotuloCentro: "lugares" },
       tabela: { colunas: ["Nº", "Academia", "km"], larguras: [6.5, 38.5, 9], blocos: 3, linhas: lista.map((l, i) => [String(i + 1), nomeNaLista(l.nome, l.rede), l.km.toLocaleString("pt-BR")]) },
-      ...(fora > 0 ? { paragrafo: `A lista mostra os ${lista.length} lugares mais próximos; outros ${fora} mais distantes ficaram de fora.` } : {}),
+      paragrafo: `Os ${todos.length} lugares estão em ordem de distância ${m.tipo === "unidade" ? "da unidade" : "do ponto"}, em quilômetros; os nomes aparecem resumidos.${fora > 0 ? ` A lista mostra os ${lista.length} mais próximos; outros ${fora} mais distantes ficaram de fora.` : ""}`,
     });
   }
 
@@ -260,7 +257,8 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     titulo: "Canibalização com a Rede", novaPagina: true, linhas: [],
     texto: [d.divideCom.length
       ? `A área da unidade se sobrepõe à de outras World Gym. Pelo modelo de captação, ${d.divideCom.map((x) => `${pct(x.parte, 0)} do potencial é disputado com a ${x.nome}`).join(", ")}. ${perda >= 0.25 ? "É uma sobreposição alta: ações comerciais devem ser coordenadas entre as unidades para não disputar o mesmo aluno com desconto, e novas aberturas nessa direção pedem cuidado." : "É uma sobreposição moderada, comum em redes adensadas; vale combinar campanhas entre as unidades para cobrir os bairros de fronteira."}`
-      : "Nenhuma outra World Gym divide de forma relevante a área desta unidade: não há canibalização dentro da rede, e o crescimento depende só da disputa com a concorrência externa."],
+      : "Nenhuma outra World Gym divide de forma relevante a área desta unidade: não há canibalização dentro da rede, e o crescimento depende só da disputa com a concorrência externa.",
+      ...(fraseUnidadesProximas(d.proximas, "unidade") ? [fraseUnidadesProximas(d.proximas, "unidade")] : [])],
     foto: { dados: d.fotos.rede, legenda: "Pinos vermelhos pequenos: outras World Gym. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA,
     grafico: d.divideCom.length ? { tipo: "rosca", titulo: "Potencial de captação da unidade", fatias: [{ rotulo: `Só da World Gym ${u.nome}`, valor: Math.max(0, 1 - perda), cor: "#c41230" }, ...d.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } : undefined,
   });

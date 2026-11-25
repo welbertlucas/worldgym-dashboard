@@ -8,7 +8,7 @@ import { URL_OSM, URL_RELEVO, URL_SAT, type Fundo } from "@/components/estudos/m
 
 export interface ItemCamada { id: string; rotulo: string }
 /** Camada que fica por cima da escolhida (ex.: academias concorrentes depois de buscar): liga e desliga sozinha. */
-export interface Sobreposicao { id: string; rotulo: string; ativo: boolean; alternar: () => void; legenda?: ReactNode; remover?: () => void }
+export interface Sobreposicao { id: string; rotulo: string; ativo: boolean; alternar: () => void; legenda?: ReactNode; remover?: () => void; /** Controles do cartão quando a camada está ligada (ex.: atualizar a busca, trocar o modo). */ acoes?: ReactNode }
 
 /** Painel de camadas no alto à esquerda: uma camada por vez, com a legenda dela embaixo. Recolhe no celular. */
 /**
@@ -86,10 +86,11 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
                 <span className="flex-1">{o.rotulo}</span>
                 {o.ativo ? <Eye className="h-4 w-4 text-foreground" aria-hidden /> : <EyeOff className="h-4 w-4 text-muted-foreground/60" aria-hidden />}
               </button>
-              {o.ativo && (o.legenda || o.remover) && (
+              {o.ativo && (o.legenda || o.remover || o.acoes) && (
                 <div className="px-2.5 pb-2.5 text-xs text-muted-foreground">
                   {o.legenda}
                   {o.remover && <button type="button" onClick={o.remover} className="mt-1 block font-medium text-foreground underline underline-offset-2">Apagar a busca</button>}
+                  {o.acoes && <div className="mt-2 space-y-2 text-foreground">{o.acoes}</div>}
                 </div>
               )}
             </div>

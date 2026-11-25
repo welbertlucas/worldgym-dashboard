@@ -435,5 +435,10 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
   doc.save(c.arquivo);
 }
 
+/** Nome de arquivo legível, o mesmo do estudo ("Unidade Jataí 3.pdf"): só tira o que o sistema de arquivos não aceita. */
+export const nomeLegivelDoArquivo = (nome: string, padrao = "estudo-de-ponto") => {
+  const limpo = nome.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-").replace(/\s+/g, " ").replace(/^[\s.-]+|[\s.-]+$/g, "").slice(0, 80).trim();
+  return `${limpo || padrao}.pdf`;
+};
 /** Nome de arquivo sem acento nem espaço. */
 export const nomeDoArquivo = (base: string) => `${base.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/(^-|-$)/g, "").toLowerCase()}.pdf`;

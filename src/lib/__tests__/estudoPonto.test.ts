@@ -581,3 +581,58 @@ describe("avaliarCompleto: a mesma conta na tela do estudo, na lista e no mapa",
     expect(avaliarCompleto(p, { ...ctx, vendasPorM2: { low: FAIXA, pro: null } })).toBeNull();
   });
 });
+
+describe("Plus Code", () => {
+  it("reconhece o Plus Code (sozinho ou com a cidade) e não confunde com endereço", async () => {
+    const { ehPlusCode } = await import("@/components/estudos/sugestoes");
+    expect(ehPlusCode("VR2M+XX")).toBe(true);
+    expect(ehPlusCode("VR2M+XX Jataí, GO")).toBe(true);
+    expect(ehPlusCode("8FWH4HVP+2F")).toBe(true); // o código global também é um Plus Code
+    expect(ehPlusCode("R. Jerônimo Vilela, 327 - Vila Sofia")).toBe(false);
+    expect(ehPlusCode("Av. 24+ de maio")).toBe(false);
+    expect(ehPlusCode("")).toBe(false); expect(ehPlusCode(null)).toBe(false);
+  });
+});
+
+describe("nome do arquivo do PDF", () => {
+  it("usa o nome do estudo, só tirando o que o sistema de arquivos não aceita", async () => {
+    const { nomeLegivelDoArquivo } = await import("@/lib/estudoPdf");
+    expect(nomeLegivelDoArquivo("Unidade Jataí 3")).toBe("Unidade Jataí 3.pdf");
+    expect(nomeLegivelDoArquivo("R. Jerônimo Vilela, 327")).toBe("R. Jerônimo Vilela, 327.pdf");
+    expect(nomeLegivelDoArquivo("Av. A/B: lote \"7\"?")).toBe("Av. A-B- lote -7.pdf");
+    expect(nomeLegivelDoArquivo("   ")).toBe("estudo-de-ponto.pdf");
+    expect(nomeLegivelDoArquivo("x".repeat(200)).length).toBe(84);
+  });
+});
+
+describe("página da concorrência e distância das World Gym", () => {
+  it("rosca, texto e até MAX_LISTA_ACADEMIAS lugares cabem numa página só", async () => {
+    const { gerarPdfDoEstudo } = await import("@/lib/estudoPdf");
+    const { MAX_LISTA_ACADEMIAS } = await import("@/components/estudos/pdfUnidade");
+    const paginas = async (n: number) => {
+      const linhas = Array.from({ length: n }, (_, i) => [String(i + 1), `Academia de Teste Número ${i + 1} (Rede Fictícia)`, (0.3 + i / 40).toLocaleString("pt-BR")]);
+      const secao = { titulo: "Composição da Concorrência e Academias da Área", novaPagina: true, linhas: [],
+        texto: ["Dos 90 lugares, 60 disputam diretamente o aluno da World Gym (grandes redes e academias independentes). Os studios e modalidades atendem nichos e entram só em parte na disputa."],
+        grafico: { tipo: "rosca" as const, fatias: [{ rotulo: "Grandes redes", valor: 20, cor: "#1b2130" }, { rotulo: "Academias independentes", valor: 40, cor: "#1f5f8b" }, { rotulo: "Studios e modalidades", valor: 30, cor: "#b9c3d0" }], centro: "90", rotuloCentro: "lugares" },
+        tabela: { colunas: ["Nº", "Academia", "km"], larguras: [6.5, 38.5, 9], blocos: 3, linhas },
+        paragrafo: "Os 90 lugares estão em ordem de distância do ponto, em quilômetros; os nomes aparecem resumidos. A lista mostra os mais próximos; outros mais distantes ficaram de fora." };
+      const blob = (await gerarPdfDoEstudo({ arquivo: "c.pdf", cabecalho: "Estudo de ponto", foto: null, paginas: [{ titulo: "Ponto", subtitulo: "x", numeros: [], secoes: [secao] }] }, "blob")) as Blob;
+      return (new TextDecoder("latin1").decode(await blob.arrayBuffer()).match(/\/Type\s*\/Page\b/g) ?? []).length;
+    };
+    expect(await paginas(MAX_LISTA_ACADEMIAS)).toBe(await paginas(3));
+    expect(await paginas(120)).toBeGreaterThan(await paginas(3)); // o limite antigo não cabia
+  });
+
+  it("diz a distância da World Gym mais próxima", async () => {
+    const { unidadesMaisProximas, fraseUnidadesProximas } = await import("@/lib/estudoPonto");
+    const u = (nome: string, c: [number, number]) => ({ nome, c, m2: 1000, modelo: "low", abertura: null, madura: true, vendas: 1, alunos: 1 }) as UnidadeEstudo;
+    const px = unidadesMaisProximas([-15.8, -47.9], [u("Longe", [-15.2, -47.9]), u("Perto", [-15.8, -47.88]), u("Média", [-15.7, -47.9]), u("Sem posição", null as unknown as [number, number])], 3);
+    expect(px.map((x) => x.nome)).toEqual(["World Gym Perto", "World Gym Média", "World Gym Longe"]);
+    expect(px[0].km).toBeCloseTo(2.1, 1);
+    expect(unidadesMaisProximas([-15.8, -47.9], [u("A", [-15.8, -47.9])], 3, "A")).toEqual([]);
+    const f = fraseUnidadesProximas(px, "ponto");
+    expect(f).toContain("A World Gym mais próxima do ponto é a WG Perto, a 2,1 km em linha reta");
+    expect(f).toContain("WG Média"); expect(f).toContain("WG Longe");
+    expect(fraseUnidadesProximas([], "ponto")).toBe("");
+  });
+});

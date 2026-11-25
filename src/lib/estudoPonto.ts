@@ -441,6 +441,18 @@ export const VEREDITO_ROTULO: Record<Veredito, string> = { aprovado: "Aprova", a
 export const reais = (v: number) => `R$ ${Math.round(v / 1000).toLocaleString("pt-BR")} mil`;
 export const meses = (v: number) => (Number.isFinite(v) ? `${Math.round(v)} meses` : "não se paga");
 
+/** As World Gym mais próximas de uma posição (distância em linha reta), da mais perto para a mais longe. `ignorar`: a própria unidade, no estudo dela. */
+export function unidadesMaisProximas(c: [number, number], unidades: UnidadeEstudo[], n = 3, ignorar?: string): { nome: string; km: number }[] {
+  return unidades.filter((u) => u.c && u.nome !== ignorar).map((u) => ({ nome: `World Gym ${u.nome}`, km: km(u.c as [number, number], c) })).sort((a, b) => a.km - b.km).slice(0, n);
+}
+/** Frase do PDF com a distância da World Gym mais próxima (e das seguintes), para a página de canibalização. */
+export function fraseUnidadesProximas(px: { nome: string; km: number }[] | null | undefined, de: "ponto" | "unidade"): string {
+  if (!px?.length) return "";
+  const f = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  const resto = px.slice(1);
+  return `A World Gym mais próxima ${de === "ponto" ? "do ponto" : "desta unidade"} é a ${px[0].nome.replace(/^World Gym /, "WG ")}, a ${f(px[0].km)} km em linha reta${resto.length ? `; em seguida, ${resto.map((x) => `${x.nome.replace(/^World Gym /, "WG ")} (${f(x.km)} km)`).join(" e ")}` : ""}.`;
+}
+
 /** Região para mostrar na lista: a que a pessoa escreveu, ou "perto de <unidade>" pela World Gym mais próxima. */
 export function regiaoDe(p: Ponto, unidades: UnidadeEstudo[]): string {
   if (p.regiao) return p.regiao;

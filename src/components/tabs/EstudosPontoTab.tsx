@@ -10,18 +10,18 @@ import { PedirCenso } from "@/components/estudos/PedirCenso";
 import { ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, raioQueCobre, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
-import { CSS_POIS, ControlePois, buscarPois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { CSS_POIS, AcoesPois, ControlePois, buscarPois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Faixa, Linha, Nota, Secao } from "@/components/estudos/blocos";
-import { Building2, Calculator, Gavel, ListChecks, Store, TrendingUp } from "lucide-react";
+import { Building2, Calculator, Gavel, ListChecks, Pencil, Store, TrendingUp } from "lucide-react";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { montarPdfPonto } from "@/components/estudos/pdfPonto";
 import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
-import { SecaoSugestoes, desenharSugestoes, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
+import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, avaliarCompleto, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -278,10 +278,18 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: `Sugestão ${i + 1} de ${atual.nome}`.slice(0, 60), ...(endereco ? { regiao: enderecoCurto(endereco).slice(0, 60), endereco: endereco.slice(0, 160) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: sg.c, modelo: atual.modelo, m2: atual.m2, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
     setPontos((ps) => [...ps, novo]); setAtualId(novo.id);
   };
-  const estudarAchado = () => {
+  const estudarAchado = async () => {
     if (!achado || !editavel) return;
+    let { nome, endereco } = achado;
+    // só o Plus Code (ou nenhum endereço): busca o endereço da posição, que vai ao Mapbox só depois de confirmar (estudo de ponto é estratégia comercial)
+    if (ehPlusCode(nome) || ehPlusCode(endereco) || !endereco) {
+      if (window.confirm("Este lugar só tem o Plus Code. Para achar o endereço, a posição será enviada ao Mapbox. Continuar?")) {
+        const e = await enderecoDaPosicao(achado.c).catch(() => null);
+        if (e) { endereco = e; if (ehPlusCode(nome) || !nome) nome = enderecoCurto(e); }
+      }
+    }
     const agora = new Date().toISOString();
-    const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: achado.nome.slice(0, 60) || `Ponto ${letra(todos.length)}`, ...(achado.endereco ? { endereco: achado.endereco.slice(0, 160) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: achado.c, modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
+    const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: nome.slice(0, 60) || `Ponto ${letra(todos.length)}`, ...(endereco && !ehPlusCode(endereco) ? { endereco: endereco.slice(0, 160), regiao: enderecoCurto(endereco).slice(0, 60) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: achado.c, modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
     setPontos((ps) => [...ps, novo]); setAtualId(novo.id); setAchado(null);
   };
   useEffect(() => { setPois(null); setVerPois(true); setFalhaAcademias(false); }, [atualId]);
@@ -298,6 +306,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       return { ...r, lugares, total: lugares.length, areaRotulo: `${MINUTOS_PADRAO} min de carro` };
     } catch { return null; } finally { setBuscandoAcademias(false); }
   };
+  const refazerAcademias = async () => {
+    const res = await buscarAcademias();
+    if (res) { setFalhaAcademias(false); setPois(res); setVerPois(true); } else setFalhaAcademias(true);
+  };
   useEffect(() => {
     if (!atual || !area10 || pois || buscouAuto.current === atual.id) return;
     buscouAuto.current = atual.id;
@@ -312,6 +324,8 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const exportar = async () => {
     const m = mapaRef.current;
     if (!m) return;
+    // o PDF é do estudo aberto; só sai mais de um ponto quando a pessoa escolheu comparar vários na lista (e não há outro estudo "de carona")
+    const listaPdf = comparando ? pontos : atual ? [atual] : pontos;
     // sem as academias o parecer sairia sem concorrência: o PDF só sai com elas (decisão do dono, 24/11/2026). A busca roda sozinha ao abrir o estudo;
     // aqui só se refaz se ainda não chegou (ou se a camada foi trocada por outro tipo de lugar).
     let poisPdf = pois;
@@ -330,7 +344,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     // fotos de rua do último slide (até 4 pontos): pedidas já no começo; se a pessoa não autorizar mandar a posição ao Google, para no primeiro
     const ruaP = (async () => {
       const out: (ReturnType<typeof paginaDeFotos>)[] = [];
-      for (const [i, p] of pontos.slice(0, 4).entries()) {
+      for (const [i, p] of listaPdf.slice(0, 4).entries()) {
         const f = await buscarFotosDaRua(p.c, true);
         if (!f && i === 0) break;
         out.push(paginaDeFotos(f, "Fotos da Região", `${letra(i)}. ${p.nome}${p.endereco ? ` · ${enderecoCurto(p.endereco)}` : ""}`));
@@ -340,10 +354,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     // fotos para o PDF: o mapa como está na tela, o satélite de cada ponto e, do ponto aberto, uma foto por tema na área de 10 min
     const tirar = async (l: Lente, alvo: Parameters<typeof fotoEnquadrada>[1], sat = false) => { setLente(l); await pausa(350); return fotoEnquadrada(m, alvo, sat); };
     try {
-      const fotoGeral = pontos.length > 1 ? await fotoNoPadrao(m, fundo) : null;
+      const fotoGeral = listaPdf.length > 1 ? await fotoNoPadrao(m, fundo) : null;
       setPois(null); // as academias só aparecem na foto delas
       const sats = new Map<string, string | null>();
-      for (const p of pontos) sats.set(p.id, await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => tirar("limpa", { centro: p.c, zoom: z }, true)));
+      for (const p of listaPdf) sats.set(p.id, await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => tirar("limpa", { centro: p.c, zoom: z }, true)));
       const censo = dados.censo!;
       const areaLim = atual ? (area10 ? limitesDaArea(m.L, area10).pad(0.1) : m.L.latLng(atual.c).toBounds(Math.max(2.5, cap?.raio80 ?? 3) * 2000)) : null;
       const temIdade = censo.celulas.some((c) => c[5]?.length), temDom = censo.celulas.some((c) => c[4]);
@@ -377,10 +391,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
         ticket: ex?.ticket ?? null, alunos: ex?.alunos ?? null, vagas: ex?.vagas ?? null,
         faixaFatia, freios,
-        pontos: pontos.map((p, i) => {
+        pontos: listaPdf.map((p, i) => {
           const rr = resultados.get(p.id) ?? null;
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
-          return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp,
+          return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp, proximas: unidadesMaisProximas(p.c, dados.unidades!),
             fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!, foraDaMalhaDoCenso(p.c, censo)) : [],
             parecidas: foraDaMalhaDoCenso(p.c, censo) ? { ...compararComParecidas(p.c, p.modelo, censo, dados.unidades!), itens: [] } : compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null, semCenso: foraDaMalhaDoCenso(p.c, censo) };
         }),
@@ -391,7 +405,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   return (
     <TelaDeMapa caixaRef={caixaMapa} altura={alturaMapa} vista={vista} setVista={setVista} temEstudo={pontos.length > 0}
       subtitulo={comparando ? `Comparando ${pontos.length} pontos` : "Estudo de ponto"}
-      titulo={atual ? `${letra(Math.max(0, pontos.findIndex((p) => p.id === atual.id)))}. ${atual.nome}` : "Novo estudo"}
+      titulo={atual ? <NomeDoEstudo letra={letra(Math.max(0, pontos.findIndex((p) => p.id === atual.id)))} nome={atual.nome} editavel={editavel && !comparando} salvar={(n) => mudar(atual.id, { nome: n })} /> : "Novo estudo"}
       navegacao={<Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={voltar}>Todos os estudos</Button>}
       acoes={<>
         {editavel && <Button size="sm" className="h-7 px-2.5 text-[12px]" variant={adicionando ? "secondary" : "outline"} onClick={() => { setVista("mapa"); setAdicionando((a) => !a); }} aria-pressed={adicionando}>{adicionando ? "Clique no mapa…" : "Adicionar ponto"}</Button>}
@@ -401,7 +415,6 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <span className="text-[11px] text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
       </>}
       painel={<PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" naColuna
-          abaExtra={{ rotulo: "Academias concorrentes", conteudo: <ControlePois embutido centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} /> }}
           legenda={lente === "captacao" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">{area10 ? LEGENDA_DESLOCAMENTO : "tracejado: onde moram 80%"}</p>
@@ -413,7 +426,11 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             })() : <p>Nenhuma World Gym divide a área deste ponto.</p>}
             <p className="mt-1.5">Parte do público da área que World Gym vizinhas também atraem. Círculos: a área de cada unidade e a do ponto.</p>
           </> : null}
-          sobre={pois ? [{ id: "pois", rotulo: rotuloPois(pois), ativo: verPois, alternar: () => setVerPois((v) => !v), legenda: `${totalPois(pois)} ${ondePois(pois)}`, remover: () => setPois(null) }] : []} />}
+          sobre={[{ id: "pois", rotulo: pois ? rotuloPois(pois) : `Academias concorrentes${buscandoAcademias ? " · buscando…" : ""}`, ativo: !!pois && verPois,
+            alternar: () => { if (!pois) void refazerAcademias(); else setVerPois((v) => !v); },
+            legenda: pois ? `${totalPois(pois)} ${ondePois(pois)}` : undefined, remover: pois ? () => setPois(null) : undefined,
+            acoes: pois ? <AcoesPois modo={modoPois} setModo={setModoPois} categoria={pois.categoria} atualizar={() => void refazerAcademias()} buscando={buscandoAcademias}
+              outros={<ControlePois embutido centro={atual?.c ?? null} aviso area={area10 ? { geometria: area10, rotulo: `${MINUTOS_PADRAO} min de carro` } : null} aoResultado={aoPois} res={pois} modo={modoPois} setModo={setModoPois} temResultado={!!pois && verPois} />} /> : undefined }]} />}
       mapa={<>
         <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}${CSS_POIS}`}</style>
         <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
@@ -463,15 +480,11 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       {atual && r && (
         <fieldset disabled={!editavel} className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white px-4 py-3">
-            <input value={atual.nome} onChange={(e) => mudar(atual.id, { nome: e.target.value })} aria-label="Nome do ponto"
-              className="min-w-[180px] flex-1 rounded-md bg-transparent font-display text-xl font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-            <input value={atual.regiao ?? ""} onChange={(e) => mudar(atual.id, { regiao: e.target.value })} placeholder="Região (ex.: Taguatinga Norte)" aria-label="Região do ponto"
-              className="min-w-[180px] flex-1 rounded-md bg-transparent text-sm text-muted-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring" />
             <EnderecoDoPonto endereco={atual.endereco} editavel={editavel} buscar={async () => {
               // a posição vai ao Mapbox (pelo servidor) só depois de confirmar: estudo de ponto é estratégia comercial
               if (!window.confirm("Para achar o endereço, a posição deste ponto será enviada ao Mapbox. Continuar?")) return;
               const e = await enderecoDaPosicao(atual.c);
-              if (e) mudar(atual.id, { endereco: e.slice(0, 160), ...(atual.regiao ? {} : { regiao: enderecoCurto(e).slice(0, 60) }) });
+              if (e) mudar(atual.id, { endereco: e.slice(0, 160), ...(atual.regiao && !ehPlusCode(atual.regiao) ? {} : { regiao: enderecoCurto(e).slice(0, 60) }), ...(ehPlusCode(atual.nome) ? { nome: enderecoCurto(e).slice(0, 60) } : {}) });
               else window.alert("Não achei o endereço desta posição.");
             }} />
             <div className="flex gap-1.5" role="group" aria-label="Modelo">
@@ -715,6 +728,18 @@ export function EstudosPontoTab() {
 }
 
 /** Linha do endereço do ponto, embaixo do nome: o endereço guardado ou o botão para buscar (com confirmação, pois envia a posição ao Mapbox). */
+/** Nome do estudo no título: clicar renomeia (Enter ou sair do campo salva, Esc cancela). O nome é livre, ex.: "Unidade Jataí 3". */
+function NomeDoEstudo({ letra, nome, editavel, salvar }: { letra: string; nome: string; editavel: boolean; salvar: (nome: string) => void }) {
+  const [editando, setEditando] = useState(false);
+  const [v, setV] = useState(nome);
+  useEffect(() => { setV(nome); setEditando(false); }, [nome]);
+  const fim = (grava: boolean) => { setEditando(false); const n = v.replace(/\s+/g, " ").trim().slice(0, 60); if (grava && n && n !== nome) salvar(n); else setV(nome); };
+  if (editando) return <span className="flex items-center gap-1"><span>{letra}.</span><input autoFocus value={v} maxLength={60} aria-label="Nome do estudo" onChange={(e) => setV(e.target.value)} onBlur={() => fim(true)}
+    onKeyDown={(e) => { if (e.key === "Enter") fim(true); if (e.key === "Escape") fim(false); }} className="min-w-0 flex-1 rounded-md border bg-white px-1.5 py-0.5 font-display text-base font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring" /></span>;
+  if (!editavel) return <>{letra}. {nome}</>;
+  return <button type="button" onClick={() => setEditando(true)} title="Renomear o estudo" aria-label={`Renomear o estudo ${nome}`} className="group text-left">{letra}. {nome}<Pencil className="ml-1.5 inline h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-foreground" aria-hidden /></button>;
+}
+
 function EnderecoDoPonto({ endereco, editavel, buscar }: { endereco?: string; editavel: boolean; buscar: () => Promise<void> }) {
   const [buscando, setBuscando] = useState(false);
   return (

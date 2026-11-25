@@ -51,7 +51,7 @@ describe("foto de satélite sem imagem (Esri)", () => {
 });
 
 import { MAX_LISTA_ACADEMIAS, nomeNaLista } from "@/components/estudos/pdfUnidade";
-describe("lista de academias do PDF (3 colunas, numa página)", () => {
+describe("lista de academias do PDF (3 colunas, na página da rosca)", () => {
   it("resume o nome e só acrescenta a rede quando o resumo não a traz", () => {
     expect(nomeNaLista("Academia Smart Fit - Manhattan Shopping", "Smart Fit")).toBe("Academia Smart Fit");
     expect(nomeNaLista("STUDIO PERSONAL FAST TRAINING - Metropole", null)).toBe("STUDIO PERSONAL FAST TRAINING");
@@ -61,7 +61,7 @@ describe("lista de academias do PDF (3 colunas, numa página)", () => {
     expect(nomeNaLista("A - B", null)).toBe("A - B"); // resumo curto demais: fica o nome inteiro
     expect(nomeNaLista("Academia Evolve - Águas Claras 2", "Evolve")).toBe("Academia Evolve");
   });
-  it("a lista cabe em 3 colunas de 40 linhas", () => {
-    expect(MAX_LISTA_ACADEMIAS).toBe(120);
+  it("a lista cabe em 3 colunas de 25 linhas, embaixo da rosca (a página é uma só)", () => {
+    expect(MAX_LISTA_ACADEMIAS).toBe(75);
   });
 });
