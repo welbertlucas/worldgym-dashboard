@@ -19,7 +19,7 @@
   --radius: 8px;
   --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 2px 8px rgb(0 0 0 / 4%);
   color-scheme: light;
-  font-family: 'Inter Variable', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   color: var(--ink);
@@ -29,10 +29,10 @@
 }
 .escalas * { box-sizing: border-box; }
 .escalas { margin: 0; background: #fff; }
-.escalas h1, .escalas h2, .escalas h3, .escalas h4 { color: var(--black); margin: 0 0 0.5rem; line-height: 1.2; font-family: 'Montserrat', 'Inter Variable', sans-serif; font-weight: 700; letter-spacing: -0.01em; }
+.escalas h1, .escalas h2, .escalas h3, .escalas h4 { color: var(--black); margin: 0 0 0.5rem; line-height: 1.2; font-family: 'Montserrat', 'Inter', sans-serif; font-weight: 700; letter-spacing: -0.01em; }
 .escalas h1 { font-weight: 800; }
-.escalas .btn, .escalas .step, .escalas .segmented button, .escalas .sev-tab, .escalas .badge, .escalas .brand-text strong, .escalas .cal thead th, .escalas .eyebrow { font-family: 'Montserrat', 'Inter Variable', sans-serif; }
-.escalas .cell .lbl, .escalas .cell .tm, .escalas .wk-total, .escalas .total, .escalas .summary-row { font-family: 'Inter Variable', sans-serif; }
+.escalas .btn, .escalas .step, .escalas .segmented button, .escalas .sev-tab, .escalas .badge, .escalas .brand-text strong, .escalas .cal thead th, .escalas .eyebrow { font-family: 'Montserrat', 'Inter', sans-serif; }
+.escalas .cell .lbl, .escalas .cell .tm, .escalas .wk-total, .escalas .total, .escalas .summary-row { font-family: 'Inter', sans-serif; }
 .escalas h1 { font-size: 1.6rem; }
 .escalas h2 { font-size: 1.15rem; }
 .escalas h3 { font-size: 1rem; margin-top: 1rem; }
@@ -226,7 +226,7 @@
 .escalas .cell.s-F button { background: var(--c-off); color: var(--c-off-ink); }
 .escalas .cell.s-FE button { background: var(--c-hol); color: var(--c-hol-ink); }
 .escalas .cell.s-FR button { background: var(--c-vac); color: var(--c-vac-ink); }
-.escalas .cell .dnum { font-size: 1.02rem; font-weight: 800; line-height: 1; font-family: 'Montserrat', 'Inter Variable', sans-serif; }
+.escalas .cell .dnum { font-size: 1.02rem; font-weight: 800; line-height: 1; font-family: 'Montserrat', 'Inter', sans-serif; }
 .escalas .cell .lbl { font-size: 0.64rem; font-weight: 600; margin-top: 0.15rem; }
 .escalas .cell .tm { font-size: 0.62rem; font-weight: 700; margin-top: 0.05rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .escalas .cell.s-T .lbl { color: var(--grey-5); }
@@ -539,15 +539,15 @@
   font-size: 15px;
 }
 .escalas, .escalas .app { background: var(--canvas); }
-.escalas h1, .escalas h2, .escalas h3, .escalas h4, .escalas .btn, .escalas .step, .escalas .segmented button, .escalas .sev-tab, .escalas .badge, .escalas .cal thead th, .escalas .eyebrow { font-family: 'Inter Variable', 'Inter', sans-serif; }
-.escalas h1 { font-family: 'Montserrat', 'Inter Variable', sans-serif; font-weight: 700; font-size: 1.5rem; letter-spacing: -0.02em; }
+.escalas h1, .escalas h2, .escalas h3, .escalas h4, .escalas .btn, .escalas .step, .escalas .segmented button, .escalas .sev-tab, .escalas .badge, .escalas .cal thead th, .escalas .eyebrow { font-family: 'Inter', 'Inter', sans-serif; }
+.escalas h1 { font-family: 'Montserrat', 'Inter', sans-serif; font-weight: 700; font-size: 1.5rem; letter-spacing: -0.02em; }
 .escalas h2 { font-weight: 650; font-size: 1.05rem; letter-spacing: -0.01em; }
 .escalas h3 { font-weight: 650; font-size: 0.95rem; }
 .escalas h4 { font-weight: 600; }
 .escalas .topbar { background: #fff; border-bottom: 1px solid var(--line); box-shadow: none; padding: 0.55rem 1.5rem; }
 .escalas .brand-logo { height: 30px; }
 .escalas .brand-text { border-left-color: var(--line); }
-.escalas .brand-text strong { font-family: 'Inter Variable', sans-serif; font-weight: 650; font-size: 0.86rem; letter-spacing: 0.01em; }
+.escalas .brand-text strong { font-family: 'Inter', sans-serif; font-weight: 650; font-size: 0.86rem; letter-spacing: 0.01em; }
 .escalas .brand-text span { font-size: 0.72rem; color: var(--grey-4); }
 .escalas .topbar-user { gap: 0.35rem; }
 .escalas .topbar-user .btn.ghost { border-color: transparent; background: transparent; color: var(--grey-5); }
@@ -555,7 +555,7 @@
 .escalas .topbar-user .btn.dark { background: var(--grey-2); color: var(--black); }
 .escalas .topbar-user .who { margin-right: 0.4rem; padding-right: 0.75rem; border-right: 1px solid var(--line); }
 .escalas .sidebar { background: #fff; border-right: 1px solid var(--line); min-height: calc(100vh - 52px); max-height: none; padding: 1.1rem 0.75rem; top: 0; }
-.escalas .sidebar-title { font-family: 'Inter Variable', sans-serif; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.08em; }
+.escalas .sidebar-title { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.08em; }
 .escalas .sidebar-list button { border-radius: 8px; padding: 0.48rem 0.65rem; font-size: 0.88rem; color: var(--grey-5); }
 .escalas .sidebar-list button:hover { background: var(--grey-1); color: var(--black); }
 .escalas .sidebar-list button.on { background: var(--red-tint); color: var(--red); font-weight: 600; box-shadow: none; }
@@ -604,7 +604,7 @@
 .escalas .cal thead th .ddate { font-weight: 650; font-size: 0.98rem; }
 .escalas .cal thead th .wdname { font-weight: 600; font-size: 0.72rem; letter-spacing: 0.05em; color: var(--grey-4); }
 .escalas .cell button { border-radius: 10px; }
-.escalas .cell .dnum { font-family: 'Inter Variable', sans-serif; font-weight: 650; font-size: 0.95rem; }
+.escalas .cell .dnum { font-family: 'Inter', sans-serif; font-weight: 650; font-size: 0.95rem; }
 .escalas .cell .lbl { font-weight: 500; font-size: 0.62rem; opacity: 0.85; }
 .escalas .cell button:hover { box-shadow: 0 0 0 1.5px var(--line-strong); transform: none; }
 .escalas .emp-btn strong { font-weight: 600; }
@@ -781,8 +781,8 @@
 .escalas .staffing-chart { display: flex; align-items: center; gap: 20px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; flex-wrap: wrap; }
 .escalas .rosca { width: 150px; height: 150px; flex: none; }
 .escalas .rosca circle { transition: opacity 0.15s, stroke-width 0.15s; }
-.escalas .rosca-total { font-size: 30px; font-weight: 700; fill: var(--black); font-family: 'Inter Variable', sans-serif; }
-.escalas .rosca-sub { font-size: 12px; fill: var(--grey-5); font-family: 'Inter Variable', sans-serif; }
+.escalas .rosca-total { font-size: 30px; font-weight: 700; fill: var(--black); font-family: 'Inter', sans-serif; }
+.escalas .rosca-sub { font-size: 12px; fill: var(--grey-5); font-family: 'Inter', sans-serif; }
 .escalas .staffing-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 240px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; }
 .escalas .staffing-legend .staffing-card { width: 100%; display: grid; grid-template-columns: 10px 1fr auto; grid-template-areas: 'dot name num' '. hint hint'; column-gap: 8px; row-gap: 1px; align-items: center; padding: 8px 10px; border-radius: 10px; }
 .escalas .staffing-legend .dot { grid-area: dot; width: 10px; height: 10px; border-radius: 3px; }
@@ -860,12 +860,12 @@
   --ok: #147b3a;
   --warn: #a45904;
   --radius: 16px;
-  --display: 'Oswald', 'Inter Variable', sans-serif;
+  --display: 'Oswald', 'Inter', sans-serif;
   color: var(--ink);
 }
 .escalas, .escalas .app { background: #fff; }
 .escalas h1, .escalas h2, .escalas h3, .escalas h4 { color: var(--ink); }
-.escalas h1, .escalas .acessos-head h1 { font-family: 'Inter Variable', 'Inter', sans-serif; font-weight: 600; font-size: 1.75rem; letter-spacing: -0.025em; }
+.escalas h1, .escalas .acessos-head h1 { font-family: 'Inter', 'Inter', sans-serif; font-weight: 600; font-size: 1.75rem; letter-spacing: -0.025em; }
 .escalas h2 { font-weight: 600; letter-spacing: -0.015em; }
 .escalas .muted { color: var(--grey-5); }
 .escalas .card { border-color: var(--line); border-radius: 16px; box-shadow: 0 1px 2px rgb(16 24 40 / 4%); }

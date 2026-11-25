@@ -2,9 +2,6 @@
 // A pessoa já entrou pelo Atlas: não há login nem troca de senha aqui; o servidor (/api/escalas) decide quais unidades ela enxerga.
 // O visual do site antigo fica isolado em `.escalas` (escalas.css) para não mexer no resto do Atlas.
 import { useEffect, useMemo, useState } from 'react';
-import '@fontsource/montserrat/600.css';
-import '@fontsource/montserrat/700.css';
-import '@fontsource/montserrat/800.css';
 import './escalas.css';
 import './escalas-atlas.css';
 import { API_BASE, authFetch } from '@/lib/auth';
