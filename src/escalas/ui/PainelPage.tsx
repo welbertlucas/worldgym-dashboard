@@ -157,7 +157,6 @@ export function PainelPage({ repo, onOpen }: { repo: ApiScheduleRepository; onOp
     <section className="painel">
       <div className="acessos-head">
         <div>
-          <h1>Painel da rede</h1>
           <p className="muted">Situação das escalas de cada unidade no mês escolhido. Clique numa escala para abrir.</p>
         </div>
         <div className="painel-mes">

@@ -2,7 +2,6 @@
 // Funcionamento e regras de jornada valem para a unidade; pessoas e regras dos departamentos, por equipe.
 // Salva sozinho. As regras de jornada só o Dono e o Master mudam.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { UNIDADES } from '../config/unidades';
 import { normalizeUnitRules, rostersFromUnitConfig, settingsFromConfig, stableStringify, unitConfig } from '../domain/roster';
 import { weekendShiftRisks } from '../domain/risks';
 import { createSchedule } from '../domain/scheduleOps';
@@ -25,7 +24,7 @@ const TABS: { value: UnitTab; label: string }[] = [
 const horario = (c: ScheduleConfig) => stableStringify(settingsFromConfig(c, false));
 const jornada = (c: ScheduleConfig) => stableStringify(settingsFromConfig(c, true).labor);
 
-export function RosterPage({ repo, unitId, initialTab = 'pessoas', focusId, canEditLabor, onBack, backLabel = 'Escalas salvas' }: {
+export function RosterPage({ repo, unitId, initialTab = 'pessoas', focusId, canEditLabor, onBack, backLabel = 'Escalas salvas', mostrarVoltar = true }: {
   repo: ScheduleRepository;
   unitId: string;
   /** Equipe de onde veio (a lista é da unidade inteira; mantido por compatibilidade). */
@@ -36,6 +35,8 @@ export function RosterPage({ repo, unitId, initialTab = 'pessoas', focusId, canE
   canEditLabor: boolean;
   onBack: () => void;
   backLabel?: string;
+  /** O link de voltar só aparece quando se veio de uma escala; o resto navega pelas abas do menu. */
+  mostrarVoltar?: boolean;
 }) {
   const [tab, setTab] = useState<UnitTab>(initialTab);
   const [config, setConfig] = useState<ScheduleConfig | null>(null);
@@ -123,6 +124,8 @@ export function RosterPage({ repo, unitId, initialTab = 'pessoas', focusId, canE
     }, 600);
     return () => clearTimeout(t);
   }, [config, gravar]);
+  // Trocar de aba do menu desmonta a tela: o que ainda não foi gravado (o salvamento espera 600 ms) grava na saída.
+  useEffect(() => () => { const u = ultimaTela.current; if (u) void gravar(u).catch(() => undefined); }, [gravar]);
   // Ao sair da tela com mudança ainda não gravada, grava na hora.
   const sair = async () => {
     // O campo que estava em edição confirma o valor ao perder o foco: espera a tela atualizar.
@@ -143,13 +146,11 @@ export function RosterPage({ repo, unitId, initialTab = 'pessoas', focusId, canE
   }, []);
   const risks = useMemo(() => (config ? weekendShiftRisks(config) : []), [config]);
 
-  const unidade = UNIDADES.find((u) => u.id === unitId)?.nome ?? unitId;
   return (
     <section className="editor roster-page">
       <div className="page-head">
         <div>
-          <button type="button" className="link back-link" onClick={() => void sair()}>{backLabel}</button>
-          <h1>Equipe e regras da unidade <span className="team-title">· {unidade}</span></h1>
+          {mostrarVoltar && <button type="button" className="link back-link" onClick={() => void sair()}>{backLabel}</button>}
           <p className="muted"><span className={`save ${save}`}>{save === 'salvo' ? 'Salvo' : save === 'salvando' ? 'Salvando…' : 'Erro ao salvar'}</span>{info && <> · {info}</>}</p>
         </div>
       </div>

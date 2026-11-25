@@ -124,7 +124,7 @@ export default function GeradorDeEscalas() {
               {ready && !schedule && rosterCtx && activeUnit && (
                 <RosterPage key={`${activeUnit}-${rosterCtx.tab}-${rosterCtx.focusId ?? ''}`} repo={repo} unitId={activeUnit} initialTeam={rosterCtx.team} initialTab={rosterCtx.tab}
                   focusId={rosterCtx.focusId} canEditLabor={info.mudaRegras}
-                  backLabel={rosterCtx.returnId ? 'Voltar para a escala' : 'Escalas salvas'}
+                  backLabel={rosterCtx.returnId ? 'Voltar para a escala' : 'Escalas salvas'} mostrarVoltar={!!rosterCtx.returnId}
                   onBack={async () => {
                     const id = rosterCtx.returnId;
                     setRosterCtx(null);

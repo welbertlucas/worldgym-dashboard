@@ -101,7 +101,6 @@ export function RelatorioPage({ repo, units }: { repo: ScheduleRepository; units
     <section className="relatorio">
       <div className="home-head">
         <div>
-          <h1>Relatório do mês</h1>
           <p className="muted">Horas e dias de cada pessoa, para enviar à contabilidade.</p>
         </div>
         <div className="relatorio-acoes">
