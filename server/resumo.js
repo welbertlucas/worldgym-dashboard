@@ -613,6 +613,9 @@ ${blocoAssinatura(assinatura)}
     .replace(/R\$ (?=\d)/g, () => "R$&nbsp;").replace(/(\d) (p\.p\.|pontos?\b)/g, "$1&nbsp;$2"); // valor e unidade nunca quebram de linha
 }
 
+/** Peças de estilo do resumo, para outros e-mails da marca ficarem iguais (server/comunicado.js). */
+export const ESTILO = { sans, VERMELHO, TINTA, TEXTO, SUAVE, FUNDO, CAIXA, TRACO, P, b, esc, tituloSecao, secao };
+
 // ---------- envio ----------
 /** Registro de quem já recebeu o resumo de cada dia: rodar de novo (falha parcial, disparo manual) não repete e-mail. */
 export const caminhoEnviados = (dia) => `resumo/enviados/${dia}.json`;

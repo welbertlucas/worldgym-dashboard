@@ -16,6 +16,7 @@ server/gerado/
 
 # Prévias do resumo diário (scripts/resumo-diario.mjs --previa): têm e-mails e números das unidades
 previa-resumo/
+previa-comunicado/
 
 # Instruções locais do Claude Code (o repositório é público)
 CLAUDE.md
