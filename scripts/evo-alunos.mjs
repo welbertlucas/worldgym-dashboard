@@ -122,7 +122,7 @@ async function lerUnidade([id, nome]) {
       // quem saiu nos últimos 12 meses (mesma regra dos bairros dos inativos): também só a contagem por hexágono
       const ri = contarAlunosPorHexagono(membros.filter((m) => saiuNosUltimos12Meses(resumoAluno(m).c, hoje)), tabelasCep, indiceHex);
       await trava(() => gravarJson(arquivoAlunosHex(id), { em: lidaEm, ...r, inativos: { total: ri.total, comPosicao: ri.comPosicao, celulas: ri.celulas } }));
-      console.log(nome, `mapa por CEP: ${r.comPosicao}/${r.total} alunos em ${r.celulas.length} hexágonos (${r.foraDaTabela} fora da tabela, ${r.baixaPrecisao} de CEP rural, ${r.semCep} sem CEP); inativos 12 meses: ${ri.comPosicao}/${ri.total}`);
+      console.log(nome, `mapa por CEP: ${r.comPosicao}/${r.total} alunos em ${r.celulas.length} hexágonos (${r.porPrefixo} pela região do CEP, ${r.foraDaTabela} fora da tabela, ${r.baixaPrecisao} de CEP rural, ${r.semCep} sem CEP); inativos 12 meses: ${ri.comPosicao}/${ri.total}`);
     }
   } catch (e) {
     console.log(nome, `mapa por CEP com erro: ${e.message}`); // não derruba o resto

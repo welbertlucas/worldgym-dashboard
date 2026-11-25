@@ -55,14 +55,14 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const [verNova, setVerNova] = useState(true);
   const [verParec, setVerParec] = useState(false);
   // contagem de alunos ativos por hexágono do Censo, feita pela rotina noturna a partir do CEP (só totais; some se a rotina ainda não rodou)
-  const [alunosHex, setAlunosHex] = useState<{ celulas: [number, number, number][]; total: number; comPosicao: number } | null>(null);
+  const [alunosHex, setAlunosHex] = useState<{ celulas: [number, number, number][]; total: number; comPosicao: number; porPrefixo: number } | null>(null);
   useEffect(() => {
     setAlunosHex(null);
     if (!nome) return;
     let vivo = true;
     authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "alunos-hex", unidade: nome }) })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (vivo && j && !j.ausente && Array.isArray(j.celulas) && j.celulas.length) setAlunosHex({ celulas: j.celulas, total: j.total ?? 0, comPosicao: j.comPosicao ?? 0 }); })
+      .then((j) => { if (vivo && j && !j.ausente && Array.isArray(j.celulas) && j.celulas.length) setAlunosHex({ celulas: j.celulas, total: j.total ?? 0, comPosicao: j.comPosicao ?? 0, porPrefixo: j.porPrefixo ?? 0 }); })
       .catch(() => {});
     return () => { vivo = false; };
   }, [nome]);
@@ -349,7 +349,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             : lente === "alunos" ? <>
               {calorAlunos && alunosHex ? <div className="mb-2">
                 <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteArco }} />mais alunos</div>
-                <p className="mt-1">Mapa suavizado a partir do CEP de {alunosHex.comPosicao.toLocaleString("pt-BR")} alunos ativos{alunosHex.total ? ` (${Math.round((alunosHex.comPosicao / alunosHex.total) * 100)}% da base)` : ""}. Só a contagem por região é guardada, nunca o endereço.</p>
+                <p className="mt-1">Mapa suavizado a partir do CEP de {alunosHex.comPosicao.toLocaleString("pt-BR")} alunos ativos{alunosHex.total ? ` (${Math.round((alunosHex.comPosicao / alunosHex.total) * 100)}% da base)` : ""}. Só a contagem por região é guardada, nunca o endereço.{alunosHex.porPrefixo > 0 ? ` ${alunosHex.porPrefixo.toLocaleString("pt-BR")} deles foram posicionados pela região do CEP (CEP que o IBGE não tem), com erro típico de 150 m.` : ""}</p>
               </div> : null}
               <ListaDeBairros bairros={u?.bairros ?? []} total={alunosBairro} ativos={u?.alunos ?? null} />
             </>

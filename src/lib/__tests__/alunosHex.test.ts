@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error módulo JS do servidor
-import { contarAlunosPorHexagono, hexagonoMaisPerto, indiceDeHexagonos, lerAlunosHex, normalizarCep, tabelaCepValida } from "../../../server/alunosHex.js";
+import { contarAlunosPorHexagono, hexagonoMaisPerto, indiceDeHexagonos, lerAlunosHex, normalizarCep, posicaoPorPrefixo, tabelaCepValida } from "../../../server/alunosHex.js";
 // @ts-expect-error módulo JS do servidor
 import { definirArmazem } from "../../../server/armazem.js";
 
@@ -41,6 +41,18 @@ describe("alunos por hexágono (CEP)", () => {
     expect(r).toMatchObject({ total: 12, semCep: 2, foraDaTabela: 1, baixaPrecisao: 1, semHexagono: 1, comPosicao: 7 });
     expect(r.celulas.reduce((a: number, c: number[]) => a + c[2], 0)).toBe(7);
     expect(r.celulas.every((c: number[]) => c.length === 3 && c[2] > 0)).toBe(true);
+  });
+
+  it("CEP fora da tabela vira a posição da região do CEP (prefixo), só se os CEPs vizinhos são próximos entre si", () => {
+    // 7100000x: dois CEPs a ~220 m um do outro; 7200000x: dois CEPs a ~45 km um do outro (mesmo começo de 5 dígitos, mas não é a mesma região)
+    const tab = { DF: { uf: "DF", ceps: { "71000001": [-15.8, -47.9, 40, 0.1], "71000002": [-15.802, -47.9, 30, 0.1], "72000001": [-15.8, -47.9, 10, 0.1], "72000002": [-15.5, -47.5, 10, 0.1] } } };
+    const idx = indiceDeHexagonos(celulas);
+    const p = posicaoPorPrefixo("71000009", tab); // mesmo começo (7 dígitos) de 71000001 e 71000002
+    expect(p).not.toBeNull(); expect(Math.abs(p![0] - -15.8)).toBeLessThan(0.01);
+    expect(posicaoPorPrefixo("72000009", tab)).toBeNull(); // os vizinhos estão a 45 km um do outro: não serve
+    expect(posicaoPorPrefixo("99999999", tab)).toBeNull();
+    const r = contarAlunosPorHexagono([{ zipCode: "71000009" }, { zipCode: "72000009" }], tab, idx);
+    expect(r).toMatchObject({ comPosicao: 1, porPrefixo: 1, foraDaTabela: 1 });
   });
 
   it("a leitura respeita quem pode ver a unidade", async () => {
