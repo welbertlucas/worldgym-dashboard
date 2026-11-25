@@ -33,6 +33,7 @@ import { PlanoAcaoTab } from "@/components/tabs/PlanoAcaoTab";
 import { UnitNavProvider } from "@/components/UnitLink";
 import { ABAS_SO_DONO, enderecoAtual, SUBMENUS, TODOS_OS_MENUS } from "@/components/nav";
 import { EmBreve } from "@/components/EmBreve";
+import { ObrasTab } from "@/components/tabs/ObrasTab";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
@@ -558,7 +559,7 @@ const Index = () => {
         {activeTab === "escalas" && podeVerEscalas() && <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando…</p>}><GeradorDeEscalas /></Suspense>}
         {activeTab === "estudos-de-ponto" && <EstudosPontoTab />}
 
-        {activeTab === "unidades-em-obra" && (ehDono() || podeVerObras()) && <EmBreve titulo="Unidades em obra" descricao="Acompanhamento das unidades que estão em construção." />}
+        {activeTab === "unidades-em-obra" && (ehDono() || podeVerObras()) && <ObrasTab />}
 
         {activeTab === "relatorios" && podeGerarRelatorios() && <RelatoriosTab dados={dashboardData} atualizadoEm={evoAtualizadoEm} metas={metasData} vigentes={vigentes} />}
 

@@ -37,6 +37,11 @@ export const NOVIDADES: Novidade[] = [
     texto: "O mapa mostrava uma bolha por bairro, no centro dele, e a bolha podia cair longe de onde os alunos realmente moram. Agora ele é um mapa de calor feito a partir do CEP dos alunos: as manchas mais quentes são onde moram mais alunos, para os ativos, para quem saiu nos últimos 12 meses e para os dois juntos. Só a contagem por região é guardada, nunca o endereço de ninguém. A lista dos bairros continua ao lado, e o mapa tem Street View e zoom.",
   },
   {
+    id: "2026-11-25-unidades-em-obra", data: "2026-11-25", tipo: "novo", publico: "dono", autora: AUTORA, tela: "unidades-em-obra", artigo: "dono-unidades-em-obra",
+    titulo: "Unidades em obra: do contrato do ponto à inauguração",
+    texto: "O menu Unidades em obra deixou de ser \"Em breve\". Cada unidade em construção vira um card com o percentual de marcos concluídos, o próximo marco, a inauguração prevista e um selo de atraso. Os marcos de partida são contrato do ponto, projeto, alvará, início e fim da obra, equipamentos, vistoria e inauguração; você muda, apaga e acrescenta em cada obra, com a data prevista e a data real. No alto, quatro números: em obra, atrasadas, inauguram em 90 dias e já inauguradas.",
+  },
+  {
     id: "2026-11-25-franqueadora", data: "2026-11-25", tipo: "melhoria", publico: "franqueadora", autora: AUTORA, tela: "franqueadora", artigo: "franqueadora-o-que-e",
     titulo: "Franqueadora: Royalties e Jurídico num menu só",
     texto: "Royalties e Jurídico eram dois menus lado a lado, e os dois tratam da relação da marca com as unidades. Agora existe o menu Franqueadora, e os dois viraram abas dele: Royalties, com os recebimentos da marca, e Jurídico, com os processos da rede. Cada pessoa vê só as abas que já tinha liberadas. O conteúdo é o mesmo de antes, e os links salvos de Royalties e de Jurídico continuam abrindo a aba certa.",

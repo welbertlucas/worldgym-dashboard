@@ -74,7 +74,7 @@ export function ImportarImoveis({ dados, pontos, criar, fechar }: { dados: Dados
   const semPosicao = linhas.filter((l) => !l.c).length;
   return (
     <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Importar imóveis">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-border bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-3">
           <div><h3 className="font-display text-xl font-medium">Importar imóveis</h3><p className="text-sm text-muted-foreground">Planilha em CSV com um imóvel por linha. Cada um vira um estudo com o parecer na lista.</p></div>
           <Button variant="ghost" onClick={fechar}>Fechar</Button>

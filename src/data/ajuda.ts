@@ -267,6 +267,12 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Você pode liberar um Master para gerenciar acessos, liberar o menu Relatórios (Pode gerar relatórios) para qualquer Master ou gestor de unidades e ligar ou desligar o resumo diário de cada pessoa.",
     "Clique no nome de um usuário para ver o último acesso e as telas que ele abriu.",
   ], { tela: "acessos", atualizadoEm: "2026-11-17" }),
+  a("dono", "dono-unidades-em-obra", "Unidades em obra: como cadastrar e acompanhar", "Marcos, atrasos e quem pode ver.", [
+    "O menu Unidades em obra acompanha as unidades em construção até a inauguração. Só você cadastra e muda as obras; quem você liberar em Usuários (Pode ver unidades em obra) consulta.",
+    "Nova obra: informe a unidade, a cidade, o modelo, a área e o responsável. A obra já nasce com oito marcos: contrato do ponto assinado, projeto aprovado, alvará, início da obra, fim da obra, equipamentos instalados, vistoria da franqueadora e inauguração. Dá para renomear, apagar e acrescentar marcos, e a ordem da lista é a ordem da obra.",
+    "Cada marco tem a data prevista e, quando acontece, a data real (o botão Hoje preenche a de hoje). A obra fica Atrasada quando algum marco passou da data prevista sem data real; sem data prevista, o marco não conta como atraso. A inauguração prevista é a data do último marco.",
+    "No alto da tela: obras em andamento, atrasadas, as que inauguram em até 90 dias e as já inauguradas. Os cards mostram as atrasadas primeiro. As obras ficam guardadas só no Atlas, com acesso protegido.",
+  ], { tela: "unidades-em-obra", atualizadoEm: "2026-11-25" }),
   a("dono", "dono-royalties", "Royalties: quem vê e como atualiza", "O menu é seu, de todo Master e de quem você liberar.", [
     "A aba Royalties, no menu Franqueadora, aparece para você e para todo Master. Quem tem acesso só a unidades não vê, a não ser que você marque Pode ver royalties no acesso dele, em Usuários. Só você dá ou tira essa liberação: um Master que gerencia acessos não consegue. Em Ver como acesso de unidades, o menu some, como sumiria para a pessoa.",
     "Os dados vêm da planilha de controle dos recebimentos da marca e são atualizados todo dia de manhã. Se a leitura da planilha falhar ou as conferências não fecharem, o menu continua com a última versão boa e avisa no topo.",

@@ -349,7 +349,7 @@ function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSa
       {podeLiberar && (
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={obras} onChange={(e) => setObras(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-          <span>Pode ver unidades em obra <span className="block text-xs text-muted-foreground">Mostra o menu Unidades em obra, que ainda está "Em breve". Só o dono vê sem esta liberação.</span></span>
+          <span>Pode ver unidades em obra <span className="block text-xs text-muted-foreground">Mostra o menu Unidades em obra, para consultar as obras. Só o dono cadastra e muda; sem esta liberação, só o dono vê.</span></span>
         </label>
       )}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
