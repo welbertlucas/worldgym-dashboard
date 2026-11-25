@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import type { UnitData } from "@/data/dashboardData";
 import { somarBairros, type MapaDados, type Pino } from "@/data/mapaAlunos";
-import { CREDITO_DO_MAPA, URL_SAT, aplicarFundo, camadaRuas, carregarLeaflet, fraseDosBairros, gradienteArco, pino as pinoDoMapa, raioDaBolha, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, URL_SAT, camadaRuas, carregarLeaflet, fraseDosBairros, gradienteArco, pino as pinoDoMapa, raioDaBolha, type Leaflet } from "@/components/estudos/mapaComum";
 import { BarraMapa } from "@/components/estudos/controlesMapa";
 import { StreetView } from "@/components/estudos/StreetView";
 import { desenharDemanda } from "@/components/estudos/camadasCenso";
@@ -16,44 +16,55 @@ const fmt = (n: number) => n.toLocaleString("pt-BR");
 export { raioDaBolha };
 
 type Calor = { censo: Censo; indices: number[]; pesos: number[]; comPosicao: number; total: number };
+type Calores = { ativos: Calor | null; inativos: Calor | null; todos: Calor | null };
+type HexDaUnidade = { celulas: [number, number, number][]; total?: number; comPosicao?: number; inativos?: { celulas: [number, number, number][]; total?: number; comPosicao?: number } };
 
 let censoEmCache: Promise<Censo | null> | null = null;
 const lerCenso = () => (censoEmCache ??= authFetch(`${API_BASE}/estudos`).then((r) => (r.ok ? r.json() : null)).then((j) => (j?.censo?.celulas?.length ? (j.censo as Censo) : null)).catch(() => { censoEmCache = null; return null; }));
-const lerHex = (unidade: string): Promise<{ celulas: [number, number, number][]; total?: number; comPosicao?: number } | null> =>
+const lerHex = (unidade: string): Promise<HexDaUnidade | null> =>
   authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "alunos-hex", unidade }) })
     .then((r) => (r.ok ? r.json() : null)).then((j) => (j && !j.ausente && Array.isArray(j.celulas) && j.celulas.length ? j : null)).catch(() => null);
 
 /**
- * Mapa de calor dos alunos ativos pelo CEP (mesma conta da camada "Base de clientes" dos Estudos de ponto): a contagem por hexágono do Censo de cada
- * unidade é suavizada em volta da unidade e, na rede, somada. Só contagens; sem a rotina noturna (ou sem acesso) devolve null e o mapa fica em bolhas.
+ * Mapas de calor dos alunos pelo CEP (mesma conta da camada "Base de clientes" dos Estudos de ponto): a contagem por hexágono do Censo de cada
+ * unidade é suavizada em volta da unidade e, na rede, somada. Vale para ativos, para quem saiu nos últimos 12 meses e para os dois juntos. Só contagens;
+ * sem a rotina noturna (ou sem acesso) o modo fica null e o mapa cai para bolhas por bairro.
  */
-function useCalorAlunos(pinos: Pino[]): Calor | null {
-  const [calor, setCalor] = useState<Calor | null>(null);
+function useCalorAlunos(pinos: Pino[]): Calores {
+  const [calores, setCalores] = useState<Calores>({ ativos: null, inativos: null, todos: null });
   const chave = pinos.map((p) => p.nome).join("|");
   useEffect(() => {
-    setCalor(null);
+    setCalores({ ativos: null, inativos: null, todos: null });
     if (!pinos.length) return;
     let vivo = true;
     Promise.all([lerCenso(), ...pinos.map((p) => lerHex(p.nome))]).then(([censo, ...hex]) => {
       if (!vivo || !censo) return;
       const porPosicao = new Map<string, number>();
       censo.celulas.forEach((c, i) => porPosicao.set(`${c[0]},${c[1]}`, i));
-      const soma = new Map<number, number>();
-      let comPosicao = 0, total = 0;
-      hex.forEach((h, k) => {
-        if (!h) return;
-        const indices: number[] = [], pesos: number[] = [];
-        for (const [la, ln, n] of h.celulas) { const i = porPosicao.get(`${la},${ln}`); if (i !== undefined) { indices.push(i); pesos.push(n); } }
-        if (!indices.length) return;
-        comPosicao += h.comPosicao ?? 0; total += h.total ?? 0;
-        const sm = suavizarContagem(censo, indices, pesos, pinos[k].pos);
-        sm.indices.forEach((i, j) => soma.set(i, (soma.get(i) ?? 0) + sm.pesos[j]));
-      });
-      if (soma.size) setCalor({ censo, indices: [...soma.keys()], pesos: [...soma.values()], comPosicao, total });
+      const monta = (pegar: (h: HexDaUnidade) => { celulas: [number, number, number][]; total?: number; comPosicao?: number } | undefined): { soma: Map<number, number>; comPosicao: number; total: number } => {
+        const soma = new Map<number, number>();
+        let comPosicao = 0, total = 0;
+        hex.forEach((h, k) => {
+          const d = h && pegar(h);
+          if (!d?.celulas?.length) return;
+          const indices: number[] = [], pesos: number[] = [];
+          for (const [la, ln, n] of d.celulas) { const i = porPosicao.get(`${la},${ln}`); if (i !== undefined) { indices.push(i); pesos.push(n); } }
+          if (!indices.length) return;
+          comPosicao += d.comPosicao ?? 0; total += d.total ?? 0;
+          const sm = suavizarContagem(censo, indices, pesos, pinos[k].pos);
+          sm.indices.forEach((i, j) => soma.set(i, (soma.get(i) ?? 0) + sm.pesos[j]));
+        });
+        return { soma, comPosicao, total };
+      };
+      const a = monta((h) => h), i = monta((h) => h.inativos);
+      const todos = new Map(a.soma);
+      i.soma.forEach((v, k) => todos.set(k, (todos.get(k) ?? 0) + v));
+      const calor = (m: { soma: Map<number, number>; comPosicao: number; total: number }): Calor | null => (m.soma.size ? { censo, indices: [...m.soma.keys()], pesos: [...m.soma.values()], comPosicao: m.comPosicao, total: m.total } : null);
+      setCalores({ ativos: calor(a), inativos: calor(i), todos: calor({ soma: todos, comPosicao: a.comPosicao + i.comPosicao, total: a.total + i.total }) });
     });
     return () => { vivo = false; };
   }, [chave]); // eslint-disable-line react-hooks/exhaustive-deps
-  return calor;
+  return calores;
 }
 
 /**
@@ -65,7 +76,6 @@ function Mapa({ bairros, pinos, inativos, calor }: { bairros: Bairro[]; pinos: P
   const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; grupo: import("leaflet").LayerGroup; calor: import("leaflet").LayerGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
   const [pronto, setPronto] = useState(false);
   const [zoom, setZoom] = useState(9);
-  const [fundo, setFundo] = useState<Fundo>("padrao");
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   useEffect(() => {
@@ -84,7 +94,6 @@ function Mapa({ bairros, pinos, inativos, calor }: { bairros: Bairro[]; pinos: P
     if (el.current) obs?.observe(el.current);
     return () => { vivo = false; obs?.disconnect(); ref.current?.mapa.remove(); ref.current = null; setPronto(false); };
   }, []);
-  useEffect(() => { if (ref.current) aplicarFundo(ref.current, fundo); }, [fundo, pronto]);
   useEffect(() => {
     const m = ref.current;
     if (!m) return;
@@ -134,7 +143,7 @@ function Mapa({ bairros, pinos, inativos, calor }: { bairros: Bairro[]; pinos: P
       <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
       <div ref={el} role="img" aria-label="Mapa de onde moram os alunos ativos; as cores mostram a concentração de alunos" className="absolute inset-0" />
       {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
-      <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />
+      <BarraMapa simples mapa={pronto ? ref.current?.mapa ?? null : null} fundo="padrao" setFundo={() => {}} verRua={verRua} setVerRua={setVerRua} />
       {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
     </div>
   );
@@ -150,8 +159,7 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
   const [todos, setTodos] = useState(false);
   const [modo, setModo] = useState<Modo>("ativos");
   const { pinos } = dados;
-  const calorTodos = useCalorAlunos(pinos);
-  const calor = modo === "ativos" ? calorTodos : null; // inativos e todos só existem por bairro
+  const calor = useCalorAlunos(pinos)[modo]; // sem a contagem por CEP do modo, o mapa fica em bolhas por bairro
   const bairros = modo === "ativos" ? dados.bairros : modo === "inativos" ? dados.inativos : somarBairros([dados.bairros, dados.inativos]);
   const semBairro = modo === "ativos" ? dados.semBairro : modo === "inativos" ? dados.semBairroInativos : dados.semBairro + dados.semBairroInativos;
   const subtitle = <>{unit} • {ROTULO_ALUNOS[modo]}</>;
@@ -193,7 +201,7 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
           <Mapa key={modo} bairros={bairros} pinos={pinos} inativos={modo === "inativos"} calor={calor} />
           {calor && <div className="mt-2 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-2">poucos<span className="h-1.5 w-40 rounded" style={{ background: gradienteArco }} />muitos alunos</div>
-            <p className="mt-1">Mapa suavizado a partir do CEP de {fmt(calor.comPosicao)} alunos ativos{calor.total ? ` (${Math.round((calor.comPosicao / calor.total) * 100)}% da base)` : ""}. Só a contagem por região é guardada, nunca o endereço.</p>
+            <p className="mt-1">Mapa suavizado a partir do CEP de {fmt(calor.comPosicao)} {ROTULO_ALUNOS[modo]}{calor.total ? ` (${Math.round((calor.comPosicao / calor.total) * 100)}% da base)` : ""}. Só a contagem por região é guardada, nunca o endereço.</p>
           </div>}
         </div>
         {ranking && (

@@ -104,8 +104,9 @@ export function PainelCamadas({ itens, atual, escolher, legenda, topo = "top-3",
 const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km` : `${Math.round(m)} m`);
 
 /** Barra horizontal embaixo à direita: miniatura que troca mapa/satélite e barra com Street View, + zoom −. */
-export function BarraMapa({ mapa, fundo, setFundo, verRua, setVerRua }: {
-  mapa: import("leaflet").Map | null; fundo: Fundo; setFundo: (f: Fundo) => void; verRua: boolean; setVerRua: (f: (v: boolean) => boolean) => void;
+/** `simples`: só Street View e zoom (sem troca de fundo nem régua), para telas que mostram um mapa só. */
+export function BarraMapa({ mapa, fundo, setFundo, verRua, setVerRua, simples = false }: {
+  mapa: import("leaflet").Map | null; fundo: Fundo; setFundo: (f: Fundo) => void; verRua: boolean; setVerRua: (f: (v: boolean) => boolean) => void; simples?: boolean;
 }) {
   const [escolhendo, setEscolhendo] = useState(false);
   const [zoom, setZoom] = useState(() => Math.round(mapa?.getZoom() ?? 13));
@@ -169,7 +170,7 @@ export function BarraMapa({ mapa, fundo, setFundo, verRua, setVerRua }: {
           {distancia > 0 ? <>Distância: <b className="tabular-nums">{fmtDist(distancia)}</b> · clique para continuar</> : "Clique no mapa para começar a medir"}
         </div>
       )}
-      <div className="relative flex items-end gap-1.5" onMouseLeave={() => setEscolhendo(false)}>
+      {!simples && <div className="relative flex items-end gap-1.5" onMouseLeave={() => setEscolhendo(false)}>
         {escolhendo && FUNDOS.filter((f) => f.id !== fundo).map((f) => (
           <button key={f.id} type="button" onClick={() => { setFundo(f.id); setEscolhendo(false); }} title={`Fundo: ${f.rotulo}`}
             className="relative h-12 w-16 overflow-hidden rounded-xl border-[3px] border-white bg-muted shadow-lg">
@@ -182,12 +183,12 @@ export function BarraMapa({ mapa, fundo, setFundo, verRua, setVerRua }: {
           <img src={azulejo(atual.url)} alt="" aria-hidden className={`absolute inset-0 h-full w-full scale-125 object-cover ${atual.cinza ? "grayscale" : ""}`} />
           <span className="absolute inset-x-0 bottom-0 bg-black/55 text-center text-[10px] font-medium leading-4 text-white">{atual.rotulo}</span>
         </button>
-      </div>
+      </div>}
       <div className="flex h-12 items-center rounded-xl bg-white px-1 shadow-lg">
-        <button type="button" aria-pressed={medindo} onClick={() => { setMedindo((m) => !m); setVerRua(() => false); }} title={medindo ? "Desligar a régua (apaga a medida)" : "Régua: clique no mapa para medir a distância"}
+        {!simples && <button type="button" aria-pressed={medindo} onClick={() => { setMedindo((m) => !m); setVerRua(() => false); }} title={medindo ? "Desligar a régua (apaga a medida)" : "Régua: clique no mapa para medir a distância"}
           className="grid h-10 w-10 place-items-center rounded-lg aria-pressed:bg-foreground aria-pressed:text-background">
           <Ruler className="h-5 w-5" aria-hidden /><span className="sr-only">Régua</span>
-        </button>
+        </button>}
         <button type="button" aria-pressed={verRua} onClick={() => { setMedindo(false); setVerRua((v) => !v); }} title="Ver a rua (Street View)" className="grid h-10 w-10 place-items-center rounded-lg aria-pressed:bg-foreground aria-pressed:text-background">
           <IconeBoneco /><span className="sr-only">Ver a rua</span>
         </button>

@@ -485,6 +485,25 @@ export function acertoDoModelo(pontos: Ponto[], unidades: UnidadeEstudo[]) {
 }
 
 /**
+ * Zonas de captação (primária, secundária, terciária) pela contagem real de alunos por hexágono: ordena os hexágonos pela distância em linha reta até
+ * a unidade e acha o menor raio que reúne cada fatia dos alunos (padrão 70%, 90% e 98%). Devolve os raios em km, a parte dos alunos dentro de cada
+ * um (um pouco acima do corte, porque o hexágono não se divide) e o total contado. Sem alunos, null.
+ */
+export function zonasDeCaptacao(celulas: [number, number, number][], c: [number, number], cortes = [0.7, 0.9, 0.98]): { raios: number[]; partes: number[]; total: number } | null {
+  const v = celulas.filter((x) => x[2] > 0).map((x) => ({ d: km(c, [x[0], x[1]]), n: x[2] })).sort((a, b) => a.d - b.d);
+  const total = v.reduce((a, b) => a + b.n, 0);
+  if (!total) return null;
+  const raios: number[] = [], partes: number[] = [];
+  let acum = 0, k = 0;
+  for (const x of v) {
+    acum += x.n;
+    while (k < cortes.length && acum / total >= cortes[k]) { raios.push(x.d); partes.push(acum / total); k++; }
+    if (k >= cortes.length) break;
+  }
+  return { raios, partes, total };
+}
+
+/**
  * Lacuna de captação: onde o modelo espera mais alunos do que a unidade tem. As duas medidas têm escalas diferentes (alunos esperados pela conta do
  * modelo, alunos reais pela contagem do CEP), então cada uma vira a parte que o hexágono tem do total dentro da área e a lacuna é a diferença
  * (esperado - real), só onde é positiva. Devolve no formato de `desenharDemanda`. Sem alunos ou sem demanda na área, não há lacuna.

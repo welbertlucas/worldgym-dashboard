@@ -13,7 +13,7 @@ import { ativoNoDia, ativosDaUnidade, resumoAluno, UNIDADES } from "../server/at
 import { inadimplenciaPorPerfil, lerPagadores } from "../server/inadPerfil.js";
 import { titulosDeSaldo } from "../server/saldo.js";
 import { anotarOrigem, salvarMapa } from "../server/origem.js";
-import { aplicarBairros, fotoDosAlunos } from "../server/bairros.js";
+import { aplicarBairros, fotoDosAlunos, saiuNosUltimos12Meses } from "../server/bairros.js";
 import { arquivoAlunosHex, contarAlunosPorHexagono, indiceDeHexagonos, lerTabelasCep } from "../server/alunosHex.js";
 import { gravarJson, lerJson } from "../server/armazem.js";
 import { ARQUIVO_CENSO } from "../server/estudos.js";
@@ -119,8 +119,10 @@ async function lerUnidade([id, nome]) {
     if (indiceHex) {
       // só contagens por hexágono; nenhum CEP, nome ou endereço de aluno é guardado nem impresso
       const r = contarAlunosPorHexagono(membros.filter((m) => ativoNoDia(resumoAluno(m).c, hoje)), tabelasCep, indiceHex);
-      await trava(() => gravarJson(arquivoAlunosHex(id), { em: lidaEm, ...r }));
-      console.log(nome, `mapa por CEP: ${r.comPosicao}/${r.total} alunos em ${r.celulas.length} hexágonos (${r.foraDaTabela} fora da tabela, ${r.baixaPrecisao} de CEP rural, ${r.semCep} sem CEP)`);
+      // quem saiu nos últimos 12 meses (mesma regra dos bairros dos inativos): também só a contagem por hexágono
+      const ri = contarAlunosPorHexagono(membros.filter((m) => saiuNosUltimos12Meses(resumoAluno(m).c, hoje)), tabelasCep, indiceHex);
+      await trava(() => gravarJson(arquivoAlunosHex(id), { em: lidaEm, ...r, inativos: { total: ri.total, comPosicao: ri.comPosicao, celulas: ri.celulas } }));
+      console.log(nome, `mapa por CEP: ${r.comPosicao}/${r.total} alunos em ${r.celulas.length} hexágonos (${r.foraDaTabela} fora da tabela, ${r.baixaPrecisao} de CEP rural, ${r.semCep} sem CEP); inativos 12 meses: ${ri.comPosicao}/${ri.total}`);
     }
   } catch (e) {
     console.log(nome, `mapa por CEP com erro: ${e.message}`); // não derruba o resto
