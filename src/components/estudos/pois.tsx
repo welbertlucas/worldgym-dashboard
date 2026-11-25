@@ -54,7 +54,7 @@ export const COR_REDE: Record<string, [string, string]> = {
   "Smart Fit": ["#ffc20e", "#111111"], Bluefit: ["#0a4da2", "#ffffff"], Selfit: ["#f26522", "#ffffff"], Panobianco: ["#111111", "#ffd100"],
   Bodytech: ["#111111", "#ffffff"], "Bio Ritmo": ["#e30613", "#ffffff"], Skyfit: ["#00a3e0", "#ffffff"], Pratique: ["#e4002b", "#ffffff"],
   "Contorno do Corpo": ["#7b2d8e", "#ffffff"], Justfit: ["#00a651", "#ffffff"], "i9 Fit": ["#5b2c83", "#ffffff"], "World Gym": ["#c41230", "#ffffff"],
-  Evolve: ["#1d1d1b", "#e8b100"], "Corpo e Saúde": ["#0b6e4f", "#ffffff"], Ultra: ["#1f3a93", "#ffffff"],
+  Evolve: ["#1d1d1b", "#e8b100"], "Corpo e Saúde": ["#d71920", "#ffffff"], Ultra: ["#1f3a93", "#ffffff"],
 };
 const corRede = (rede: string | null) => (rede ? COR_REDE[rede] ?? ["#1b2130", "#ffffff"] : null);
 const curto = (s: string) => (s.length > 24 ? `${s.slice(0, 23)}…` : s);
