@@ -286,6 +286,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         sat: await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => foto("limpa", { centro: u.c as [number, number], zoom: z }, true)),
         alunos: calorAlunos ? await foto("alunos", { limites: areaAlunos }) : null, // sem a contagem por CEP a camada só lista bairros: sem foto no PDF
         oportunidade: lacuna ? await foto("oportunidade", { limites: areaAlunos }) : null,
+        zonas: zonas ? await foto("zonas", { limites: m.L.latLng(u.c as [number, number]).toBounds(zonas.lista[1].r * 1000 * 2 * 1.3) }) : null, // enquadra até a zona secundária; a terciária sai pela borda
         idade: temIdade ? await foto("idade", { limites: areaLim }) : null,
         domicilios: temDom ? await foto("domicilios", { limites: areaLim }) : null,
         renda: dados.censo ? await foto("renda", { limites: areaLim }) : null,
@@ -312,7 +313,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         u, faixa: dados.vendasPorM2?.[u.modelo] ?? null, porM2, comparado, minutos: MINUTOS_PADRAO, temArea: !!area10,
         parteNaArea: parte10, min80, onde80, topBairros: [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8), alunosBairro,
         proximas: u.c ? unidadesMaisProximas(u.c, dados.unidades ?? [], 3, u.nome) : [],
-        esperadoNaArea, perfil, renda, novaUnidade, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
+        esperadoNaArea, perfil, renda, novaUnidade, zonas: zonas ? { lista: zonas.lista, na10: zonas.na10, total: zonas.total } : null, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
       }), fotosRua));
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };

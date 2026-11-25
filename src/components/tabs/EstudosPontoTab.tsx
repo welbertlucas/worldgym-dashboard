@@ -612,6 +612,12 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
               </details>
             </Secao>
             <Secao icone={Building2} titulo="O imóvel">
+              {atual.origem && <div className="mb-3 rounded-lg border bg-muted/40 px-3 py-2 text-[12px]">
+                <p className="mb-1 font-medium text-foreground">Dados do anúncio (da planilha importada)</p>
+                {atual.origem.aluguel ? <p>Aluguel: <b className="tabular-nums">{reais(atual.origem.aluguel)}</b> por mês{atual.m2 ? ` · R$ ${(atual.origem.aluguel / atual.m2).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m²` : ""}</p> : null}
+                {atual.origem.link && /^https?:\/\//i.test(atual.origem.link) ? <p><a href={atual.origem.link} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">Abrir o anúncio</a></p> : null}
+                {atual.origem.obs ? <p className="text-muted-foreground">{atual.origem.obs}</p> : null}
+              </div>}
               <div className="flex flex-wrap gap-1.5">
                 {ITENS.map((it) => (
                   <Pilula key={it.k} ativo={atual.imovel[it.k]} onClick={() => mudar(atual.id, { imovel: { ...atual.imovel, [it.k]: !atual.imovel[it.k] } })}>{it.rotulo}</Pilula>

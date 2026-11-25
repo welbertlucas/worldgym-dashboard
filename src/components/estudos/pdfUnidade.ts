@@ -33,7 +33,9 @@ export interface DadosPdfUnidade {
   divideCom: { nome: string; parte: number }[];
   /** As outras World Gym mais próximas desta unidade (km em linha reta). */
   proximas?: { nome: string; km: number }[];
-  fotos: { sat: string | null; alunos: string | null; oportunidade: string | null; idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; nova?: string | null; pois: string | null; rede: string | null };
+  /** Zonas de captação (70/90/98% dos alunos pelo CEP): raio em km, parte acumulada dos alunos, alunos e moradores dentro do raio. */
+  zonas?: { lista: { r: number; parte: number; alunos: number; moradores: number }[]; na10: number | null; total: number } | null;
+  fotos: { sat: string | null; alunos: string | null; oportunidade: string | null; zonas?: string | null; idade: string | null; domicilios: string | null; renda: string | null; consumo: string | null; nova?: string | null; pois: string | null; rede: string | null };
   hoje?: Date;
 }
 
@@ -232,7 +234,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
     if (d.parteNaArea != null) texto.push(`${pct(d.parteNaArea, 0)} da base mora ${area} e 80% dos alunos moram a até ${d.onde80}. ${d.parteNaArea >= 0.8 ? "A área de 10 minutos explica quase toda a base: é nela que se concentram as ações de marketing e as parcerias." : "Uma parte relevante da base vem de fora da área de 10 minutos: vale entender o que atrai esses alunos (trabalho, estudo ou trajeto) e reforçar esse canal."}`);
     secoes.push({
       titulo: "Base de Clientes Ativos", novaPagina: true, linhas: [], texto,
-      ...(d.fotos.alunos ? { foto: { dados: d.fotos.alunos, legenda: "Alunos por bairro." }, altFoto: ALT_FOTO_MAPA } : {}),      grafico: d.parteNaArea != null ? { tipo: "rosca", fatias: [{ rotulo: `Moram ${area}`, valor: d.parteNaArea, cor: "#1e3a8a" }, { rotulo: "Moram fora da área", valor: 1 - d.parteNaArea, cor: "#d6d9e0" }], centro: pct(d.parteNaArea, 0), rotuloCentro: "na área" } : undefined,
+      ...(d.fotos.alunos ? { foto: { dados: d.fotos.alunos, legenda: "Concentração de alunos ativos pelo CEP (mais forte = mais alunos)." }, altFoto: ALT_FOTO_MAPA } : {}),      grafico: d.parteNaArea != null ? { tipo: "rosca", fatias: [{ rotulo: `Moram ${area}`, valor: d.parteNaArea, cor: "#1e3a8a" }, { rotulo: "Moram fora da área", valor: 1 - d.parteNaArea, cor: "#d6d9e0" }], centro: pct(d.parteNaArea, 0), rotuloCentro: "na área" } : undefined,
       tabela: { colunas: ["Bairro", "Alunos", "%"], larguras: [2.4, 0.8, 0.6], blocos: 2, linhas: d.topBairros.map(([b, , , n]) => [b, num(n), pct(n / Math.max(1, d.alunosBairro), 0)]) },
     });
   }
@@ -241,7 +243,19 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
   if (d.fotos.oportunidade) {
     const texto = [`O mapa compara duas medidas, cada uma como a parte que o local tem do total da área: onde o modelo da rede espera alunos (moradores, distância até a unidade e outras World Gym por perto) e onde os alunos ativos moram de verdade (CEP do cadastro). Em magenta fica a lacuna, onde o esperado é maior que o real: são as prioridades para panfletagem, parcerias com empresas e mídia geolocalizada. Sem cor, a unidade já capta o esperado.`];
     if (d.esperadoNaArea != null && d.parteNaArea != null) texto.push(`Pelo modelo, ${pct(d.esperadoNaArea, 0)} dos alunos deveriam morar ${area}; na prática são ${pct(d.parteNaArea, 0)}. ${d.parteNaArea < d.esperadoNaArea - 0.05 ? "A unidade capta abaixo do esperado no entorno imediato: o maior potencial de crescimento está perto da porta, e não em bairros distantes." : d.parteNaArea > d.esperadoNaArea + 0.05 ? "A unidade já domina o entorno imediato: o crescimento passa por atrair público de fora da área (trajeto casa-trabalho, empresas e faculdades)." : "A captação no entorno está em linha com o esperado; o ganho vem de aumentar a participação nos bairros com mais moradores."}`);
-    secoes.push({ titulo: "Lacuna de Captação", novaPagina: true, linhas: [], texto, foto: { dados: d.fotos.oportunidade, legenda: "Magenta: onde o modelo espera mais alunos do que a unidade tem (mais forte = maior lacuna). Sem cor: a unidade já capta o esperado." } });
+    secoes.push({ titulo: "Lacuna de Captação", novaPagina: true, linhas: [], texto, foto: { dados: d.fotos.oportunidade, legenda: "Magenta: onde o modelo espera mais alunos do que a unidade tem (mais forte = maior lacuna). Anéis tracejados: zona primária (vermelho) e secundária (laranja). Sem cor: a unidade já capta o esperado." } });
+  }
+
+  // ---------- Zonas de captação ----------
+  if (d.fotos.zonas && d.zonas && d.zonas.lista.length >= 3) {
+    const [z1, z2, z3] = d.zonas.lista, km1 = (v: number) => `${dec(v, 1)} km`;
+    const texto = [`As zonas mostram até onde a unidade chega, pela contagem real de alunos ativos por CEP (${num(d.zonas.total)} alunos com CEP localizado). Cada zona é o menor círculo, em linha reta, que reúne uma fatia dos alunos: 70% na primária, 90% na secundária e 98% na terciária.`];
+    texto.push(`${pct(z1.parte, 0)} dos alunos moram a até ${km1(z1.r)} da unidade (zona primária) e ${pct(z2.parte, 0)} a até ${km1(z2.r)}; os últimos alunos, até ${pct(z3.parte, 0)}, ficam em um raio de ${km1(z3.r)}.${d.zonas.na10 != null ? ` A área de 10 minutos de carro reúne ${pct(d.zonas.na10, 0)} dos alunos.` : ""} Dentro da zona primária a unidade já tem ${pct(z1.moradores ? z1.alunos / z1.moradores : null, 1)} dos moradores como alunos; entre a primária e a secundária a presença cai, e é aí que a captação tem mais espaço para crescer.`);
+    secoes.push({
+      titulo: "Zonas de Captação", novaPagina: true, linhas: [], texto,
+      foto: { dados: d.fotos.zonas, legenda: "Círculos em linha reta: primária (vermelho), secundária (laranja) e terciária (amarelo)." },
+      tabela: { colunas: ["Zona", "Distância", "% dos alunos", "Moradores no raio", "Alunos entre os moradores"], larguras: [1.1, 1.3, 1.1, 1.4, 1.6], linhas: d.zonas.lista.map((z, i) => [["Primária", "Secundária", "Terciária"][i] ?? "", i === 0 ? `até ${km1(z.r)}` : `${km1(d.zonas!.lista[i - 1].r)} a ${km1(z.r)}`, pct(z.parte - (d.zonas!.lista[i - 1]?.parte ?? 0), 0), num(z.moradores), pct(z.moradores ? z.alunos / z.moradores : null, 1)]) },
+    });
   }
 
   const mercadoU = separarConcorrencia(secoesDeMercado({ tipo: "unidade", nome: u.nome, area, vendas: u.vendas, alunosNaArea, perfil, renda, potencial: d.potencial, densidade: d.densidade, pois: d.pois, fotos: d.fotos }));
