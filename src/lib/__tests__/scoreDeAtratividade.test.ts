@@ -27,10 +27,20 @@ describe("scoreDeAtratividade", () => {
     expect(sem.score[4]).toBeGreaterThan(0);
   });
   it("os pesos mandam: só 'moradores' ordena pelos moradores; peso zero em tudo não gera score", () => {
-    const so = scoreDeAtratividade(censo, todos, { moradores: 100, alvo: 0, consumo: 0, comercio: 0, livre: 0 }, [], 2)!;
+    const so = scoreDeAtratividade(censo, todos, { moradores: 100, alvo: 0, consumo: 0, comercio: 0, livre: 0, concorrencia: 0 }, [], 2)!;
     expect(so.usadas).toEqual([{ id: "moradores", peso: 1 }]);
     expect([...so.score]).toEqual([...so.score].sort((a, b) => a - b)); // cresce com os moradores
-    expect(scoreDeAtratividade(censo, todos, { moradores: 0, alvo: 0, consumo: 0, comercio: 0, livre: 0 }, [], 2)).toBeNull();
+    expect(scoreDeAtratividade(censo, todos, { moradores: 0, alvo: 0, consumo: 0, comercio: 0, livre: 0, concorrencia: 0 }, [], 2)).toBeNull();
+  });
+  it("academias concorrentes em cima de um hexágono derrubam a nota dele; sem a busca, a variável sai", () => {
+    const sem = scoreDeAtratividade(censo, todos, PESOS_ATRATIVIDADE_PADRAO, [], 2)!;
+    expect(sem.usadas.some((u) => u.id === "concorrencia")).toBe(false);
+    const com = scoreDeAtratividade(censo, todos, PESOS_ATRATIVIDADE_PADRAO, [], 2, null, [[-15.8, -47.9 + 4 * 0.0092], [-15.8, -47.9 + 4 * 0.0092]])!; // duas academias no melhor hexágono
+    expect(com.usadas.some((u) => u.id === "concorrencia")).toBe(true);
+    expect(com.usadas.reduce((a, u) => a + u.peso, 0)).toBeCloseTo(1, 6);
+    const lacre = scoreDeAtratividade(censo, todos, { moradores: 0, alvo: 0, consumo: 0, comercio: 0, livre: 0, concorrencia: 100 }, [], 2, null, [[-15.8, -47.9 + 4 * 0.0092]])!;
+    expect(lacre.score[4]).toBeLessThan(lacre.score[0]); // só concorrência: o hexágono cheio de academia fica pior que o vazio
+    expect(scoreDeAtratividade(censo, todos, PESOS_ATRATIVIDADE_PADRAO, [], 2, null, [])!.usadas.some((u) => u.id === "concorrencia")).toBe(false); // busca sem resultado não é dado
   });
   it("devolve a nota do ponto e a parte da área que ele supera", () => {
     const r = scoreDeAtratividade(censo, todos, PESOS_ATRATIVIDADE_PADRAO, [], 2, [-15.8, -47.9 + 4 * 0.0092])!;

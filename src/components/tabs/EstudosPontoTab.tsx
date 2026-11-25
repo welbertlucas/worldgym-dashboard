@@ -17,6 +17,7 @@ import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { montarPdfPonto } from "@/components/estudos/pdfPonto";
 import { MapaRede } from "@/components/estudos/MapaRede";
 import { MapaUnidade } from "@/components/estudos/MapaUnidade";
+import { classificarConcorrentes } from "@/components/estudos/pdfUnidade";
 import { LegendaAtratividade, LegendaCenso, RoscaComLegenda, desenharAtratividade, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
@@ -126,8 +127,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const area10 = areaOficial(areas);
   // score de atratividade dos hexágonos da área do ponto aberto (só calculado com a lente ligada)
   const atratividade = useMemo(() => (lente === "atratividade" && atual && dados.censo && dados.premissas?.curva
-    ? scoreDeAtratividade(dados.censo, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5), pesosAtr, dados.unidades ?? [], dados.premissas.curva.meiaDistanciaKm, atual.c) : null),
-  [lente, atual?.id, atual?.c, area10, pesosAtr, dados.censo]); // eslint-disable-line react-hooks/exhaustive-deps
+    ? scoreDeAtratividade(dados.censo, (la, ln) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], atual.c) < 5), pesosAtr, dados.unidades ?? [], dados.premissas.curva.meiaDistanciaKm, atual.c,
+      (() => { const cc = classificarConcorrentes(pois); return cc ? [...cc.redes, ...cc.independentes].map((l) => l.c) : null; })()) : null),
+  [lente, atual?.id, atual?.c, area10, pesosAtr, dados.censo, pois]); // eslint-disable-line react-hooks/exhaustive-deps
   // ponto aberto fora da malha do Censo: moradores, renda, idade e potencial dariam zero por falta de dado, e o parecer não pode usá-los
   const semCenso = atual ? semCensoPorPonto.get(atual.id) ?? false : false;
   const avisoCenso = semCenso && !carregandoCenso; // o aviso só aparece depois de tentar buscar o município

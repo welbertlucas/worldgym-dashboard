@@ -557,11 +557,12 @@ export function acertoDoModelo(pontos: Ponto[], unidades: UnidadeEstudo[]) {
 // Os números do Censo são suavizados em volta (como no mapa de calor) para a mancha não ficar quebrada. É uma nota para COMPARAR lugares na mesma
 // região; não é previsão de vendas (na rede, nenhuma variável sozinha explicou bem as vendas das unidades).
 export const ATRATIVIDADE_VARIAVEIS = [
-  { id: "moradores", rotulo: "Moradores", padrao: 25 },
-  { id: "alvo", rotulo: "Moradores de 20 a 49 anos", padrao: 20 },
-  { id: "consumo", rotulo: "Potencial de consumo", padrao: 25 },
+  { id: "moradores", rotulo: "Moradores", padrao: 20 },
+  { id: "alvo", rotulo: "Moradores de 20 a 49 anos", padrao: 15 },
+  { id: "consumo", rotulo: "Potencial de consumo", padrao: 20 },
   { id: "comercio", rotulo: "Concentração comercial", padrao: 15 },
-  { id: "livre", rotulo: "Longe das World Gym", padrao: 15 },
+  { id: "livre", rotulo: "Longe das World Gym", padrao: 10 },
+  { id: "concorrencia", rotulo: "Poucas academias concorrentes", padrao: 20 },
 ] as const;
 export type VariavelAtratividade = (typeof ATRATIVIDADE_VARIAVEIS)[number]["id"];
 export type PesosAtratividade = Record<VariavelAtratividade, number>;
@@ -602,9 +603,9 @@ export interface ScoreAtratividade {
 }
 /**
  * Score de atratividade (0 a 100) dos hexágonos escolhidos por `dentro`. `unidades`: World Gym que já existem (a variável "Longe das World Gym"
- * cai perto delas). Variável sem dado (idade, comércio, sem unidades) sai e os pesos das outras são refeitos. Sem hexágonos ou com todos os pesos em zero, null.
+ * cai perto delas). `concorrentes`: posição das academias que disputam o aluno (as da busca de academias da área); sem a busca, a variável sai. Variável sem dado (idade, comércio, sem unidades) sai e os pesos das outras são refeitos. Sem hexágonos ou com todos os pesos em zero, null.
  */
-export function scoreDeAtratividade(censo: Censo, dentro: (lat: number, lng: number) => boolean, pesos: PesosAtratividade, unidades: { c: [number, number] | null }[], meiaDistanciaKm: number, ponto?: [number, number] | null): ScoreAtratividade | null {
+export function scoreDeAtratividade(censo: Censo, dentro: (lat: number, lng: number) => boolean, pesos: PesosAtratividade, unidades: { c: [number, number] | null }[], meiaDistanciaKm: number, ponto?: [number, number] | null, concorrentes?: [number, number][] | null): ScoreAtratividade | null {
   const indices: number[] = [];
   censo.celulas.forEach((c, i) => { if (c[2] > 0 && dentro(c[0], c[1])) indices.push(i); });
   if (indices.length < 2) return null;
@@ -618,6 +619,8 @@ export function scoreDeAtratividade(censo: Censo, dentro: (lat: number, lng: num
   if (temIdade) valores.alvo = suavizarSelecao(pos, cel.map((c) => (c[5] ? (c[5][2] ?? 0) + (c[5][3] ?? 0) + (c[5][4] ?? 0) : 0)));
   if (temComercio) valores.comercio = suavizarSelecao(pos, cel.map((c) => c[10] ?? 0));
   if (ucs.length) valores.livre = pos.map((p) => 1 - Math.min(1, ucs.reduce((a, u) => a + atracao(km(p, u), meiaDistanciaKm), 0)));
+  // concorrência: peso das academias em volta pela mesma curva de distância; 1/(1+peso) cresce com menos concorrentes e não tem teto (sem empate onde há muitas)
+  if (concorrentes?.length) valores.concorrencia = pos.map((p) => 1 / (1 + concorrentes.reduce((a, q) => a + atracao(km(p, q), meiaDistanciaKm), 0)));
   const ativas = ATRATIVIDADE_VARIAVEIS.filter((v) => valores[v.id] && pesos[v.id] > 0);
   const soma = ativas.reduce((a, v) => a + pesos[v.id], 0);
   if (!soma) return null;

@@ -170,7 +170,7 @@ export function LegendaAtratividade({ pesos, setPesos, resultado }: { pesos: Pes
         ))}
       </ul>
       <button type="button" className="mt-1 text-[11px] font-medium underline underline-offset-2" onClick={() => setPesos({ ...PESOS_ATRATIVIDADE_PADRAO })}>Voltar aos pesos padrão</button>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">Cada hexágono recebe a posição dele entre os da área em cada variável (Censo 2022 suavizado em volta, comércio do OpenStreetMap, distância das World Gym), somadas com os pesos. É uma nota para comparar lugares na mesma região, não uma previsão de vendas.</p>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">Cada hexágono recebe a posição dele entre os da área em cada variável (Censo 2022 suavizado em volta, comércio do OpenStreetMap, distância das World Gym e das academias concorrentes da busca), somadas com os pesos. É uma nota para comparar lugares na mesma região, não uma previsão de vendas.</p>
     </div>
   );
 }
