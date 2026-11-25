@@ -11,22 +11,23 @@ export function IconeBoneco() {
   );
 }
 
-/** Street View dentro da tela (Maps Embed API, grátis). Sem a chave configurada, oferece abrir no Google Maps. */
+/**
+ * Street View dentro da tela (Maps Embed API, grátis), como no Google: o mapa sai e a rua ocupa o lugar dele, com o botão de fechar no canto.
+ * Sem a chave configurada, oferece abrir no Google Maps. O quadro só carrega porque a política de conteúdo (vite.config.ts) libera
+ * `frame-src https://www.google.com`.
+ */
 export function StreetView({ ponto, fechar }: { ponto: [number, number]; fechar: () => void }) {
   return (
-    <div className="absolute inset-y-3 right-3 z-[600] flex w-[min(46%,560px)] flex-col overflow-hidden rounded-xl bg-white shadow-2xl max-md:inset-x-3 max-md:bottom-3 max-md:top-auto max-md:h-[60%] max-md:w-auto" role="dialog" aria-label="Ver a rua">
-      <div className="flex items-center justify-between border-b px-3 py-2 text-sm">
-        <span className="font-medium">Ver a rua</span>
-        <Button size="sm" variant="ghost" onClick={fechar}>Fechar</Button>
-      </div>
+    <div className="absolute inset-0 z-[700] bg-white" role="dialog" aria-label="Ver a rua">
       {CHAVE_STREET_VIEW ? (
-        <iframe title="Street View do ponto" src={urlStreetView(ponto)} className="h-full w-full flex-1 border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen />
+        <iframe title="Street View do ponto" src={urlStreetView(ponto)} className="absolute inset-0 h-full w-full border-0" referrerPolicy="no-referrer-when-downgrade" allow="fullscreen" allowFullScreen />
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+        <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
           <p>O Street View dentro do Atlas aparece quando a chave do Google estiver configurada.</p>
           <a href={urlStreetView(ponto)} target="_blank" rel="noopener noreferrer" className={buttonVariants()}>Abrir no Google Maps</a>
         </div>
       )}
+      <Button size="sm" variant="secondary" onClick={fechar} className="absolute right-3 top-3 z-10 bg-white shadow-lg" aria-label="Fechar o Street View">Fechar</Button>
     </div>
   );
 }

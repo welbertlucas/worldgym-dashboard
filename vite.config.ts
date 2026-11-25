@@ -11,6 +11,8 @@ const POLITICA = [
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
   "connect-src 'self' https://worldgym-dashboard-sigma.vercel.app",
+  // só o Street View embutido (Maps Embed API) pode ser mostrado em quadro; sem isto, o default-src bloqueava o quadro do Google (24/11/2026)
+  "frame-src https://www.google.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
