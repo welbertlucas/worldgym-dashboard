@@ -3,52 +3,141 @@ import { useEffect, useRef, useState } from "react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import type { UnitData } from "@/data/dashboardData";
 import { somarBairros, type MapaDados, type Pino } from "@/data/mapaAlunos";
-import { fraseDosBairros, raioDaBolha } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, URL_SAT, aplicarFundo, camadaRuas, carregarLeaflet, fraseDosBairros, gradienteArco, pino as pinoDoMapa, raioDaBolha, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { BarraMapa } from "@/components/estudos/controlesMapa";
+import { StreetView } from "@/components/estudos/StreetView";
+import { desenharDemanda } from "@/components/estudos/camadasCenso";
+import { suavizarContagem, type Censo } from "@/lib/estudoPonto";
+import { API_BASE, authFetch } from "@/lib/auth";
 
 type Bairro = NonNullable<UnitData["bairros"]>[number];
 
 const fmt = (n: number) => n.toLocaleString("pt-BR");
 export { raioDaBolha };
 
-/** Mapa real (OpenStreetMap) com uma bolha por bairro. Carrega o Leaflet só quando o cartão aparece. */
-function Mapa({ bairros, pinos, inativos }: { bairros: Bairro[]; pinos: Pino[]; inativos: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
+type Calor = { censo: Censo; indices: number[]; pesos: number[]; comPosicao: number; total: number };
+
+let censoEmCache: Promise<Censo | null> | null = null;
+const lerCenso = () => (censoEmCache ??= authFetch(`${API_BASE}/estudos`).then((r) => (r.ok ? r.json() : null)).then((j) => (j?.censo?.celulas?.length ? (j.censo as Censo) : null)).catch(() => { censoEmCache = null; return null; }));
+const lerHex = (unidade: string): Promise<{ celulas: [number, number, number][]; total?: number; comPosicao?: number } | null> =>
+  authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "alunos-hex", unidade }) })
+    .then((r) => (r.ok ? r.json() : null)).then((j) => (j && !j.ausente && Array.isArray(j.celulas) && j.celulas.length ? j : null)).catch(() => null);
+
+/**
+ * Mapa de calor dos alunos ativos pelo CEP (mesma conta da camada "Base de clientes" dos Estudos de ponto): a contagem por hexágono do Censo de cada
+ * unidade é suavizada em volta da unidade e, na rede, somada. Só contagens; sem a rotina noturna (ou sem acesso) devolve null e o mapa fica em bolhas.
+ */
+function useCalorAlunos(pinos: Pino[]): Calor | null {
+  const [calor, setCalor] = useState<Calor | null>(null);
+  const chave = pinos.map((p) => p.nome).join("|");
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    setCalor(null);
+    if (!pinos.length) return;
     let vivo = true;
-    let limpar = () => {};
-    import("leaflet").then((mod) => {
-      if (!vivo) return;
-      const L = mod.default ?? mod;
-      const mapa = L.map(el, { scrollWheelZoom: true });
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(mapa);
-      const max = Math.max(...bairros.map((b) => b[2]));
-      const grupo = L.featureGroup(
-        [...bairros].sort((a, b) => b[2] - a[2]).map(([nome, cidade, n, lat, lng, aprox]) =>
-          L.circleMarker([lat, lng], { radius: raioDaBolha(n, max), color: aprox ? "#6b7280" : inativos ? "#b45309" : "#1d4ed8", weight: 1.5, dashArray: aprox ? "4 3" : undefined, fillColor: aprox ? "#9ca3af" : inativos ? "#f59e0b" : "#3b82f6", fillOpacity: aprox ? 0.3 : 0.45 })
-            .bindTooltip(`<strong>${nome}</strong>${cidade ? ` · ${cidade}` : ""}<br/>${fmt(n)} ${n === 1 ? "aluno" : "alunos"}${aprox ? "<br/><em>posição aproximada (centro da cidade)</em>" : ""}`)),
-      ).addTo(mapa);
-      // Pinos das unidades: destacados e sempre por cima das bolhas.
-      const pino = L.divIcon({ className: "", iconSize: [26, 34], iconAnchor: [13, 32], html: `<svg width="26" height="34" viewBox="0 0 26 34" aria-hidden="true"><path d="M13 1C6.4 1 1 6.2 1 12.7 1 21.5 13 33 13 33s12-11.5 12-20.3C25 6.2 19.6 1 13 1z" fill="#e8281b" stroke="#fff" stroke-width="2"/><circle cx="13" cy="12.5" r="4.5" fill="#fff"/></svg>` });
-      for (const p of pinos) {
-        L.marker(p.pos, { icon: pino, zIndexOffset: 1000, title: `World Gym ${p.nome}` }).bindTooltip(`<strong>World Gym ${p.nome}</strong><br/>localização da unidade`, { direction: "top", offset: [0, -30] }).addTo(mapa);
-      }
-      // Enquadra o núcleo: o maior agrupamento de unidades (até 200 km entre si) e os bairros a até 60 km delas. Unidades e alunos
-      // distantes (ex.: Salvador) seguem no mapa; é só dar zoom out.
-      const km = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], (a[1] - b[1]) * Math.cos((a[0] * Math.PI) / 180)) * 111;
-      const grupos = pinos.map((c) => pinos.filter((p) => km(c.pos, p.pos) <= 200));
-      const nucleoPinos = grupos.reduce<Pino[]>((m, g) => (g.length > m.length ? g : m), []);
-      const nucleo = nucleoPinos.length ? bairros.filter((b) => nucleoPinos.some((p) => km([b[3], b[4]], p.pos) <= 60)) : bairros;
-      const pontos: [number, number][] = [...nucleo.map((b) => [b[3], b[4]] as [number, number]), ...nucleoPinos.map((p) => p.pos)];
-      mapa.fitBounds((pontos.length ? L.latLngBounds(pontos) : grupo.getBounds()).pad(0.15), { maxZoom: 14 });
-      const obs = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => mapa.invalidateSize()) : null; // mapa muda de largura ao ocultar o ranking
-      obs?.observe(el);
-      limpar = () => { obs?.disconnect(); mapa.remove(); };
+    Promise.all([lerCenso(), ...pinos.map((p) => lerHex(p.nome))]).then(([censo, ...hex]) => {
+      if (!vivo || !censo) return;
+      const porPosicao = new Map<string, number>();
+      censo.celulas.forEach((c, i) => porPosicao.set(`${c[0]},${c[1]}`, i));
+      const soma = new Map<number, number>();
+      let comPosicao = 0, total = 0;
+      hex.forEach((h, k) => {
+        if (!h) return;
+        const indices: number[] = [], pesos: number[] = [];
+        for (const [la, ln, n] of h.celulas) { const i = porPosicao.get(`${la},${ln}`); if (i !== undefined) { indices.push(i); pesos.push(n); } }
+        if (!indices.length) return;
+        comPosicao += h.comPosicao ?? 0; total += h.total ?? 0;
+        const sm = suavizarContagem(censo, indices, pesos, pinos[k].pos);
+        sm.indices.forEach((i, j) => soma.set(i, (soma.get(i) ?? 0) + sm.pesos[j]));
+      });
+      if (soma.size) setCalor({ censo, indices: [...soma.keys()], pesos: [...soma.values()], comPosicao, total });
     });
-    return () => { vivo = false; limpar(); };
-  }, [bairros, pinos, inativos]);
-  return <div ref={ref} role="img" aria-label="Mapa com os bairros dos alunos ativos; o tamanho da bolha mostra quantos alunos" className="h-[70vh] min-h-[480px] w-full overflow-hidden rounded-xl border border-border" />;
+    return () => { vivo = false; };
+  }, [chave]); // eslint-disable-line react-hooks/exhaustive-deps
+  return calor;
+}
+
+/**
+ * Mapa dos alunos, no mesmo padrão dos Estudos de ponto (fundo Mapbox, barra de fundo/régua/Street View, créditos). Com a contagem por CEP mostra o
+ * mapa de calor; sem ela (ou em inativos e todos, que só existem por bairro) uma bolha por bairro. Carrega o Leaflet só quando o cartão aparece.
+ */
+function Mapa({ bairros, pinos, inativos, calor }: { bairros: Bairro[]; pinos: Pino[]; inativos: boolean; calor: Calor | null }) {
+  const el = useRef<HTMLDivElement>(null);
+  const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; grupo: import("leaflet").LayerGroup; calor: import("leaflet").LayerGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
+  const [pronto, setPronto] = useState(false);
+  const [zoom, setZoom] = useState(9);
+  const [fundo, setFundo] = useState<Fundo>("padrao");
+  const [verRua, setVerRua] = useState(false);
+  const [rua, setRua] = useState<[number, number] | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    carregarLeaflet().then((L) => {
+      if (!vivo || !el.current) return;
+      const mapa = L.map(el.current, { zoomControl: false, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView([-15.8, -47.9], 9); // vista inicial: a barra do mapa lê o centro antes do enquadramento
+      mapa.attributionControl.setPrefix(CREDITO_DO_MAPA);
+      const ruas = camadaRuas(L).addTo(mapa);
+      const sat = L.tileLayer(URL_SAT, { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
+      ref.current = { L, mapa, calor: L.layerGroup().addTo(mapa), grupo: L.layerGroup().addTo(mapa), ruas, sat };
+      mapa.on("zoomend", () => setZoom(mapa.getZoom()));
+      setPronto(true);
+    });
+    const obs = typeof ResizeObserver !== "undefined" && el.current ? new ResizeObserver(() => ref.current?.mapa.invalidateSize()) : null; // mapa muda de largura ao ocultar o ranking
+    if (el.current) obs?.observe(el.current);
+    return () => { vivo = false; obs?.disconnect(); ref.current?.mapa.remove(); ref.current = null; setPronto(false); };
+  }, []);
+  useEffect(() => { if (ref.current) aplicarFundo(ref.current, fundo); }, [fundo, pronto]);
+  useEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    const { L, mapa, grupo } = m;
+    grupo.clearLayers();
+    const km = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], (a[1] - b[1]) * Math.cos((a[0] * Math.PI) / 180)) * 111;
+    if (!calor) {
+      const max = Math.max(1, ...bairros.map((b) => b[2]));
+      for (const [nome, cidade, n, lat, lng, aprox] of [...bairros].sort((a, b) => b[2] - a[2])) {
+        L.circleMarker([lat, lng], { radius: raioDaBolha(n, max), color: aprox ? "#6b7280" : inativos ? "#b45309" : "#1d4ed8", weight: 1.5, dashArray: aprox ? "4 3" : undefined, fillColor: aprox ? "#9ca3af" : inativos ? "#f59e0b" : "#3b82f6", fillOpacity: aprox ? 0.3 : 0.45 })
+          .bindTooltip(`<strong>${nome}</strong>${cidade ? ` · ${cidade}` : ""}<br/>${fmt(n)} ${n === 1 ? "aluno" : "alunos"}${aprox ? "<br/><em>posição aproximada (centro da cidade)</em>" : ""}`).addTo(grupo);
+      }
+    }
+    // Pinos das unidades: sempre por cima.
+    for (const p of pinos) L.marker(p.pos, { icon: pinoDoMapa(L, "#c41230", 30), zIndexOffset: 1000, title: `World Gym ${p.nome}` }).bindTooltip(`<strong>World Gym ${p.nome}</strong><br/>localização da unidade`, { direction: "top", offset: [0, -30] }).addTo(grupo);
+    // Enquadra o núcleo: o maior agrupamento de unidades (até 200 km entre si) e os bairros a até 60 km delas. Unidades e alunos
+    // distantes (ex.: Salvador) seguem no mapa; é só dar zoom out.
+    const grupos = pinos.map((c) => pinos.filter((p) => km(c.pos, p.pos) <= 200));
+    const nucleoPinos = grupos.reduce<Pino[]>((mm, g) => (g.length > mm.length ? g : mm), []);
+    const nucleo = nucleoPinos.length ? bairros.filter((b) => nucleoPinos.some((p) => km([b[3], b[4]], p.pos) <= 60)) : bairros;
+    const pontos: [number, number][] = [...(calor ? [] : nucleo.map((b) => [b[3], b[4]] as [number, number])), ...nucleoPinos.map((p) => p.pos)];
+    if (pontos.length) mapa.fitBounds(L.latLngBounds(pontos).pad(calor ? 0.45 : 0.15), { maxZoom: calor ? 13 : 14 });
+  }, [bairros, pinos, inativos, calor, pronto]);
+  // Calor: no zoom de região o hexágono de 200 m some; engorda o hexágono até um tamanho mínimo na tela (a mancha continua legível)
+  useEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    m.calor.clearLayers();
+    if (!calor) return;
+    const lat = pinos[0]?.pos[0] ?? -15.8;
+    const raioPx = 200 / ((156543.03 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom);
+    const km = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], (a[1] - b[1]) * Math.cos((a[0] * Math.PI) / 180)) * 111;
+    desenharDemanda(m.L, m.calor, { ...calor.censo, rk: calor.censo.rk * Math.max(1, 4 / raioPx) }, calor, (la, ln) => pinos.some((p) => km([la, ln], p.pos) <= 6), "arco", null);
+  }, [calor, pinos, zoom, pronto]);
+  // "Ver a rua": o próximo clique no mapa abre o Street View daquele lugar
+  useEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    m.mapa.getContainer().style.cursor = verRua ? "crosshair" : "";
+    if (!verRua) return;
+    const aoClicar = (e: import("leaflet").LeafletMouseEvent) => { setRua([e.latlng.lat, e.latlng.lng]); setVerRua(false); };
+    m.mapa.once("click", aoClicar);
+    return () => { m.mapa.off("click", aoClicar); };
+  }, [verRua, pronto]);
+  return (
+    <div className="relative h-[70vh] min-h-[480px] w-full overflow-hidden rounded-xl border border-border">
+      <style>{`.mapa-cinza .leaflet-tile-pane{filter:grayscale(1) contrast(.9) brightness(1.06)}`}</style>
+      <div ref={el} role="img" aria-label="Mapa de onde moram os alunos ativos; as cores mostram a concentração de alunos" className="absolute inset-0" />
+      {verRua && <div className="absolute left-1/2 top-3 z-[456] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow">Clique no mapa onde quer ver a rua</div>}
+      <BarraMapa mapa={pronto ? ref.current?.mapa ?? null : null} fundo={fundo} setFundo={setFundo} verRua={verRua} setVerRua={setVerRua} />
+      {rua && <StreetView ponto={rua} fechar={() => setRua(null)} />}
+    </div>
+  );
 }
 
 type Modo = "ativos" | "inativos" | "todos";
@@ -61,6 +150,8 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
   const [todos, setTodos] = useState(false);
   const [modo, setModo] = useState<Modo>("ativos");
   const { pinos } = dados;
+  const calorTodos = useCalorAlunos(pinos);
+  const calor = modo === "ativos" ? calorTodos : null; // inativos e todos só existem por bairro
   const bairros = modo === "ativos" ? dados.bairros : modo === "inativos" ? dados.inativos : somarBairros([dados.bairros, dados.inativos]);
   const semBairro = modo === "ativos" ? dados.semBairro : modo === "inativos" ? dados.semBairroInativos : dados.semBairro + dados.semBairroInativos;
   const subtitle = <>{unit} • {ROTULO_ALUNOS[modo]}</>;
@@ -96,9 +187,15 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
   return (
     <ChartCard title="Onde moram os alunos" subtitle={subtitle}>
       {filtro}
-      <p className="mb-2 text-xs text-muted-foreground">{fraseDosBairros(bairros.map((b) => ({ nome: b[0], n: b[2] })))}</p>
+      <p className="mb-2 text-xs text-muted-foreground">{(calor ? (t: string) => t.replace(/^Cada bolha[^.]*\.\s*/, "") : (t: string) => t)(fraseDosBairros(bairros.map((b) => ({ nome: b[0], n: b[2] }))))}</p>
       <div className={ranking ? "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]" : ""}>
-        <Mapa key={modo} bairros={bairros} pinos={pinos} inativos={modo === "inativos"} />
+        <div>
+          <Mapa key={modo} bairros={bairros} pinos={pinos} inativos={modo === "inativos"} calor={calor} />
+          {calor && <div className="mt-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2">poucos<span className="h-1.5 w-40 rounded" style={{ background: gradienteArco }} />muitos alunos</div>
+            <p className="mt-1">Mapa suavizado a partir do CEP de {fmt(calor.comPosicao)} alunos ativos{calor.total ? ` (${Math.round((calor.comPosicao / calor.total) * 100)}% da base)` : ""}. Só a contagem por região é guardada, nunca o endereço.</p>
+          </div>}
+        </div>
         {ranking && (
           <ol className="space-y-3 rounded-xl border border-border bg-card p-4 lg:h-[70vh] lg:min-h-[480px] lg:overflow-y-auto" aria-label="Bairros com mais alunos">
             {top.map(([nome, cidade, n]) => (
@@ -133,7 +230,7 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
         )}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        {fmt(total)} alunos em {fmt(bairros.length)} bairros localizados{semBairro ? `; ${fmt(semBairro)} sem endereço ou bairro não localizado ficam de fora` : ""}. A bolha fica no centro do bairro (OpenStreetMap), não na casa do aluno. {modo === "inativos" && "Inativo é quem não tem contrato ativo hoje e saiu (contrato terminado ou cancelado) nos últimos 12 meses. "}{pinos.length > 1 ? "Os pinos vermelhos são as unidades." : pinos.length === 1 ? "O pino vermelho é a unidade." : ""}{aprox > 0 && <> Bolhas cinza tracejadas ({fmt(aprox)} alunos) são bairros não encontrados no mapa, postos no centro da cidade.</>}
+        {fmt(total)} alunos em {fmt(bairros.length)} bairros localizados{semBairro ? `; ${fmt(semBairro)} sem endereço ou bairro não localizado ficam de fora` : ""}. {calor ? "O mapa mostra a concentração pelo CEP; o ranking ao lado é pelo bairro do cadastro. " : "A bolha fica no centro do bairro (OpenStreetMap), não na casa do aluno. "}{modo === "inativos" && "Inativo é quem não tem contrato ativo hoje e saiu (contrato terminado ou cancelado) nos últimos 12 meses. "}{pinos.length > 1 ? "Os pinos vermelhos são as unidades." : pinos.length === 1 ? "O pino vermelho é a unidade." : ""}{aprox > 0 && <> Bolhas cinza tracejadas ({fmt(aprox)} alunos) são bairros não encontrados no mapa, postos no centro da cidade.</>}
       </p>
     </ChartCard>
   );

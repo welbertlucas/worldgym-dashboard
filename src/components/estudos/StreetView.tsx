@@ -27,7 +27,7 @@ export function StreetView({ ponto, fechar }: { ponto: [number, number]; fechar:
           <a href={urlStreetView(ponto)} target="_blank" rel="noopener noreferrer" className={buttonVariants()}>Abrir no Google Maps</a>
         </div>
       )}
-      <Button size="sm" variant="secondary" onClick={fechar} className="absolute right-3 top-3 z-10 bg-white shadow-lg" aria-label="Fechar o Street View">Fechar</Button>
+      <Button size="sm" variant="secondary" onClick={fechar} className="absolute left-1/2 top-3 z-10 -translate-x-1/2 bg-white shadow-lg" aria-label="Fechar o Street View">Fechar</Button>
     </div>
   );
 }
