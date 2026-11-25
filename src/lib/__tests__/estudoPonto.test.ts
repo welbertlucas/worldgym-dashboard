@@ -720,3 +720,20 @@ describe("outros estudos na divisão do público", () => {
     expect(nomes([em("a", "analise"), em("d", "aprovado")])).toEqual(["Estudo d"]);
   });
 });
+
+describe("bolhas dos bairros", () => {
+  it("a escala é menor e fiel à área, e a frase de leitura conta onde moram os alunos (números inventados)", async () => {
+    const { raioDaBolha, fraseDosBairros } = await import("@/components/estudos/mapaComum");
+    expect(raioDaBolha(1000, 1000)).toBeCloseTo(18); expect(raioDaBolha(0, 1000)).toBe(4);
+    expect(raioDaBolha(250, 1000)).toBeCloseTo(4 + 14 * 0.5); // um quarto dos alunos: metade do raio máximo, a área é um quarto
+    const itens = [{ nome: "Bairro Sul (Cidade)", n: 600 }, { nome: "Bairro Norte (Cidade)", n: 250 }, ...Array.from({ length: 10 }, (_, i) => ({ nome: `Pequeno ${i}`, n: 15 }))];
+    const f = fraseDosBairros(itens);
+    expect(f).toContain("Cada bolha é um bairro, desenhada no centro dele.");
+    expect(f).toContain("85% dos alunos moram em Bairro Sul e Bairro Norte"); // 850 de 1.000
+    expect(f).toContain("os outros 10 bairros somam 15%");
+    expect(fraseDosBairros([{ nome: "Único", n: 5 }])).toBe("Cada bolha é um bairro, desenhada no centro dele.");
+    const tres = fraseDosBairros([{ nome: "A", n: 40 }, { nome: "B", n: 40 }, { nome: "C", n: 20 }]);
+    expect(tres).toContain("80% dos alunos moram em A e B"); expect(tres).toContain("o outro bairro soma 20%");
+    expect(fraseDosBairros([{ nome: "A", n: 30 }, { nome: "B", n: 30 }, { nome: "C", n: 30 }, { nome: "D", n: 10 }])).toContain("90% dos alunos moram em A, B e C"); // no máximo 3 nomes
+  });
+});

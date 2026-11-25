@@ -63,6 +63,25 @@ export const bolinha = (L: Leaflet, cor: string, tam: number, opacidade = 1) =>
 /** Formato do pino de localização (viewBox 24×32, ponta embaixo no meio). */
 export const PINO_D = "M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z";
 /** Pino de localização (unidade estudada, ponto novo com a letra). `data-pino` deixa a foto do PDF desenhar o mesmo pino. */
+/**
+ * Raio (px) da bolha de um bairro: proporcional à raiz da contagem, para a ÁREA acompanhar o número de alunos. Mesma escala no estudo e na aba
+ * Alunos (24/11/2026: menores, para dois bairros grandes não parecerem os únicos com alunos).
+ */
+export const raioDaBolha = (n: number, max: number) => 4 + 14 * Math.sqrt(n / Math.max(1, max));
+/** Frase de leitura do mapa de bolhas: cada bolha é um bairro (no centro dele) e quantos % dos alunos moram nos maiores. */
+export function fraseDosBairros(itens: { nome: string; n: number }[]): string {
+  const v = itens.filter((i) => i.n > 0).sort((a, b) => b.n - a.n);
+  const total = v.reduce((a, b) => a + b.n, 0);
+  if (v.length < 2 || !total) return "Cada bolha é um bairro, desenhada no centro dele.";
+  let k = 1, cum = v[0].n / total;
+  while (cum < 0.8 && k < 3 && k < v.length) { cum += v[k].n / total; k++; }
+  const nomes = v.slice(0, k).map((i) => i.nome.replace(/\s*\([^)]*\)/, ""));
+  const lista = nomes.length === 1 ? nomes[0] : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+  const resto = v.length - k;
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  return `Cada bolha é um bairro, desenhada no centro dele. ${pct(cum)} dos alunos moram em ${lista}${resto > 0 ? `; ${resto === 1 ? "o outro bairro soma" : `os outros ${resto} bairros somam`} ${pct(1 - cum)}` : ""}.`;
+}
+
 export function pino(L: Leaflet, cor: string, alto = 34, letra = "") {
   const w = Math.round(alto * 0.75);
   const miolo = letra
@@ -293,4 +312,4 @@ export async function primeiraComImagem(zooms: number[], tirar: (zoom: number) =
   }
   return null;
 }
-export const ZOOMS_DO_SATELITE = [18, 17, 16];
+export const ZOOMS_DO_SATELITE = [19, 18, 17, 16];

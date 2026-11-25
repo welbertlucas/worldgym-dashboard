@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ZOOMS_DO_SATELITE, aplicarFundo, bolinha, cartaoDoLugar, primeiraComImagem, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { ZOOMS_DO_SATELITE, aplicarFundo, bolinha, cartaoDoLugar, fraseDosBairros, raioDaBolha, primeiraComImagem, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
@@ -157,10 +157,10 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       // a cor de cada bolha é a do bairro na rosca do painel (os 5 maiores); os outros ficam em cinza
       const corBairro = new Map(topBairros.map(([b], i) => [b, CORES_BAIRROS[i]] as [string, string]));
       for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3])) {
-        const raio = lente === "oportunidade" ? 4 + 20 * Math.sqrt(n / mx) : 5 + 26 * Math.sqrt(n / mx);
+        const raio = lente === "oportunidade" ? 4 + 20 * Math.sqrt(n / mx) : raioDaBolha(n, mx);
         L.circleMarker([lat, lng], lente === "oportunidade"
           ? { radius: raio, color: "#1b2130", weight: 1.6, fillColor: "#ffffff", fillOpacity: 0.35 }
-          : { radius: raio, color: "#fff", weight: 1, fillColor: corBairro.get(bairro) ?? COR_OUTROS_BAIRROS, fillOpacity: 0.72 })
+          : { radius: raio, color: "#fff", weight: 1, fillColor: corBairro.get(bairro) ?? COR_OUTROS_BAIRROS, fillOpacity: 0.55 })
           .bindTooltip(`<strong>${bairro}</strong><br/>${n.toLocaleString("pt-BR")} ${n === 1 ? "aluno" : "alunos"} (${Math.round((n / totalB) * 100)}%)`).addTo(camadas);
         // nos bairros que têm pelo menos 3% dos alunos, o número fica escrito na bolha
         if (lente === "alunos" && n / totalB >= 0.03)
@@ -284,7 +284,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             <p className="mt-1">Vermelho: onde o modelo espera alunos. Círculos escuros: onde eles moram hoje. Vermelho forte sem círculo é onde vale fazer marketing.</p>
           </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
-            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><RoscaBairros total={alunosBairro} bairros={topBairros.map(([b, , , n]) => ({ nome: b.replace(/\s*\([^)]*\)/, ""), n }))} /></div>}{area10 ? "" : "Tracejado: onde moram 80%."}</>
+            : lente === "alunos" ? <>{topBairros.length > 0 && <div className="mb-2"><RoscaBairros total={alunosBairro} bairros={topBairros.map(([b, , , n]) => ({ nome: b.replace(/\s*\([^)]*\)/, ""), n }))} /></div>}<p className="mb-1">{fraseDosBairros((u.bairros ?? []).map(([b, , , n]) => ({ nome: b, n })))}</p>{area10 ? "" : "Tracejado: onde moram 80%."}</>
             : lente === "rede" ? <p>O círculo cheio é a área desta unidade; os tracejados, a de cada vizinha. Quanto do público ela divide com cada uma está na aba Estudo.</p>
             : null}
           sobre={[

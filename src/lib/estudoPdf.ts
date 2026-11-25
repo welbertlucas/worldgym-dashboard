@@ -10,7 +10,7 @@ import openUrl from "@/assets/estudo-pdf/OpenSans-Regular.ttf?url";
 import openNegritoUrl from "@/assets/estudo-pdf/OpenSans-Bold.ttf?url";
 
 /** Altura das fotos de mapa (quadradas) no PDF, em mm: o mesmo tamanho em todos os temas, grande o bastante para ler o mapa. */
-export const ALT_FOTO_MAPA = 128;
+export const ALT_FOTO_MAPA = 100;
 const VERMELHO: [number, number, number] = [196, 18, 48];
 const TEXTO: [number, number, number] = [27, 33, 48];
 const CINZA: [number, number, number] = [120, 124, 132];
@@ -337,7 +337,7 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       doc.setFillColor(...fundo); doc.rect(L, y, W, 9, "F");
       fonte("negrito", 10); doc.setTextColor(255, 255, 255); doc.text(t(p.faixa.texto).toUpperCase(), L + 3, y + 6); y += 13;
     }
-    figura(p.foto ?? (i === 0 && c.foto ? { dados: c.foto, legenda: c.legendaFoto } : undefined), p.grafico || p.texto?.length ? 100 : ALT_FOTO_MAPA);
+    figura(p.foto ?? (i === 0 && c.foto ? { dados: c.foto, legenda: c.legendaFoto } : undefined), ALT_FOTO_MAPA);
     destaques(p.destaques);
     if (p.frase) nota(p.frase);
     textoAnalise(p.texto);
@@ -359,7 +359,7 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
     for (const s of p.secoes) {
       if (s.novaPagina) novaPagina(); else y += 3;
       // título não fica sozinho no pé da página: precisa caber junto com o mapa (ou com a primeira linha)
-      cabe(14 + (s.foto?.dados ? medida(s.foto, s.altFoto ?? 120).h + 9 : 10));
+      cabe(14 + (s.foto?.dados ? medida(s.foto, s.altFoto ?? ALT_FOTO_MAPA).h + 9 : 10));
       if (s.titulo) titulo(s.titulo);
       faixaVermelha(s.faixa);
       textoAnalise(s.texto);
@@ -376,7 +376,7 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       // quando a legenda tinha duas linhas (visto no PDF de Domicílios, 24/11/2026)
       const altLegendaFoto = s.foto?.legenda ? (fonte("corpo", 8), (doc.splitTextToSize(t(s.foto.legenda), W) as string[]).length * 3.6 + 8) : 7;
       const cabeAte = FIM - y - depois - altLegendaFoto - 4;
-      figura(s.foto, depois && cabeAte >= 80 ? Math.min(s.altFoto ?? 120, cabeAte) : s.altFoto ?? 120);
+      figura(s.foto, depois && cabeAte >= 80 ? Math.min(s.altFoto ?? ALT_FOTO_MAPA, cabeAte) : s.altFoto ?? ALT_FOTO_MAPA);
       legenda(s.legenda);
       destaques(s.destaques);
       for (const g of todosGraficos) { if (g.tipo === "rosca") rosca(g); else barras(g); }
@@ -398,7 +398,7 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
   }
   if (c.comparacao) {
     novaPagina(); titulo("Comparação dos pontos");
-    figura(c.fotoComparacao, 110);
+    figura(c.fotoComparacao, ALT_FOTO_MAPA);
     const cols = c.comparacao.colunas, lw = W / cols.length;
     doc.setFillColor(...VERMELHO); doc.rect(L, y, W, 8, "F");
     fonte("negrito", 8.5); doc.setTextColor(255, 255, 255);

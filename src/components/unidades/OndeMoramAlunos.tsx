@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { ChartCard, ChartEmpty } from "@/components/ChartCard";
 import type { UnitData } from "@/data/dashboardData";
 import { somarBairros, type MapaDados, type Pino } from "@/data/mapaAlunos";
+import { fraseDosBairros, raioDaBolha } from "@/components/estudos/mapaComum";
 
 type Bairro = NonNullable<UnitData["bairros"]>[number];
 
 const fmt = (n: number) => n.toLocaleString("pt-BR");
-/** Raio da bolha em px: proporcional à raiz da contagem, para a ÁREA acompanhar o número de alunos. */
-export const raioDaBolha = (n: number, max: number) => 6 + 26 * Math.sqrt(n / Math.max(1, max));
+export { raioDaBolha };
 
 /** Mapa real (OpenStreetMap) com uma bolha por bairro. Carrega o Leaflet só quando o cartão aparece. */
 function Mapa({ bairros, pinos, inativos }: { bairros: Bairro[]; pinos: Pino[]; inativos: boolean }) {
@@ -96,6 +96,7 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
   return (
     <ChartCard title="Onde moram os alunos" subtitle={subtitle}>
       {filtro}
+      <p className="mb-2 text-xs text-muted-foreground">{fraseDosBairros(bairros.map((b) => ({ nome: b[0], n: b[2] })))}</p>
       <div className={ranking ? "grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]" : ""}>
         <Mapa key={modo} bairros={bairros} pinos={pinos} inativos={modo === "inativos"} />
         {ranking && (
