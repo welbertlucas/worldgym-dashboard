@@ -141,6 +141,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       if (!vivo || !el.current) return;
       // A rolagem do mouse (e o gesto de pinça do trackpad) aproxima o mapa direto.
       const mapa = L.map(el.current, { zoomControl: false, preferCanvas: true, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView(u?.c ?? [-15.8, -47.9], 13);
+      mapa.attributionControl.setPrefix("Desenvolvido por Flag Holding LTDA - WG Master Franchise Brasil");
       const ruas = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
       ref.current = { L, mapa, camadas: L.layerGroup().addTo(mapa), ruas, sat };

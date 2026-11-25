@@ -188,6 +188,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       const centro = (todos.find((p) => p.id === atualId) ?? pontos[0])?.c ?? dados.unidades!.find((u) => u.c)?.c ?? [-15.8, -47.9];
       // a rolagem do mouse aproxima o mapa direto; azulejos com crossOrigin para a foto do PDF
       const mapa = L.map(mapaEl.current, { zoomControl: false, preferCanvas: true, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView(centro, 13);
+      mapa.attributionControl.setPrefix("Desenvolvido por Flag Holding LTDA - WG Master Franchise Brasil");
       const ruas = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
       mapaRef.current = { L, mapa, camadas: L.layerGroup().addTo(mapa), ruas, sat };

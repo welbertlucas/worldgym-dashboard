@@ -27,6 +27,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
     carregarLeaflet().then((L) => {
       if (!vivo || !el.current) return;
       const mapa = L.map(el.current, { zoomControl: false, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView([-15.8, -47.9], 5);
+      mapa.attributionControl.setPrefix("Desenvolvido por Flag Holding LTDA - WG Master Franchise Brasil");
       const ruas = L.tileLayer(URL_OSM, { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
       const sat = L.tileLayer(URL_SAT, { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
       ref.current = { L, mapa, grupo: L.featureGroup().addTo(mapa), ruas, sat };
