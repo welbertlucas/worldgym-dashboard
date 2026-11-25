@@ -21,7 +21,7 @@ import { LegendaCenso, RoscaComLegenda, desenharCenso, desenharDemanda, ehCamada
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -97,7 +97,9 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
 
   const atual = pontos.find((p) => p.id === atualId) ?? null;
   const pronto = true;
-  const avaliar = (p: Ponto) => (dados.vendasPorM2![p.modelo] ? avaliarPonto(p, dados.premissas!, dados.vendasPorM2![p.modelo]!) : null);
+  // ajuste da previsão pelo lugar (só com Censo na região do ponto e unidades maduras suficientes do modelo)
+  const ajusteDe = (p: Ponto) => (foraDaMalhaDoCenso(p.c, dados.censo) ? null : ajusteDeCaptacao(p, dados.premissas!, dados.censo, dados.unidades!));
+  const avaliar = (p: Ponto) => (dados.vendasPorM2![p.modelo] ? avaliarPonto(p, dados.premissas!, dados.vendasPorM2![p.modelo]!, ajusteDe(p)?.fator ?? 1) : null);
   const resultados = useMemo(() => new Map(pontos.map((p) => [p.id, avaliar(p)])), [pontos, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   // pontos fora da malha do Censo (ex.: Jataí-GO, antes de o município ser gerado): zero moradores é falta de dado, e o parecer não passa de "com condicionantes"
   const semCensoPorPonto = useMemo(() => new Map(todos.map((p) => [p.id, foraDaMalhaDoCenso(p.c, dados.censo)])), [todos, dados.censo]);
@@ -579,7 +581,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                     const faixaM = dados.vendasPorM2![atual.modelo];
                     if (!faixaM) return null;
                     const reaisM2 = dados.unidades!.filter((u) => u.madura && u.modelo === atual.modelo && u.vendas && u.m2).map((u) => (u.vendas as number) / (u.m2 as number));
-                    const linhasConta = contaDoPonto(atual, r, dados.premissas!, faixaM, reaisM2.length ? { min: Math.min(...reaisM2), max: Math.max(...reaisM2), n: reaisM2.length } : null);
+                    const linhasConta = contaDoPonto(atual, r, dados.premissas!, faixaM, reaisM2.length ? { min: Math.min(...reaisM2), max: Math.max(...reaisM2), n: reaisM2.length } : null, ajusteDe(atual));
                     return <details className="mt-3 rounded-lg border bg-muted/40 px-2.5 py-1.5"><summary className="cursor-pointer text-xs font-medium text-muted-foreground">Como o Atlas chegou nesse número</summary>
                       <ul className="mt-1.5 space-y-1.5 text-[12px] text-muted-foreground">{linhasConta.map((l) => <li key={l}>{l}</li>)}</ul></details>;
                   })()}

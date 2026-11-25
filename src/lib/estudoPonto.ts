@@ -188,10 +188,11 @@ export function paybackDe(vendas: number, m2: number, p: PremissaModelo, maturac
 export const vendasParaPayback = (meses: number, m2: number, p: PremissaModelo, maturacao: number) =>
   (investimentoDe(m2, p) / Math.max(1, meses - maturacao) + custoFixoDe(m2, p)) / (1 - p.variavel);
 
-export function avaliarPonto(ponto: Pick<Ponto, "m2" | "modelo">, premissas: Premissas, faixa: FaixaM2): Resultado {
+export function avaliarPonto(ponto: Pick<Ponto, "m2" | "modelo">, premissas: Premissas, faixa: FaixaM2, fator = 1): Resultado {
   const p = premissas.modelos[ponto.modelo], r = premissas.regua;
   const ef = m2Efetivo(ponto.m2, p);
-  const provavel = faixa.mediana * ef, pessimista = faixa.p25 * ef, otimista = faixa.p75 * ef;
+  // `fator`: ajuste pela captação do ponto (ajusteDeCaptacao); 1 = só o m² e o modelo
+  const provavel = faixa.mediana * ef * fator, pessimista = faixa.p25 * ef * fator, otimista = faixa.p75 * ef * fator;
   const meta = vendasParaPayback(r.mesesAprovado, ponto.m2, p, r.maturacaoMeses);
   const limiteAtencao = vendasParaPayback(r.mesesAtencao, ponto.m2, p, r.maturacaoMeses);
   return {
@@ -259,6 +260,59 @@ export function publicoAlcancavel(c: [number, number], m2: number, censo: Censo,
   const publico = cap.pesos.reduce((a, b) => a + b, 0);
   return { publico, divideCom: cap.divideCom, renda: arredores(c, censo, 2).renda, populacao2km: cap.populacao2km };
 }
+// ---------- Ajuste das vendas previstas pela captação do ponto (decisão do dono, 25/11/2026) ----------
+// A previsão era R$ por m² da rede × m² e não olhava o lugar. Agora ela é corrigida pelo público alcançável do ponto contra o das unidades maduras do
+// mesmo modelo. O efeito vem da própria rede: elasticidade = quanto as vendas por m² mudam, em proporção, quando o público muda (regressão em log
+// nas unidades maduras). Em 25/11/2026 (16 Low Cost) deu ~0,13 com correlação 0,23: o lugar explica pouco das vendas, então o ajuste é pequeno e limitado.
+export const ELASTICIDADE_MAXIMA = 0.3;
+export const FATOR_AJUSTE_MIN = 0.85;
+export const FATOR_AJUSTE_MAX = 1.15;
+export const MIN_UNIDADES_AJUSTE = 10;
+export interface AjusteCaptacao { fator: number; publico: number; mediana: number; razao: number; elasticidade: number; n: number }
+interface RefsCaptacao { mediana: number; elasticidade: number; n: number }
+const cacheRefsCaptacao = new WeakMap<UnidadeEstudo[], { censo: Censo; porModelo: Map<string, RefsCaptacao | null> }>();
+
+function refsDeCaptacao(modelo: Modelo, premissas: Premissas, censo: Censo, unidades: UnidadeEstudo[]): RefsCaptacao | null {
+  let c = cacheRefsCaptacao.get(unidades);
+  if (!c || c.censo !== censo) { c = { censo, porModelo: new Map() }; cacheRefsCaptacao.set(unidades, c); }
+  if (c.porModelo.has(modelo)) return c.porModelo.get(modelo) ?? null;
+  const pad = premissas.modelos[modelo]?.padraoM2 ?? 1200;
+  const maduras = unidades.filter((u) => u.madura && u.modelo === modelo && u.c && u.m2 && u.vendas);
+  let out: RefsCaptacao | null = null;
+  if (maduras.length >= MIN_UNIDADES_AJUSTE) {
+    const pubs = maduras.map((u) => publicoAlcancavel(u.c as [number, number], pad, censo, unidades.filter((x) => x.nome !== u.nome), [], premissas.curva).publico);
+    const vm2 = maduras.map((u) => (u.vendas as number) / (u.m2 as number));
+    const ok = pubs.map((v, i) => i).filter((i) => pubs[i] > 0 && vm2[i] > 0);
+    if (ok.length >= MIN_UNIDADES_AJUSTE) {
+      const med = (a: number[]) => { const v = [...a].sort((x, y) => x - y); return v[Math.floor(v.length / 2)]; };
+      const mp = med(ok.map((i) => pubs[i])), mv = med(ok.map((i) => vm2[i]));
+      const x = ok.map((i) => Math.log(pubs[i] / mp)), y = ok.map((i) => Math.log(vm2[i] / mv));
+      const mx = x.reduce((a, b) => a + b, 0) / x.length, my = y.reduce((a, b) => a + b, 0) / y.length;
+      const cov = x.reduce((a, v, i) => a + (v - mx) * (y[i] - my), 0), vx = x.reduce((a, v) => a + (v - mx) ** 2, 0);
+      out = { mediana: mp, elasticidade: vx > 0 ? Math.min(ELASTICIDADE_MAXIMA, Math.max(0, cov / vx)) : 0, n: ok.length };
+    }
+  }
+  c.porModelo.set(modelo, out);
+  return out;
+}
+
+/**
+ * Fator que corrige as vendas previstas pelo lugar. Sem unidades maduras suficientes do modelo (o Pro tem 3), sem Censo na região do ponto ou sem público,
+ * não há ajuste (null) e a previsão fica só pelo m² e pelo modelo. O fator fica entre FATOR_AJUSTE_MIN e FATOR_AJUSTE_MAX.
+ */
+export function ajusteDeCaptacao(ponto: Pick<Ponto, "c" | "m2" | "modelo">, premissas: Premissas, censo: Censo | null | undefined, unidades: UnidadeEstudo[]): AjusteCaptacao | null {
+  if (!censo || !premissas.curva) return null;
+  const ref = refsDeCaptacao(ponto.modelo, premissas, censo, unidades);
+  if (!ref) return null;
+  if (!censo.celulas.some((c) => c[2] > 0 && km([c[0], c[1]], ponto.c) < 3)) return null; // fora da malha: zero moradores é falta de dado
+  const pad = premissas.modelos[ponto.modelo]?.padraoM2 ?? 1200;
+  const publico = publicoAlcancavel(ponto.c, pad, censo, unidades, [], premissas.curva).publico;
+  if (!(publico > 0)) return null;
+  const razao = publico / ref.mediana;
+  const fator = Math.min(FATOR_AJUSTE_MAX, Math.max(FATOR_AJUSTE_MIN, razao ** ref.elasticidade));
+  return { fator, publico, mediana: ref.mediana, razao, elasticidade: ref.elasticidade, n: ref.n };
+}
+
 export interface Sugestao { c: [number, number]; publico: number; ganho: number; distanciaKm: number; renda: number | null; populacao2km: number; divideCom: { nome: string; parte: number }[] }
 
 /**
@@ -663,19 +717,21 @@ export function freiosDeDemanda(o: {
  * A conta do estudo em linhas, para o parecer explicar de onde sai o número (pedido do dono, 24/11/2026): vendas = R$ por m² × m²;
  * mínimo = investimento ÷ meses + custo fixo, descontada a parte variável. `real`: R$ por m² das unidades maduras do modelo.
  */
-export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, premissas: Premissas, faixa: FaixaM2, real: { min: number; max: number; n: number } | null): string[] {
+export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, premissas: Premissas, faixa: FaixaM2, real: { min: number; max: number; n: number } | null, ajuste: AjusteCaptacao | null = null): string[] {
   const p = premissas.modelos[ponto.modelo], rg = premissas.regua;
   const num = (v: number) => Math.round(v).toLocaleString("pt-BR");
   const mi = (v: number) => `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
   const ehPremissa = p.vendasPorM2 != null && faixa.mediana === p.vendasPorM2;
   const linhas: string[] = [];
-  linhas.push(`Vendas previstas: R$ ${num(faixa.mediana)} por m² × ${num(r.m2Efetivo)} m² = ${reais(r.provavel)} por mês.${ponto.m2 > p.limiteM2 ? ` Acima de ${num(p.limiteM2)} m², cada m² a mais conta só ${Math.round(p.pesoAcima * 100)}%.` : ""}`);
+  linhas.push(`Vendas previstas: R$ ${num(faixa.mediana)} por m² × ${num(r.m2Efetivo)} m²${ajuste ? ` × ${ajuste.fator.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (ajuste pelo lugar)` : ""} = ${reais(r.provavel)} por mês.${ponto.m2 > p.limiteM2 ? ` Acima de ${num(p.limiteM2)} m², cada m² a mais conta só ${Math.round(p.pesoAcima * 100)}%.` : ""}`);
   linhas.push(ehPremissa
     ? `O R$ ${num(faixa.mediana)} por m² do ${p.nome} é uma premissa: a rede tem poucas unidades maduras do modelo.${real ? ` As ${real.n} que existem vendem de R$ ${num(real.min)} a R$ ${num(real.max)} por m².` : ""}`
     : `O R$ ${num(faixa.mediana)} por m² é a mediana de ${faixa.n} unidades maduras do ${p.nome}${real ? ` (de R$ ${num(real.min)} a R$ ${num(real.max)} por m²)` : ""}.`);
   linhas.push(`Mínimo para pagar o investimento em ${rg.mesesAprovado / 12} anos: ${mi(r.investimento)} ÷ ${rg.mesesAprovado - rg.maturacaoMeses} meses + custo fixo de ${reais(r.custoFixo)}, descontando ${Math.round(p.variavel * 1000) / 10}% de custo variável = ${reais(r.meta)} por mês.`);
   linhas.push(`Lucro esperado: ${reais(r.provavel)} × (1 − ${Math.round(p.variavel * 1000) / 10}%) − ${reais(r.custoFixo)} = ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} por mês.`);
-  linhas.push("Essa conta não olha o lugar: população, renda, potencial de consumo e alunos entram como freios do parecer, e não nas vendas previstas.");
+  linhas.push(ajuste
+    ? `Ajuste pelo lugar: o público alcançável do ponto (moradores pesados pela distância, já descontadas as World Gym em volta) é ${Math.round(ajuste.razao * 100)}% da mediana das ${ajuste.n} unidades maduras do modelo. Na rede, cada 10% a mais de público veio com cerca de ${(ajuste.elasticidade * 10).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% a mais de vendas por m²: o lugar explica pouco, então o ajuste é pequeno (limitado a ${Math.round((FATOR_AJUSTE_MIN - 1) * 100)}% a +${Math.round((FATOR_AJUSTE_MAX - 1) * 100)}%). População, renda, potencial de consumo e alunos continuam como freios do parecer.`
+    : "Sem ajuste pelo lugar (o modelo tem poucas unidades maduras ou não há Censo na região): a previsão é só R$ por m² × m². População, renda, potencial de consumo e alunos entram como freios do parecer.");
   return linhas;
 }
 /**
@@ -684,19 +740,20 @@ export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, 
  * Sem a área de 10 min do ponto (ainda não calculada) ou sem as referências da rede, devolve o parecer simples e `completo: false`.
  */
 export interface ContextoAvaliacao { premissas: Premissas; vendasPorM2: Record<Modelo, FaixaM2 | null>; unidades: UnidadeEstudo[]; censo: Censo | null | undefined; refs: RefPopulacao[] | null; area: Geometria | null; semCenso: boolean }
-export function avaliarCompleto(ponto: Ponto, ctx: ContextoAvaliacao): { r: Resultado; veredito: Veredito; freios: Freio[]; completo: boolean } | null {
+export function avaliarCompleto(ponto: Ponto, ctx: ContextoAvaliacao): { r: Resultado; veredito: Veredito; freios: Freio[]; completo: boolean; ajuste: AjusteCaptacao | null } | null {
   const faixa = ctx.vendasPorM2[ponto.modelo];
   if (!faixa) return null;
-  const r = avaliarPonto(ponto, ctx.premissas, faixa);
+  const ajuste = ctx.semCenso ? null : ajusteDeCaptacao(ponto, ctx.premissas, ctx.censo, ctx.unidades);
+  const r = avaliarPonto(ponto, ctx.premissas, faixa, ajuste?.fator ?? 1);
   const tk = ctx.censo ? ticketSugerido(ponto.modelo, ctx.unidades, parecidas(ponto, ctx.censo, ctx.unidades)) : null;
   const alunos = tk ? alunosDoPonto(r, tk.preco) : null;
   const base = vereditoFinal(r.veredito, alunos ? vagasDoPonto(alunos, ponto.imovel) : null);
-  if (ctx.semCenso) return { r, veredito: limitarSemCenso(base, true), freios: [], completo: true };
-  if (!ctx.area || !ctx.refs || !ctx.censo) return { r, veredito: base, freios: [], completo: false };
+  if (ctx.semCenso) return { r, veredito: limitarSemCenso(base, true), freios: [], completo: true, ajuste };
+  if (!ctx.area || !ctx.refs || !ctx.censo) return { r, veredito: base, freios: [], completo: false, ajuste };
   const potencial = potencialNaArea(ctx.censo, ctx.area)?.total ?? null;
   const fm = freiosDeDemanda({ modelo: ponto.modelo, refs: ctx.refs, meta: r.meta, moradores: moradoresNaArea(ctx.censo, ctx.area), ab: classesNaArea(ctx.censo, ctx.area).ab, alunosNecessarios: alunos });
   const v = aplicarFreios(vereditoComFatia(base, potencial ? r.provavel / potencial : null, fm.faixaFatia), fm.freios) as Veredito;
-  return { r, veredito: v, freios: fm.freios, completo: true };
+  return { r, veredito: v, freios: fm.freios, completo: true, ajuste };
 }
 /** Aplica os freios ao veredito: um que reprova reprova; um de atenção tira o "aprova". */
 export function aplicarFreios(v: Veredito | null, freios: Freio[]): Veredito | null {
