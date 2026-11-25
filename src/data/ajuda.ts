@@ -20,7 +20,7 @@ export interface ArtigoAjuda {
   atualizadoEm: string;
 }
 
-export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "royalties" | "juridico" | "qualidade" | "dono";
+export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "royalties" | "juridico" | "qualidade" | "escalas" | "dono";
 
 export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; publico: Publico }[] = [
   { id: "comecando", titulo: "Primeiros passos", descricao: "O que é o Atlas, como escolher a unidade e o mês e como achar uma tela.", publico: "todos" },
@@ -31,12 +31,13 @@ export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; public
   { id: "royalties", titulo: "Royalties", descricao: "Os recebimentos da marca, quem está devendo e como ler cada painel.", publico: "royalties" },
   { id: "juridico", titulo: "Jurídico", descricao: "Os processos da rede e como ler a tela.", publico: "juridico" },
   { id: "qualidade", titulo: "Qualidade", descricao: "Checklists, visitas às unidades e a nota de cada uma.", publico: "qualidade" },
+  { id: "escalas", titulo: "Gerador de escalas", descricao: "A escala 5x2 da equipe, a escala livre, o histórico, o PDF e o Excel.", publico: "escalas" },
   { id: "dono", titulo: "Só você vê", descricao: "Usuários, rotinas automáticas e o que só você acompanha.", publico: "dono" },
 ];
 
 const DATA = "2026-11-16";
 const a = (secao: SecaoAjuda, id: string, titulo: string, resumo: string, paragrafos: string[], extra: Partial<ArtigoAjuda> = {}): ArtigoAjuda =>
-  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : secao === "juridico" ? "juridico" : secao === "qualidade" ? "qualidade" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
+  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : secao === "juridico" ? "juridico" : secao === "qualidade" ? "qualidade" : secao === "escalas" ? "escalas" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
 
 const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   // Primeiros passos
@@ -94,7 +95,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   ], { tela: "gerencial", imagem: "comercial" }),
   a("telas", "tela-alunos", "Alunos", "Tamanho da base, perfil, onde os alunos moram e contratos ativos.", [
     "Tamanho da base: alunos ativos, quem entrou, voltou e saiu, permanência média e LTV.",
-    "Perfil: gênero e faixa de idade. Onde moram: os bairros dos alunos no mapa.",
+    "Perfil: gênero e faixa de idade. Onde moram: um mapa de calor feito a partir do CEP dos alunos, em que as manchas mais quentes são onde moram mais alunos. Dá para ver os ativos, quem saiu nos últimos 12 meses ou os dois juntos; só a contagem por região é guardada, nunca o endereço. A lista dos bairros fica ao lado, e o mapa tem Street View e zoom.",
     "Contratos: foto de hoje dos contratos ativos, quantos são especiais/VIP, de personal, de plano local (até 9 unidades) e de plano rede (10 ou mais; nas unidades Pro, todos). Local e rede somam 100%; especiais e personal são recortes dentro deles.",
     "Contratos ativos por plano: logo abaixo, a lista dos planos com mais contratos ativos hoje, do maior para o menor, com a quantidade e o percentual sobre o total, como o relatório Clientes por contratos do EVO. Com uma unidade no filtro, só os planos dela; sem, a rede (planos de mesmo nome somam). Mostra os 10 maiores, com busca e a opção de ver todos. Quem tem mais de um contrato ativo aparece em cada um deles.",
   ], { tela: "alunos", imagem: "alunos" }),
@@ -123,6 +124,14 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   a("telas", "tela-ranking", "Ranking da rede", "Como cada unidade está em relação às outras.", [
     "Posição e destaques, evolução da unidade mês a mês, comparação lado a lado entre duas unidades e a tabela completa com todos os indicadores.",
   ], { tela: "benchmark", imagem: "ranking" }),
+  a("telas", "estudos-de-ponto-unidade", "Estudos de ponto: o estudo da sua unidade", "O mapa e o estudo da unidade: camadas, o que cada uma mostra e como exportar o PDF.", [
+    "Quem tem acesso a unidades abre, neste menu, o estudo da própria unidade (quem tem mais de uma escolhe qual). O Master consulta o estudo de todas as unidades. O mapa ocupa a tela, e no cartão do canto as abas Mapa e Estudo alternam entre o mapa e os números.",
+    "Camadas do mapa (painel à esquerda; clique para ligar e desligar). Base de clientes: mapa de calor de onde moram os alunos ativos, feito a partir do CEP; as manchas mais quentes têm mais alunos, e a lista dos bairros maiores fica no painel. Demanda potencial: onde a rede espera alunos, pela gente que mora perto e pelas outras unidades. Lacuna de captação: em magenta, onde há mais gente do que alunos, com os anéis das zonas de captação (primária, em vermelho, e secundária, em laranja) e, na legenda, de que distância vêm 70% e 90% dos alunos. População, Idade, Domicílios, Renda, Renda total, Potencial de consumo e Concentração comercial: o Censo 2022 do IBGE por hexágono de 200 metros (o potencial de consumo é a estimativa do que as famílias gastam com esportes). Canibalização: a área da unidade e a das unidades vizinhas, para ver quanto do público elas dividem.",
+    "Por cima do mapa: Academias concorrentes mostra as academias da região (grandes redes com a cor de cada marca), buscadas no Google dentro da área de 10 minutos de carro. Os contornos azuis marcam essa área de deslocamento. A barra de baixo do mapa troca o fundo (Padrão, Cinza ou Satélite), mede distâncias com a régua, abre o Street View e aproxima ou afasta.",
+    "Aba Estudo: De onde vêm os alunos (quantos moram a até 10 minutos de carro, onde moram 80% e os bairros maiores), Área de 10 min de carro (moradores, renda, idade e potencial de consumo da área) e Rede (quanto do público a unidade divide com as outras).",
+    "Exportar PDF: o botão vermelho no cartão do canto gera o estudo da unidade em PDF, com uma foto do mapa de cada camada e os números. Leva alguns segundos porque as fotos são montadas na hora, sempre no mesmo enquadramento (não importa onde você deixou o zoom). A página das academias concorrentes só entra se a camada estiver ligada na hora de exportar, e as páginas que dependem da contagem por CEP só entram quando ela existe para a unidade. As fotos levam o crédito do mapa.",
+    "Como ler: tudo aqui é estimativa. O Censo é de 2022, as zonas são distâncias em linha reta e o mapa de calor é por região, nunca por endereço de aluno. Serve para decidir onde fazer panfletagem, parcerias e anúncios, e não para prever vendas.",
+  ], { tela: "estudos-de-ponto", atualizadoEm: "2026-11-25" }),
 
   // Alertas e plano de ação
   a("alertas", "como-funcionam-alertas", "Como os alertas são decididos", "Comparação com o mesmo dia dos meses anteriores.", [
@@ -174,7 +183,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   ], { atualizadoEm: "2026-11-17" }),
 
   // Royalties (só quem vê o menu)
-  a("royalties", "royalties-o-que-e", "O que é o menu Royalties", "Os recebimentos da marca, por unidade, e o que ainda falta entrar.", [
+  a("royalties", "royalties-o-que-e", "O que é a aba Royalties", "Os recebimentos da marca, por unidade, e o que ainda falta entrar.", [
     "Mostra o que cada unidade pagou à marca em taxa fixa e em royalties, mês a mês, e quanto cada uma ainda deve (o saldo devedor). Os números vêm da planilha de controle dos recebimentos da marca e são atualizados todo dia de manhã.",
     "No topo ficam os filtros: período (mês inicial e final, com atalhos por ano), modalidade (taxa fixa ou royalties), só devedoras e unidade. Eles valem para todos os painéis da tela.",
     "O aviso de mês parcial quer dizer que o extrato do mês veio incompleto. Esses meses aparecem com asterisco e hachurados nos gráficos.",
@@ -206,8 +215,35 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Nota: é a porcentagem dos pontos conseguidos entre os itens que se aplicam, considerando a importância de cada item (definida pelo dono); os não se aplica ficam fora. Na visão geral, a nota de cada unidade é a média das visitas dos últimos 90 dias, verde a partir de 90%, amarelo a partir de 75% e vermelho abaixo. Uma unidade sem visita há mais de 60 dias aparece como pendente.",
   ], { tela: "qualidade", atualizadoEm: "2026-11-20" }),
 
+  // Gerador de escalas (só quem vê o menu)
+  a("escalas", "escalas-o-que-e", "O que é o Gerador de escalas", "A escala 5x2 mensal da equipe de cada unidade, dentro do Atlas.", [
+    "O Gerador de escalas monta a escala do mês da equipe de cada unidade, em duas coordenações: a Administrativa (Recepção e Serviços Gerais) e a Técnica (Professores e Estagiários). O sistema distribui folgas e turnos no 5x2 (cinco dias de trabalho e duas folgas por semana), confere jornada, descanso e cobertura e mostra os conflitos antes de você confirmar.",
+    "Quem usa: o dono e todo Master. Quem tem acesso só a algumas unidades usa se o dono liberar na tela Usuários, e vê apenas as unidades dele. O campo Unidade, no alto da tela, escolhe a unidade; o sino ao lado mostra os avisos (escalas atrasadas, conflitos e alterações de outra pessoa).",
+    "As abas: Escalas (criar, abrir, baixar o PDF e os modelos), Equipe e regras da unidade, Relatório do mês e Painel da rede (só dono e Master). As escalas e as equipes que estavam no site antigo do gerador foram trazidas para cá. Os nomes dos colaboradores ficam guardados com acesso protegido: cada pessoa vê só as unidades dela.",
+  ], { tela: "escalas", atualizadoEm: "2026-11-25" }),
+  a("escalas", "escalas-como-montar", "Como montar a escala do mês", "Criar a escala, gerar, ajustar e confirmar a versão final.", [
+    "Criar: na aba Escalas, clique em Criar escala e escolha a coordenação, o mês e o ano. Em Começar com, use as pessoas e as regras do cadastro da unidade, um modelo pronto ou a escala livre. Os feriados nacionais entram sozinhos. Se já existe a escala daquele mês, o sistema abre a que existe.",
+    "Os quatro passos: Equipe (as pessoas e os horários, vindos do cadastro da unidade), Mês (regras do mês, como turnos de fim de semana e dias sem folga), Ausências (férias e dias em que alguém não pode trabalhar) e Escala. Para gerar, marque que os parâmetros de jornada foram validados pelo sócio-operador da unidade e clique em Gerar escala.",
+    "Depois de gerada, a tela diz se a escala está sem conflitos obrigatórios ou quantos conflitos faltam resolver; com conflito obrigatório não dá para confirmar. Ver avisos mostra o que merece atenção sem impedir a confirmação. Clique numa célula para trocar o dia ou o horário de uma pessoa. Em Mais ações há Trocar folga, Regerar escala, Gerar meses seguintes, PDF individual e Exportar Excel.",
+    "Quando estiver certa, clique em Confirmar versão final. O botão Histórico mostra as versões da escala (criada, gerada, confirmada, restaurada e as edições) e deixa voltar a uma versão antiga, que fica registrada como restaurada. Cada escala mostra quem a elaborou e quem alterou por último.",
+  ], { tela: "escalas", atualizadoEm: "2026-11-25" }),
+  a("escalas", "escalas-livre", "Escala livre", "Montar à mão, sem regras; só o limite de horas por semana.", [
+    "A escala livre é para quando as regras do 5x2 não servem. Você a escolhe pelo card Escala livre, em Modelos de escala, ou em Criar escala, no campo Começar com. As pessoas e os horários vêm do cadastro da unidade.",
+    "O sistema só monta a grade, com todos trabalhando de segunda a sexta no horário cadastrado e folgando no fim de semana. Daí você troca qualquer dia e qualquer horário. Não há mínimo de pessoas, regra de folga, turno pronto, descanso entre jornadas nem feriado como regra.",
+    "A única trava é o limite de horas por semana: 42 horas para cada pessoa e 30 horas para estagiários (Lei do Estágio). Passou do limite, a escala fica com conflito obrigatório e não dá para confirmar a versão final. O PDF, o Excel e o histórico funcionam como numa escala comum.",
+  ], { tela: "escalas", atualizadoEm: "2026-11-25" }),
+  a("escalas", "escalas-pdf-excel", "PDF, Excel e relatório do mês", "Baixar a escala em PDF, em planilha e as horas de cada pessoa.", [
+    "PDF da escala: dentro da escala, o botão Exportar escala em PDF baixa o mês. Na aba Escalas, marque vários meses (só os já gerados) e clique em Gerar PDF para baixar um único arquivo com todos. Em Mais ações, PDF individual faz a escala de cada colaborador.",
+    "Excel: em Mais ações, Exportar Excel monta a planilha da escala, para quem prefere mexer fora do Atlas.",
+    "Relatório do mês: mostra as horas e os dias de cada pessoa no mês escolhido, para enviar à contabilidade. Mostra só as escalas já geradas das unidades que você enxerga.",
+  ], { tela: "escalas", atualizadoEm: "2026-11-25" }),
+  a("escalas", "escalas-equipe-regras", "Equipe e regras da unidade e Painel da rede", "O cadastro da equipe, as regras da unidade e o prazo da rede.", [
+    "Equipe e regras da unidade: o cadastro que todas as escalas da unidade usam. Pessoas (nome, departamento e horário de cada uma), Regras dos departamentos (quantas pessoas, fins de semana e coberturas) e Funcionamento (horários da unidade e feriados locais). O que você muda aqui vale para a escala em aberto e para as próximas. As regras de jornada (limites de horas e descanso) só o dono e o Master mudam.",
+    "Painel da rede (dono e Master): mostra, para o mês escolhido, quais unidades já têm a escala criada, gerada ou confirmada e quais estão com conflito ou atrasadas. O prazo da rede é o dia do mês anterior até o qual a escala precisa estar confirmada; só o dono e o Master mudam esse dia, e o sino avisa as unidades quando o prazo passa.",
+  ], { tela: "escalas", atualizadoEm: "2026-11-25" }),
+
   // Jurídico (só quem vê o menu)
-  a("juridico", "juridico-o-que-e", "O que é o menu Jurídico", "Os processos judiciais e extrajudiciais da rede, vindos da planilha do jurídico.", [
+  a("juridico", "juridico-o-que-e", "O que é a aba Jurídico", "Os processos judiciais e extrajudiciais da rede, vindos da planilha do jurídico.", [
     "Mostra os processos que o escritório jurídico acompanha: quantos são, quanto está em causa, em que empresa e órgão (tribunal, Procon, Ministério Público) estão e quais estão sem andamento. Os dados vêm da planilha que o jurídico manda todo mês e o Atlas lê todo dia.",
     "O nome da parte contrária (em geral um aluno ou ex-colaborador) e os textos livres do processo (objeto e último andamento) não entram no Atlas: ele guarda só o número, a empresa, o órgão, o tipo, o polo, o valor, o status e a data da última movimentação.",
     "Quem vê: o dono e todo Master (só consulta). Quem tem acesso só a algumas unidades vê se o dono liberar na tela Usuários. A tela é conferida no servidor a cada abertura.",
@@ -224,7 +260,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Clique no nome de um usuário para ver o último acesso e as telas que ele abriu.",
   ], { tela: "acessos", atualizadoEm: "2026-11-17" }),
   a("dono", "dono-royalties", "Royalties: quem vê e como atualiza", "O menu é seu, de todo Master e de quem você liberar.", [
-    "O menu Royalties aparece para você e para todo Master. Quem tem acesso só a unidades não vê, a não ser que você marque Pode ver royalties no acesso dele, em Usuários. Só você dá ou tira essa liberação: um Master que gerencia acessos não consegue. Em Ver como acesso de unidades, o menu some, como sumiria para a pessoa.",
+    "A aba Royalties, no menu Franqueadora, aparece para você e para todo Master. Quem tem acesso só a unidades não vê, a não ser que você marque Pode ver royalties no acesso dele, em Usuários. Só você dá ou tira essa liberação: um Master que gerencia acessos não consegue. Em Ver como acesso de unidades, o menu some, como sumiria para a pessoa.",
     "Os dados vêm da planilha de controle dos recebimentos da marca e são atualizados todo dia de manhã. Se a leitura da planilha falhar ou as conferências não fecharem, o menu continua com a última versão boa e avisa no topo.",
     "A ajuda e as novidades sobre Royalties só aparecem para quem vê o menu; quem não tem acesso não encontra nenhum texto sobre ele.",
   ], { tela: "acessos", atualizadoEm: "2026-11-20" }),
@@ -269,8 +305,8 @@ const INDICADORES: ArtigoAjuda[] = Object.entries(AJUDA)
 
 export const ARTIGOS: ArtigoAjuda[] = [...ARTIGOS_ESCRITOS, ...INDICADORES];
 
-export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties, juridico, qualidade));
-export const secoesPara = (dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties, juridico, qualidade));
+export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties, juridico, qualidade, escalas));
+export const secoesPara = (dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties, juridico, qualidade, escalas));
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 

@@ -343,7 +343,7 @@ function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSa
       {podeLiberar && papel === "unidades" && (
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={escalas} onChange={(e) => setEscalas(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-          <span>Pode usar o Gerador de Escalas <span className="block text-xs text-muted-foreground">Mostra o menu Gerador de Escalas, só com as unidades marcadas acima. O Master e o dono sempre usam.</span></span>
+          <span>Pode usar o Gerador de escalas <span className="block text-xs text-muted-foreground">Mostra o menu Gerador de escalas, só com as unidades marcadas acima. O Master e o dono sempre usam.</span></span>
         </label>
       )}
       {podeLiberar && (

@@ -53,7 +53,7 @@ import { Button } from "@/components/ui/button";
 import { Sidebar, MobileDrawer } from "@/components/Sidebar";
 import { Notice } from "@/components/Notice";
 import { DonutList } from "@/components/DonutList";
-import { RefreshCw, LogOut, Menu } from "lucide-react";
+import { RefreshCw, LogOut, Menu, Landmark } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerObras, podeVerJuridico, podeVerQualidade, podeVerEscalas, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
@@ -157,10 +157,10 @@ const Index = () => {
   const mainRef = useRef<HTMLElement>(null);
   /** Abre um menu (`id`) ou um submenu dele (`id/aba`, ex.: "gerencial/notas"). */
   const changeTab = (id: string) => {
-    const [tela, sub] = id.split("/");
+    const [tela, sub] = enderecoAtual(id).split("/");
     setActiveTab(tela);
     setSubAba(sub ?? null);
-    try { if (window.location.hash !== `#${id}`) window.history.pushState(null, "", `#${id}`); } catch { /* navegador sem histórico: segue sem guardar */ }
+    try { if (window.location.hash !== `#${enderecoAtual(id)}`) window.history.pushState(null, "", `#${enderecoAtual(id)}`); } catch { /* navegador sem histórico: segue sem guardar */ }
     mainRef.current?.scrollIntoView({ block: "start" });
   };
   // Abrir uma unidade compara períodos: no mês em andamento quase tudo está parcial ou sem dado,
@@ -211,7 +211,7 @@ const Index = () => {
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = false;
   /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
-  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "juridico" || activeTab === "qualidade" || activeTab === "escalas" || activeTab === "estudos-de-ponto" || activeTab === "unidades-em-obra" || activeTab === "ajuda" || activeTab === "novidades";
+  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "franqueadora" || activeTab === "qualidade" || activeTab === "escalas" || activeTab === "estudos-de-ponto" || activeTab === "unidades-em-obra" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
@@ -541,9 +541,17 @@ const Index = () => {
 
         {activeTab === "acessos" && podeGerirAcessos() && <AcessosTab />}
 
-        {activeTab === "royalties" && podeVerRoyalties() && <RoyaltiesTab />}
-
-        {activeTab === "juridico" && podeVerJuridico() && <JuridicoTab />}
+        {activeTab === "franqueadora" && (podeVerRoyalties() || podeVerJuridico()) && (() => {
+          const abasF = SUBMENUS.franqueadora.filter((a) => (a.id === "royalties" ? podeVerRoyalties() : podeVerJuridico()));
+          const aba = abaAtiva(abasF, subAba);
+          return (
+            <section className="space-y-4">
+              <SectionTitle level="page"><span className="inline-flex items-center gap-2"><Landmark className="h-6 w-6" aria-hidden />Franqueadora</span></SectionTitle>
+              {abasF.length > 1 && <Abas tela="franqueadora" titulo="Franqueadora" abas={abasF} ativa={aba} onChange={(s) => changeTab(`franqueadora/${s}`)} />}
+              {aba === "royalties" ? <RoyaltiesTab semTitulo /> : <JuridicoTab semTitulo />}
+            </section>
+          );
+        })()}
 
         {activeTab === "qualidade" && (podeVerQualidade() || podePreencherChecklist()) && <QualidadeTab />}
 

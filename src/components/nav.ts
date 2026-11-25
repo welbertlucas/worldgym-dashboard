@@ -29,13 +29,11 @@ export const NAV_RODAPE: NavItem[] = [
 ];
 const USUARIOS: NavItem = { id: "acessos", label: "Usuários", icon: KeyRound };
 /** Só aparece para dono, Master e quem o dono liberou. */
-const ROYALTIES: NavItem = { id: "royalties", label: "Royalties", icon: Landmark };
-/** Só aparece para o dono e quem ele liberou. */
-const JURIDICO: NavItem = { id: "juridico", label: "Jurídico", icon: Scale };
+const FRANQUEADORA: NavItem = { id: "franqueadora", label: "Franqueadora", icon: Landmark };
 /** Só aparece para o dono e quem ele liberou. */
 const QUALIDADE: NavItem = { id: "qualidade", label: "Qualidade", icon: ClipboardCheck };
 /** Escala 5x2 da equipe das unidades: dono e Master sempre; quem tem acesso só a unidades, se o dono liberou. */
-const ESCALAS: NavItem = { id: "escalas", label: "Gerador de Escalas", icon: CalendarDays };
+const ESCALAS: NavItem = { id: "escalas", label: "Gerador de escalas", icon: CalendarDays };
 /** Só aparece para quem o dono liberou (e para o dono). */
 const RELATORIOS: NavItem = { id: "relatorios", label: "Relatórios", icon: Presentation };
 /** Só aparecem para o dono, com o aviso "Em breve": ainda estão sendo planejados. */
@@ -46,16 +44,16 @@ export const MENUS_SO_DONO = new Set(["unidades-em-obra"]);
 /** Dos menus reservados, os que ainda não têm tela (selo "Em breve" na barra lateral). */
 export const MENUS_EM_BREVE = new Set(["unidades-em-obra"]);
 /** Menus recém-liberados (selo "Novidade" em vermelho na barra lateral), até o dono pedir para tirar. */
-export const MENUS_NOVIDADE = new Set(["estudos-de-ponto"]);
+export const MENUS_NOVIDADE = new Set(["estudos-de-ponto", "escalas"]);
 export const ABAS_SO_DONO = new Set(["gerencial/despesas"]);
 /** Todos os menus que têm endereço (#id). */
-export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, ROYALTIES, JURIDICO, QUALIDADE, ESCALAS, RELATORIOS, ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA, ...NAV_RODAPE, USUARIOS];
+export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, FRANQUEADORA, QUALIDADE, ESCALAS, RELATORIOS, ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA, ...NAV_RODAPE, USUARIOS];
 
 /** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. `comOcultos` serve à busca, que ainda acha as telas fora da barra lateral. */
 export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorios = false, royalties = false, juridico = false, qualidade = false, emBreve: boolean | { estudos?: boolean; obras?: boolean } = false, escalas = false): NavItem[] => {
   const e = emBreve === true ? { estudos: true, obras: true } : emBreve || {};
   const base = comOcultos ? NAV_ITEMS : NAV_ITEMS.filter((i) => !i.oculto);
-  return [...base, ...(royalties ? [ROYALTIES] : []), ...(juridico ? [JURIDICO] : []), ...(qualidade ? [QUALIDADE] : []), ...(escalas ? [ESCALAS] : []), ...(relatorios ? [RELATORIOS] : []), ...(e.estudos ? [ESTUDOS_DE_PONTO] : []), ...(e.obras ? [UNIDADES_EM_OBRA] : []), ...(gerirAcessos ? [USUARIOS] : [])];
+  return [...base, ...(royalties || juridico ? [FRANQUEADORA] : []), ...(qualidade ? [QUALIDADE] : []), ...(escalas ? [ESCALAS] : []), ...(relatorios ? [RELATORIOS] : []), ...(e.estudos ? [ESTUDOS_DE_PONTO] : []), ...(e.obras ? [UNIDADES_EM_OBRA] : []), ...(gerirAcessos ? [USUARIOS] : [])];
 };
 
 /** "gerencial/vendas" → "Gerencial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
@@ -76,6 +74,7 @@ export function ondeFica(tela: string): string {
 
 /** Submenus de cada menu (abas no topo do conteúdo; endereço #menu/aba). */
 export const SUBMENUS: Record<string, Aba[]> = {
+  franqueadora: [{ id: "royalties", rotulo: "Royalties" }, { id: "juridico", rotulo: "Jurídico" }],
   gerencial: [
     { id: "vendas", rotulo: "Vendas" }, { id: "oportunidades", rotulo: "Oportunidades" }, { id: "complementares", rotulo: "Receitas complementares" },
     { id: "recebimento", rotulo: "Recebimentos" }, { id: "despesas", rotulo: "Despesas" }, { id: "cobranca", rotulo: "Inadimplência" }, { id: "notas", rotulo: "Notas fiscais" },
@@ -105,6 +104,9 @@ const ENDERECOS_ANTIGOS: Record<string, string> = {
   "financeiro/despesas": "gerencial/despesas",
   "financeiro/cobranca": "gerencial/cobranca",
   "financeiro/notas": "gerencial/notas",
+  // Royalties e Jurídico viraram abas do menu Franqueadora (25/11/2026)
+  royalties: "franqueadora/royalties",
+  juridico: "franqueadora/juridico",
   unidades: "benchmark/posicao",
   "benchmark/contratos": "alunos/contratos",
 };

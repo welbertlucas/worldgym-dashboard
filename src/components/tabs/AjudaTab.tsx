@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronRight, CircleHelp, ImageIcon, ClipboardCheck, KeyRound, Landmark, LayoutDashboard, MapPin, Rocket, Scale, Search, ShieldAlert, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarDays, ChevronRight, CircleHelp, ImageIcon, ClipboardCheck, KeyRound, Landmark, LayoutDashboard, MapPin, Rocket, Scale, Search, ShieldAlert, type LucideIcon } from "lucide-react";
 import { lerVistas, marcarVistas } from "@/lib/novidadesVistas";
 import { buscarNovidades, novidadesPara, type Novidade } from "@/data/novidades";
 import { cn } from "@/lib/utils";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ondeFica } from "@/components/nav";
-import { API_BASE, authFetch, ehDono, podeGerarRelatorios, podeVerJuridico, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
+import { API_BASE, authFetch, ehDono, podeGerarRelatorios, podeVerJuridico, podeVerEscalas, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
 import { artigosPara, buscarAjuda, secoesPara, SECOES, type ArtigoAjuda, type SecaoAjuda } from "@/data/ajuda";
 
 /** O botão que abre a tela só aparece se a pessoa tem a tela (o menu Relatórios é liberado por pessoa). */
@@ -52,7 +52,7 @@ function Avatar({ autora, tamanho }: { autora: string; tamanho: "p" | "g" }) {
 
 const dataLonga = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
 const foco = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const ICONE_DA_SECAO: Record<SecaoAjuda, LucideIcon> = { comecando: Rocket, telas: LayoutDashboard, alertas: ShieldAlert, duvidas: CircleHelp, indicadores: BookOpen, royalties: Landmark, juridico: Scale, qualidade: ClipboardCheck, dono: KeyRound };
+const ICONE_DA_SECAO: Record<SecaoAjuda, LucideIcon> = { comecando: Rocket, telas: LayoutDashboard, alertas: ShieldAlert, duvidas: CircleHelp, indicadores: BookOpen, royalties: Landmark, juridico: Scale, qualidade: ClipboardCheck, escalas: CalendarDays, dono: KeyRound };
 const secao = (id: SecaoAjuda) => SECOES.find((s) => s.id === id)!;
 
 /** Caminho no topo: Central de ajuda › Seção (cada parte volta para lá). */
@@ -158,8 +158,9 @@ export function AjudaTab({ aba, onAba, onAbrirTela }: { aba: string | null; onAb
   const royalties = podeVerRoyalties();
   const juridico = podeVerJuridico();
   const qualidade = podeVerQualidade();
-  const artigos = artigosPara(dono, undefined, royalties, juridico, qualidade);
-  const secoes = secoesPara(dono, royalties, juridico, qualidade);
+  const escalas = podeVerEscalas();
+  const artigos = artigosPara(dono, undefined, royalties, juridico, qualidade, escalas);
+  const secoes = secoesPara(dono, royalties, juridico, qualidade, escalas);
   const [consulta, setConsulta] = useState("");
   const daSecao = (id: SecaoAjuda) => artigos.filter((x) => x.secao === id);
   /** Abrir um artigo ou seção limpa a busca. */
@@ -270,7 +271,7 @@ function CartaoNovidade({ n, nova, onAbrirTela }: { n: Novidade; nova: boolean; 
 
 /** Novidades: da mais nova para a mais antiga, agrupadas por mês, 10 de cada vez ("Ver mais"); com busca, todos os resultados. As não vistas ficam marcadas enquanto a tela está aberta, e o número do menu some. */
 export function NovidadesTab({ onAbrirTela }: { onAbrirTela: (destino: string) => void }) {
-  const [lista] = useState(() => novidadesPara(ehDono(), undefined, podeVerRoyalties(), podeVerJuridico(), podeVerQualidade()));
+  const [lista] = useState(() => novidadesPara(ehDono(), undefined, podeVerRoyalties(), podeVerJuridico(), podeVerQualidade(), podeVerEscalas()));
   const [novas] = useState(() => { const v = new Set(lerVistas()); return new Set(lista.filter((n) => !v.has(n.id)).map((n) => n.id)); });
   const [consulta, setConsulta] = useState("");
   // 10 de cada vez; as não lidas aparecem sempre, mesmo que passem de 10.

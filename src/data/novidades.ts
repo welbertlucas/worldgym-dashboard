@@ -4,8 +4,8 @@
 // Formato: título "Tela: o que mudou"; o texto começa pelo problema da academia e depois diz o que mudou.
 // `artigo` liga ao artigo da Central de ajuda ("Saiba mais"); `tela` abre o lugar ("Ver na tela").
 
-/** "royalties": só quem vê o menu Royalties (dono, Master e quem o dono liberou); "juridico": só quem vê o menu Jurídico (dono e quem ele liberou); "dono": só o dono. */
-export type Publico = "todos" | "dono" | "royalties" | "juridico" | "qualidade";
+/** "escalas": só quem vê o menu Gerador de escalas (dono, Master e quem o dono liberou). "royalties": só quem vê a aba Royalties, do menu Franqueadora, (dono, Master e quem o dono liberou); "juridico": só quem vê a aba Jurídico, do menu Franqueadora, (dono e quem ele liberou); "dono": só o dono. */
+export type Publico = "todos" | "dono" | "royalties" | "juridico" | "qualidade" | "escalas";
 export type TipoNovidade = "novo" | "melhoria";
 
 export interface Novidade {
@@ -26,6 +26,31 @@ export interface Novidade {
 export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
+  {
+    id: "2026-11-25-churn-nao-renovados", data: "2026-11-25", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "executiva", artigo: "indicador-churn",
+    titulo: "Overview: o churn ganhou a linha \"Com não renovados\"",
+    texto: "O churn do Atlas conta só quem cancelou, e o painel do EVO mostra um número maior, porque conta também os contratos que venceram e não foram renovados. Por isso os dois não batiam. Agora o cartão de Churn tem, abaixo do número, a linha \"Com não renovados\", que soma as duas coisas e fica no mesmo patamar do EVO. O número principal e os alertas continuam como eram.",
+  },
+  {
+    id: "2026-11-25-onde-moram-calor", data: "2026-11-25", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "alunos/onde-moram", artigo: "tela-alunos",
+    titulo: "Alunos › Onde moram: mapa de calor pelo CEP",
+    texto: "O mapa mostrava uma bolha por bairro, no centro dele, e a bolha podia cair longe de onde os alunos realmente moram. Agora ele é um mapa de calor feito a partir do CEP dos alunos: as manchas mais quentes são onde moram mais alunos, para os ativos, para quem saiu nos últimos 12 meses e para os dois juntos. Só a contagem por região é guardada, nunca o endereço de ninguém. A lista dos bairros continua ao lado, e o mapa tem Street View e zoom.",
+  },
+  {
+    id: "2026-11-25-estudos-unidade", data: "2026-11-25", tipo: "novo", publico: "todos", autora: AUTORA, tela: "estudos-de-ponto", artigo: "estudos-de-ponto-unidade",
+    titulo: "Estudos de ponto: o estudo da sua unidade",
+    texto: "Saber de onde vêm os alunos e onde há gente que a unidade ainda não alcança ajuda a decidir onde panfletar, onde fazer parceria e onde anunciar. No menu Estudos de ponto, quem tem acesso a unidades abre o mapa e o estudo da própria unidade: de onde vêm os alunos (com as zonas de captação), a lacuna entre quem mora perto e quem é aluno, as camadas do Censo (população, idade, renda, consumo e comércio), as academias concorrentes e a sobreposição com as outras unidades. O botão Exportar PDF gera o estudo pronto para guardar ou mandar.",
+  },
+  {
+    id: "2026-11-25-escala-livre", data: "2026-11-25", tipo: "novo", publico: "escalas", autora: AUTORA, tela: "escalas", artigo: "escalas-livre",
+    titulo: "Gerador de escalas: escala livre",
+    texto: "Nem toda semana cabe nas regras do 5x2, e o gerador não deixava mexer em tudo. Agora, em Modelos de escala (ou em Nova escala, no campo Começar com), há a escala livre: o sistema monta só a grade, com todos de segunda a sexta no horário cadastrado, e você troca qualquer dia e qualquer horário, sem regra de folga, cobertura, turno ou descanso. A única trava é o limite de 42 horas por semana para cada pessoa (30 horas para estagiários, pela Lei do Estágio).",
+  },
+  {
+    id: "2026-11-25-gerador-escalas", data: "2026-11-25", tipo: "novo", publico: "escalas", autora: AUTORA, tela: "escalas", artigo: "escalas-o-que-e",
+    titulo: "Gerador de escalas: a escala 5x2 da equipe agora é um menu do Atlas",
+    texto: "Montar a escala mensal da equipe da unidade exigia entrar num site à parte, com outro login. Agora o Gerador de escalas é um menu do Atlas: você escolhe a unidade, cria a escala do mês (ou usa um modelo pronto), o sistema distribui folgas e turnos, mostra os conflitos e deixa ajustar à mão. Dá para ver o histórico de versões, confirmar a versão final e baixar o PDF e o Excel. As escalas e as equipes que já estavam no site antigo foram trazidas para cá.",
+  },
   {
     id: "2026-11-23-previsao-faturamento", data: "2026-11-23", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "gerencial/recebimento", artigo: "tela-gerencial",
     titulo: "Gerencial: previsão de faturamento em duas linhas",
@@ -59,12 +84,12 @@ export const NOVIDADES: Novidade[] = [
   {
     id: "2026-11-20-juridico", data: "2026-11-20", tipo: "novo", publico: "juridico", autora: AUTORA, tela: "juridico", artigo: "juridico-o-que-e",
     titulo: "Jurídico: os processos da rede dentro do Atlas",
-    texto: "Os processos que o escritório jurídico manda todo mês ficavam numa planilha. Agora o menu Jurídico mostra quantos processos a rede tem, quanto está em causa, por empresa, por órgão e por tipo de ação, quais estão sem andamento e a lista completa, com filtros de situação, natureza e empresa. O nome da parte contrária e os textos do processo não entram no Atlas. O menu aparece para o dono e para todo Master (só consulta); quem edita é o dono e quem ele liberar na tela Usuários.",
+    texto: "Os processos que o escritório jurídico manda todo mês ficavam numa planilha. Agora a aba Jurídico, no menu Franqueadora, mostra quantos processos a rede tem, quanto está em causa, por empresa, por órgão e por tipo de ação, quais estão sem andamento e a lista completa, com filtros de situação, natureza e empresa. O nome da parte contrária e os textos do processo não entram no Atlas. O menu aparece para o dono e para todo Master (só consulta); quem edita é o dono e quem ele liberar na tela Usuários.",
   },
   {
     id: "2026-11-20-royalties", data: "2026-11-20", tipo: "novo", publico: "royalties", autora: AUTORA, tela: "royalties", artigo: "royalties-o-que-e",
     titulo: "Royalties: os recebimentos da marca dentro do Atlas",
-    texto: "Acompanhar o que cada unidade paga à marca (taxa fixa e royalties) e quem está devendo exigia abrir outro painel, com outra senha. Agora o menu Royalties mostra o resumo do período, quem está devendo (com a concentração do saldo e exportação em CSV), a situação de pagamento mês a mês, os royalties de cada unidade com as marcações de mês sem pagamento e queda forte, e o que era esperado contra o que entrou. Clicar numa unidade abre o detalhe da cobrança. Os números são os mesmos do painel anterior.",
+    texto: "Acompanhar o que cada unidade paga à marca (taxa fixa e royalties) e quem está devendo exigia abrir outro painel, com outra senha. Agora a aba Royalties, no menu Franqueadora, mostra o resumo do período, quem está devendo (com a concentração do saldo e exportação em CSV), a situação de pagamento mês a mês, os royalties de cada unidade com as marcações de mês sem pagamento e queda forte, e o que era esperado contra o que entrou. Clicar numa unidade abre o detalhe da cobrança. Os números são os mesmos do painel anterior.",
   },
   {
     id: "2026-11-20-total-de-vendas", data: "2026-11-20", tipo: "novo", publico: "todos", autora: AUTORA, tela: "gerencial/vendas", artigo: "diferente-do-evo",
@@ -241,10 +266,10 @@ export const NOVIDADES: Novidade[] = [
 ];
 
 /** Novidades que a pessoa pode ver, da mais nova para a mais antiga. */
-/** Quem vê cada novidade: todos veem as "todos"; o dono vê tudo; as de royalties só vão a quem pode ver o menu Royalties (`royalties`, por padrão igual ao dono). */
-export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono) => publico === "todos" || (publico === "royalties" ? royalties : publico === "juridico" ? juridico : publico === "qualidade" ? qualidade : dono);
-export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono): Novidade[] =>
-  lista.filter((n) => publicoVe(n.publico, dono, royalties, juridico, qualidade)).sort((a, b) => b.data.localeCompare(a.data));
+/** Quem vê cada novidade: todos veem as "todos"; o dono vê tudo; as de royalties só vão a quem pode ver a aba Royalties (`royalties`, por padrão igual ao dono). */
+export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono) => publico === "todos" || (publico === "royalties" ? royalties : publico === "juridico" ? juridico : publico === "qualidade" ? qualidade : publico === "escalas" ? escalas : dono);
+export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono): Novidade[] =>
+  lista.filter((n) => publicoVe(n.publico, dono, royalties, juridico, qualidade, escalas)).sort((a, b) => b.data.localeCompare(a.data));
 
 /** Quantas ainda não foram vistas. */
 export const naoVistas = (lista: Novidade[], vistas: Iterable<string>): number => {

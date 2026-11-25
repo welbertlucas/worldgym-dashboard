@@ -79,7 +79,7 @@ export function PainelJuridico({ modelo, hoje }: { modelo: ModeloJuridico; hoje:
 }
 
 /** Menu Jurídico: só o dono e quem ele liberou (o servidor confere de novo). */
-export function JuridicoTab() {
+export function JuridicoTab({ semTitulo = false }: { semTitulo?: boolean } = {}) {
   const [estado, setEstado] = useState<Estado>({ fase: "carregando" });
   useEffect(() => {
     let vivo = true;
@@ -88,7 +88,7 @@ export function JuridicoTab() {
   }, []);
   return (
     <section className="space-y-4">
-      <SectionTitle level="page"><span className="inline-flex items-center gap-2"><Scale className="h-6 w-6" aria-hidden />Jurídico</span></SectionTitle>
+      {!semTitulo && <SectionTitle level="page"><span className="inline-flex items-center gap-2"><Scale className="h-6 w-6" aria-hidden />Jurídico</span></SectionTitle>}
       <JuridicoConteudo estado={estado} />
     </section>
   );

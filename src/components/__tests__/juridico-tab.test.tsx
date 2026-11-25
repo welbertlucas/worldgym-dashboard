@@ -10,10 +10,10 @@ const MODELO = { atualizadoEm: "2026-11-20T12:00:00.000Z", processos: [P({}), P(
 
 describe("Jurídico (menu e tela)", () => {
   it("o item só entra no menu para quem foi liberado", () => {
-    expect(itensDoMenu(false, false, false, false, false).some((i) => i.id === "juridico")).toBe(false);
-    expect(itensDoMenu(false, false, false, false, true).some((i) => i.id === "juridico")).toBe(true);
-    expect(TODOS_OS_MENUS.some((i) => i.id === "juridico")).toBe(true);
-    expect(nomeDaTela("juridico")).toBe("Jurídico");
+    expect(itensDoMenu(false, false, false, false, false).some((i) => i.id === "franqueadora")).toBe(false);
+    expect(itensDoMenu(false, false, false, false, true).some((i) => i.id === "franqueadora")).toBe(true);
+    expect(TODOS_OS_MENUS.some((i) => i.id === "franqueadora")).toBe(true);
+    expect(nomeDaTela("juridico")).toBe("Franqueadora › Jurídico");
   });
 
   it("mostra carregando, sem acesso, falha e 'ainda sem dados'", () => {

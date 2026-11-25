@@ -12,11 +12,11 @@ const limpo = (h: string) => h.replace(/<!-- -->/g, "").replace(/\u00a0/g, " ");
 
 describe("Royalties (menu e tela)", () => {
   it("o item só entra no menu para quem pode ver, e a busca acha por 'royalties'", () => {
-    expect(itensDoMenu(false, false, false, false).some((i) => i.id === "royalties")).toBe(false);
-    expect(itensDoMenu(false, false, false, true).some((i) => i.id === "royalties")).toBe(true);
-    expect(itensDoMenu(true, true, true, true).map((i) => i.id)).toContain("royalties");
-    expect(TODOS_OS_MENUS.some((i) => i.id === "royalties")).toBe(true);
-    expect(nomeDaTela("royalties")).toBe("Royalties");
+    expect(itensDoMenu(false, false, false, false).some((i) => i.id === "franqueadora")).toBe(false);
+    expect(itensDoMenu(false, false, false, true).some((i) => i.id === "franqueadora")).toBe(true);
+    expect(itensDoMenu(true, true, true, true).map((i) => i.id)).toContain("franqueadora");
+    expect(TODOS_OS_MENUS.some((i) => i.id === "franqueadora")).toBe(true);
+    expect(nomeDaTela("royalties")).toBe("Franqueadora › Royalties");
   });
 
   it("mostra carregando, sem acesso, falha e 'ainda sem dados'", () => {

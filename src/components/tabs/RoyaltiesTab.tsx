@@ -82,7 +82,7 @@ export function PainelRoyalties({ modelo }: { modelo: ModeloRoyalties }) {
 }
 
 /** Menu Royalties: só aparece para dono, Master e quem o dono liberou (o servidor confere de novo). */
-export function RoyaltiesTab() {
+export function RoyaltiesTab({ semTitulo = false }: { semTitulo?: boolean } = {}) {
   const [estado, setEstado] = useState<Estado>({ fase: "carregando" });
   useEffect(() => {
     let vivo = true;
@@ -91,9 +91,11 @@ export function RoyaltiesTab() {
   }, []);
   return (
     <section className="space-y-4">
+      {!semTitulo && (
       <SectionTitle level="page">
         <span className="inline-flex items-center gap-2"><Landmark className="h-6 w-6" aria-hidden />Royalties</span>
       </SectionTitle>
+      )}
       <RoyaltiesConteudo estado={estado} />
     </section>
   );

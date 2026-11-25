@@ -113,3 +113,28 @@ describe("royalties: ajuda e novidade restritas", () => {
     expect(NOVIDADES.find((n) => n.publico === "royalties")?.tela).toBe("royalties");
   });
 });
+
+describe("gerador de escalas: ajuda e novidade restritas", () => {
+  const texto = (a: { titulo: string; resumo: string; paragrafos: string[] }) => `${a.titulo} ${a.resumo} ${a.paragrafos.join(" ")}`;
+
+  it("quem não vê o menu não encontra seção, artigo nem novidade do gerador", () => {
+    expect(secoesPara(false, false, false, false, false).some((s) => s.id === "escalas")).toBe(false);
+    expect(artigosPara(false, undefined, false, false, false, false).some((a) => a.secao === "escalas")).toBe(false);
+    expect(novidadesPara(false, undefined, false, false, false, false).some((n) => n.publico === "escalas")).toBe(false);
+    for (const a of artigosPara(false, undefined, false, false, false, false)) expect(texto(a)).not.toMatch(/gerador de escalas/i);
+  });
+
+  it("quem vê o menu lê os artigos do gerador, e todo \"Saiba mais\" abre um artigo dessa pessoa", () => {
+    const artigos = artigosPara(false, undefined, false, false, false, true);
+    expect(artigos.filter((a) => a.secao === "escalas").length).toBeGreaterThanOrEqual(4);
+    for (const n of novidadesPara(false, undefined, false, false, false, true)) if (n.artigo) expect(artigos.some((a) => a.id === n.artigo)).toBe(true);
+    for (const a of ARTIGOS.filter((x) => x.secao === "escalas")) expect(a.tela).toBe("escalas");
+  });
+
+  it("o estudo da unidade explica as camadas e o PDF sem citar premissas do dono", () => {
+    const a = ARTIGOS.find((x) => x.id === "estudos-de-ponto-unidade");
+    expect(a).toBeTruthy();
+    expect(texto(a!)).toMatch(/PDF/);
+    expect(texto(a!)).not.toMatch(/payback|investimento|premissa|veredito/i);
+  });
+});

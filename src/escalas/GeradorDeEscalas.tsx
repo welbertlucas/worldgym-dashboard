@@ -1,4 +1,4 @@
-// Gerador de Escalas 5x2 dentro do Atlas (veio do site separado geradordeescala.worldgymacademia.com.br, 25/11/2026).
+// Gerador de escalas 5x2 dentro do Atlas (veio do site separado geradordeescala.worldgymacademia.com.br, 25/11/2026).
 // A pessoa já entrou pelo Atlas: não há login nem troca de senha aqui; o servidor (/api/escalas) decide quais unidades ela enxerga.
 // O visual do site antigo fica isolado em `.escalas` (escalas.css) para não mexer no resto do Atlas.
 import { useEffect, useMemo, useState } from 'react';
@@ -47,10 +47,10 @@ export default function GeradorDeEscalas() {
   useEffect(() => {
     let vivo = true;
     authFetch(`${API_BASE}/escalas`).then(async (r) => {
-      if (!r.ok) throw new Error(r.status === 403 ? 'Você ainda não tem acesso ao Gerador de Escalas. Peça a liberação ao dono.' : 'Não consegui abrir o Gerador de Escalas agora.');
+      if (!r.ok) throw new Error(r.status === 403 ? 'Você ainda não tem acesso ao Gerador de escalas. Peça a liberação ao dono.' : 'Não consegui abrir o Gerador de escalas agora.');
       const j = await r.json();
       if (vivo) setInfo(j as Info);
-    }).catch((e) => { if (vivo) setErro(e instanceof Error ? e.message : 'Não consegui abrir o Gerador de Escalas agora.'); });
+    }).catch((e) => { if (vivo) setErro(e instanceof Error ? e.message : 'Não consegui abrir o Gerador de escalas agora.'); });
     return () => { vivo = false; };
   }, []);
 
@@ -66,9 +66,9 @@ export default function GeradorDeEscalas() {
     try { window.localStorage.setItem(UNIT_KEY, id); } catch { /* sem armazenamento: só não lembra */ }
   };
 
-  if (erro) return <div className="escalas"><div className="card center choose-unit"><h2>Gerador de Escalas</h2><p className="muted">{erro}</p></div></div>;
+  if (erro) return <div className="escalas"><div className="card center choose-unit"><h2>Gerador de escalas</h2><p className="muted">{erro}</p></div></div>;
   if (!info) return <div className="escalas"><p className="muted" style={{ padding: '1rem' }}>Carregando…</p></div>;
-  if (!units.length) return <div className="escalas"><div className="card center choose-unit"><h2>Gerador de Escalas</h2><p className="muted">Nenhuma das suas unidades usa o Gerador de Escalas ainda.</p></div></div>;
+  if (!units.length) return <div className="escalas"><div className="card center choose-unit"><h2>Gerador de escalas</h2><p className="muted">Nenhuma das suas unidades usa o Gerador de escalas ainda.</p></div></div>;
 
   const perfilNome = info.nome;
   const ready = !!activeUnit;
@@ -89,7 +89,7 @@ export default function GeradorDeEscalas() {
   };
   return (
     <div>
-      <SectionTitle level="page"><span className="inline-flex items-center gap-2"><CalendarDays className="h-6 w-6" aria-hidden />Gerador de Escalas</span></SectionTitle>
+      <SectionTitle level="page"><span className="inline-flex items-center gap-2"><CalendarDays className="h-6 w-6" aria-hidden />Gerador de escalas</span></SectionTitle>
       {/* A unidade fica à vista, com rótulo, como nos outros menus; o sino das notificações fica ao lado. */}
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <label className="block text-sm">
@@ -109,7 +109,7 @@ export default function GeradorDeEscalas() {
             onIrEscalas={() => { setSchedule(null); setRosterCtx(null); setPage('escalas'); }} />
         </div>
       </div>
-      <Abas tela="escalas" titulo="Gerador de Escalas" abas={abas} ativa={abaAtual} onChange={irPara} />
+      <Abas tela="escalas" titulo="Gerador de escalas" abas={abas} ativa={abaAtual} onChange={irPara} />
       <div className="escalas">
         <main className="main">
           {info.papel !== 'unidades' && page === 'painel' && (
