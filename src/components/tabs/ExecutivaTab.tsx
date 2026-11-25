@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { KpiGrid, type KpiContext, type KpiSpec } from "@/components/kpi/KpiGrid";
+import { churnComNaoRenovados } from "@/components/kpi/tabSpecs";
 import { conversaoSpec, faturamentoSpec, vendasOnlineSpec } from "@/components/kpi/tabSpecs";
 import { MetasKpiCard, type RedeGoal } from "@/components/executiva/MetasKpiCard";
 import { SeletorPeriodo, type Periodo } from "@/components/executiva/SeletorPeriodo";
@@ -70,7 +71,7 @@ export function ExecutivaTab({ month, prev, comparaMesEscolhido, metas, onOpenMe
     faturamentoSpec,
     { title: "Pagamentos dos clientes", kind: "flow", pick: (v) => v.total.recebimento, fmt: formatAbbreviatedNumber, extra: [{ text: `${pctText(recebRatio)} do que foi cobrado`, tone: "neutral" }] },
     vendasOnlineSpec,
-    { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pctText },
+    { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pctText, extra: churnComNaoRenovados },
     { title: "Inadimplência", kind: "rate", rateKey: "inadimplenciaPerc", pick: (v) => v.total.inadimplenciaPerc, fmt: pctText },
     { title: "Renovação", kind: "rate", rateKey: "renovacoes", pick: (v) => v.total.renovacoes, fmt: pctText },
     conversaoSpec,

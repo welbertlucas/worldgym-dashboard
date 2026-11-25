@@ -244,15 +244,16 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       .bindPopup(() => cartaoDoLugar(`World Gym ${u.nome}`, u.c as [number, number], u.endereco, "Endereço não cadastrado."), { offset: [0, -28], minWidth: 240, maxWidth: 300 }).addTo(camadas);
     if (rua) L.marker(rua, { icon: bolinha(L, "#f59e0b", 14) }).addTo(camadas);
     if (lente !== "rede") desenharDeslocamento(L, camadas, areas);
-    // posições sugeridas para uma nova unidade: em todas as camadas (menos a limpa das fotos)
-    if (lente !== "limpa" && verNova) desenharSugestoes(L, camadas, novaUnidade);
+    // posições sugeridas para uma nova unidade e unidades parecidas: valem em qualquer camada, inclusive sem camada escolhida; só ficam de fora das fotos "limpas" do PDF (satélite e academias)
+    const fotoLimpa = lente === "limpa" && gerando;
+    if (!fotoLimpa && verNova) desenharSugestoes(L, camadas, novaUnidade);
     // unidades parecidas: anel verde (parecida) ou cinza (só referência) com o nome
-    if (lente !== "limpa" && verParec) for (const it of compParec?.itens ?? []) {
+    if (!fotoLimpa && verParec) for (const it of compParec?.itens ?? []) {
       if (!it.u.c) continue;
       L.circleMarker(it.u.c, { radius: 13, color: it.parecida ? "#127a3a" : "#8a93a3", weight: 3, fill: false, interactive: false }).addTo(camadas);
       L.marker(it.u.c, { interactive: false, icon: L.divIcon({ className: "", iconSize: [140, 16], iconAnchor: [-14, 8], html: `<div style="font:700 11px/16px Inter,sans-serif;color:${it.parecida ? "#127a3a" : "#5b6577"};text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;white-space:nowrap">${it.u.nome}</div>` }) }).addTo(camadas);
     }
-  }, [lente, u, cap, capMapa, lacuna, zonas, pronto, rua, areas, novaUnidade, verNova, verParec, calorAlunos, compParec]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lente, u, cap, capMapa, lacuna, zonas, pronto, rua, areas, novaUnidade, verNova, verParec, calorAlunos, compParec, gerando]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
   const aoPois = (r: ResultadoPois | null) => { setPois(r); setVerPois(true); };
@@ -354,7 +355,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
               {zonas && <div className="mt-2.5 border-t pt-2 text-foreground">
                 <p className="mb-1.5 text-[11px] font-medium">Zonas de captação (de onde vêm os alunos)</p>
                 <ul className="space-y-1.5 text-[11px]">
-                  {zonas.lista.map((z, i) => {
+                  {zonas.lista.slice(0, 2).map((z, i) => {
                     const ant = zonas.lista[i - 1];
                     return <li key={i} className="flex gap-2">
                       <span className="mt-0.5 h-3 w-3 flex-none rounded-full" style={{ background: ZONAS_COR[i] }} />
@@ -364,7 +365,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
                   })}
                 </ul>
                 {zonas.na10 != null && <p className="mt-1.5 text-[11px]">A área de {MINUTOS_PADRAO} min de carro reúne {Math.round(zonas.na10 * 100)}% dos alunos.</p>}
-                <p className="mt-1 text-[11px] text-muted-foreground">Raios em linha reta, pelo CEP de {zonas.total.toLocaleString("pt-BR")} alunos ativos (só os com CEP localizado). Cada zona é o menor círculo com 70% (primária), 90% (secundária) e 98% (terciária) dos alunos. No mapa só os anéis da primária e da secundária.</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Raios em linha reta, pelo CEP de {zonas.total.toLocaleString("pt-BR")} alunos ativos (só os com CEP localizado). Cada zona é o menor círculo com 70% (primária) e 90% (secundária) dos alunos.</p>
               </div>}
           </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />

@@ -72,11 +72,26 @@ export const financeiroSpecs: KpiSpec[] = [
   { title: "Ticket Médio", kind: "flow", pick: (v) => v.total.ticketMedio, fmt: brl },
 ];
 
+/**
+ * Segunda leitura do churn, como a evasão do painel do EVO: soma os contratos que venceram e não foram renovados aos cancelados (a conta do Atlas só conta os
+ * cancelados). Só aparece quando todas as unidades da vista têm ativos no início, cancelados e não renovados do mês.
+ */
+export const churnComNaoRenovados = (v: MonthView): MetricDetail[] => {
+  const us = v.units.filter((u) => u.ativosIni !== undefined && u.ativosIni > 0);
+  if (!us.length || us.some((u) => u.naoRenovados === undefined)) return [];
+  const ini = us.reduce((a, u) => a + (u.ativosIni as number), 0);
+  const saidas = us.reduce((a, u) => a + u.cancelados + (u.naoRenovados as number), 0);
+  return [{ text: `Com não renovados: ${pct(Math.round((saidas / ini) * 1000) / 10)}`, tone: "neutral" }];
+};
+
 /** Nota do Reclame Aqui só existe para a rede (a planilha não a traz por unidade). */
 export const retencaoSpecs = (withReclameAqui: boolean): KpiSpec[] => [
   { title: "Adimplentes", kind: "level", pick: (v) => v.total.adimplentes, fmt: int },
   { title: "Renovação", kind: "rate", rateKey: "renovacoes", pick: (v) => v.total.renovacoes, fmt: pct },
-  { title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pct },
+  {
+    title: "Churn", kind: "rate", rateKey: "churn", pick: (v) => v.total.churn, fmt: pct,
+    extra: churnComNaoRenovados,
+  },
   { title: "Inadimplência", kind: "rate", rateKey: "inadimplenciaPerc", pick: (v) => v.total.inadimplenciaPerc, fmt: pct },
   { title: "Nota do Google", kind: "level", noDataIfZero: true, pick: (v) => v.total.notaGoogle, fmt: score },
   {

@@ -18,6 +18,7 @@ describe("PDF da unidade: Lacuna e Zonas de Captação (uma página só)", () =>
     expect(j).toContain("Lacuna e Zonas de Captação");
     expect(j).not.toContain("\"Zonas de Captação\""); // não há mais uma página separada
     expect(j).toContain("até 2,2 km"); expect(j).toContain("2,2 km a 3,9 km"); expect(j).toContain("90%");
+    expect(j).not.toContain("Terciária"); expect(j).not.toContain("12,0 km"); // a terceira zona não entra no PDF
   });
   it("sem a contagem por CEP, fica só a lacuna; sem lacuna, só as zonas; sem nenhuma, nada", () => {
     const so = titulos({ ...base, zonas: null, fotos: { ...base.fotos, oportunidade: foto } });
