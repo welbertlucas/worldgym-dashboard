@@ -22,7 +22,7 @@ import { LegendaAtratividade, LegendaCenso, RoscaComLegenda, desenharAtratividad
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
 import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, faixaDaFatia, vereditoComFatia, scoreDeAtratividade, ATRATIVIDADE_VARIAVEIS, PESOS_ATRATIVIDADE_PADRAO, type PesosAtratividade, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  comercioEm, rendaTotalEm, alunosDasVizinhasNaArea, faixaDaFatia, vereditoComFatia, scoreDeAtratividade, ATRATIVIDADE_VARIAVEIS, PESOS_ATRATIVIDADE_PADRAO, type PesosAtratividade, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -342,6 +342,20 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     buscarAcademias().then((res) => { if (res) { setFalhaAcademias(false); setPois((p) => (p ?? (id === atualIdRef.current ? res : null))); } else { buscouAuto.current = ""; if (id === atualIdRef.current) setFalhaAcademias(true); } });
   }, [atual?.id, area10, !!pois]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Alunos reais das World Gym vizinhas (até 4, a até 12 km) que moram na área do ponto aberto: contagem por hexágono, pelo CEP. Só quem lê as outras unidades recebe (dono, liberados e Master).
+  const [vizHex, setVizHex] = useState<{ nome: string; celulas: [number, number, number][] }[]>([]);
+  useEffect(() => {
+    setVizHex([]);
+    if (!atual || !dados.unidades) return;
+    let vivo = true;
+    const centro = atual.c;
+    const perto = dados.unidades.filter((x) => x.c && km(x.c as [number, number], centro) <= 12).sort((a, b) => km(a.c as [number, number], centro) - km(b.c as [number, number], centro)).slice(0, 4);
+    Promise.all(perto.map((x) => authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "alunos-hex", unidade: x.nome }) })
+      .then((r) => (r.ok ? r.json() : null)).then((j) => (j && !j.ausente && Array.isArray(j.celulas) && j.celulas.length ? { nome: x.nome, celulas: j.celulas as [number, number, number][] } : null)).catch(() => null)))
+      .then((l) => { if (vivo) setVizHex(l.filter((x): x is NonNullable<typeof x> => !!x)); });
+    return () => { vivo = false; };
+  }, [atual?.id, atual?.c[0], atual?.c[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+  const alunosVizinhas = useMemo(() => (area10 && vizHex.length && !semCenso ? alunosDasVizinhasNaArea(vizHex, (la, ln) => dentroDaArea(la, ln, area10)) : []), [vizHex, area10, semCenso]);
   const idx = atual ? pontos.findIndex((p) => p.id === atual.id) : -1;
   const compParec = useMemo(() => (atual && !semCenso ? compararComParecidas(atual.c, atual.modelo, dados.censo!, dados.unidades!) : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.modelo, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   const fatores = atual && r && cap ? fatoresDe(atual, r, cap, dados.unidades!, dados.censo!, dados.premissas!, semCenso) : [];
@@ -434,7 +448,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         pontos: listaPdf.map((p, i) => {
           const rr = resultados.get(p.id) ?? null;
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);
-          return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp, proximas: unidadesMaisProximas(p.c, dados.unidades!),
+          return { ponto: p, letra: letra(i), regiao: regiaoDe(p, dados.unidades!), resultado: rr, captacao: cp, proximas: unidadesMaisProximas(p.c, dados.unidades!), alunosVizinhas: p.id === atual?.id ? alunosVizinhas : [],
             fatores: rr ? fatoresDe(p, rr, cp, dados.unidades!, censo, dados.premissas!, foraDaMalhaDoCenso(p.c, censo)) : [],
             parecidas: foraDaMalhaDoCenso(p.c, censo) ? { ...compararComParecidas(p.c, p.modelo, censo, dados.unidades!), itens: [] } : compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null, semCenso: foraDaMalhaDoCenso(p.c, censo) };
         }),
@@ -465,6 +479,12 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                 fatias={[{ rotulo: "Só deste ponto", n: so * 100, cor: "#8c0c22" }, ...cap.divideCom.map((d, i) => ({ rotulo: `Divide com ${d.nome.replace("World Gym ", "")}`, n: d.parte * 100, cor: ["#e0475e", "#f6bcc5", "#cfd3d9"][i] ?? "#cfd3d9" }))]} />;
             })() : <p>Nenhuma World Gym divide a área deste ponto.</p>}
             <p className="mt-1.5">Parte do público da área que World Gym vizinhas também atraem. Círculos: a área de cada unidade e a do ponto.</p>
+            {alunosVizinhas.length > 0 && (
+              <div className="mt-2 border-t border-border pt-2">
+                <p className="mb-1 text-[11px] font-medium text-foreground">Alunos das vizinhas que moram na área do ponto (pelo CEP)</p>
+                <ul className="space-y-0.5 text-[11px]">{alunosVizinhas.map((x) => <li key={x.nome} className="flex justify-between gap-2"><span>{x.nome.replace("World Gym ", "")}</span><span className="tabular-nums text-foreground">{x.alunos.toLocaleString("pt-BR")} · {Math.round(x.parte * 100)}% da base</span></li>)}</ul>
+              </div>
+            )}
           </> : null}
           sobre={[{ id: "pois", rotulo: pois ? rotuloPois(pois) : `Academias concorrentes${buscandoAcademias ? " · buscando…" : ""}`, ativo: !!pois && verPois,
             alternar: () => { if (!pois) void refazerAcademias(); else setVerPois((v) => !v); },

@@ -18,6 +18,8 @@ export interface PontoNoPdf {
   parecidas: ReturnType<typeof compararComParecidas>; foto: string | null;
   /** As World Gym mais próximas do ponto (km em linha reta), para a página de canibalização. */
   proximas?: { nome: string; km: number }[];
+  /** Alunos reais das World Gym vizinhas (CEP) que moram na área do ponto: só do ponto aberto, e só para quem lê as outras unidades. */
+  alunosVizinhas?: { nome: string; alunos: number; parte: number }[];
   /** O ponto está fora da malha do Censo: o veredito nunca passa de "com condicionantes". */
   semCenso?: boolean;
 }
@@ -177,7 +179,9 @@ export function montarPdfPonto(d: DadosPdfPonto): ConteudoPdf {
           : cap.divideCom.length
           ? `A área do ponto se sobrepõe à de unidades World Gym. Pelo modelo de captação, ${cap.divideCom.map((x) => `${pct(x.parte)} do público seria dividido com a ${x.nome}`).join(", ")}. ${cap.divideCom.reduce((a, x) => a + x.parte, 0) >= 0.25 ? "É uma sobreposição alta: a nova unidade tiraria alunos da rede, o que precisa entrar na decisão." : "É uma sobreposição moderada, aceitável em redes adensadas."}`
           : "Nenhuma World Gym divide de forma relevante a área do ponto: a nova unidade não tiraria alunos da rede.",
-          ...(fraseUnidadesProximas(pt.proximas, "ponto") ? [fraseUnidadesProximas(pt.proximas, "ponto")] : [])],
+          ...(fraseUnidadesProximas(pt.proximas, "ponto") ? [fraseUnidadesProximas(pt.proximas, "ponto")] : []),
+          ...(pt.alunosVizinhas?.length ? [`Pelo CEP dos alunos ativos (só a contagem por região, nunca o endereço), ${pt.alunosVizinhas.map((x) => `${num(x.alunos)} da ${x.nome} (${pct(x.parte)} da base dela)`).join(", ")} moram dentro da área do ponto. É o dado real que confirma, ou contraria, a divisão estimada pelo modelo: esses alunos já são da rede e o ponto novo disputaria parte deles.`] : [])],
+        ...(pt.alunosVizinhas?.length ? { tabela: { colunas: ["Unidade vizinha", "Alunos que moram na área do ponto", "Parte da base dela"], larguras: [2, 2, 1.2], linhas: pt.alunosVizinhas.map((x) => [x.nome, num(x.alunos), pct(x.parte)]) } } : {}),
         ...(d.fotoRede ? { foto: { dados: d.fotoRede, legenda: "Pinos vermelhos pequenos: World Gym em operação. Círculos: área de cada uma." }, altFoto: ALT_FOTO_MAPA } : {}),
         ...(cap.divideCom.length ? { grafico: { tipo: "rosca" as const, titulo: "Público do ponto", fatias: [{ rotulo: "Só do ponto", valor: Math.max(0, 1 - cap.divideCom.reduce((a, x) => a + x.parte, 0)), cor: "#c41230" }, ...cap.divideCom.map((x, i) => ({ rotulo: `Dividido com ${x.nome}`, valor: x.parte, cor: ["#f0a0ad", "#e7c3ca", "#d6d9e0"][i] ?? "#d6d9e0" }))] } } : {}),
       });

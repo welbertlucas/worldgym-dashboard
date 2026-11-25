@@ -659,6 +659,19 @@ export function canibalizacaoObservada(
 }
 
 /**
+ * Alunos reais das World Gym vizinhas que moram dentro da área de um ponto (contagem por hexágono, pelo CEP): quantos são e que parte da base
+ * de cada vizinha. Só entram vizinhas com pelo menos um aluno na área; da que tem mais alunos para a que tem menos.
+ */
+export interface AlunosDeVizinhaNaArea { nome: string; alunos: number; parte: number; base: number }
+export function alunosDasVizinhasNaArea(vizinhas: { nome: string; celulas: [number, number, number][] }[], dentro: (lat: number, lng: number) => boolean): AlunosDeVizinhaNaArea[] {
+  return vizinhas.map((v) => {
+    const base = v.celulas.reduce((a, [, , n]) => a + (n > 0 ? n : 0), 0);
+    const alunos = v.celulas.reduce((a, [la, ln, n]) => a + (n > 0 && dentro(la, ln) ? n : 0), 0);
+    return { nome: v.nome, alunos, parte: base ? alunos / base : 0, base };
+  }).filter((x) => x.alunos > 0).sort((a, b) => b.alunos - a.alunos);
+}
+
+/**
  * Zonas de captação (primária, secundária, terciária) pela contagem real de alunos por hexágono: ordena os hexágonos pela distância em linha reta até
  * a unidade e acha o menor raio que reúne cada fatia dos alunos (padrão 70%, 90% e 98%). Devolve os raios em km, a parte dos alunos dentro de cada
  * um (um pouco acima do corte, porque o hexágono não se divide) e o total contado. Sem alunos, null.

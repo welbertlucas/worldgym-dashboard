@@ -58,3 +58,23 @@ describe("recomendação de localização: endereço aproximado de cada posiçã
     expect(enderecoAproximado([-16.1, -49.2], undefined)).toMatch(/coordenadas -16.10000, -49.20000/);
   });
 });
+
+import { alunosDasVizinhasNaArea } from "@/lib/estudoPonto";
+
+describe("alunos reais das vizinhas dentro da área do ponto", () => {
+  // Contagens INVENTADAS por hexágono [lat, lng, alunos]; a "área" do teste é o quadrado de longitude menor que -49,2.
+  const dentro = (_la: number, ln: number) => ln < -49.2;
+  const viz = [
+    { nome: "World Gym Alfa", celulas: [[-16.6, -49.25, 30], [-16.6, -49.3, 20], [-16.7, -49.1, 50]] as [number, number, number][] },
+    { nome: "World Gym Beta", celulas: [[-16.6, -49.25, 10], [-16.7, -49.0, 90]] as [number, number, number][] },
+    { nome: "World Gym Longe", celulas: [[-16.7, -49.0, 100]] as [number, number, number][] },
+  ];
+  it("conta os alunos dentro da área e a parte da base de cada vizinha, da maior para a menor", () => {
+    const r = alunosDasVizinhasNaArea(viz, dentro);
+    expect(r.map((x) => [x.nome, x.alunos, Math.round(x.parte * 100)])).toEqual([["World Gym Alfa", 50, 50], ["World Gym Beta", 10, 10]]);
+  });
+  it("vizinha sem nenhum aluno na área fica de fora e sem vizinhas a lista é vazia", () => {
+    expect(alunosDasVizinhasNaArea(viz, dentro).some((x) => x.nome === "World Gym Longe")).toBe(false);
+    expect(alunosDasVizinhasNaArea([], dentro)).toEqual([]);
+  });
+});
