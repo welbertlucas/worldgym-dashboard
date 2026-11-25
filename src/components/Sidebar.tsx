@@ -88,7 +88,7 @@ function ItemDoMenu({ item, active, onChange, collapsed, numero = 0, criticos = 
         <Icon className="w-[18px] h-[18px] shrink-0 text-primary" aria-hidden />
         <span className={cn("flex-1 whitespace-nowrap text-left", collapsed && "sr-only")}>{item.label}</span>
         {MENUS_EM_BREVE.has(item.id) && !collapsed && (
-          <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-muted-foreground">Em breve</span>
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-semibold leading-none text-muted-foreground">Em breve</span>
         )}
         {MENUS_NOVIDADE.has(item.id) && !collapsed && (
           <span className="shrink-0 text-[9px] font-semibold leading-none text-primary-ink">Novidade</span>
