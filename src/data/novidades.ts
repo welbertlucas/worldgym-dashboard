@@ -37,6 +37,11 @@ export const NOVIDADES: Novidade[] = [
     texto: "O mapa mostrava uma bolha por bairro, no centro dele, e a bolha podia cair longe de onde os alunos realmente moram. Agora ele é um mapa de calor feito a partir do CEP dos alunos: as manchas mais quentes são onde moram mais alunos, para os ativos, para quem saiu nos últimos 12 meses e para os dois juntos. Só a contagem por região é guardada, nunca o endereço de ninguém. A lista dos bairros continua ao lado, e o mapa tem Street View e zoom.",
   },
   {
+    id: "2026-11-26-status-rede-mapa", data: "2026-11-26", tipo: "melhoria", publico: "dono", autora: AUTORA, tela: "estudos-de-ponto", artigo: "dono-unidades-em-obra",
+    titulo: "Mapa da rede: obras e pontos em estudo ao lado das unidades",
+    texto: "O Mapa da rede, nos Estudos de ponto, agora mostra o que está a caminho além das unidades em operação: as obras em andamento (pino laranja, com o próximo marco, o atraso e a inauguração prevista) e os pontos em estudo, em análise e aprovados. Dois botões no alto do mapa escondem ou mostram cada grupo, com a contagem. Para a obra aparecer, informe o endereço dela na janela da obra e clique em Achar no mapa. Clicar num ponto em estudo abre o estudo.",
+  },
+  {
     id: "2026-11-26-fichas-unidades", data: "2026-11-26", tipo: "novo", publico: "dono", autora: AUTORA, tela: "franqueadora/unidades", artigo: "dono-fichas-unidades",
     titulo: "Ficha da unidade: aluguel e contrato de cada unidade",
     texto: "No menu Franqueadora há uma aba nova, Unidades, só sua. Cada unidade tem um card com o m², o modelo e a abertura (que já estavam nas premissas), mais o que faltava: o aluguel mensal e a data de fim do contrato de locação. O card mostra o aluguel por m² e quanto ele pesa nas vendas, e avisa quando o contrato vence em até 6 meses. No alto, a mediana do aluguel por m² de cada modelo: é o número que corrige o aluguel real no payback dos Estudos de ponto.",

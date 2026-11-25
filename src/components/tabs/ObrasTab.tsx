@@ -75,6 +75,23 @@ function ObraDialog({ inicial, podeEditar, existe, salvar, apagar, fechar }: { i
   const [o, setO] = useState<Obra>(inicial);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [achando, setAchando] = useState(false);
+  const [achado, setAchado] = useState<string | null>(null);
+  /** Busca a posição do endereço (o mesmo serviço de mapas dos Estudos de ponto) e guarda a posição na obra. */
+  const acharNoMapa = async () => {
+    const q = [o.endereco, o.cidade].filter(Boolean).join(", ").trim();
+    if (!q) { setErro("Informe o endereço ou a cidade da obra para achar a posição."); return; }
+    setErro(null); setAchando(true); setAchado(null);
+    try {
+      const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "geocodificar-lote", itens: [{ i: 0, q }] }) });
+      const j = (await r.json().catch(() => ({}))) as { resultados?: { lugar: { endereco: string; c: [number, number] } | null }[]; error?: string };
+      if (!r.ok) throw new Error(j.error ?? "Não consegui buscar o endereço agora.");
+      const lugar = j.resultados?.[0]?.lugar;
+      if (!lugar) setErro("Não achei esse endereço. Acrescente a cidade ou o bairro e tente de novo.");
+      else { setO((x) => ({ ...x, c: lugar.c })); setAchado(lugar.endereco); }
+    } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui buscar o endereço agora."); }
+    setAchando(false);
+  };
   const mudaMarco = (id: string, patch: Partial<Marco>) => setO((x) => ({ ...x, marcos: x.marcos.map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
   const ler = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setO((x) => ({ ...x, [e.target.name]: e.target.name === "m2" ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value }));
   const guardar = async () => {
@@ -101,6 +118,13 @@ function ObraDialog({ inicial, podeEditar, existe, salvar, apagar, fechar }: { i
           <label className="text-[12px] text-muted-foreground">Modelo
             <select name="modelo" value={o.modelo} onChange={ler} disabled={!podeEditar} className={campo}><option value="low">Low Cost</option><option value="pro">Pro</option></select></label>
           <label className="text-[12px] text-muted-foreground">Área (m²)<input name="m2" type="number" min={1} max={20000} value={o.m2 ?? ""} onChange={ler} disabled={!podeEditar} className={campo} /></label>
+          <label className="text-[12px] text-muted-foreground sm:col-span-2">Endereço da obra (para pôr a unidade no mapa da rede)
+            <div className="flex gap-2">
+              <input name="endereco" value={o.endereco ?? ""} onChange={(e) => { ler(e); setAchado(null); }} disabled={!podeEditar} maxLength={160} className={campo} placeholder="Rua, número e bairro" />
+              {podeEditar && <Button type="button" variant="outline" className="h-9 shrink-0" onClick={acharNoMapa} disabled={achando}>{achando ? "Buscando…" : "Achar no mapa"}</Button>}
+            </div>
+            <span className="mt-1 block text-[12px]">{o.c ? (achado ? `Posição marcada: ${achado}` : "Posição marcada no mapa da rede.") : "Sem posição: a obra não aparece no mapa da rede."}{podeEditar && o.c && <button type="button" className="ml-2 underline" onClick={() => { setO((x) => ({ ...x, c: null })); setAchado(null); }}>Tirar</button>}</span>
+          </label>
           <label className="text-[12px] text-muted-foreground sm:col-span-2">Responsável pela obra<input name="responsavel" value={o.responsavel} onChange={ler} disabled={!podeEditar} maxLength={60} className={campo} /></label>
         </div>
         <h4 className="mt-5 text-sm font-semibold">Marcos</h4>

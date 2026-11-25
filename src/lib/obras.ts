@@ -1,6 +1,6 @@
 // Unidades em obra: tipos e contas da tela (sem React). A obra anda por marcos; cada marco tem data prevista e, quando acontece, a data real.
 export type Marco = { id: string; nome: string; previsto: string | null; real: string | null };
-export type Obra = { id: string; nome: string; cidade: string; modelo: "low" | "pro"; m2: number | null; responsavel: string; obs: string; marcos: Marco[]; criadoEm?: string; atualizadoEm?: string };
+export type Obra = { id: string; nome: string; cidade: string; /** Endereço usado para achar a posição no mapa da rede. */ endereco?: string; /** Posição no mapa da rede [lat, lng]. */ c?: [number, number] | null; modelo: "low" | "pro"; m2: number | null; responsavel: string; obs: string; marcos: Marco[]; criadoEm?: string; atualizadoEm?: string };
 export type SituacaoObra = "concluida" | "atrasada" | "no-prazo";
 
 /** Marcos de partida de uma obra nova (o dono muda, apaga e acrescenta na própria obra). */
@@ -18,7 +18,7 @@ export const dataBR = (s: string | null) => (s ? `${s.slice(8, 10)}/${s.slice(5,
 export const dataCurta = (s: string | null) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : "sem data");
 
 export const novoId = (p = "o") => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-export const obraNova = (): Obra => ({ id: novoId("o"), nome: "", cidade: "", modelo: "low", m2: null, responsavel: "", obs: "", marcos: MARCOS_PADRAO.map((nome) => ({ id: novoId("m"), nome, previsto: null, real: null })) });
+export const obraNova = (): Obra => ({ id: novoId("o"), nome: "", cidade: "", endereco: "", c: null, modelo: "low", m2: null, responsavel: "", obs: "", marcos: MARCOS_PADRAO.map((nome) => ({ id: novoId("m"), nome, previsto: null, real: null })) });
 
 export const pendentes = (o: Obra) => o.marcos.filter((m) => !m.real);
 export const progresso = (o: Obra) => (o.marcos.length ? Math.round(((o.marcos.length - pendentes(o).length) / o.marcos.length) * 100) : 0);

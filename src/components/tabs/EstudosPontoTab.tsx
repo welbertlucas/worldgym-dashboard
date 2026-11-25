@@ -796,7 +796,7 @@ export function EstudosPontoTab() {
     return <MapaUnidade dados={dados} unidades={emOperacao} inicial={visao.nome} voltar={() => setVisao({ tela: "lista" })} estudarPosicao={estudarPosicao} verRede={() => setVisao({ tela: "rede" })} />;
   }
   if (visao.tela === "rede") {
-    return <MapaRede unidades={dados.unidades ?? []} abrir={(nome) => setVisao({ tela: "unidade", nome })} voltar={() => setVisao({ tela: "lista" })} />;
+    return <MapaRede unidades={dados.unidades ?? []} pontos={pontos} abrir={(nome) => setVisao({ tela: "unidade", nome })} abrirPonto={(id) => setVisao({ tela: "mapa", atualId: id, novo: false, comparando: null })} voltar={() => setVisao({ tela: "lista" })} />;
   }
   if (visao.tela === "lista")
     return (

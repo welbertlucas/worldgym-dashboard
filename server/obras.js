@@ -37,8 +37,15 @@ export function limparObra(o) {
     if (!nomeMarco) throw new ErroObras(`marco ${i + 1}: informe o nome`);
     return { id: m.id, nome: nomeMarco, previsto: data(m.previsto, `${nomeMarco} (previsto)`), real: data(m.real, `${nomeMarco} (realizado)`) };
   });
+  // posição no mapa da rede (opcional): [lat, lng] dentro do Brasil
+  let c = null;
+  if (o.c !== null && o.c !== undefined) {
+    if (!Array.isArray(o.c) || o.c.length !== 2 || !o.c.every((x) => Number.isFinite(Number(x)))) throw new ErroObras("posição da obra inválida");
+    c = [Number(Number(o.c[0]).toFixed(6)), Number(Number(o.c[1]).toFixed(6))];
+    if (c[0] < -34 || c[0] > 6 || c[1] < -74 || c[1] > -34) throw new ErroObras("posição da obra fora do Brasil");
+  }
   return {
-    id: o.id, nome, cidade: texto(o.cidade, 60), modelo: o.modelo === "pro" ? "pro" : "low", m2,
+    id: o.id, nome, cidade: texto(o.cidade, 60), endereco: texto(o.endereco, 160), c, modelo: o.modelo === "pro" ? "pro" : "low", m2,
     responsavel: texto(o.responsavel, 60), obs: texto(o.obs, 600), marcos,
   };
 }

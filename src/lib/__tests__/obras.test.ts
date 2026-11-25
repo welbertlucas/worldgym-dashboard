@@ -102,4 +102,13 @@ describe("servidor: guardar as obras", () => {
     expect(r.obs).toHaveLength(600);
     expect((r as Record<string, unknown>).campoExtra).toBeUndefined();
   });
+  it("posição no mapa: aceita [lat, lng] no Brasil, guarda com 6 casas e recusa o que não faz sentido", async () => {
+    const ok = await S.salvarObra(dono, valida({ c: [-15.7557218123, -47.8931096456], endereco: "Rua Exemplo, 10" }));
+    expect(ok.c).toEqual([-15.755722, -47.89311]);
+    expect(ok.endereco).toBe("Rua Exemplo, 10");
+    expect((await S.salvarObra(dono, valida({ c: null }))).c).toBeNull();
+    await expect(S.salvarObra(dono, valida({ c: [40.7, -74.0] }))).rejects.toMatchObject({ status: 400 });
+    await expect(S.salvarObra(dono, valida({ c: ["a", "b"] }))).rejects.toMatchObject({ status: 400 });
+    await expect(S.salvarObra(dono, valida({ c: [-15.7] }))).rejects.toMatchObject({ status: 400 });
+  });
 });
