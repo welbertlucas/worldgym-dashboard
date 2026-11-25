@@ -1,7 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ZOOMS_DO_SATELITE, gradienteArco, aplicarFundo, bolinha, cartaoDoLugar, primeiraComImagem, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, ZOOMS_DO_SATELITE, gradienteArco, aplicarFundo, bolinha, cartaoDoLugar, primeiraComImagem, carregarLeaflet, fotoEnquadrada, gradienteRampa, pausa, pino, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
@@ -141,7 +141,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       if (!vivo || !el.current) return;
       // A rolagem do mouse (e o gesto de pinça do trackpad) aproxima o mapa direto.
       const mapa = L.map(el.current, { zoomControl: false, preferCanvas: true, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView(u?.c ?? [-15.8, -47.9], 13);
-      mapa.attributionControl.setPrefix("Desenvolvido por Flag Holding LTDA - WG Master Franchise Brasil");
+      mapa.attributionControl.setPrefix(CREDITO_DO_MAPA);
       const ruas = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
       ref.current = { L, mapa, camadas: L.layerGroup().addTo(mapa), ruas, sat };
@@ -307,8 +307,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">Onde o modelo espera alunos, pela gente que mora perto e pelas outras World Gym. {area10 ? LEGENDA_DESLOCAMENTO : ""}</p>
           </> : lente === "oportunidade" ? <>
-            <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: "linear-gradient(90deg,rgba(196,18,48,.08),#c41230)" }} />mais alunos esperados</div>
-            <p className="mt-1">Vermelho: onde o modelo espera alunos. Círculos escuros: onde eles moram hoje. Vermelho forte sem círculo é onde vale fazer marketing.</p>
+            <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: "linear-gradient(90deg,rgba(157,42,107,.08),#9d2a6b)" }} />mais alunos esperados</div>
+            <p className="mt-1">Magenta: onde o modelo espera alunos. Círculos escuros: onde eles moram hoje. Magenta forte sem círculo é onde vale fazer marketing.</p>
           </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
             : lente === "alunos" ? <>

@@ -2,7 +2,7 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { aplicarFundo, carregarLeaflet, pino, URL_OSM, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, aplicarFundo, carregarLeaflet, pino, URL_OSM, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { BarraMapa, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { StreetView } from "@/components/estudos/StreetView";
 import { reais, type UnidadeEstudo } from "@/lib/estudoPonto";
@@ -27,7 +27,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
     carregarLeaflet().then((L) => {
       if (!vivo || !el.current) return;
       const mapa = L.map(el.current, { zoomControl: false, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView([-15.8, -47.9], 5);
-      mapa.attributionControl.setPrefix("Desenvolvido por Flag Holding LTDA - WG Master Franchise Brasil");
+      mapa.attributionControl.setPrefix(CREDITO_DO_MAPA);
       const ruas = L.tileLayer(URL_OSM, { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
       const sat = L.tileLayer(URL_SAT, { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
       ref.current = { L, mapa, grupo: L.featureGroup().addTo(mapa), ruas, sat };

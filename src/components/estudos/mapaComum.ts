@@ -161,9 +161,20 @@ export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = false): Pr
       ctx.beginPath(); ctx.arc(p.x + p.w / 2, p.y + p.h / 2, Math.max(4, Math.min(p.w, p.h) / 2), 0, Math.PI * 2);
       ctx.fillStyle = cor; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
     }
+    // créditos na faixa de baixo, centralizados (pedido do dono, 25/11/2026): a mesma frase do mapa na tela, mais a fonte do fundo
+    const tiles = Array.from(el.querySelectorAll<HTMLImageElement>(".leaflet-tile-pane img")).map((i) => i.src);
+    const fonte = tiles.some((u) => u.includes("World_Imagery")) ? "Imagens © Esri" : tiles.some((u) => u.includes("World_Topo")) ? "© Esri" : "© OpenStreetMap";
+    const texto = `${CREDITO_DO_MAPA} | ${fonte}`, fs = Math.max(11, Math.round(caixa.width / 50));
+    ctx.font = `600 ${fs}px Inter, Arial, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const larg = Math.min(caixa.width - 8, ctx.measureText(texto).width + fs * 1.4), alto = fs * 1.9;
+    ctx.fillStyle = "rgba(255,255,255,0.82)"; ctx.fillRect((caixa.width - larg) / 2, caixa.height - alto, larg, alto);
+    ctx.fillStyle = "#1b2130"; ctx.fillText(texto, caixa.width / 2, caixa.height - alto / 2 + 0.5, larg - fs);
     return c.toDataURL("image/jpeg", 0.85);
   } catch { return null; }
 }
+
+/** Frase de créditos dos mapas dos Estudos de ponto (tela e fotos do PDF). */
+export const CREDITO_DO_MAPA = "Desenvolvido por Flag Holding LTDA - WG Master Franchise Brasil";
 
 export const pausa = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 type MapaBase = { mapa: import("leaflet").Map; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer };

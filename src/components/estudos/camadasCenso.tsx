@@ -9,6 +9,9 @@ export type CamadaCenso = "pessoas" | "idade" | "domicilios" | "renda" | "rendaT
 export const ehCamadaCenso = (x: string): x is CamadaCenso => ["pessoas", "idade", "domicilios", "renda", "rendaTotal", "consumo", "comercio"].includes(x);
 /** Escala verde da renda total e roxa da concentração comercial (como no Mapfry). */
 export const VERDE = (t: number) => `rgb(${Math.round(220 - 190 * t)},${Math.round(240 - 120 * t)},${Math.round(225 - 150 * t)})`;
+export const PETROLEO = (t: number) => `rgb(${Math.round(222 - 211 * t)},${Math.round(232 - 153 * t)},${Math.round(240 - 118 * t)})`;
+export const LARANJA = (t: number) => `rgb(${Math.round(255 - 55 * t)},${Math.round(240 - 150 * t)},${Math.round(222 - 212 * t)})`;
+export const MAGENTA = "#9d2a6b";
 export const ROXO = (t: number) => `rgb(${Math.round(237 - 150 * t)},${Math.round(225 - 190 * t)},${Math.round(247 - 120 * t)})`;
 /**
  * Hexágono com pelo menos 1 morador é desenhado. Em 23/11/2026 o corte foi de 20 moradores (para imitar o Mapfry, que deixa parques e vazios em
@@ -81,7 +84,7 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
   const escala = (val: (c: (typeof vis)[number]) => number) => { const xs = vis.map(val).filter((x) => x > 0).sort((a, b) => a - b); return xs[Math.floor(xs.length * 0.95)] ?? 1; };
   if (camada === "pessoas") {
     const mx = escala((c) => c[2]);
-    for (const c of vis) { const t = Math.min(1, c[2] / mx); hex(c, { fillColor: "#c41230", fillOpacity: 0.04 + t * t * 0.42 }, `${c[2].toLocaleString("pt-BR")} moradores`); }
+    for (const c of vis) { const t = Math.min(1, c[2] / mx); hex(c, { fillColor: PETROLEO(t ** 0.8), fillOpacity: 0.72 }, `${c[2].toLocaleString("pt-BR")} moradores`); }
   } else if (camada === "renda") {
     for (const c of vis) {
       // Com a estimativa por domicílio, a cor é a da classe com mais domicílios no hexágono; sem ela, a da renda média do responsável
@@ -111,7 +114,7 @@ export function desenharCenso(L: Leaflet, grupo: import("leaflet").LayerGroup, c
     for (const c of vis) { const n = c[10] ?? 0, t = Math.min(1, n / mx); hex(c, { fillColor: ROXO(t), fillOpacity: 0.25 + 0.55 * t }, `${n.toLocaleString("pt-BR")} ${n === 1 ? "ponto" : "pontos"} de comércio e serviços (OpenStreetMap)`); }
   } else {
     const val = (c: (typeof vis)[number]) => gastoDoHexagono(c), mx = escala(val);
-    for (const c of vis) { const v = val(c); hex(c, { fillColor: AZUL(Math.min(1, v / mx)), fillOpacity: 0.72 }, `R$ ${Math.round(v).toLocaleString("pt-BR")} por mês em recreações e esportes (estimativa)`); }
+    for (const c of vis) { const v = val(c); hex(c, { fillColor: LARANJA(Math.min(1, v / mx)), fillOpacity: 0.72 }, `R$ ${Math.round(v).toLocaleString("pt-BR")} por mês em recreações e esportes (estimativa)`); }
   }
 }
 
@@ -131,7 +134,7 @@ export function desenharDemanda(L: Leaflet, grupo: import("leaflet").LayerGroup,
     const ps = poligonos(censo, [c[0], c[1]], area);
     if (!ps.length) continue;
     if (cor === "arco") { if (t < 0.06) continue; /* valor quase zero não vira cor: não afirma aluno onde não há */ L.polygon(ps, { color: "#fff", weight: 0.4, opacity: 0.45, fillColor: arco(t ** 0.75), fillOpacity: 0.58, interactive: false }).addTo(grupo); continue; }
-    if (cor === "vermelho") { L.polygon(ps, { color: "#fff", weight: 0.6, opacity: 0.7, fillColor: "#c41230", fillOpacity: 0.06 + 0.6 * t ** 0.8, interactive: false }).addTo(grupo); continue; }
+    if (cor === "vermelho") { L.polygon(ps, { color: "#fff", weight: 0.6, opacity: 0.7, fillColor: MAGENTA, fillOpacity: 0.06 + 0.6 * t ** 0.8, interactive: false }).addTo(grupo); continue; }
     L.polygon(ps, cor === "quente"
       // cor mínima visível: o hexágono de demanda baixa não some sobre o mapa cinza
       ? { color: "#fff", weight: 0.6, opacity: 0.6, fillColor: rampa(0.15 + 0.85 * t ** 0.7), fillOpacity: 0.5 + 0.3 * t, interactive: false }
@@ -283,16 +286,16 @@ export function LegendaCenso({ camada, resumo }: { camada: CamadaCenso; resumo?:
   }
   if (camada === "pessoas") return (
     <div className="space-y-1">
-      {resumo?.moradores ? <CaixaTotal rotulo="Moradores" valor={Math.round(resumo.moradores).toLocaleString("pt-BR")} onde={resumo.onde ?? "na área"} barra={["#f6d6dc", "#c41230"]} /> : null}
-      <p>Vermelho mais forte = mais moradores. Passe o mouse para ver o número.</p>
+      {resumo?.moradores ? <CaixaTotal rotulo="Moradores" valor={Math.round(resumo.moradores).toLocaleString("pt-BR")} onde={resumo.onde ?? "na área"} barra={[PETROLEO(0), PETROLEO(1)]} /> : null}
+      <p>Azul mais forte = mais moradores. Passe o mouse para ver o número.</p>
     </div>
   );
   if (camada === "consumo") {
     const pt = resumo?.potencial;
     return (
       <div className="space-y-2">
-        {pt && <CaixaTotal rotulo="Gasto com esportes por mês" valor={reaisCurto(pt.total)} onde={resumo?.onde ?? "na área"} barra={[AZUL(0), AZUL(1)]} nota={`${Math.round(pt.domicilios).toLocaleString("pt-BR")} domicílios, R$ ${Math.round(pt.porDomicilio).toLocaleString("pt-BR")} por domicílio.`} />}
-        {!pt && <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: `linear-gradient(90deg,${AZUL(0)},${AZUL(1)})` }} />mais gasto com esporte</div>}
+        {pt && <CaixaTotal rotulo="Gasto com esportes por mês" valor={reaisCurto(pt.total)} onde={resumo?.onde ?? "na área"} barra={[LARANJA(0), LARANJA(1)]} nota={`${Math.round(pt.domicilios).toLocaleString("pt-BR")} domicílios, R$ ${Math.round(pt.porDomicilio).toLocaleString("pt-BR")} por domicílio.`} />}
+        {!pt && <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: `linear-gradient(90deg,${LARANJA(0)},${LARANJA(1)})` }} />mais gasto com esporte</div>}
       </div>
     );
   }
