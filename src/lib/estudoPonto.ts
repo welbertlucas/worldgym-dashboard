@@ -212,10 +212,21 @@ export interface Captacao { pesos: number[]; indices: number[]; raio80: number; 
  * Mapa de calor: quanto de cada hexágono vai para o ponto, dividindo com as World Gym e os outros pontos em volta
  * (cada um atrai pelo próprio m²). `pesos[i]` é relativo (habitantes × parte do ponto), para colorir o mapa.
  */
+/**
+ * Um estudo só divide público com o ponto aberto se vai ser uma unidade de verdade (decisão do dono, 24/11/2026): "aprovado" pelo comitê,
+ * ou "virou unidade" ainda fora das unidades em operação (as que já operam entram pela lista de unidades, sem contar duas vezes).
+ * Estudo em análise ou recusado é só uma ideia: não tira aluno de ninguém e não entra no parecer.
+ */
+export function contaComoRival(o: Ponto, unidades: UnidadeEstudo[]): boolean {
+  const st = o.decisao?.status ?? "analise";
+  if (st === "aprovado") return true;
+  if (st === "unidade") return !unidades.some((u) => u.nome === o.decisao?.unidade);
+  return false;
+}
 export function captacaoDe(ponto: Ponto, censo: Censo, unidades: UnidadeEstudo[], outros: Ponto[], curva: Premissas["curva"]): Captacao {
   const rivais = [
     ...unidades.filter((u) => u.c && u.m2).map((u) => ({ nome: `World Gym ${u.nome}`, c: u.c as [number, number], m2: u.m2 as number })),
-    ...outros.filter((o) => o.id !== ponto.id).map((o) => ({ nome: o.nome, c: o.c, m2: o.m2 })),
+    ...outros.filter((o) => o.id !== ponto.id && contaComoRival(o, unidades)).map((o) => ({ nome: o.nome, c: o.c, m2: o.m2 })),
   ].filter((r) => km(r.c, ponto.c) < curva.raioKm * 2);
   const pesos: number[] = [], indices: number[] = [], perdas = new Map<string, number>();
   let total = 0, semRival = 0, populacao2km = 0;
@@ -719,7 +730,7 @@ export function parecerDoPonto(o: {
   if (o.vagas?.situacao === "limite") condicoes.push(`Garantir mais vagas: as informadas estão no limite (o ideal são ${o.vagas.max}).`);
   if (o.vagas?.situacao === "sem-dado") condicoes.push(`Confirmar o estacionamento: o ponto precisa de ${o.vagas.min} a ${o.vagas.max} vagas (próprias ou bem perto).`);
   if (!(o.freios ?? []).some((f) => f.id === "populacao") && (o.populacao?.situacao === "abaixo" || o.populacao?.situacao === "limite")) condicoes.push(`Conferir o público na visita: a área de 10 min tem menos moradores que os ${Math.round(o.populacao.recomendada / 1000).toLocaleString("pt-BR")} mil recomendados.`);
-  for (const d of o.divideCom ?? []) if (Math.round(d.parte * 100) >= 20) condicoes.push(`Aceitar dividir ${Math.round(d.parte * 100)}% do público com ${/^World Gym /.test(d.nome) ? `a ${d.nome}` : `o ponto "${d.nome}", também em estudo`}.`);
+  for (const d of o.divideCom ?? []) if (Math.round(d.parte * 100) >= 20) condicoes.push(`Aceitar dividir ${Math.round(d.parte * 100)}% do público com ${/^World Gym /.test(d.nome) ? `a ${d.nome}` : `o ponto "${d.nome}", já aprovado`}.`);
   for (const f of o.freios ?? []) condicoes.push(f.condicao);
   return { rotulo: PARECER_ROTULO[o.vagas?.situacao === "insuficiente" ? "reprovado" : limitarSemCenso(o.veredito, o.semCenso)], porque: porqueFinal, condicoes };
 }

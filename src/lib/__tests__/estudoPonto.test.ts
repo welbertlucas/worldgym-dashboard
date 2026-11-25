@@ -700,3 +700,23 @@ describe("gráficos das páginas de faturamento, ticket, estacionamento e pareci
     expect(await paginas(true)).toBe(await paginas(false));
   });
 });
+
+describe("outros estudos na divisão do público", () => {
+  it("só dividem público os estudos que vão ser unidade de verdade (aprovado, ou virou unidade fora das operantes)", async () => {
+    const { captacaoDe, contaComoRival } = await import("@/lib/estudoPonto");
+    const censo: Censo = { rk: 0.3, celulas: [] };
+    for (let i = -20; i <= 20; i++) for (let j = -20; j <= 20; j++) censo.celulas.push([-15.8 + i * 0.005, -47.9 + j * 0.005, 500, 3000]);
+    const em = (id: string, status: "analise" | "aprovado" | "recusado" | "unidade", unidade?: string): Ponto => ({ ...ponto([-15.8, -47.885], 1500, id), nome: `Estudo ${id}`, decisao: { status, em: "2026-11-24", ...(unidade ? { unidade } : {}) } });
+    const operantes: UnidadeEstudo[] = [{ nome: "Operante", c: [-15.9, -47.9], m2: 1200, modelo: "low", abertura: "2020-01", madura: true, vendas: 1, alunos: 1 }];
+    expect(contaComoRival(em("a", "analise"), operantes)).toBe(false);
+    expect(contaComoRival({ ...ponto([-15.8, -47.885], 1500, "b"), nome: "sem decisão" }, operantes)).toBe(false);
+    expect(contaComoRival(em("c", "recusado"), operantes)).toBe(false);
+    expect(contaComoRival(em("d", "aprovado"), operantes)).toBe(true);
+    expect(contaComoRival(em("e", "unidade", "Outra"), operantes)).toBe(true); // virou unidade, ainda não está entre as operantes
+    expect(contaComoRival(em("f", "unidade", "Operante"), operantes)).toBe(false); // já entra pela lista das unidades: sem contar duas vezes
+    const alvo = ponto([-15.8, -47.9], 1000, "alvo");
+    const nomes = (outros: Ponto[]) => captacaoDe(alvo, censo, [], outros, PREMISSAS.curva).divideCom.map((d) => d.nome);
+    expect(nomes([em("a", "analise"), em("c", "recusado")])).toEqual([]); // em análise não divide nada
+    expect(nomes([em("a", "analise"), em("d", "aprovado")])).toEqual(["Estudo d"]);
+  });
+});
