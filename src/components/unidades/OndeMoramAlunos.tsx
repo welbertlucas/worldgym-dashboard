@@ -15,7 +15,7 @@ type Bairro = NonNullable<UnitData["bairros"]>[number];
 const fmt = (n: number) => n.toLocaleString("pt-BR");
 export { raioDaBolha };
 
-type Calor = { censo: Censo; indices: number[]; pesos: number[]; comPosicao: number; total: number };
+type Calor = { censo: Censo; indices: number[]; pesos: number[]; comPosicao: number; total: number; /** Unidades com a contagem gravada e unidades na vista (as que faltam entram na próxima carga noturna). */ unidades: number; de: number };
 type Calores = { ativos: Calor | null; inativos: Calor | null; todos: Calor | null };
 type HexDaUnidade = { celulas: [number, number, number][]; total?: number; comPosicao?: number; inativos?: { celulas: [number, number, number][]; total?: number; comPosicao?: number } };
 
@@ -41,26 +41,26 @@ function useCalorAlunos(pinos: Pino[]): Calores {
       if (!vivo || !censo) return;
       const porPosicao = new Map<string, number>();
       censo.celulas.forEach((c, i) => porPosicao.set(`${c[0]},${c[1]}`, i));
-      const monta = (pegar: (h: HexDaUnidade) => { celulas: [number, number, number][]; total?: number; comPosicao?: number } | undefined): { soma: Map<number, number>; comPosicao: number; total: number } => {
+      const monta = (pegar: (h: HexDaUnidade) => { celulas: [number, number, number][]; total?: number; comPosicao?: number } | undefined): { soma: Map<number, number>; comPosicao: number; total: number; unidades: number } => {
         const soma = new Map<number, number>();
-        let comPosicao = 0, total = 0;
+        let comPosicao = 0, total = 0, unidades = 0;
         hex.forEach((h, k) => {
           const d = h && pegar(h);
           if (!d?.celulas?.length) return;
           const indices: number[] = [], pesos: number[] = [];
           for (const [la, ln, n] of d.celulas) { const i = porPosicao.get(`${la},${ln}`); if (i !== undefined) { indices.push(i); pesos.push(n); } }
           if (!indices.length) return;
-          comPosicao += d.comPosicao ?? 0; total += d.total ?? 0;
+          comPosicao += d.comPosicao ?? 0; total += d.total ?? 0; unidades++;
           const sm = suavizarContagem(censo, indices, pesos, pinos[k].pos);
           sm.indices.forEach((i, j) => soma.set(i, (soma.get(i) ?? 0) + sm.pesos[j]));
         });
-        return { soma, comPosicao, total };
+        return { soma, comPosicao, total, unidades };
       };
       const a = monta((h) => h), i = monta((h) => h.inativos);
       const todos = new Map(a.soma);
       i.soma.forEach((v, k) => todos.set(k, (todos.get(k) ?? 0) + v));
-      const calor = (m: { soma: Map<number, number>; comPosicao: number; total: number }): Calor | null => (m.soma.size ? { censo, indices: [...m.soma.keys()], pesos: [...m.soma.values()], comPosicao: m.comPosicao, total: m.total } : null);
-      setCalores({ ativos: calor(a), inativos: calor(i), todos: calor({ soma: todos, comPosicao: a.comPosicao + i.comPosicao, total: a.total + i.total }) });
+      const calor = (m: { soma: Map<number, number>; comPosicao: number; total: number; unidades: number }): Calor | null => (m.soma.size ? { censo, indices: [...m.soma.keys()], pesos: [...m.soma.values()], comPosicao: m.comPosicao, total: m.total, unidades: m.unidades, de: pinos.length } : null);
+      setCalores({ ativos: calor(a), inativos: calor(i), todos: calor({ soma: todos, comPosicao: a.comPosicao + i.comPosicao, total: a.total + i.total, unidades: Math.min(a.unidades, i.unidades) }) });
     });
     return () => { vivo = false; };
   }, [chave]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -201,7 +201,7 @@ export function OndeMoramAlunos({ unit, dados }: { unit: string; dados: MapaDado
           <Mapa key={modo} bairros={bairros} pinos={pinos} inativos={modo === "inativos"} calor={calor} />
           {calor && <div className="mt-2 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-2">poucos<span className="h-1.5 w-40 rounded" style={{ background: gradienteArco }} />muitos alunos</div>
-            <p className="mt-1">Mapa suavizado a partir do CEP de {fmt(calor.comPosicao)} {ROTULO_ALUNOS[modo]}{calor.total ? ` (${Math.round((calor.comPosicao / calor.total) * 100)}% da base)` : ""}. Só a contagem por região é guardada, nunca o endereço.</p>
+            <p className="mt-1">Mapa suavizado a partir do CEP de {fmt(calor.comPosicao)} {ROTULO_ALUNOS[modo]}{calor.total ? ` (${Math.round((calor.comPosicao / calor.total) * 100)}% da base)` : ""}. Só a contagem por região é guardada, nunca o endereço.{calor.unidades < calor.de ? ` Mapa com ${calor.unidades} das ${calor.de} unidades: as outras entram na próxima carga noturna.` : ""}</p>
           </div>}
         </div>
         {ranking && (
