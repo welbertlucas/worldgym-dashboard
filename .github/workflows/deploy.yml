@@ -33,6 +33,7 @@ jobs:
           # Chave do Google só para o Street View embutido (Maps Embed API, grátis). Fica visível no site por natureza;
           # é restrita ao endereço do Atlas no Google Cloud. Variável do repositório (não segredo).
           VITE_GOOGLE_EMBED_KEY: ${{ vars.GOOGLE_EMBED_KEY }}
+          VITE_MAPBOX_PUBLIC_TOKEN: ${{ vars.MAPBOX_PUBLIC_TOKEN }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

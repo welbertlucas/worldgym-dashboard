@@ -163,7 +163,7 @@ export async function fotoDoMapa(mapa: import("leaflet").Map, cinza = false): Pr
     }
     // créditos na faixa de baixo, centralizados (pedido do dono, 25/11/2026): a mesma frase do mapa na tela, mais a fonte do fundo
     const tiles = Array.from(el.querySelectorAll<HTMLImageElement>(".leaflet-tile-pane img")).map((i) => i.src);
-    const fonte = tiles.some((u) => u.includes("World_Imagery")) ? "Imagens © Esri" : tiles.some((u) => u.includes("World_Topo")) ? "© Esri" : "© OpenStreetMap";
+    const fonte = tiles.some((u) => u.includes("World_Imagery")) ? "Imagens © Esri" : tiles.some((u) => u.includes("World_Topo")) ? "© Esri" : tiles.some((u) => u.includes("api.mapbox.com")) ? "© Mapbox © OpenStreetMap" : "© OpenStreetMap";
     const texto = `${CREDITO_DO_MAPA} | ${fonte}`, fs = Math.max(11, Math.round(caixa.width / 50));
     ctx.font = `600 ${fs}px Inter, Arial, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     const larg = Math.min(caixa.width - 8, ctx.measureText(texto).width + fs * 1.4), alto = fs * 1.9;
@@ -179,10 +179,34 @@ export const CREDITO_DO_MAPA = "Desenvolvido por Flag Holding LTDA - WG Master F
 export const pausa = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 type MapaBase = { mapa: import("leaflet").Map; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer };
 
-/** Fundos do mapa (como no Mapfry): padrão (ruas coloridas, também no PDF), cinza, relevo e satélite. */
-export type Fundo = "padrao" | "cinza" | "relevo" | "satelite";
+/** Fundos do mapa (como no Mapfry): padrão (ruas coloridas, também no PDF), cinza e satélite. */
+export type Fundo = "padrao" | "cinza" | "satelite";
+/** Token PÚBLICO do Mapbox (feito para ir no navegador); sem ele os fundos Mapbox não aparecem. */
+export const TOKEN_MAPBOX: string = (import.meta.env.VITE_MAPBOX_PUBLIC_TOKEN as string | undefined) ?? "";
+const mb = (estilo: string, lado: number) => `https://api.mapbox.com/styles/v1/mapbox/${estilo}/tiles/${lado}/{z}/{x}/{y}${lado === 512 ? "@2x" : ""}?access_token=${TOKEN_MAPBOX}`;
+export const URL_MB_RUAS = mb("streets-v12", 512), URL_MB_CLARO = mb("light-v11", 512);
+/** Miniaturas dos fundos Mapbox (azulejos de 256, com o mesmo {z}/{x}/{y} dos outros). */
+export const URL_MB_RUAS_MINI = mb("streets-v12", 256), URL_MB_CLARO_MINI = mb("light-v11", 256);
+/** Troca o endereço dos azulejos; os do Mapbox são de 512 px (zoom deslocado em 1). */
+export function definirUrl(camada: import("leaflet").TileLayer, url: string) {
+  const o = camada.options as { tileSize?: number; zoomOffset?: number };
+  const grande = url.includes("api.mapbox.com") && url.includes("/512/");
+  o.tileSize = grande ? 512 : 256; o.zoomOffset = grande ? -1 : 0;
+  // crédito do fundo na faixa do mapa (o Mapbox exige o dele)
+  const a = camada.options as { attribution?: string }, novo = creditoDoFundo(url), ctl = (camada as unknown as { _map?: { attributionControl?: { removeAttribution(t: string): void; addAttribution(t: string): void } } })._map?.attributionControl;
+  if (ctl && a.attribution !== novo) { if (a.attribution) ctl.removeAttribution(a.attribution); ctl.addAttribution(novo); }
+  a.attribution = novo;
+  camada.setUrl(url);
+}
+export const creditoDoFundo = (url: string) => (url.includes("api.mapbox.com") ? "© Mapbox © OpenStreetMap" : url.includes("World_Topo") ? "© Esri" : "© OpenStreetMap");
 export const URL_OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-export const URL_RELEVO = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
+/** Fundos de cada opção: com o token do Mapbox, Streets (padrão) e Light (cinza); sem ele, o jeito antigo (OpenStreetMap, filtro cinza e Esri). */
+export const URL_PADRAO = TOKEN_MAPBOX ? URL_MB_RUAS : URL_OSM;
+export const URL_CINZA = TOKEN_MAPBOX ? URL_MB_CLARO : URL_OSM;
+/** Camada de ruas do mapa: já nasce no fundo padrão (azulejos de 512 px no caso do Mapbox). */
+export function camadaRuas(L: Leaflet) {
+  return L.tileLayer(URL_PADRAO, { maxZoom: 19, attribution: creditoDoFundo(URL_PADRAO), crossOrigin: "anonymous", ...(TOKEN_MAPBOX ? { tileSize: 512, zoomOffset: -1 } : {}) });
+}
 export const URL_SAT = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const urlDe = (c: import("leaflet").TileLayer) => (c as unknown as { _url: string })._url;
 /** Troca o fundo: satélite usa a camada `sat`; os outros, a camada `ruas` com o endereço certo (cinza = filtro por cima). */
@@ -190,11 +214,11 @@ export function aplicarFundo(m: MapaBase, fundo: Fundo) {
   if (fundo === "satelite") { m.mapa.removeLayer(m.ruas); if (!m.mapa.hasLayer(m.sat)) m.sat.addTo(m.mapa); }
   else {
     m.mapa.removeLayer(m.sat);
-    const url = fundo === "relevo" ? URL_RELEVO : URL_OSM;
-    if (urlDe(m.ruas) !== url) m.ruas.setUrl(url);
+    const url = fundo === "cinza" ? URL_CINZA : URL_PADRAO;
+    if (urlDe(m.ruas) !== url) definirUrl(m.ruas, url);
     if (!m.mapa.hasLayer(m.ruas)) m.ruas.addTo(m.mapa);
   }
-  m.mapa.getContainer().classList.toggle("mapa-cinza", fundo === "cinza");
+  m.mapa.getContainer().classList.toggle("mapa-cinza", fundo === "cinza" && !TOKEN_MAPBOX);
 }
 
 /** Espera os azulejos do fundo carregarem (no máximo `ms`). */
@@ -217,7 +241,7 @@ export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, numbe
   const tinhaSat = m.mapa.hasLayer(m.sat), tinhaRuas = m.mapa.hasLayer(m.ruas);
   // o PDF sai sempre com as ruas do mapa padrão (colorido), qualquer que seja o fundo escolhido na tela
   const urlAntes = urlDe(m.ruas);
-  if (!satelite && urlAntes !== URL_OSM) m.ruas.setUrl(URL_OSM);
+  if (!satelite && urlAntes !== URL_PADRAO) definirUrl(m.ruas, URL_PADRAO);
   // foto QUADRADA (como nos estudos do Mapfry), do mesmo tamanho em todos os mapas: o mapa vira um quadrado de LADO_FOTO só durante a foto,
   // e a área enche o quadro (o enquadramento fica igual em todos os temas, sem sobrar mapa dos lados)
   const caixa = m.mapa.getContainer(), estiloAntes = caixa.getAttribute("style") ?? "";
@@ -237,7 +261,7 @@ export async function fotoEnquadrada(m: MapaBase, alvo: { centro: [number, numbe
   } finally {
     if (m.mapa.hasLayer(m.sat) !== tinhaSat) { if (tinhaSat) m.sat.addTo(m.mapa); else m.mapa.removeLayer(m.sat); }
     if (m.mapa.hasLayer(m.ruas) !== tinhaRuas) { if (tinhaRuas) m.ruas.addTo(m.mapa); else m.mapa.removeLayer(m.ruas); }
-    if (urlDe(m.ruas) !== urlAntes) m.ruas.setUrl(urlAntes);
+    if (urlDe(m.ruas) !== urlAntes) definirUrl(m.ruas, urlAntes);
     caixa.setAttribute("style", estiloAntes);
     m.mapa.invalidateSize({ animate: false });
     m.mapa.setView(centro, zoom, { animate: false });

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Eye, EyeOff, Layers, Ruler, Search, X } from "lucide-react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { IconeBoneco } from "@/components/estudos/StreetView";
-import { URL_OSM, URL_RELEVO, URL_SAT, type Fundo } from "@/components/estudos/mapaComum";
+import { TOKEN_MAPBOX, URL_MB_CLARO_MINI, URL_MB_RUAS_MINI, URL_OSM, URL_SAT, type Fundo } from "@/components/estudos/mapaComum";
 
 export interface ItemCamada { id: string; rotulo: string }
 /** Camada que fica por cima da escolhida (ex.: academias concorrentes depois de buscar): liga e desliga sozinha. */
@@ -158,8 +158,8 @@ export function BarraMapa({ mapa, fundo, setFundo, verRua, setVerRua }: {
   const tx = Math.floor(((centro[1] + 180) / 360) * n), ty = Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n);
   const azulejo = (url: string) => url.replace("{z}", String(z)).replace("{x}", String(tx)).replace("{y}", String(ty));
   const FUNDOS: { id: Fundo; rotulo: string; url: string; cinza?: boolean }[] = [
-    { id: "padrao", rotulo: "Padrão", url: URL_OSM }, { id: "cinza", rotulo: "Cinza", url: URL_OSM, cinza: true },
-    { id: "relevo", rotulo: "Relevo", url: URL_RELEVO }, { id: "satelite", rotulo: "Satélite", url: URL_SAT },
+    { id: "padrao", rotulo: "Padrão", url: TOKEN_MAPBOX ? URL_MB_RUAS_MINI : URL_OSM }, { id: "cinza", rotulo: "Cinza", url: TOKEN_MAPBOX ? URL_MB_CLARO_MINI : URL_OSM, cinza: !TOKEN_MAPBOX },
+    { id: "satelite", rotulo: "Satélite", url: URL_SAT },
   ];
   const atual = FUNDOS.find((f) => f.id === fundo) ?? FUNDOS[1];
   return (

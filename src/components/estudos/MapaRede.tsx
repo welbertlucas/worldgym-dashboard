@@ -2,7 +2,7 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CREDITO_DO_MAPA, aplicarFundo, carregarLeaflet, pino, URL_OSM, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, camadaRuas, aplicarFundo, carregarLeaflet, pino, URL_SAT, type Fundo, type Leaflet } from "@/components/estudos/mapaComum";
 import { BarraMapa, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { StreetView } from "@/components/estudos/StreetView";
 import { reais, type UnidadeEstudo } from "@/lib/estudoPonto";
@@ -14,7 +14,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
   const el = useRef<HTMLDivElement>(null);
   const ref = useRef<{ L: Leaflet; mapa: import("leaflet").Map; grupo: import("leaflet").FeatureGroup; ruas: import("leaflet").TileLayer; sat: import("leaflet").TileLayer } | null>(null);
   const [pronto, setPronto] = useState(false);
-  // os mesmos controles do mapa da unidade: fundo (padrão, cinza, relevo, satélite), régua, Street View e zoom
+  // os mesmos controles do mapa da unidade: fundo (padrão, cinza, satélite), régua, Street View e zoom
   const [fundo, setFundo] = useState<Fundo>("padrao");
   const caixa = useRef<HTMLDivElement>(null);
   const altura = useAlturaAteOFim(caixa, 480, 0);
@@ -28,7 +28,7 @@ export function MapaRede({ unidades, abrir, voltar }: { unidades: UnidadeEstudo[
       if (!vivo || !el.current) return;
       const mapa = L.map(el.current, { zoomControl: false, scrollWheelZoom: true, wheelPxPerZoomLevel: 90 }).setView([-15.8, -47.9], 5);
       mapa.attributionControl.setPrefix(CREDITO_DO_MAPA);
-      const ruas = L.tileLayer(URL_OSM, { maxZoom: 19, attribution: "© OpenStreetMap", crossOrigin: "anonymous" }).addTo(mapa);
+      const ruas = camadaRuas(L).addTo(mapa);
       const sat = L.tileLayer(URL_SAT, { maxZoom: 19, attribution: "Imagens © Esri", crossOrigin: "anonymous" });
       ref.current = { L, mapa, grupo: L.featureGroup().addTo(mapa), ruas, sat };
       setPronto(true);
