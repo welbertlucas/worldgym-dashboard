@@ -223,7 +223,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
                   <p className="truncate text-[11px] text-muted-foreground">{p.endereco ? p.endereco.replace(/,\s*\d{5}(-\d{3})?/, "").replace(/,\s*Brasil$/, "") : regiao || "sem região"} · {NOME_MODELO[p.modelo]} · {p.m2.toLocaleString("pt-BR")} m²</p>
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-[15px] font-semibold tabular-nums">{r ? reais(r.provavel) : "—"}<span className="ml-1 text-[11px] font-normal text-muted-foreground">por mês{real != null ? ` · real ${reais(real)}` : ""}</span></span>
-                    <span className="text-[11px] tabular-nums text-muted-foreground">{p.origem?.aluguel ? `aluguel ${reais(p.origem.aluguel)} · ` : ""}{r ? `payback ${meses(r.payback)}` : ""}</span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">{p.origem?.aluguel ? `aluguel ${reais(p.origem.aluguel)} · ` : "sem aluguel · "}{r ? `payback ${meses(r.payback)}` : ""}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                     <span className="truncate">{p.autor?.nome ?? "Você"} · {dataBR(p.criadoEm)}{(p.decisao?.status ?? "analise") !== "analise" ? ` · ${DECISAO_ROTULO[p.decisao!.status]}` : ""}</span>

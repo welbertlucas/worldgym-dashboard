@@ -581,7 +581,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
                     const faixaM = dados.vendasPorM2![atual.modelo];
                     if (!faixaM) return null;
                     const reaisM2 = dados.unidades!.filter((u) => u.madura && u.modelo === atual.modelo && u.vendas && u.m2).map((u) => (u.vendas as number) / (u.m2 as number));
-                    const linhasConta = contaDoPonto(atual, r, dados.premissas!, faixaM, reaisM2.length ? { min: Math.min(...reaisM2), max: Math.max(...reaisM2), n: reaisM2.length } : null, ajusteDe(atual));
+                    const linhasConta = contaDoPonto(atual, r, dados.premissas!, faixaM, reaisM2.length ? { min: Math.min(...reaisM2), max: Math.max(...reaisM2), n: reaisM2.length } : null, ajusteDe(atual), atual.origem?.aluguel ?? null);
                     return <details className="mt-3 rounded-lg border bg-muted/40 px-2.5 py-1.5"><summary className="cursor-pointer text-xs font-medium text-muted-foreground">Como o Atlas chegou nesse número</summary>
                       <ul className="mt-1.5 space-y-1.5 text-[12px] text-muted-foreground">{linhasConta.map((l) => <li key={l}>{l}</li>)}</ul></details>;
                   })()}
@@ -612,12 +612,25 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
               </details>
             </Secao>
             <Secao icone={Building2} titulo="O imóvel">
-              {atual.origem && <div className="mb-3 rounded-lg border bg-muted/40 px-3 py-2 text-[12px]">
-                <p className="mb-1 font-medium text-foreground">Dados do anúncio (da planilha importada)</p>
-                {atual.origem.aluguel ? <p>Aluguel: <b className="tabular-nums">{reais(atual.origem.aluguel)}</b> por mês{atual.m2 ? ` · R$ ${(atual.origem.aluguel / atual.m2).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m²` : ""}</p> : null}
-                {atual.origem.link && /^https?:\/\//i.test(atual.origem.link) ? <p><a href={atual.origem.link} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">Abrir o anúncio</a></p> : null}
-                {atual.origem.obs ? <p className="text-muted-foreground">{atual.origem.obs}</p> : null}
-              </div>}
+              {(editavel || atual.origem) && (() => {
+                const alug = atual.origem?.aluguel ?? null, fixoM2 = dados.premissas!.modelos[atual.modelo].fixoPorM2;
+                const porM2 = alug && atual.m2 ? alug / atual.m2 : null;
+                return <div className="mb-3 rounded-lg border bg-muted/40 px-3 py-2 text-[12px]">
+                  <p className="mb-1 font-medium text-foreground">Dados do anúncio</p>
+                  {editavel ? <label className="block text-muted-foreground">Aluguel pedido por mês (R$)
+                    <input type="number" min={0} max={4999999} step={100} inputMode="numeric" value={alug ?? ""} placeholder="não informado" aria-label="Aluguel pedido por mês"
+                      onChange={(e) => { const t = e.target.value; const n = t === "" ? 0 : Math.max(0, Math.min(4999999, Math.round(Number(t) || 0))); const o = { ...atual.origem, ...(n > 0 ? { aluguel: n } : {}) }; if (n <= 0) delete o.aluguel; mudar(atual.id, { origem: Object.keys(o).length ? o : undefined }); }}
+                      className="mt-1 w-40 rounded-md border bg-white px-2 py-1 text-right text-sm tabular-nums text-foreground" />
+                  </label> : alug ? <p>Aluguel pedido: <b className="tabular-nums">{reais(alug)}</b> por mês</p> : null}
+                  {porM2 != null ? <p className="mt-1">R$ {porM2.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m². {porM2 > fixoM2
+                    ? <span className="text-warning">Só o aluguel já passa dos R$ {fixoM2.toLocaleString("pt-BR")} por m² de custo fixo que a premissa considera: o custo real tende a ser maior que o da conta.</span>
+                    : <>Dentro dos R$ {fixoM2.toLocaleString("pt-BR")} por m² de custo fixo que a premissa considera.</>}</p>
+                    : <p className="mt-1 text-muted-foreground">Sem o aluguel, o payback usa o custo fixo padrão da rede.</p>}
+                  <p className="mt-1 text-muted-foreground">O aluguel ainda não corrige o payback: aparece aqui só para comparar imóveis.</p>
+                  {atual.origem?.link && /^https?:\/\//i.test(atual.origem.link) ? <p className="mt-1"><a href={atual.origem.link} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">Abrir o anúncio</a></p> : null}
+                  {atual.origem?.obs ? <p className="mt-1 text-muted-foreground">{atual.origem.obs}</p> : null}
+                </div>;
+              })()}
               <div className="flex flex-wrap gap-1.5">
                 {ITENS.map((it) => (
                   <Pilula key={it.k} ativo={atual.imovel[it.k]} onClick={() => mudar(atual.id, { imovel: { ...atual.imovel, [it.k]: !atual.imovel[it.k] } })}>{it.rotulo}</Pilula>

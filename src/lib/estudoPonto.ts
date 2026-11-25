@@ -717,7 +717,7 @@ export function freiosDeDemanda(o: {
  * A conta do estudo em linhas, para o parecer explicar de onde sai o número (pedido do dono, 24/11/2026): vendas = R$ por m² × m²;
  * mínimo = investimento ÷ meses + custo fixo, descontada a parte variável. `real`: R$ por m² das unidades maduras do modelo.
  */
-export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, premissas: Premissas, faixa: FaixaM2, real: { min: number; max: number; n: number } | null, ajuste: AjusteCaptacao | null = null): string[] {
+export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, premissas: Premissas, faixa: FaixaM2, real: { min: number; max: number; n: number } | null, ajuste: AjusteCaptacao | null = null, aluguel: number | null = null): string[] {
   const p = premissas.modelos[ponto.modelo], rg = premissas.regua;
   const num = (v: number) => Math.round(v).toLocaleString("pt-BR");
   const mi = (v: number) => `R$ ${(v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
@@ -728,6 +728,9 @@ export function contaDoPonto(ponto: Pick<Ponto, "m2" | "modelo">, r: Resultado, 
     ? `O R$ ${num(faixa.mediana)} por m² do ${p.nome} é uma premissa: a rede tem poucas unidades maduras do modelo.${real ? ` As ${real.n} que existem vendem de R$ ${num(real.min)} a R$ ${num(real.max)} por m².` : ""}`
     : `O R$ ${num(faixa.mediana)} por m² é a mediana de ${faixa.n} unidades maduras do ${p.nome}${real ? ` (de R$ ${num(real.min)} a R$ ${num(real.max)} por m²)` : ""}.`);
   linhas.push(`Mínimo para pagar o investimento em ${rg.mesesAprovado / 12} anos: ${mi(r.investimento)} ÷ ${rg.mesesAprovado - rg.maturacaoMeses} meses + custo fixo de ${reais(r.custoFixo)}, descontando ${Math.round(p.variavel * 1000) / 10}% de custo variável = ${reais(r.meta)} por mês.`);
+  linhas.push(aluguel
+    ? `Aluguel pedido: ${reais(aluguel)} por mês (R$ ${(aluguel / ponto.m2).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} por m²); a premissa considera R$ ${p.fixoPorM2.toLocaleString("pt-BR")} por m² de custo fixo. Ele ainda não corrige o payback: serve para comparar imóveis.`
+    : "Aluguel não informado: o custo fixo é o padrão da rede (a base mais o valor por m² acima). Informe o aluguel do imóvel para comparar com ele.");
   linhas.push(`Lucro esperado: ${reais(r.provavel)} × (1 − ${Math.round(p.variavel * 1000) / 10}%) − ${reais(r.custoFixo)} = ${r.lucro > 0 ? reais(r.lucro) : "prejuízo"} por mês.`);
   linhas.push(ajuste
     ? `Ajuste pelo lugar: o público alcançável do ponto (moradores pesados pela distância, já descontadas as World Gym em volta) é ${Math.round(ajuste.razao * 100)}% da mediana das ${ajuste.n} unidades maduras do modelo. Na rede, cada 10% a mais de público veio com cerca de ${(ajuste.elasticidade * 10).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% a mais de vendas por m²: o lugar explica pouco, então o ajuste é pequeno (limitado a ${Math.round((FATOR_AJUSTE_MIN - 1) * 100)}% a +${Math.round((FATOR_AJUSTE_MAX - 1) * 100)}%). População, renda, potencial de consumo e alunos continuam como freios do parecer.`
