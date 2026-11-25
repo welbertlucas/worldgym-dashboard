@@ -29,6 +29,14 @@ export function StepMes({ config, update, risks, weeklyOver, onBackToUnit, onOpe
   /** A escala acompanha o cadastro (mês atual em diante, não confirmada). */
   linked: boolean;
 }) {
+  if (config.livre) {
+    return (
+      <div className="card">
+        <h2>Mês</h2>
+        <p className="muted">Escala livre: nenhuma regra do mês é aplicada (folgas, coberturas, turnos de fim de semana, feriados e dias sem folga). Siga para montar a escala; a única trava é o limite de 42 horas por semana para cada pessoa.</p>
+      </div>
+    );
+  }
   const ov = config.overrides ?? {};
   const h = config.operatingHours;
   const resumo = [1, 2, 3, 4, 5, 6, 0].map((w) => `${WEEKDAY_LONG[w].slice(0, 3)} ${h[w].open ? `${h[w].start}–${h[w].end}` : 'fechada'}`).join(' · ');

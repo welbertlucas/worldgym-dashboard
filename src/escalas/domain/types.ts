@@ -279,6 +279,11 @@ export interface ScheduleConfig {
    */
   overrides?: { hours?: boolean; deptRules?: boolean };
   exceptions: StaffException[];
+  /**
+   * Escala livre: o gestor monta tudo à mão, sem regras de folga, cobertura, turnos, descanso ou jornada diária.
+   * A única trava é o limite de 42 horas por semana para cada pessoa (LIVRE_LIMITE_SEMANAL_HORAS).
+   */
+  livre?: boolean;
 }
 
 /**

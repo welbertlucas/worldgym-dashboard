@@ -30,8 +30,10 @@ export function Home({ repo, unitId, onOpen, managerName, onRoster }: { repo: Sc
     const pm = previousMonth(year, month);
     return list.find((s) => s.year === pm.year && s.month === pm.month && (s.team ?? 'administrativa') === team && s.generated) ?? null;
   })();
-  const modelo = modeloId ? modeloPorId(modeloId) : null;
+  const livre = modeloId === 'livre';
+  const modelo = modeloId && !livre ? modeloPorId(modeloId) : null;
   const usarModelo = (m: Modelo) => { setError(null); setTeam(m.team); setModeloId(m.id); setNova(true); };
+  const usarLivre = () => { setError(null); setModeloId('livre'); setNova(true); };
   const [toDelete, setToDelete] = useState<ScheduleSummary | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
@@ -68,7 +70,7 @@ export function Home({ repo, unitId, onOpen, managerName, onRoster }: { repo: Sc
     if (!team) return setError('Escolha a coordenação.');
     try {
       const existing = await repo.findSchedule(year, month, unitId, team);
-      if (existing && modelo) return setError(`Já existe a escala de ${monthLabel(year, month)} desta coordenação. Para usar o modelo, escolha outro mês ou exclua a escala existente.`);
+      if (existing && (modelo || livre)) return setError(`Já existe a escala de ${monthLabel(year, month)} desta coordenação. Para usar ${livre ? 'a escala livre' : 'o modelo'}, escolha outro mês ou exclua a escala existente.`);
       if (existing) {
         onOpen(existing);
         return;
@@ -80,13 +82,14 @@ export function Home({ repo, unitId, onOpen, managerName, onRoster }: { repo: Sc
       // Equipe vem do cadastro da unidade, quando existe.
       const cadastro = unitId && repo.getRoster ? await repo.getRoster(unitId, team) : null;
       if (cadastro) s.config = applyRoster(s.config, cadastro.roster);
+      if (livre) s.config.livre = true; // escala livre: pessoas e horários do cadastro da unidade, sem regras (só o limite de 42h por semana)
       if (modelo) {
         // O modelo vira o cadastro da coordenação: pessoas (nomes fictícios) e regras dos departamentos.
         s.config = aplicarModelo(s.config, modelo);
         normalizeUnitRules(s.config);
         if (unitId && repo.saveRoster) await repo.saveRoster(unitId, team, rosterFromConfig(s.config));
       }
-      if (anterior && repetir && !modelo) s.repetirAnterior = true;
+      if (anterior && repetir && !modelo && !livre) s.repetirAnterior = true;
       await repo.saveSchedule(s);
       onOpen(s);
     } catch (err) {
@@ -153,7 +156,7 @@ export function Home({ repo, unitId, onOpen, managerName, onRoster }: { repo: Sc
       </div>
       <section className="home-modelos" aria-label="Modelos de escala">
         <h2>Modelos de escala</h2>
-        <ModelosPage embutido repo={repo} unitId={unitId ?? null} onUsar={usarModelo} />
+        <ModelosPage embutido repo={repo} unitId={unitId ?? null} onUsar={usarModelo} onUsarLivre={usarLivre} />
       </section>
 
       {pdfItems && (
@@ -185,13 +188,19 @@ export function Home({ repo, unitId, onOpen, managerName, onRoster }: { repo: Sc
               <Field label="Começar com">
                 <select className="input" aria-label="Começar com" value={modeloId} onChange={(e) => setModeloId(e.target.value)}>
                   <option value="">Pessoas e regras do cadastro da unidade</option>
+                  <option value="livre">Escala livre (sem regras, só o limite de 42h por semana)</option>
                   {MODELOS.filter((m) => m.team === team).map((m) => <option key={m.id} value={m.id}>Modelo: {m.nome}</option>)}
                 </select>
               </Field>
             )}
-            {anterior && !modelo && (
+            {anterior && !modelo && !livre && (
               <Toggle checked={repetir} onChange={setRepetir} label={`Repetir as folgas de ${monthLabel(previousMonth(year, month).year, previousMonth(year, month).month).toLowerCase()}`}
                 hint="O sistema parte do padrão do mês anterior (folgas e fins de semana de cada pessoa) e ajusta só o que as regras, os feriados e as férias exigirem." />
+            )}
+            {livre && (
+              <div className="banner info left modelo-aviso">
+                <strong>Escala livre.</strong> Você monta tudo à mão: sem regras de folga, de cobertura, de turnos nem de descanso. As pessoas e os horários vêm do cadastro da unidade, e a escala começa com todos de segunda a sexta. A única trava é o limite de 42 horas por semana para cada pessoa.
+              </div>
             )}
             {modelo && (
               <div className="banner warn left modelo-aviso">

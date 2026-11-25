@@ -1,6 +1,6 @@
 // Modelos prontos de escala: cards por coordenação, com exemplo do mês gerado e "Usar este modelo".
 import { useMemo, useState } from 'react';
-import { ClipboardList, Eye, Sparkles } from 'lucide-react';
+import { ClipboardList, Eye, PencilRuler, Sparkles } from 'lucide-react';
 import { monthLabel } from '../domain/calendar';
 import { aplicarModelo, MODELOS, type Modelo } from '../domain/modelos';
 import { applySettings, normalizeUnitRules } from '../domain/roster';
@@ -30,7 +30,7 @@ async function configDoExemplo(repo: ScheduleRepository, unitId: string | null, 
   return c;
 }
 
-export function ModelosPage({ repo, unitId, onUsar, embutido }: { repo: ScheduleRepository; unitId: string | null; onUsar: (modelo: Modelo) => void; /** Dentro de Escalas: sem o título da página. */ embutido?: boolean }) {
+export function ModelosPage({ repo, unitId, onUsar, onUsarLivre, embutido }: { repo: ScheduleRepository; unitId: string | null; onUsar: (modelo: Modelo) => void; /** Começa uma escala livre (sem modelo, sem regras, só o limite semanal). */ onUsarLivre?: () => void; /** Dentro de Escalas: sem o título da página. */ embutido?: boolean }) {
   const [filtro, setFiltro] = useState<'todas' | Team>('todas');
   const [exemplo, setExemplo] = useState<{ modelo: Modelo; schedule: Schedule | null; erro?: string } | null>(null);
   const lista = MODELOS.filter((m) => filtro === 'todas' || m.team === filtro);
@@ -60,6 +60,26 @@ export function ModelosPage({ repo, unitId, onUsar, embutido }: { repo: Schedule
           options={[{ value: 'todas', label: 'Todos' }, ...TEAMS.map((t) => ({ value: t.id, label: t.name }))]} />
       </div>
       <div className="modelos-grid">
+        {onUsarLivre && (
+          <article className="card modelo-card modelo-livre" aria-label="Escala livre">
+            <div className="modelo-topo">
+              <span className="modelo-coord">Todas as coordenações</span>
+              <span className="modelo-sugerido"><PencilRuler size={12} aria-hidden /> Livre</span>
+            </div>
+            <h2>Escala livre</h2>
+            <p className="muted small">Monte a escala do jeito que quiser, dia a dia, pessoa por pessoa. Sem mínimo de pessoas, sem regra de folga e sem turnos prontos.</p>
+            <ul className="modelo-destaques">
+              <li>Começa com todos de segunda a sexta, no horário cadastrado de cada um</li>
+              <li>Você troca qualquer dia e qualquer horário, sem o sistema corrigir</li>
+              <li>A única trava: no máximo 42 horas por semana para cada pessoa</li>
+            </ul>
+            <div className="modelo-acoes">
+              <button type="button" className="btn primary small" disabled={!unitId} title={unitId ? '' : 'Escolha a unidade no alto da tela'} onClick={onUsarLivre}>
+                <PencilRuler size={14} aria-hidden /> Montar escala livre
+              </button>
+            </div>
+          </article>
+        )}
         {lista.map((m) => (
           <article key={m.id} className="card modelo-card" aria-label={`Modelo ${m.nome}`}>
             <div className="modelo-topo">

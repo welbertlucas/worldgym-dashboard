@@ -69,3 +69,4 @@
 .escalas .schedule-item:hover { border-color: hsl(var(--primary)); background: hsl(var(--primary) / 0.03); }
 .escalas .badge { font-weight: 500; }
 .escalas .choose-unit { max-width: 520px; margin: 1.5rem auto; }
+.escalas .modelos-grid > .card, .escalas .home-list > .card + .card { margin-top: 0; }

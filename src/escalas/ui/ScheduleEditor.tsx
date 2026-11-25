@@ -6,6 +6,8 @@ import {
   addException, analyze, applyGeneration, confirmSchedule, configSignature, removeException, setCell, swapOffDays, updateConfig, type CellPatch,
 } from '../domain/scheduleOps';
 import { weekendShiftRisks } from '../domain/risks';
+import { gerarLivre } from '../domain/generator';
+import { LIVRE_LIMITE_SEMANAL_HORAS } from '../domain/validate';
 import { generateFollowingMonths, MAX_FOLLOWING_MONTHS, type MonthResult } from '../domain/multiMonth';
 import { DEPT_IDS, deptEnabled, deptName, teamName, type Alert, type DeptId, type Schedule, type ScheduleConfig, type Team } from '../domain/types';
 import type { ScheduleRepository } from '../storage/repository';
@@ -176,10 +178,15 @@ export function ScheduleEditor({ repo, initial, onClose, onOpen, onOpenUnit, use
     if (userName && !initial.managerName?.trim()) setSchedule((s) => ({ ...s, managerName: userName, updatedAt: new Date().toISOString() }));
   }, [userName, initial.managerName]);
 
-  const issues = useMemo<ConfigIssue[]>(() => [
-    ...(schedule.managerName?.trim() || userName ? [] : [{ section: 'identificacao' as const, where: 'Elaborada por', message: 'Informe, no alto da escala, o nome de quem está elaborando.' }]),
-    ...validateConfig(schedule.config),
-  ], [schedule.config, schedule.managerName]);
+  const issues = useMemo<ConfigIssue[]>(() => {
+    const nome: ConfigIssue[] = schedule.managerName?.trim() || userName ? [] : [{ section: 'identificacao' as const, where: 'Elaborada por', message: 'Informe, no alto da escala, o nome de quem está elaborando.' }];
+    // Escala livre: só pede o nome de quem elabora e pelo menos uma pessoa; as regras de cobertura e de turnos não valem.
+    if (schedule.config.livre) {
+      const semGente = DEPT_IDS.every((id) => !deptEnabled(schedule.config, id) || schedule.config.departments[id].employees.length === 0);
+      return [...nome, ...(semGente ? [{ section: 'colaboradores' as const, where: 'Equipe', message: 'Cadastre pelo menos uma pessoa na equipe para montar a escala.' }] : [])];
+    }
+    return [...nome, ...validateConfig(schedule.config)];
+  }, [schedule.config, schedule.managerName]);
   const analysis = useMemo(() => analyze(schedule), [schedule]);
   const risks = useMemo(() => weekendShiftRisks(schedule.config), [schedule.config]);
   const weeklyOver = analysis?.alerts.filter((a) => a.code === 'LIMITE_SEMANAL') ?? [];
@@ -192,6 +199,13 @@ export function ScheduleEditor({ repo, initial, onClose, onOpen, onOpenUnit, use
     if (issues.length) {
       goToIssue(issues[0]);
       setError(`Há ${issues.length} pendência(s) antes de gerar. Veja a lista abaixo: cada item leva ao campo a corrigir.`);
+      return;
+    }
+    if (schedule.config.livre) {
+      // Escala livre: sem a confirmação dos parâmetros de jornada; só monta a grade para editar à mão.
+      setSchedule((s) => applyGeneration(s, gerarLivre(s.config), 0, !!s.cells && !!only));
+      setStep('escala');
+      setConfirmRegen(false);
       return;
     }
     if (!schedule.config.labor.validatedByLegal) {
@@ -222,7 +236,7 @@ export function ScheduleEditor({ repo, initial, onClose, onOpen, onOpenUnit, use
   const autoRegenFor = useRef<string | null>(null);
   const [autoRegenerated, setAutoRegenerated] = useState(false);
   useEffect(() => {
-    if (step !== 'escala' || !stale || hasManual || generating || issues.length) return;
+    if (step !== 'escala' || !stale || hasManual || generating || issues.length || schedule.config.livre) return;
     const sig = configSignature(schedule.config);
     if (autoRegenFor.current === sig) return;
     autoRegenFor.current = sig;
@@ -422,7 +436,21 @@ export function ScheduleEditor({ repo, initial, onClose, onOpen, onOpenUnit, use
 
       {step === 'escala' && (
         <>
-          {!schedule.cells && (
+          {!schedule.cells && schedule.config.livre && (
+            <div className="card center">
+              <h2>Montar escala livre</h2>
+              <p className="muted">Você monta tudo à mão. O sistema só cria a grade, com todos de segunda a sexta no horário cadastrado de cada pessoa, e daí você troca qualquer dia e qualquer horário. Não há regra de folga, de cobertura, de turno nem de descanso.</p>
+              <p className="muted">A única trava: ninguém pode passar de {LIVRE_LIMITE_SEMANAL_HORAS} horas na semana.</p>
+              {issues.length > 0 && (
+                <div className="banner warn left">
+                  <strong>{issues.length} pendência(s) antes de montar:</strong>
+                  <IssueList issues={issues} onGo={goToIssue} labelFor={issueLabel} />
+                </div>
+              )}
+              <button type="button" className="btn primary big" disabled={generating || issues.length > 0} onClick={() => void generate()}>Montar escala livre</button>
+            </div>
+          )}
+          {!schedule.cells && !schedule.config.livre && (
             <div className="card center">
               <h2>Gerar escala automaticamente</h2>
               <p className="muted">O sistema distribui folgas e turnos com base nos cadastros e regras, valida jornadas e coberturas e mostra os conflitos antes de você confirmar.</p>
@@ -440,6 +468,7 @@ export function ScheduleEditor({ repo, initial, onClose, onOpen, onOpenUnit, use
 
           {schedule.cells && analysis && (
             <>
+              {schedule.config.livre && <div className="banner info left" role="note"><strong>Escala livre.</strong> Sem regras de folga, cobertura, turnos ou descanso: você decide tudo. A única trava é o limite de {LIVRE_LIMITE_SEMANAL_HORAS} horas por semana para cada pessoa.</div>}
               <div className="toolbar card">
                 <div className="validity">
                   {analysis.valid ? (

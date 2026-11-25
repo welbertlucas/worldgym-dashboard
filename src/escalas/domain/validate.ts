@@ -341,6 +341,23 @@ export function weekAlerts(res: ResolvedDept, weekIdx: number, out: Alert[]): vo
   }
 }
 
+/** Escala livre: a única regra é este limite semanal, igual para todo mundo (inclusive estagiários e professores). */
+export const LIVRE_LIMITE_SEMANAL_HORAS = 42;
+export function livreWeekAlerts(res: ResolvedDept, weekIdx: number, out: Alert[]): void {
+  const { ctx } = res;
+  const week = ctx.range.weeks[weekIdx];
+  const wl = `semana ${week.index} (${formatDayMonth(week.start)}–${formatDayMonth(week.end)})`;
+  for (let e = 0; e < ctx.employees.length; e++) {
+    const t = weekTotals(res, e, weekIdx);
+    if (t.minutes > LIVRE_LIMITE_SEMANAL_HORAS * 60)
+      out.push(alert('critico', 'LIMITE_SEMANAL', ctx, {
+        e, d: weekIdx * 7, title: 'Jornada semanal acima do limite',
+        message: `${empName(ctx, e)}, ${wl}: ${formatDuration(t.minutes)} escaladas (limite ${LIVRE_LIMITE_SEMANAL_HORAS}h; excesso ${formatDuration(t.minutes - LIVRE_LIMITE_SEMANAL_HORAS * 60)}).`,
+        suggestion: 'Reduza o horário de algum dia ou tire um dia de trabalho nessa semana.',
+      }));
+  }
+}
+
 /** Regras que dependem de várias semanas: dias consecutivos, fins de semana seguidos, domingos. */
 export function multiWeekAlerts(res: ResolvedDept, upToDay: number, out: Alert[], checkAll = true): void {
   const { ctx, cells } = res;

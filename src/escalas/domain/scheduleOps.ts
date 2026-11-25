@@ -31,8 +31,9 @@ export function createSchedule(
       holidays: t.year === year && t.month === month ? t.holidays : mergeLocalHolidays(defaultHolidays(range.dates), t.localHolidays ?? [], range.dates),
       exceptions: [],
     };
-    // "Ajustes só deste mês" não passam para outra escala.
+    // "Ajustes só deste mês" não passam para outra escala; escala livre também não (cada uma escolhe se é livre).
     delete config.overrides;
+    delete config.livre;
     // Escala anterior sem Professores: o departamento entra com a equipe padrão para cadastrar.
     const fresh = defaultScheduleConfig(year, month).departments;
     config.departments = { ...config.departments, professores: config.departments.professores ?? fresh.professores, estagiarios: config.departments.estagiarios ?? fresh.estagiarios };

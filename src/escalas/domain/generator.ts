@@ -505,7 +505,28 @@ export function conflictsFromAnalysis(analysis: Analysis, config: ScheduleConfig
   return conflicts;
 }
 
+/**
+ * Escala livre: só monta a grade para o gestor editar à mão. Começa com todo mundo trabalhando de segunda a sexta (no turno cadastrado de cada pessoa) e
+ * folgando sábado e domingo; nada é redistribuído e nenhuma regra além do limite semanal é conferida.
+ */
+export function gerarLivre(config: ScheduleConfig): GenerateResult {
+  const range = buildRange(config.year, config.month);
+  const cells: CellGrid = {};
+  for (const id of DEPT_IDS) {
+    const ctx = buildDeptContext(config, id, range);
+    for (const emp of ctx.employees) {
+      const row: Record<string, Cell> = {};
+      ctx.dates.forEach((date, d) => { const w = ctx.weekdays[d]; row[date] = { status: w >= 1 && w <= 5 ? 'T' : 'F', source: 'auto' }; });
+      cells[emp.id] = row;
+    }
+  }
+  const analysis = analyzeSchedule(config, cells, {});
+  const conflicts = conflictsFromAnalysis(analysis, config);
+  return { cells, feasible: conflicts.length === 0, conflicts, analysis, importedPrevious: false };
+}
+
 export function generateSchedule(config: ScheduleConfig, opts: GenerateOptions = {}): GenerateResult {
+  if (config.livre) return gerarLivre(config);
   const range = buildRange(config.year, config.month);
   const cells: CellGrid = {};
   let importedPrevious = false;

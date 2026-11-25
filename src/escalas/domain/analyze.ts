@@ -1,7 +1,7 @@
 import { buildRange, formatDateBr, formatDayMonth, type ScheduleRange } from './calendar';
 import { buildDeptContext, resolveDept, type ResolvedDept } from './resolve';
 import {
-  dailyCount, dayAlerts, employeeStats, monthAlerts, multiWeekAlerts, restAlerts, weekAlerts, type EmployeeStats,
+  dailyCount, dayAlerts, employeeStats, livreWeekAlerts, monthAlerts, multiWeekAlerts, restAlerts, weekAlerts, type EmployeeStats,
 } from './validate';
 import { DEPT_IDS, deptName, type Alert, type CellGrid, type DeptId, type ScheduleConfig, type Severity } from './types';
 
@@ -28,12 +28,17 @@ export function analyzeDept(config: ScheduleConfig, deptId: DeptId, cells: CellG
   const resolved = resolveDept(ctx, (e, d) => cells[ctx.employees[e].id]?.[ctx.dates[d]] ?? { status: 'F' });
   const alerts: Alert[] = [];
   const last = ctx.dates.length - 1;
-  for (let d = 0; d <= last; d++) dayAlerts(resolved, d, alerts);
-  restAlerts(resolved, 1, last, alerts);
-  ctx.range.weeks.forEach((_, w) => weekAlerts(resolved, w, alerts));
-  multiWeekAlerts(resolved, last, alerts);
   const stats = ctx.employees.map((_, e) => employeeStats(resolved, e));
-  monthAlerts(resolved, stats, alerts);
+  if (config.livre) {
+    // Escala livre: nenhuma regra de folga, cobertura, turno ou descanso; só o limite semanal.
+    ctx.range.weeks.forEach((_, w) => livreWeekAlerts(resolved, w, alerts));
+  } else {
+    for (let d = 0; d <= last; d++) dayAlerts(resolved, d, alerts);
+    restAlerts(resolved, 1, last, alerts);
+    ctx.range.weeks.forEach((_, w) => weekAlerts(resolved, w, alerts));
+    multiWeekAlerts(resolved, last, alerts);
+    monthAlerts(resolved, stats, alerts);
+  }
   return { a: { deptId, resolved, stats, dailyCounts: ctx.dates.map((_, d) => dailyCount(resolved, d)) }, alerts };
 }
 
@@ -51,7 +56,7 @@ export function analyzeSchedule(
     alerts.push(...r.alerts);
   }
   // Alertas gerais da escala
-  for (const w of range.weeks.filter((x) => x.partial)) {
+  for (const w of config.livre ? [] : range.weeks.filter((x) => x.partial)) {
     const outside = w.dates.filter((d) => !range.inMonth(d));
     const before = outside[0] < range.monthDates[0];
     alerts.push({
@@ -64,7 +69,7 @@ export function analyzeSchedule(
       suggestion: 'O total mensal considera apenas os dias do mês; o limite semanal considera a semana completa.',
     });
   }
-  if (!config.labor.validatedByLegal)
+  if (!config.livre && !config.labor.validatedByLegal)
     alerts.push({
       id: 'PARAMETROS_NAO_VALIDADOS',
       severity: 'atencao',
