@@ -70,3 +70,20 @@
 .escalas .badge { font-weight: 500; }
 .escalas .choose-unit { max-width: 520px; margin: 1.5rem auto; }
 .escalas .modelos-grid > .card, .escalas .home-list > .card + .card { margin-top: 0; }
+
+/* Modelos de escala em cards enxutos, como os das unidades em operação nos Estudos de ponto (25/11/2026), e botão "Avisos" */
+.escalas .modelos-cards { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.escalas .modelo-mini { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.7rem 0.8rem; }
+.escalas .modelo-mini h3 { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--ink); }
+.escalas .modelo-mini-topo { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; min-height: 20px; }
+.escalas .modelo-mini-coord, .escalas .modelo-mini-sub { margin: 0; font-size: 11px; color: hsl(var(--muted-foreground)); }
+.escalas .modelo-mini-nums { margin: 0; font-size: 13px; color: var(--ink); }
+.escalas .modelo-mini-nums span { color: hsl(var(--muted-foreground)); font-size: 11.5px; }
+.escalas .modelo-mini-nums b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.escalas .modelo-mini-acoes { margin-top: auto; padding-top: 0.3rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.escalas .modelo-icone { color: hsl(var(--muted-foreground)); }
+.escalas .modelo-selo { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; color: hsl(var(--muted-foreground)); background: hsl(var(--muted)); border-radius: 999px; padding: 0.1rem 0.5rem; white-space: nowrap; }
+.escalas .notif-btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 0.9rem; border-radius: 999px; border: 1px solid hsl(var(--border)); background: #fff; font-size: 13px; color: var(--ink); }
+.escalas .notif-btn:hover { background: hsl(var(--muted)); }
+.escalas .notif-btn:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.escalas .notif-badge { position: static; min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; }

@@ -82,7 +82,8 @@ export function Notificacoes({ repo, unitId, atualizar, onAbrirEscala, onIrEscal
     <div className="notif" ref={ref}>
       <button type="button" className={`notif-btn ${n ? (resumo?.vencido ? 'vencido' : 'perto') : ''}`} aria-haspopup="dialog" aria-expanded={aberto}
         aria-label={n ? `Notificações: ${n} ${n === 1 ? 'aviso' : 'avisos'}` : 'Notificações: nenhum aviso'} onClick={() => setAberto((a) => !a)}>
-        <Bell size={18} strokeWidth={2} aria-hidden />
+        <Bell size={15} strokeWidth={2} aria-hidden />
+        <span>Avisos</span>
         {n > 0 && <span className="notif-badge">{n}</span>}
       </button>
       {aberto && (

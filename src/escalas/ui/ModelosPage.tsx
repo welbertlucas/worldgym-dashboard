@@ -1,6 +1,6 @@
 // Modelos prontos de escala: cards por coordenação, com exemplo do mês gerado e "Usar este modelo".
 import { useMemo, useState } from 'react';
-import { ClipboardList, Eye, PencilRuler, Sparkles } from 'lucide-react';
+import { Eye, PencilRuler, Sparkles } from 'lucide-react';
 import { monthLabel } from '../domain/calendar';
 import { aplicarModelo, MODELOS, type Modelo } from '../domain/modelos';
 import { applySettings, normalizeUnitRules } from '../domain/roster';
@@ -59,56 +59,41 @@ export function ModelosPage({ repo, unitId, onUsar, onUsarLivre, embutido }: { r
         <Segmented ariaLabel="Coordenação dos modelos" value={filtro} onChange={setFiltro}
           options={[{ value: 'todas', label: 'Todos' }, ...TEAMS.map((t) => ({ value: t.id, label: t.name }))]} />
       </div>
-      <div className="modelos-grid">
+      <div className="modelos-cards">
         {onUsarLivre && (
-          <article className="card modelo-card modelo-livre" aria-label="Escala livre">
-            <div className="modelo-topo">
-              <span className="modelo-coord">Todas as coordenações</span>
-              <span className="modelo-sugerido"><PencilRuler size={12} aria-hidden /> Livre</span>
+          <article className="card-surface modelo-mini" aria-label="Escala livre"
+            title="Monte a escala do jeito que quiser, dia a dia. Sem regra de folga, cobertura ou turnos prontos; a única trava é o limite de 42 horas por semana (30 para estagiários).">
+            <div className="modelo-mini-topo">
+              <PencilRuler size={15} aria-hidden className="modelo-icone" />
+              <span className="modelo-selo">Livre</span>
             </div>
-            <h2>Escala livre</h2>
-            <p className="muted small">Monte a escala do jeito que quiser, dia a dia, pessoa por pessoa. Sem mínimo de pessoas, sem regra de folga e sem turnos prontos.</p>
-            <ul className="modelo-destaques">
-              <li>Começa com todos de segunda a sexta, no horário cadastrado de cada um</li>
-              <li>Você troca qualquer dia e qualquer horário, sem o sistema corrigir</li>
-              <li>A única trava: no máximo 42 horas por semana para cada pessoa (30 horas para estagiários, pela Lei do Estágio)</li>
-            </ul>
-            <div className="modelo-acoes">
-              <button type="button" className="btn primary small" disabled={!unitId} title={unitId ? '' : 'Escolha a unidade no alto da tela'} onClick={onUsarLivre}>
-                <PencilRuler size={14} aria-hidden /> Montar escala livre
-              </button>
+            <h3>Escala livre</h3>
+            <p className="modelo-mini-sub">Todas as coordenações</p>
+            <p className="modelo-mini-nums">Limite de <b>42 h</b> por semana</p>
+            <div className="modelo-mini-acoes">
+              <button type="button" className="btn primary small" disabled={!unitId} title={unitId ? '' : 'Escolha a unidade no alto da tela'} onClick={onUsarLivre}>Montar</button>
             </div>
           </article>
         )}
-        {lista.map((m) => (
-          <article key={m.id} className="card modelo-card" aria-label={`Modelo ${m.nome}`}>
-            <div className="modelo-topo">
-              <span className="modelo-coord">{TEAMS.find((t) => t.id === m.team)!.name}</span>
-              {m.sugerido && <span className="modelo-sugerido"><Sparkles size={12} aria-hidden /> Sugestão</span>}
-            </div>
-            <h2>{m.nome}</h2>
-            <p className="muted small">{m.descricao}</p>
-            <ul className="modelo-resumo">
-              {m.resumo.map((r) => (
-                <li key={r.dept}>
-                  <strong>{deptName(r.dept)}</strong>
-                  <span><b className="num">{r.pessoas}</b> pessoas</span>
-                  <span>sáb <b className="num">{r.sabado}</b></span>
-                  <span>dom <b className="num">{r.domingo}</b></span>
-                </li>
-              ))}
-            </ul>
-            <ul className="modelo-destaques">
-              {m.destaques.map((d) => <li key={d}>{d}</li>)}
-            </ul>
-            <div className="modelo-acoes">
-              <button type="button" className="btn ghost small" onClick={() => void verExemplo(m)}><Eye size={14} aria-hidden /> Ver exemplo</button>
-              <button type="button" className="btn primary small" disabled={!unitId} title={unitId ? '' : 'Escolha a unidade na barra lateral'} onClick={() => onUsar(m)}>
-                <ClipboardList size={14} aria-hidden /> Usar este modelo
-              </button>
-            </div>
-          </article>
-        ))}
+        {lista.map((m) => {
+          const total = m.resumo.reduce((n, r) => n + r.pessoas, 0);
+          const sab = m.resumo.reduce((n, r) => n + r.sabado, 0);
+          const dom = m.resumo.reduce((n, r) => n + r.domingo, 0);
+          return (
+            <article key={m.id} className="card-surface modelo-mini" aria-label={`Modelo ${m.nome}`} title={`${m.descricao}\n${m.resumo.map((r) => `${deptName(r.dept)}: ${r.pessoas} pessoas, sáb ${r.sabado}, dom ${r.domingo}`).join('\n')}`}>
+              <div className="modelo-mini-topo">
+                <span className="modelo-mini-coord">{TEAMS.find((t) => t.id === m.team)!.name.replace('Coordenação ', '')}</span>
+                {m.sugerido && <span className="modelo-selo"><Sparkles size={11} aria-hidden /> Sugestão</span>}
+              </div>
+              <h3>{m.nome}</h3>
+              <p className="modelo-mini-nums"><b>{total}</b> pessoas <span>· sáb <b>{sab}</b> · dom <b>{dom}</b></span></p>
+              <div className="modelo-mini-acoes">
+                <button type="button" className="btn ghost small" onClick={() => void verExemplo(m)}><Eye size={14} aria-hidden /> Exemplo</button>
+                <button type="button" className="btn primary small" disabled={!unitId} title={unitId ? '' : 'Escolha a unidade no alto da tela'} onClick={() => onUsar(m)}>Usar</button>
+              </div>
+            </article>
+          );
+        })}
       </div>
       {exemplo && <ExemploDialog exemplo={exemplo} onClose={() => setExemplo(null)} onUsar={unitId ? () => { setExemplo(null); onUsar(exemplo.modelo); } : undefined} />}
     </section>
@@ -125,6 +110,8 @@ function ExemploDialog({ exemplo, onClose, onUsar }: { exemplo: { modelo: Modelo
     </>}>
       {exemplo.erro && <p className="form-error">{exemplo.erro}</p>}
       {!s && !exemplo.erro && <p className="muted">Gerando o exemplo do mês…</p>}
+      <p className="muted small">{exemplo.modelo.descricao}</p>
+      <ul className="modelo-destaques">{exemplo.modelo.destaques.map((d) => <li key={d}>{d}</li>)}</ul>
       {s && analysis && (
         <div className="stack-sm">
           <p className="muted small">

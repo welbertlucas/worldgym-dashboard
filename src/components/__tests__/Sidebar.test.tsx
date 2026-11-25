@@ -36,7 +36,7 @@ describe("navegação", () => {
   it("recolhida, mantém rótulos acessíveis e o botão de expandir", () => {
     const html = renderToString(<Sidebar active="executiva" onChange={noop} collapsed onToggleCollapsed={noop} />);
     expect(html).toContain("Expandir menu");
-    expect(html).toContain('class="flex-1 text-left sr-only"');
+    expect(html).toContain('class="flex-1 whitespace-nowrap text-left sr-only"');
   });
 
   it("drawer só renderiza aberto e é um diálogo modal", () => {
