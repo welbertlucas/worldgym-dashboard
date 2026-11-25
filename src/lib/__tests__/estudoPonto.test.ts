@@ -636,3 +636,67 @@ describe("página da concorrência e distância das World Gym", () => {
     expect(fraseUnidadesProximas([], "ponto")).toBe("");
   });
 });
+
+describe("página com mapa, números e rosca", () => {
+  it("o mapa diminui o que for preciso e a rosca fica na mesma página, mesmo com a legenda do mapa em duas linhas", async () => {
+    const { gerarPdfDoEstudo } = await import("@/lib/estudoPdf");
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const paginas = async (comRosca: boolean, legenda: string) => {
+      const secao = { titulo: "Domicílios e Densidade Residencial", novaPagina: true, linhas: [],
+        texto: ["A área conta com 112.177 domicílios ocupados, com média de 2,37 moradores por domicílio (Brasil: 2,79). Domicílios menores (pessoas sozinhas e casais) costumam ter mais renda disponível por pessoa e mais rotina individual, o que favorece frequência alta e planos de maior valor."],
+        foto: { dados: png, legenda }, altFoto: 120,
+        destaques: [{ valor: "112.177", rotulo: "domicílios ocupados" }, { valor: "2,37", rotulo: "moradores por domicílio" }, { valor: "265 mil", rotulo: "moradores" }],
+        ...(comRosca ? { grafico: { tipo: "rosca" as const, titulo: "Domicílios por número de moradores", fatias: ["1 morador", "2 moradores", "3 moradores", "4 moradores", "5 ou mais"].map((rotulo, i) => ({ rotulo, valor: 10 + i, cor: "#c41230" })), centro: "112 mil", rotuloCentro: "domicílios" } } : {}) };
+      const blob = (await gerarPdfDoEstudo({ arquivo: "d.pdf", cabecalho: "Estudo de ponto", foto: null, paginas: [{ titulo: "Ponto", subtitulo: "x", numeros: [], secoes: [secao] }] }, "blob")) as Blob;
+      return (new TextDecoder("latin1").decode(await blob.arrayBuffer()).match(/\/Type\s*\/Page\b/g) ?? []).length;
+    };
+    const longa = "Cada hexágono na cor do tamanho de domicílio mais comum (número de moradores, Censo 2022). Contorno cinza: sem moradores no Censo 2022 (parque, setor institucional, terra rural ou loteamento novo).";
+    expect(await paginas(true, longa)).toBe(await paginas(false, longa));
+    expect(await paginas(true, "Legenda curta.")).toBe(await paginas(false, "Legenda curta."));
+  });
+});
+
+describe("gráficos das páginas de faturamento, ticket, estacionamento e parecidas", () => {
+  it("montam as barras e a rosca com os números do estudo (inventados)", async () => {
+    const { graficosDeFaturamento, graficosDeTicket, graficoDeVagas, graficoDeParecidas } = await import("@/components/estudos/pdfPonto");
+    const r = { pessimista: 200_000, provavel: 300_000, otimista: 360_000, meta: 330_000, custoFixo: 135_000 };
+    const f = graficosDeFaturamento(r, 0.1);
+    expect(f.barras.tipo).toBe("barras");
+    if (f.barras.tipo === "barras") {
+      expect(f.barras.itens.map((i) => i.rotulo)).toEqual(["Pessimista", "Provável", "Otimista", "Meta da régua", "Equilíbrio (sem lucro)"]);
+      expect(f.barras.itens.find((i) => i.rotulo.startsWith("Equilíbrio"))!.valor).toBeCloseTo(150_000); // 135 mil ÷ 0,9
+      expect(f.barras.itens.filter((i) => i.destaque).map((i) => i.rotulo)).toEqual(["Provável"]);
+    }
+    if (f.rosca.tipo === "rosca") {
+      expect(f.rosca.fatias.map((x) => x.rotulo)).toEqual(["Custo variável", "Custo fixo", "Lucro"]);
+      expect(f.rosca.fatias.reduce((a, x) => a + x.valor, 0)).toBeCloseTo(1); // variável 10% + fixo 45% + lucro 45%
+      expect(f.rosca.centro).toBe("45%");
+    }
+    // sem lucro: a rosca mostra só os custos e diz "prejuízo"
+    const pre = graficosDeFaturamento({ ...r, provavel: 140_000 }, 0.1);
+    if (pre.rosca.tipo === "rosca") { expect(pre.rosca.fatias.map((x) => x.rotulo)).toEqual(["Custo variável", "Custo fixo"]); expect(pre.rosca.centro).toBe("prejuízo"); }
+
+    const tk = graficosDeTicket({ preco: 139.9, p25: 129.9, p75: 149.9 }, 2100, { mediana: 2000, maior: 2900, n: 16 });
+    expect(tk).toHaveLength(2);
+    expect(graficosDeTicket({ preco: 139.9, p25: 129.9, p75: 149.9 }, null, null)).toHaveLength(1); // sem régua de alunos, só o ticket
+    const vg = graficoDeVagas({ min: 40, max: 70, proprias: 30, perto: null });
+    if (vg.tipo === "barras") { expect(vg.itens.map((i) => i.texto)).toEqual(["40 vagas", "70 vagas", "30 vagas", "não informado"]); }
+    const pa = graficoDeParecidas(264_000, [{ nome: "Unidade A", vendas: 300_000 }, { nome: "Sem venda", vendas: null }, { nome: "Nome muito comprido de unidade parecida", vendas: 250_000 }]);
+    if (pa.tipo === "barras") { expect(pa.itens).toHaveLength(3); expect(pa.itens[0].destaque).toBe(true); expect(pa.itens[2].rotulo.endsWith("…")).toBe(true); }
+  });
+
+  it("a página de faturamento (barras + rosca + tabela) cabe numa folha só", async () => {
+    const { gerarPdfDoEstudo } = await import("@/lib/estudoPdf");
+    const { graficosDeFaturamento } = await import("@/components/estudos/pdfPonto");
+    const g = graficosDeFaturamento({ pessimista: 200_000, provavel: 300_000, otimista: 360_000, meta: 330_000, custoFixo: 135_000 }, 0.1);
+    const paginas = async (com: boolean) => {
+      const secao = { titulo: "Estimativa de Faturamento", novaPagina: true, linhas: [], faixa: "Modelo direcionado: Low Cost",
+        texto: ["Os três cenários usam as vendas por m² das unidades maduras da rede: o pessimista é o quartil inferior, o provável é a mediana e o otimista é o quartil superior. A meta é o que paga o investimento em 3 anos."],
+        ...(com ? { grafico: g.barras, graficos: [g.rosca] } : {}),
+        tabela: { colunas: ["Cenário", "Vendas por mês", "Lucro por mês", "Payback"], larguras: [1, 1, 1, 0.8], linhas: [["Pessimista", "R$ 200 mil", "R$ 45 mil", "80 meses"], ["Provável", "R$ 300 mil", "R$ 135 mil", "50 meses"], ["Otimista", "R$ 360 mil", "R$ 190 mil", "40 meses"], ["Meta da régua", "R$ 330 mil", "", "36 meses"]] } };
+      const blob = (await gerarPdfDoEstudo({ arquivo: "e.pdf", cabecalho: "Estudo de ponto", foto: null, paginas: [{ titulo: "Ponto", subtitulo: "x", numeros: [], secoes: [secao] }] }, "blob")) as Blob;
+      return (new TextDecoder("latin1").decode(await blob.arrayBuffer()).match(/\/Type\s*\/Page\b/g) ?? []).length;
+    };
+    expect(await paginas(true)).toBe(await paginas(false));
+  });
+});

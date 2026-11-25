@@ -145,6 +145,13 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const ab10 = area10 ? resumoCenso?.renda?.ab ?? null : null;
   const freios = useMemo(() => (r && atual ? freiosDeDemanda({ modelo: atual.modelo, refs: refsTodas, meta: r.meta, moradores: moradores10, ab: ab10, alunosNecessarios: ex?.alunos ?? null, semCenso }).freios : []),
     [r, atual?.modelo, refsTodas, moradores10, ab10, ex?.alunos, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
+  // alunos ativos das unidades maduras do modelo do ponto: régua do gráfico de alunos no PDF
+  const alunosRede = useMemo(() => {
+    const v = (refsTodas ?? []).filter((x) => atual && x.modelo === atual.modelo && (x.alunos ?? 0) > 0).map((x) => x.alunos as number).sort((a, b) => a - b);
+    if (v.length < 2) return null;
+    const meio = Math.floor(v.length / 2);
+    return { mediana: v.length % 2 ? v[meio] : (v[meio - 1] + v[meio]) / 2, maior: v[v.length - 1], n: v.length };
+  }, [refsTodas, atual?.modelo]); // eslint-disable-line react-hooks/exhaustive-deps
   const vfBase = aplicarFreios(vereditoComFatia(ex?.veredito ?? r?.veredito ?? null, fatiaPonto, faixaFatia), freios);
   const vf = limitarSemCenso(vfBase, semCenso); // sem Censo nunca passa de "com condicionantes" (decisão do dono, 24/11/2026)
   // os dois modelos lado a lado, com os m² e a posição do imóvel (a troca de modelo não muda o imóvel); o Atlas recomenda o que passa melhor
@@ -390,7 +397,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         fotoCaptacao: fotoCap, fotoRede, fotoSugestoes, sugestoes, comparacao: { foto: fotoGeral }, itensImovel: ITENS,
         populacao: pop && moradores10 != null ? { ...pop, moradores: moradores10 } : null,
         ticket: ex?.ticket ?? null, alunos: ex?.alunos ?? null, vagas: ex?.vagas ?? null,
-        faixaFatia, freios,
+        faixaFatia, freios, alunosRede,
         pontos: listaPdf.map((p, i) => {
           const rr = resultados.get(p.id) ?? null;
           const cp = captacaoDe(p, censo, dados.unidades!, todos, dados.premissas!.curva);

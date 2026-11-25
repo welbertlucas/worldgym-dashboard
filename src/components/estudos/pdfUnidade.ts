@@ -8,7 +8,7 @@ import { compararComParecidas, fraseUnidadesProximas, leituraParecidas, CLASSES_
 import type { ResultadoPois } from "@/components/estudos/pois";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
-/** Penetração de academias na população (premissa de mercado do estudo da rede: média nacional de ~7%). */
+/** Penetração de academias na população (média nacional de ~7%, estimativas do setor): só a conta dos estudos antigos usa, como referência. Fora do PDF e do veredito desde 24/11/2026: a demanda é medida pela fatia do potencial e pela população recomendada, calibradas com a rede. */
 export const PENETRACAO_MERCADO = 0.07;
 /** Média de moradores por domicílio no Brasil (Censo 2022). */
 const MEDIA_BRASIL_DOMICILIO = 2.79;
@@ -68,13 +68,10 @@ export interface DadosMercado {
 export function resumoMercado(m: Pick<DadosMercado, "perfil" | "renda" | "pois" | "alunosNaArea">) {
   const conc = classificarConcorrentes(m.pois);
   const moradores = m.perfil?.moradores ?? null;
-  const praticantes = moradores != null ? moradores * PENETRACAO_MERCADO : null;
-  const share = m.alunosNaArea != null && praticantes ? m.alunosNaArea / praticantes : null;
   const habPorAcademia = moradores != null && conc ? moradores / (conc.diretos + 1) : null;
-  const pratPorAcademia = praticantes != null && conc ? praticantes / (conc.diretos + 1) : null;
   const nivelConcorrencia = habPorAcademia == null ? null : habPorAcademia <= 1950 ? "saturada" : habPorAcademia <= 3000 ? "alta" : habPorAcademia <= 6600 ? "moderada" : "baixa";
   const perfilRenda = m.renda ? (m.renda.cde >= 0.75 ? "predominantemente popular" : m.renda.ab >= 0.4 ? "de renda mais alta" : "misto") : null;
-  return { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda };
+  return { conc, moradores, habPorAcademia, nivelConcorrencia, perfilRenda };
 }
 /** Seções de mercado: faixa etária, domicílios, perfil socioeconômico, potencial de consumo e concorrência. */
 /** Cabem 3 colunas de 25 linhas embaixo da rosca, na mesma página. */
@@ -95,7 +92,7 @@ const TITULOS_CONCORRENCIA = ["Análise de Concorrência", "Composição da Conc
 export const separarConcorrencia = (secoes: Secao[]): { antes: Secao[]; concorrencia: Secao[] } => ({ antes: secoes.filter((x) => !TITULOS_CONCORRENCIA.includes(x.titulo)), concorrencia: secoes.filter((x) => TITULOS_CONCORRENCIA.includes(x.titulo)) });
 export function secoesDeMercado(m: DadosMercado): Secao[] {
   const { perfil, renda, area } = m;
-  const { conc, moradores, praticantes, share, habPorAcademia, pratPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado(m);
+  const { conc, moradores, habPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado(m);
   const secoes: Secao[] = [];
   if (m.semCenso) secoes.push({
     titulo: "Dados do Censo indisponíveis", novaPagina: true, linhas: [],
@@ -162,10 +159,10 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
   if (m.pois && conc) {
     const texto: string[] = [];
     texto.push(`Foram identificados ${conc.total} lugares cadastrados como academia no Google ${m.pois.areaRotulo ? `na área de ${m.pois.areaRotulo}` : `a até ${m.pois.raioKm.toLocaleString("pt-BR")} km`}. Separando por tipo: ${conc.redes.length} unidades de grandes redes${conc.nomesRedes.length ? ` (${conc.nomesRedes.map((r) => `${r.rede}${r.n > 1 ? ` ${r.n}` : ""}`).join(", ")})` : ""}, ${conc.independentes.length} academias independentes e ${conc.modalidades.length} studios e modalidades (lutas, pilates, dança, crossfit), que disputam só parte do mesmo aluno. A classificação é automática pelo nome e vale conferir.`);
-    if (habPorAcademia != null && pratPorAcademia != null && praticantes != null) texto.push(`Com ${mil(moradores)} moradores e ${conc.diretos} concorrentes diretos mais ${m.tipo === "unidade" ? "a própria unidade" : "a nova unidade"}, a área tem ${num(habPorAcademia)} habitantes por academia: concorrência ${nivelConcorrencia}${nivelConcorrencia === "saturada" ? " (nos estudos da rede, áreas abaixo de ~1.950 habitantes por academia foram reprovadas por saturação)" : ""}. Pela premissa de ${pct(PENETRACAO_MERCADO, 0)} de penetração, são cerca de ${mil(praticantes)} praticantes, ou ${num(pratPorAcademia)} por academia${share != null ? `; a World Gym ${m.nome} tem cerca de ${pct(share, 0)} desse mercado com os alunos que moram na área` : ""}.`);
+    if (habPorAcademia != null) texto.push(`Com ${mil(moradores)} moradores e ${conc.diretos} concorrentes diretos mais ${m.tipo === "unidade" ? "a própria unidade" : "a nova unidade"}, a área tem ${num(habPorAcademia)} habitantes por academia: concorrência ${nivelConcorrencia}${nivelConcorrencia === "saturada" ? " (nos estudos da rede, áreas abaixo de ~1.950 habitantes por academia foram reprovadas por saturação)" : ""}.`);
     secoes.push({
       titulo: "Análise de Concorrência", novaPagina: true, linhas: [], texto,
-      destaques: [{ valor: num(conc.diretos), rotulo: "concorrentes diretos" }, ...(habPorAcademia != null ? [{ valor: num(habPorAcademia), rotulo: "habitantes por academia" }] : []), ...(share != null ? [{ valor: pct(share, 0), rotulo: "participação no mercado da área" }] : [])],
+      destaques: [{ valor: num(conc.diretos), rotulo: "concorrentes diretos" }, ...(habPorAcademia != null ? [{ valor: num(habPorAcademia), rotulo: "habitantes por academia" }] : [])],
       foto: { dados: m.fotos.pois, legenda: "Fonte: Google. Grandes redes em destaque escuro." }, altFoto: ALT_FOTO_MAPA,
     });
     // Composição e lista numa página só (decisão do dono, 24/11/2026): a lista mostra no máximo MAX_LISTA_ACADEMIAS lugares, o que cabe embaixo da rosca;
@@ -189,7 +186,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
   const area = d.temArea ? `na área de até ${d.minutos} minutos de carro` : "na área onde moram 80% dos alunos";
   const mes = (d.hoje ?? new Date()).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const alunosNaArea = u.alunos != null && d.parteNaArea != null ? u.alunos * d.parteNaArea : null;
-  const { conc, moradores, share, habPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado({ perfil, renda, pois: d.pois, alunosNaArea });
+  const { conc, moradores, habPorAcademia, nivelConcorrencia, perfilRenda } = resumoMercado({ perfil, renda, pois: d.pois, alunosNaArea });
   const secoes: Secao[] = [];
 
   // ---------- Resumo (página principal) ----------
@@ -222,7 +219,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
       "Potencial de consumo em recreações e esportes (POF 2017-2018, IBGE)",
       `Base de clientes ativos por bairro e vendas da unidade (EVO, ${mes})`,
       "Mapeamento das academias concorrentes (Google)",
-      `Premissas da rede: régua de vendas por m² das unidades maduras e penetração de mercado de ${pct(PENETRACAO_MERCADO, 0)}`,
+      "Premissas da rede: régua de vendas por m² das unidades maduras, população recomendada e fatia do potencial de consumo calibradas com as unidades",
     ],
     paragrafo: "Os dados do Censo são agregados em hexágonos de cerca de 200 m e contados quando o centro do hexágono cai dentro da área. Contagens de alunos são totais por bairro, sem dado pessoal.",
   };
@@ -301,7 +298,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
   if (d.potencial) demanda.push(`potencial de consumo de cerca de R$ ${num(d.potencial.total)} por mês em recreações e esportes`);
   if (perfil?.porDomicilio) demanda.push(`${dec(perfil.porDomicilio)} moradores por domicílio (Brasil: ${dec(MEDIA_BRASIL_DOMICILIO)})`);
   if (demanda.length) conclusao.push(`Do lado da demanda, ${demanda.join(", ")}. ${renda && renda.cde >= 0.75 ? "É um mercado de volume, em que preço de entrada competitivo, régua de cobrança eficiente e retenção pesam mais que serviços adicionais." : "O público comporta oferta em mais de uma faixa de preço, o que abre espaço para planos de maior valor e receitas complementares."}`);
-  if (conc && habPorAcademia != null) conclusao.push(`A concorrência é ${nivelConcorrencia}: ${conc.diretos} concorrentes diretos${conc.nomesRedes.length ? `, entre eles ${conc.nomesRedes.map((r) => r.rede).join(", ")}` : ""}, e ${num(habPorAcademia)} habitantes por academia.${share != null ? ` A unidade detém cerca de ${pct(share, 0)} do mercado estimado da área${share >= 0.25 ? ", uma participação de liderança" : share >= 0.15 ? ", uma participação relevante" : ", o que mostra espaço para ganhar participação"}.` : ""}`);
+  if (conc && habPorAcademia != null) conclusao.push(`A concorrência é ${nivelConcorrencia}: ${conc.diretos} concorrentes diretos${conc.nomesRedes.length ? `, entre eles ${conc.nomesRedes.map((r) => r.rede).join(", ")}` : ""}, e ${num(habPorAcademia)} habitantes por academia.`);
   else conclusao.push("A leitura de concorrência não entrou neste estudo porque as academias concorrentes não foram buscadas antes de exportar; recomenda-se gerar o PDF com a busca feita.");
   conclusao.push(d.divideCom.length ? `Dentro da rede, a unidade divide ${pct(perda, 0)} do potencial com ${d.divideCom.map((x) => x.nome).join(" e ")}, o que pede coordenação comercial entre as unidades.` : "Dentro da rede não há canibalização relevante.");
   const acoes: string[] = [];
@@ -313,7 +310,7 @@ export function montarPdfUnidade(d: DadosPdfUnidade): ConteudoPdf {
   conclusao.push(`Recomendação: ${acoes.length ? acoes.join("; ") : "manter a estratégia atual e acompanhar os indicadores mês a mês"}.`);
   const faixaConclusao = !u.madura ? "Unidade em maturação: acompanhar até 12 meses" : d.comparado != null && d.comparado >= 0.1 ? "Unidade forte: proteger a base e crescer no entorno" : d.comparado != null && d.comparado <= -0.1 ? "Unidade abaixo do potencial: plano de captação" : "Unidade em linha com a rede: ganhos pontuais";
   secoes.push({ titulo: "Conclusão e Recomendação", novaPagina: true, linhas: [], faixa: faixaConclusao, texto: conclusao,
-    paragrafo: `Os números de mercado usam premissas (penetração de ${pct(PENETRACAO_MERCADO, 0)}, classes estimadas pela renda média do Censo e gasto da POF corrigido pela inflação) e devem ser lidos como ordem de grandeza.` });
+    paragrafo: `Os números de mercado usam premissas (classes estimadas pela renda média do Censo e gasto da POF corrigido pela inflação) e devem ser lidos como ordem de grandeza.` });
 
   return {
     arquivo: nomeDoArquivo(`estudo-unidade-${u.nome}`), cabecalho: "Estudo da unidade", foto: null,

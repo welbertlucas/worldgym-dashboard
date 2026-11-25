@@ -45,6 +45,8 @@ export interface Secao {
   faixa?: string;
   /** Gráfico da seção (rosca com legenda ou barras horizontais). */
   grafico?: Grafico;
+  /** Outros gráficos da seção, depois do primeiro (ex.: barras dos cenários e rosca da composição das vendas). */
+  graficos?: Grafico[];
   /** Tabela compacta; `blocos` divide as linhas em colunas lado a lado para economizar espaço. */
   tabela?: { colunas: string[]; linhas: string[][]; larguras?: number[]; blocos?: number };
 }
@@ -364,16 +366,20 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       lista(s.lista);
       // o mapa diminui o necessário para os números, o gráfico e a tabela da seção caberem na mesma página (pedido do dono, 23/11/2026: o gráfico
       // de Domicílios ia sozinho para a página seguinte); nunca abaixo de 80 mm
+      const todosGraficos = [s.grafico, ...(s.graficos ?? [])].filter((g): g is Grafico => !!g);
+      const alturaGrafico = (g: Grafico) => (g.tipo === "rosca" ? Math.max(56, g.fatias.length * 7 + 10) + 3 + (g.titulo ? 7 : 0) : g.itens.length * 8.6 + 2 + (g.titulo ? 9 : 3));
       const depois = (s.destaques?.length ? 31 : 0) + (s.legenda?.length ? Math.ceil(s.legenda.length / 2) * 5.5 + 3 : 0)
-        + (s.grafico?.tipo === "rosca" ? Math.max(56, s.grafico.fatias.length * 7 + 10) + 3 + (s.grafico.titulo ? 7 : 0)
-          : s.grafico?.tipo === "barras" ? s.grafico.itens.length * 8.6 + 2 + (s.grafico.titulo ? 9 : 3) : 0)
+        + todosGraficos.reduce((a, g) => a + alturaGrafico(g), 0)
         // a tabela da seção também fica na mesma página (Base de Clientes: a tabela de bairros ia sozinha para a página seguinte)
         + (s.tabela ? 7.4 + Math.ceil(s.tabela.linhas.length / Math.max(1, s.tabela.blocos ?? 1)) * 5.2 + 3 : 0);
-      const cabeAte = FIM - y - depois - (s.foto?.legenda ? 12 : 7);
+      // altura real da legenda do mapa (uma ou mais linhas), mais uma folga de 4 mm: com a estimativa fixa de 12 mm, a rosca ia para a página seguinte
+      // quando a legenda tinha duas linhas (visto no PDF de Domicílios, 24/11/2026)
+      const altLegendaFoto = s.foto?.legenda ? (fonte("corpo", 8), (doc.splitTextToSize(t(s.foto.legenda), W) as string[]).length * 3.6 + 8) : 7;
+      const cabeAte = FIM - y - depois - altLegendaFoto - 4;
       figura(s.foto, depois && cabeAte >= 80 ? Math.min(s.altFoto ?? 120, cabeAte) : s.altFoto ?? 120);
       legenda(s.legenda);
       destaques(s.destaques);
-      if (s.grafico?.tipo === "rosca") rosca(s.grafico); else if (s.grafico?.tipo === "barras") barras(s.grafico);
+      for (const g of todosGraficos) { if (g.tipo === "rosca") rosca(g); else barras(g); }
       if (s.tabela) tabela(s.tabela);
       fonte("corpo", 9.5);
       for (const l of s.linhas) {
