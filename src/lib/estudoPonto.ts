@@ -485,6 +485,22 @@ export function acertoDoModelo(pontos: Ponto[], unidades: UnidadeEstudo[]) {
 }
 
 /**
+ * Lacuna de captação: onde o modelo espera mais alunos do que a unidade tem. As duas medidas têm escalas diferentes (alunos esperados pela conta do
+ * modelo, alunos reais pela contagem do CEP), então cada uma vira a parte que o hexágono tem do total dentro da área e a lacuna é a diferença
+ * (esperado - real), só onde é positiva. Devolve no formato de `desenharDemanda`. Sem alunos ou sem demanda na área, não há lacuna.
+ */
+export function lacunaDeCaptacao(esperado: { indices: number[]; pesos: number[] }, real: { indices: number[]; pesos: number[] }, dentro: (i: number) => boolean): { indices: number[]; pesos: number[] } {
+  const soma = (m: Map<number, number>) => [...m.values()].reduce((a, b) => a + b, 0);
+  const mapa = (d: { indices: number[]; pesos: number[] }) => { const m = new Map<number, number>(); d.indices.forEach((i, k) => { if (d.pesos[k] > 0 && dentro(i)) m.set(i, (m.get(i) ?? 0) + d.pesos[k]); }); return m; };
+  const e = mapa(esperado), r = mapa(real);
+  const te = soma(e), tr = soma(r);
+  if (!te || !tr) return { indices: [], pesos: [] };
+  const indices: number[] = [], pesos: number[] = [];
+  for (const [i, w] of e) { const f = w / te - (r.get(i) ?? 0) / tr; if (f > 0) { indices.push(i); pesos.push(f); } }
+  return { indices, pesos };
+}
+
+/**
  * Suaviza uma contagem por hexágono para o mapa de calor: o valor de cada hexágono do Censo vira a soma da contagem dos hexágonos em volta, com peso
  * que cai com a distância (gaussiana de `sigmaKm`, até `raioKm`). O mapa fica preenchido e contínuo, sem hexágonos soltos, e um hexágono com 1 ou 2
  * alunos deixa de aparecer sozinho. Só entram hexágonos com moradores, até `maxKm` de `c`. Devolve no formato de `desenharDemanda`.

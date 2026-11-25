@@ -15,12 +15,12 @@ export { LegendaRenda };
 import { REGRAS_NOVA_UNIDADE, SecaoSugestoes, type ResultadoSugestoes, desenharSugestoes, enderecoCurto, textoParecerSugestao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import { montarPdfUnidade } from "@/components/estudos/pdfUnidade";
 import { buscarFotosDaRua, comFotosDaRegiao, paginaDeFotos } from "@/components/estudos/fotosRua";
-import { avaliarPonto, faixaDaFatia, refsParaModelo, suavizarContagem, unidadesMaisProximas, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
+import { avaliarPonto, faixaDaFatia, refsParaModelo, suavizarContagem, lacunaDeCaptacao, unidadesMaisProximas, comercioEm, rendaTotalEm, MINUTOS_PADRAO, FAIXAS_IDADE, compararComParecidas, leituraParecidas, idadeEm, densidadeEm, densidadeNaArea, posicoesMelhores, captacaoDe, classesNaArea, classesNoRaio, dentroDaArea, km, potencialNaArea, minutosPara80, moradoresNaArea, parteDosAlunos, perfilNaArea, raio80Real, reais, unidadeComoPonto, type DadosEstudos, type Sugestao, type UnidadeEstudo } from "@/lib/estudoPonto";
 
 // "limpa": só a unidade (foto de satélite e de academias do PDF); "oportunidade": demanda potencial + onde moram os alunos
 type Lente = "alunos" | "modelo" | "pessoas" | "idade" | "domicilios" | "renda" | "rendaTotal" | "consumo" | "comercio" | "rede" | "limpa" | "oportunidade";
 const LENTES: { id: Lente; rotulo: string }[] = [
-  { id: "alunos", rotulo: "Base de clientes" }, { id: "modelo", rotulo: "Demanda potencial" }, { id: "oportunidade", rotulo: "Oportunidades de captação" },
+  { id: "alunos", rotulo: "Base de clientes" }, { id: "modelo", rotulo: "Demanda potencial" }, { id: "oportunidade", rotulo: "Lacuna de captação" },
   { id: "pessoas", rotulo: "População" }, { id: "idade", rotulo: "Idade" }, { id: "domicilios", rotulo: "Domicílios" },
   { id: "renda", rotulo: "Renda" }, { id: "rendaTotal", rotulo: "Renda total" }, { id: "consumo", rotulo: "Potencial de consumo" }, { id: "comercio", rotulo: "Concentração comercial" }, { id: "rede", rotulo: "Canibalização" },
 ];
@@ -92,6 +92,14 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   // Área de deslocamento (10 min de carro, Mapbox): quando existe, substitui o raio em linha reta nos números e nos mapas
   const areas = useDeslocamento(u?.c, false);
   const area10 = areaOficial(areas);
+  // Lacuna de captação: onde o modelo espera mais alunos do que a unidade tem (só com a contagem por CEP; a área é a de 10 min de carro)
+  const lacuna = useMemo(() => {
+    const censo = dados.censo;
+    if (!capMapa || !calorAlunos || !censo || !u?.c) return null;
+    const dentro = (i: number) => { const c = censo.celulas[i]; return area10 ? dentroDaArea(c[0], c[1], area10) : km([c[0], c[1]], u.c as [number, number]) < 5; };
+    const l = lacunaDeCaptacao(capMapa, calorAlunos, dentro);
+    return l.indices.length ? l : null;
+  }, [capMapa, calorAlunos, area10, dados.censo, u?.nome]); // eslint-disable-line react-hooks/exhaustive-deps
   const min80 = areas?.carro && u?.bairros?.length ? minutosPara80(u.bairros, areas.carro) : null;
   const parte10 = area10 && u?.bairros?.length ? parteDosAlunos(u.bairros, area10) : null;
   const moradoresArea = area10 && dados.censo ? moradoresNaArea(dados.censo, area10) : moradores80;
@@ -176,19 +184,10 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     // a mesma área em todas as camadas: a de 10 min de carro (sem ela, 5 km em volta)
     const dentroDoEstudo = (la: number, ln: number) => (area10 ? dentroDaArea(la, ln, area10) : km([la, ln], u.c as [number, number]) < 5);
     if (lente === "alunos" || lente === "oportunidade") {
-      if (lente === "oportunidade" && capMapa && censo) desenharDemanda(L, camadas, censo, capMapa, dentroDoEstudo, "vermelho", area10);
+      if (lente === "oportunidade" && lacuna && censo) desenharDemanda(L, camadas, censo, lacuna, dentroDoEstudo, "vermelho", area10);
       // Base de clientes: o mapa não marca os bairros (dono, 25/11/2026). A posição que o Atlas tem de cada bairro é aproximada (vem do OpenStreetMap) e
-      // pode cair longe do bairro de verdade; a camada só lista a quantidade de alunos por bairro no painel. Só as Oportunidades de captação ainda
-      // desenham um círculo por bairro, para cruzar com a demanda.
+      // pode cair longe do bairro de verdade; a camada só lista a quantidade de alunos por bairro no painel. A Lacuna de captação usa a contagem por CEP.
       if (lente === "alunos" && calorAlunos && censo) desenharDemanda(L, camadas, censo, calorAlunos, dentroDoEstudo, "arco", area10);
-      if (lente === "oportunidade") {
-        const mx = Math.max(1, ...(u.bairros ?? []).map((b) => b[3]));
-        const totalB = Math.max(1, (u.bairros ?? []).reduce((t, b) => t + b[3], 0));
-        for (const [bairro, lat, lng, n] of [...(u.bairros ?? [])].sort((a, b) => b[3] - a[3])) {
-          L.circleMarker([lat, lng], { radius: 4 + 20 * Math.sqrt(n / mx), color: "#1b2130", weight: 1.6, fillColor: "#ffffff", fillOpacity: 0.35 })
-            .bindTooltip(`<strong>${bairro}</strong><br/>${n.toLocaleString("pt-BR")} ${n === 1 ? "aluno" : "alunos"} (${Math.round((n / totalB) * 100)}%)`).addTo(camadas);
-        }
-      }
       if (r80 && !area10) L.circle(u.c, { radius: r80 * 1000, color: "#1b2130", weight: 1.5, dashArray: "5 5", fill: false, interactive: false }).addTo(camadas);
     } else if (lente === "modelo" && cap && capMapa && censo) {
       desenharDemanda(L, camadas, censo, capMapa, dentroDoEstudo, "quente", area10);
@@ -220,7 +219,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       L.circleMarker(it.u.c, { radius: 13, color: it.parecida ? "#127a3a" : "#8a93a3", weight: 3, fill: false, interactive: false }).addTo(camadas);
       L.marker(it.u.c, { interactive: false, icon: L.divIcon({ className: "", iconSize: [140, 16], iconAnchor: [-14, 8], html: `<div style="font:700 11px/16px Inter,sans-serif;color:${it.parecida ? "#127a3a" : "#5b6577"};text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;white-space:nowrap">${it.u.nome}</div>` }) }).addTo(camadas);
     }
-  }, [lente, u, cap, capMapa, pronto, rua, areas, novaUnidade, verNova, verParec, calorAlunos, compParec]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lente, u, cap, capMapa, lacuna, pronto, rua, areas, novaUnidade, verNova, verParec, calorAlunos, compParec]); // eslint-disable-line react-hooks/exhaustive-deps
 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
   const aoPois = (r: ResultadoPois | null) => { setPois(r); setVerPois(true); };
@@ -261,7 +260,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       const fotos = {
         sat: await primeiraComImagem(ZOOMS_DO_SATELITE, (z) => foto("limpa", { centro: u.c as [number, number], zoom: z }, true)),
         alunos: calorAlunos ? await foto("alunos", { limites: areaAlunos }) : null, // sem a contagem por CEP a camada só lista bairros: sem foto no PDF
-        oportunidade: cap ? await foto("oportunidade", { limites: areaAlunos }) : null,
+        oportunidade: lacuna ? await foto("oportunidade", { limites: areaAlunos }) : null,
         idade: temIdade ? await foto("idade", { limites: areaLim }) : null,
         domicilios: temDom ? await foto("domicilios", { limites: areaLim }) : null,
         renda: dados.censo ? await foto("renda", { limites: areaLim }) : null,
@@ -317,8 +316,8 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>
             <p className="mt-1">Onde o modelo espera alunos, pela gente que mora perto e pelas outras World Gym. {area10 ? LEGENDA_DESLOCAMENTO : ""}</p>
           </> : lente === "oportunidade" ? <>
-            <div className="flex items-center gap-2">menos<span className="h-1.5 flex-1 rounded" style={{ background: "linear-gradient(90deg,rgba(157,42,107,.08),#9d2a6b)" }} />mais alunos esperados</div>
-            <p className="mt-1">Magenta: onde o modelo espera alunos. Círculos escuros: onde eles moram hoje. Magenta forte sem círculo é onde vale fazer marketing.</p>
+            <div className="flex items-center gap-2">menor<span className="h-1.5 flex-1 rounded" style={{ background: "linear-gradient(90deg,rgba(157,42,107,.08),#9d2a6b)" }} />maior lacuna</div>
+            <p className="mt-1">{lacuna ? "Magenta forte: o modelo espera mais alunos do que a unidade tem ali, o melhor lugar para panfletagem, parcerias e mídia. Sem cor: a unidade já capta o esperado (ou mais)." : "Aguardando a contagem de alunos por CEP (rotina noturna) para comparar com o que o modelo espera."}</p>
           </>
             : ehCamadaCenso(lente) ? <LegendaCenso camada={lente} resumo={resumoCenso} />
             : lente === "alunos" ? <>
