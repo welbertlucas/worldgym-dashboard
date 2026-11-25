@@ -35,7 +35,7 @@ jobs:
           VITE_GOOGLE_EMBED_KEY: ${{ vars.GOOGLE_EMBED_KEY }}
           VITE_MAPBOX_PUBLIC_TOKEN: ${{ vars.MAPBOX_PUBLIC_TOKEN }}
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
