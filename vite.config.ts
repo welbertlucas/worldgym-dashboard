@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
@@ -31,4 +31,6 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Cenários sem solução fazem o gerador de escalas ampliar a busca: alguns testes passam de 5 s.
+  test: { testTimeout: 60000 },
 });

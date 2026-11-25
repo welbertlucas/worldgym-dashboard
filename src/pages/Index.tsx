@@ -56,7 +56,7 @@ import { DonutList } from "@/components/DonutList";
 import { RefreshCw, LogOut, Menu } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerObras, podeVerJuridico, podeVerQualidade, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
+import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerObras, podeVerJuridico, podeVerQualidade, podeVerEscalas, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -91,6 +91,7 @@ const RelatoriosTab = telaSobDemanda(() => import("@/components/tabs/RelatoriosT
 const RoyaltiesTab = telaSobDemanda(() => import("@/components/tabs/RoyaltiesTab"), "RoyaltiesTab");
 const JuridicoTab = telaSobDemanda(() => import("@/components/tabs/JuridicoTab"), "JuridicoTab");
 const QualidadeTab = telaSobDemanda(() => import("@/components/tabs/QualidadeTab"), "QualidadeTab");
+const GeradorDeEscalas = lazy(() => import("@/escalas/GeradorDeEscalas"));
 const EstudosPontoTab = telaSobDemanda(() => import("@/components/tabs/EstudosPontoTab"), "EstudosPontoTab");
 const AjudaTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "AjudaTab");
 const NovidadesTab = telaSobDemanda(() => import("@/components/tabs/AjudaTab"), "NovidadesTab");
@@ -210,7 +211,7 @@ const Index = () => {
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = false;
   /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
-  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "juridico" || activeTab === "qualidade" || activeTab === "estudos-de-ponto" || activeTab === "unidades-em-obra" || activeTab === "ajuda" || activeTab === "novidades";
+  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "royalties" || activeTab === "juridico" || activeTab === "qualidade" || activeTab === "escalas" || activeTab === "estudos-de-ponto" || activeTab === "unidades-em-obra" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
@@ -546,6 +547,7 @@ const Index = () => {
 
         {activeTab === "qualidade" && (podeVerQualidade() || podePreencherChecklist()) && <QualidadeTab />}
 
+        {activeTab === "escalas" && podeVerEscalas() && <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando…</p>}><GeradorDeEscalas /></Suspense>}
         {activeTab === "estudos-de-ponto" && <EstudosPontoTab />}
 
         {activeTab === "unidades-em-obra" && (ehDono() || podeVerObras()) && <EmBreve titulo="Unidades em obra" descricao="Acompanhamento das unidades que estão em construção." />}

@@ -1,0 +1,71 @@
+/* Visual do Gerador de Escalas alinhado ao resto do Atlas (25/11/2026): mesma fonte, cores, cantos, botões em pílula e cartões do Atlas.
+   Vem depois de escalas.css (o estilo do sistema antigo) e só troca o que precisa; tudo dentro de `.escalas`. */
+.escalas {
+  --red: hsl(var(--primary));
+  --red-dark: hsl(var(--primary-ink));
+  --red-tint: hsl(var(--primary) / 0.08);
+  --black: hsl(var(--foreground));
+  --ink: hsl(var(--foreground));
+  --grey-1: hsl(var(--muted));
+  --grey-2: hsl(var(--border));
+  --grey-3: hsl(222 16% 84%);
+  --grey-4: hsl(var(--muted-foreground));
+  --grey-5: hsl(var(--muted-foreground));
+  --radius: 0.75rem;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  font-family: inherit; font-feature-settings: normal; background: transparent; color: hsl(var(--foreground)); font-size: 14px; line-height: 1.5;
+}
+.escalas h1, .escalas h2, .escalas h3, .escalas h4,
+.escalas .btn, .escalas .step, .escalas .segmented button, .escalas .sev-tab, .escalas .badge, .escalas .cal thead th, .escalas .eyebrow, .escalas .sidebar-title { font-family: inherit; }
+.escalas h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; }
+.escalas h2 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.005em; }
+.escalas h3 { font-size: 0.95rem; font-weight: 600; }
+.escalas h4 { font-size: 0.9rem; font-weight: 600; }
+.escalas .eyebrow { letter-spacing: 0.04em; font-weight: 600; }
+.escalas .main { padding: 0.25rem 0 0; max-width: none; margin: 0; }
+.escalas .muted { color: hsl(var(--muted-foreground)); }
+
+/* barra de cima: seletor de unidade e sino, em pílula como os filtros do Atlas */
+.escalas-barra { display: flex; align-items: center; gap: 0.5rem; }
+.escalas .unit-picker { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid hsl(var(--border)); border-radius: 9999px; padding: 0.15rem 0.5rem 0.15rem 0.75rem; background: #fff; box-shadow: var(--shadow); }
+.escalas .unit-picker-select { border: 0; background: transparent; font: inherit; font-size: 13px; color: hsl(var(--foreground)); padding: 0.3rem 0.2rem; outline: none; cursor: pointer; }
+.escalas .unit-picker-icone { color: hsl(var(--muted-foreground)); }
+
+/* cartões */
+.escalas .card { border: 1px solid hsl(var(--border)); border-radius: 1rem; box-shadow: var(--shadow); padding: 1.1rem 1.25rem; background: #fff; }
+.escalas .card + .card { margin-top: 1rem; }
+.escalas .card-head h2, .escalas .card-head h3 { margin: 0; }
+
+/* botões em pílula, como os do Atlas */
+.escalas .btn { border-radius: 9999px; font-weight: 500; font-size: 13px; padding: 0.45rem 1rem; transition: background-color 0.15s, border-color 0.15s; }
+.escalas .btn.primary { background: hsl(var(--primary)); color: #fff; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12); }
+.escalas .btn.primary:hover:not(:disabled) { background: hsl(var(--primary) / 0.9); }
+.escalas .btn.dark { background: hsl(var(--foreground)); color: #fff; }
+.escalas .btn.ghost { background: #fff; color: hsl(var(--foreground)); border-color: hsl(var(--border)); box-shadow: var(--shadow); }
+.escalas .btn.ghost:hover:not(:disabled) { background: hsl(var(--muted)); border-color: hsl(222 16% 80%); }
+.escalas .btn.danger { background: #fff; color: hsl(var(--destructive)); border-color: hsl(var(--destructive) / 0.5); }
+.escalas .btn.small { padding: 0.28rem 0.75rem; font-size: 12px; }
+.escalas .btn.big { padding: 0.6rem 1.3rem; font-size: 14px; }
+
+/* campos */
+.escalas .input, .escalas select.input { border: 1px solid hsl(var(--border)); border-radius: 0.5rem; background: #fff; font: inherit; font-size: 13px; padding: 0.4rem 0.6rem; }
+.escalas .input:focus { outline: 2px solid hsl(var(--primary) / 0.5); outline-offset: 0; border-color: hsl(var(--primary)); }
+.escalas .input[readonly] { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+
+/* grupos de opções, passos e filtros */
+.escalas .segmented { border-radius: 9999px; border-color: hsl(var(--border)); background: #fff; }
+.escalas .segmented button { padding: 0.35rem 0.95rem; font-size: 13px; font-weight: 500; border-right-color: hsl(var(--border)); color: hsl(var(--foreground)); }
+.escalas .segmented button.on { background: hsl(var(--foreground)); color: #fff; }
+.escalas .step { border-color: hsl(var(--border)); font-size: 13px; font-weight: 500; }
+.escalas .step.on { border-color: hsl(var(--primary)); color: hsl(var(--primary-ink)); font-weight: 600; }
+.escalas .step.on .num { background: hsl(var(--primary)); }
+.escalas .step.done .num { background: hsl(var(--foreground)); }
+.escalas .sev-tab { border-color: hsl(var(--border)); font-size: 12px; font-weight: 500; }
+.escalas .sev-tab.on { background: hsl(var(--foreground)); border-color: hsl(var(--foreground)); }
+.escalas .chip { border-color: hsl(var(--border)); background: hsl(var(--muted)); }
+
+/* itens de lista e avisos */
+.escalas .schedule-item { border-color: hsl(var(--border)); border-radius: 0.75rem; }
+.escalas .schedule-item:hover { border-color: hsl(var(--primary)); background: hsl(var(--primary) / 0.03); }
+.escalas .badge { font-weight: 500; }
+.escalas .choose-unit { max-width: 520px; margin: 1.5rem auto; }

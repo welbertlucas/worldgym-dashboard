@@ -2,7 +2,7 @@
 // /api/estudos e /api/escalas são rewrites).
 //   GET /api/escalas -> { unidades, prazo, mudaRegras, papel }: as unidades que a pessoa enxerga (dono e Master, todas; unidades, só as suas, e só com a marca verEscalas).
 //   POST /api/escalas { acao: "listar" | "ler" | "achar" | "ultima" | "mes" | "salvar" | "apagar" | "versoes" | "restaurar" | "equipe-ler" | "equipe-salvar" |
-//     "config-ler" | "config-salvar" | "prazo-salvar" | "importar", ... } -> escalas da equipe (nomes de colaboradores: Blob privado, permissão por unidade a cada pedido).
+//     "config-ler" | "config-salvar" | "prazo-ler" | "prazo-salvar" | "importar", ... } -> escalas da equipe (nomes de colaboradores: Blob privado, permissão por unidade a cada pedido).
 //   GET /api/royalties -> { disponivel: false } enquanto a rotina de royalties não enviar dados, ou { disponivel: true, ...modelo }. Só dono, Master e liberados.
 //   GET /api/juridico  -> { disponivel: false } ou { disponivel: true, ...modelo }. Só o dono e quem ele liberou (modelo sem nome de parte contrária).
 //   GET /api/qualidade -> { modo, unidades, modelos, visitas, envios }; GET ?foto=<id> -> a foto (JPEG).
@@ -179,7 +179,7 @@ async function qualidade(req, res, sessao) {
 async function escalas(req, res, sessao) {
   if (req.method === "GET") {
     const ids = unidadesDaSessao(sessao);
-    return res.status(200).json({ unidades: UNIDADES_ESCALA.filter((u) => ids.includes(u.id)), prazo: await lerPrazo(), mudaRegras: sessao.papel === "dono" || sessao.papel === "master", papel: sessao.papel });
+    return res.status(200).json({ unidades: UNIDADES_ESCALA.filter((u) => ids.includes(u.id)), prazo: await lerPrazo(), mudaRegras: sessao.papel === "dono" || sessao.papel === "master", papel: sessao.papel, nome: sessao.nome });
   }
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
   const { acao, ...c } = doCorpo(req);
@@ -198,6 +198,7 @@ async function escalas(req, res, sessao) {
     case "equipe-salvar": await salvarEquipe(sessao, c.unidade, c.equipe, c.roster); return ok();
     case "config-ler": return ok({ config: await lerConfigUnidade(sessao, c.unidade) });
     case "config-salvar": await salvarConfigUnidade(sessao, c.unidade, c.settings, { incluirJornada: c.incluirJornada === true }); return ok();
+    case "prazo-ler": return ok({ prazo: await lerPrazo() });
     case "prazo-salvar": await salvarPrazo(sessao, c.dia); return ok({ prazo: await lerPrazo() });
     case "importar": return ok({ importado: await importarDoSistemaAntigo(sessao, c.backup) });
     default: return res.status(400).json({ error: "ação inválida" });

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buscarNoMenu, itensDeBusca, itensDoMenu, MENUS_EM_BREVE, MENUS_NOVIDADE, NAV_RODAPE, type NavItem } from "@/components/nav";
-import { ehDono, podeVerObras, podeGerarRelatorios, podeGerirAcessos, podeVerJuridico, podePreencherChecklist, podeVerQualidade, podeVerRoyalties } from "@/lib/auth";
+import { ehDono, podeVerObras, podeGerarRelatorios, podeGerirAcessos, podeVerJuridico, podePreencherChecklist, podeVerQualidade, podeVerEscalas, podeVerRoyalties } from "@/lib/auth";
 import { useNovidadesNaoVistas } from "@/lib/novidadesVistas";
 import wgLogo from "@/assets/wg-logo.png";
 
@@ -21,7 +21,7 @@ function BuscaMenu({ onChange }: { onChange: (destino: string) => void }) {
   const [consulta, setConsulta] = useState("");
   const [sel, setSel] = useState(0);
   const campo = useRef<HTMLInputElement>(null);
-  const resultados = buscarNoMenu(itensDeBusca([...itensDoMenu(podeGerirAcessos(), true, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), emBreveLiberado()), ...NAV_RODAPE], ehDono()), consulta);
+  const resultados = buscarNoMenu(itensDeBusca([...itensDoMenu(podeGerirAcessos(), true, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), emBreveLiberado(), podeVerEscalas()), ...NAV_RODAPE], ehDono()), consulta);
   const abrir = (destino: string) => { setConsulta(""); campo.current?.blur(); onChange(destino); };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, resultados.length - 1)); }
@@ -116,7 +116,7 @@ function ItemDoMenu({ item, active, onChange, collapsed, numero = 0, criticos = 
 
 /** Telas de trabalho em cima; Novidades e Central de ajuda no rodapé do menu. */
 function NavList({ active, onChange, criticalCount = 0, collapsed = false }: NavProps & { collapsed?: boolean }) {
-  const itens = itensDoMenu(podeGerirAcessos(), false, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), emBreveLiberado());
+  const itens = itensDoMenu(podeGerirAcessos(), false, podeGerarRelatorios(), podeVerRoyalties(), podeVerJuridico(), podeVerQualidade() || podePreencherChecklist(), emBreveLiberado(), podeVerEscalas());
   const novas = useNovidadesNaoVistas();
   return (
     <>
