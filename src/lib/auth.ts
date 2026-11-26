@@ -39,6 +39,8 @@ export const podeVerQualidade = () => usuario?.verQualidade === true;
 export const podeVerEscalas = () => usuario?.verEscalas === true;
 /** Menu Documentos (arquivos das unidades): o servidor confere de novo a cada pedido. */
 export const podeVerDocumentos = () => usuario?.verDocumentos === true;
+/** Cadastra e muda as obras e vê as fases e tarefas da implantação: dono e Master (o servidor confere). */
+export const podeEditarObras = () => usuario?.papel === "dono" || usuario?.papel === "master";
 /** Checklist da unidade (abertura etc.): quem foi liberado a preencher; o servidor confere de novo. */
 export const podePreencherChecklist = () => usuario?.preencheChecklist === true;
 /** Comparar a taxa de cartão entre as unidades: só o dono (nem Master nem quem tem acesso a algumas unidades vê). */

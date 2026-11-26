@@ -4,7 +4,7 @@
 //     POST (application/octet-stream, cabeçalho X-Atlas-Documento com { unidade, nome, pastaId }) -> envia; POST { acao: "pasta" | "apagar", ... }.
 //     Dono e Master, todas as unidades; unidades só com a permissão "acessar documentos" e só as suas (server/documentos.js).
 //   GET /api/fichas -> { unidades: [{ nome, modelo, m2, abertura, vendas, alunos, ficha }] }; POST { acao: "salvar", unidade, ficha } (só o dono: aluguel é dado comercial).
-//   GET /api/obras -> { obras, podeEditar }; POST { acao: "salvar", obra } | { acao: "apagar", id } (dono e Master cadastram e mudam, só o dono apaga; quem tem acesso a unidades e foi liberado em verObras consulta).
+//   GET /api/obras -> { obras, podeEditar, podeApagar, modelos? }; POST { acao: "salvar", obra } | { acao: "apagar", id } | fases e tarefas: "tarefas", "aplicar-modelo", "tarefa-salvar", "tarefa-apagar", "fase-salvar", "fase-apagar" (dono e Master cadastram e mudam, só o dono apaga; quem tem acesso a unidades e foi liberado em verObras consulta).
 //   GET /api/escalas -> { unidades, prazo, mudaRegras, papel }: as unidades que a pessoa enxerga (dono e Master, todas; unidades, só as suas, e só com a marca verEscalas).
 //   POST /api/escalas { acao: "listar" | "ler" | "achar" | "ultima" | "mes" | "salvar" | "apagar" | "versoes" | "restaurar" | "equipe-ler" | "equipe-salvar" |
 //     "config-ler" | "config-salvar" | "prazo-ler" | "prazo-salvar" | "importar", ... } -> escalas da equipe (nomes de colaboradores: Blob privado, permissão por unidade a cada pedido).
@@ -35,7 +35,7 @@ import { ErroPois, buscarPois, contarAcademias } from "../server/pois.js";
 import { lerAlunosHex } from "../server/alunosHex.js";
 import { ErroFichas, lerFichas, salvarFicha } from "../server/fichas.js";
 import { ErroDocumentos, apagarDocumento, baixarArquivo, criarPasta, enviarArquivo, lerDocumentos } from "../server/documentos.js";
-import { ErroObras, apagarObra, lerObras, salvarObra } from "../server/obras.js";
+import { ErroObras, apagarFase, apagarObra, apagarTarefa, aplicarModelo, lerModelos as lerModelosDeObra, lerObras, lerTarefas, resumoDosModelos, salvarFase, salvarObra, salvarTarefa } from "../server/obras.js";
 import { ErroEscalas, UNIDADES_ESCALA, acharEscala, apagarEscala, escalasDoMes, importarDoSistemaAntigo, lerConfigUnidade, lerEquipe, lerEscala, lerPrazo, listarEscalas, restaurarVersao, salvarConfigUnidade, salvarEquipe, salvarEscala, salvarPrazo, ultimaEscala, unidadesDaSessao, versoesDaEscala } from "../server/escalas.js";
 import { ErroFotosRua, fotosDaRua } from "../server/fotosRua.js";
 import { ErroCensoMun, censoDoPonto } from "../server/censoMunicipio.js";
@@ -193,11 +193,19 @@ async function fichas(req, res, sessao) {
 }
 
 async function obras(req, res, sessao) {
-  if (req.method === "GET") return res.status(200).json({ obras: await lerObras(), podeEditar: sessao.papel === "dono" || sessao.papel === "master", podeApagar: sessao.papel === "dono" });
+  const edita = sessao.papel === "dono" || sessao.papel === "master";
+  if (req.method === "GET") return res.status(200).json({ obras: await lerObras(), podeEditar: edita, podeApagar: sessao.papel === "dono", ...(edita ? { modelos: resumoDosModelos(await lerModelosDeObra()) } : {}) });
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
   const { acao, ...c } = doCorpo(req);
   if (acao === "salvar") return res.status(200).json({ obra: await salvarObra(sessao, c.obra) });
   if (acao === "apagar") { await apagarObra(sessao, String(c.id ?? "")); return res.status(200).json({ ok: true }); }
+  // fases e tarefas (só dono e Master; conferido em server/obras.js)
+  if (acao === "tarefas") return res.status(200).json(await lerTarefas(sessao, c.obraId));
+  if (acao === "aplicar-modelo") return res.status(200).json(await aplicarModelo(sessao, c.obraId, String(c.modelo ?? "")));
+  if (acao === "tarefa-salvar") return res.status(200).json(await salvarTarefa(sessao, { obraId: c.obraId, faseId: c.faseId, tarefa: c.tarefa }));
+  if (acao === "tarefa-apagar") return res.status(200).json(await apagarTarefa(sessao, { obraId: c.obraId, faseId: c.faseId, tarefaId: c.tarefaId }));
+  if (acao === "fase-salvar") return res.status(200).json(await salvarFase(sessao, { obraId: c.obraId, fase: c.fase }));
+  if (acao === "fase-apagar") return res.status(200).json(await apagarFase(sessao, { obraId: c.obraId, faseId: c.faseId }));
   return res.status(400).json({ error: "ação inválida" });
 }
 

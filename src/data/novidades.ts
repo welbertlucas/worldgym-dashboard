@@ -4,8 +4,8 @@
 // Formato: título "Tela: o que mudou"; o texto começa pelo problema da academia e depois diz o que mudou.
 // `artigo` liga ao artigo da Central de ajuda ("Saiba mais"); `tela` abre o lugar ("Ver na tela").
 
-/** "documentos": só quem vê o menu Documentos. "escalas": só quem vê o menu Gerador de escalas (dono, Master e quem o dono liberou). "royalties": só quem vê a aba Royalties, do menu Franqueadora, (dono, Master e quem o dono liberou); "juridico": só quem vê a aba Jurídico, do menu Franqueadora, (dono e quem ele liberou); "dono": só o dono. */
-export type Publico = "todos" | "dono" | "royalties" | "juridico" | "qualidade" | "escalas" | "franqueadora" | "documentos";
+/** "obras": só quem cadastra e muda as obras (dono e Master). "documentos": só quem vê o menu Documentos. "escalas": só quem vê o menu Gerador de escalas (dono, Master e quem o dono liberou). "royalties": só quem vê a aba Royalties, do menu Franqueadora, (dono, Master e quem o dono liberou); "juridico": só quem vê a aba Jurídico, do menu Franqueadora, (dono e quem ele liberou); "dono": só o dono. */
+export type Publico = "todos" | "dono" | "royalties" | "juridico" | "qualidade" | "escalas" | "franqueadora" | "documentos" | "obras";
 export type TipoNovidade = "novo" | "melhoria";
 
 export interface Novidade {
@@ -26,6 +26,11 @@ export interface Novidade {
 export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
+  {
+    id: "2026-11-26-obras-fases-tarefas", data: "2026-11-26", tipo: "novo", publico: "obras", autora: AUTORA, tela: "unidades-em-obra", artigo: "obras-fases-tarefas",
+    titulo: "Unidades em obra: fases e tarefas da implantação",
+    texto: "Cada obra agora pode ter o roteiro completo da implantação, com as fases e tarefas do modelo da unidade (Low Cost, Prime, Pro ou Pro / Recovery). Em cada tarefa você marca o responsável, o início e o fim, e a caixa de concluída. Os filtros mostram as pendentes e as atrasadas, e o card da obra mostra quantas tarefas já foram feitas. O Master também cadastra e muda as obras.",
+  },
   {
     id: "2026-11-25-documentos", data: "2026-11-25", tipo: "novo", publico: "documentos", autora: AUTORA, tela: "documentos", artigo: "documentos-o-que-e",
     titulo: "Documentos: os arquivos de cada unidade num lugar só",
@@ -292,9 +297,9 @@ export const NOVIDADES: Novidade[] = [
 
 /** Novidades que a pessoa pode ver, da mais nova para a mais antiga. */
 /** Quem vê cada novidade: todos veem as "todos"; o dono vê tudo; as de royalties só vão a quem pode ver a aba Royalties (`royalties`, por padrão igual ao dono). */
-export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono) => publico === "todos" || (publico === "documentos" ? documentos : publico === "franqueadora" ? royalties || juridico : publico === "royalties" ? royalties : publico === "juridico" ? juridico : publico === "qualidade" ? qualidade : publico === "escalas" ? escalas : dono);
-export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono): Novidade[] =>
-  lista.filter((n) => publicoVe(n.publico, dono, royalties, juridico, qualidade, escalas, documentos)).sort((a, b) => b.data.localeCompare(a.data));
+export const publicoVe = (publico: Publico, dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono, obras: boolean = dono) => publico === "todos" || (publico === "obras" ? obras : publico === "documentos" ? documentos : publico === "franqueadora" ? royalties || juridico : publico === "royalties" ? royalties : publico === "juridico" ? juridico : publico === "qualidade" ? qualidade : publico === "escalas" ? escalas : dono);
+export const novidadesPara = (dono: boolean, lista: Novidade[] = NOVIDADES, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono, obras: boolean = dono): Novidade[] =>
+  lista.filter((n) => publicoVe(n.publico, dono, royalties, juridico, qualidade, escalas, documentos, obras)).sort((a, b) => b.data.localeCompare(a.data));
 
 /** Quantas ainda não foram vistas. */
 export const naoVistas = (lista: Novidade[], vistas: Iterable<string>): number => {

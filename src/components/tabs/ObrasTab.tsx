@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HardHat, Plus, Trash2 } from "lucide-react";
 import { SectionTitle } from "@/components/SectionTitle";
 import { Button } from "@/components/ui/button";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { TarefasObra } from "@/components/obras/TarefasObra";
 import {
-  type Marco, type Obra, dataBR, dataCurta, diasDeAtraso, hojeLocal, inauguracao, novoId, obraNova, ordenar, progresso, proximoMarco, resumoDasObras, situacao,
+  type Marco, type ModeloObra, type Obra, type ResumoModelo, type ResumoTarefas, NOME_MODELO, dataBR, dataCurta, diasDeAtraso, hojeLocal, inauguracao, novoId, obraNova, ordenar, progresso, progressoTarefas, proximoMarco, resumoDasObras, situacao, tarefasAtrasadas,
 } from "@/lib/obras";
 
-type Estado = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; obras: Obra[]; podeEditar: boolean; podeApagar?: boolean };
+type Estado = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; obras: Obra[]; podeEditar: boolean; podeApagar?: boolean; modelos?: ResumoModelo[] };
 
 /** Pede as obras à API. A permissão é conferida no servidor a cada pedido; dono e Master mudam; só o dono apaga. */
 export async function carregarObras(): Promise<Estado> {
@@ -16,8 +17,8 @@ export async function carregarObras(): Promise<Estado> {
     const res = await authFetch(`${API_BASE}/obras`);
     if (res.status === 403) return { fase: "erro", motivo: "permissao" };
     if (!res.ok) return { fase: "erro", motivo: "falha" };
-    const j = (await res.json()) as { obras: Obra[]; podeEditar: boolean; podeApagar?: boolean };
-    return { fase: "pronto", obras: j.obras ?? [], podeEditar: Boolean(j.podeEditar), podeApagar: Boolean(j.podeApagar) };
+    const j = (await res.json()) as { obras: Obra[]; podeEditar: boolean; podeApagar?: boolean; modelos?: ResumoModelo[] };
+    return { fase: "pronto", obras: j.obras ?? [], podeEditar: Boolean(j.podeEditar), podeApagar: Boolean(j.podeApagar), modelos: j.modelos ?? [] };
   } catch {
     return { fase: "erro", motivo: "falha" };
   }
@@ -28,7 +29,6 @@ const SELO = {
   "no-prazo": { texto: "No prazo", classe: "bg-success/10 text-success" },
   concluida: { texto: "Inaugurada", classe: "bg-muted text-muted-foreground" },
 } as const;
-const NOME_MODELO = { low: "Low Cost", pro: "Pro" } as const;
 
 function Numero({ rotulo, valor, destaque }: { rotulo: string; valor: number; destaque?: boolean }) {
   return (
@@ -43,7 +43,8 @@ export function ObrasLista({ obras, abrir, hoje = hojeLocal() }: { obras: Obra[]
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {ordenar(obras, hoje).map((o) => {
-        const s = situacao(o, hoje), selo = SELO[s], prox = proximoMarco(o), atraso = diasDeAtraso(o, hoje), p = progresso(o);
+        const s = situacao(o, hoje), selo = SELO[s], prox = proximoMarco(o), atraso = diasDeAtraso(o, hoje);
+        const pt = progressoTarefas(o.tarefas), p = pt ?? progresso(o), tAtrasadas = tarefasAtrasadas(o.tarefas, hoje);
         return (
           <button key={o.id} type="button" onClick={() => abrir(o)}
             className="card-surface flex flex-col gap-2 px-4 py-3 text-left transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -54,13 +55,14 @@ export function ObrasLista({ obras, abrir, hoje = hojeLocal() }: { obras: Obra[]
               </div>
               <span className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold", selo.classe)}>{selo.texto}</span>
             </div>
-            <div className="flex items-center gap-2" aria-label={`${p}% dos marcos concluídos`}>
+            <div className="flex items-center gap-2" aria-label={`${p}% ${pt === null ? "dos marcos" : "das tarefas"} concluídos`}>
               <span className="relative h-1.5 flex-1 rounded-full bg-muted"><span className={cn("absolute inset-y-0 left-0 rounded-full", s === "atrasada" ? "bg-destructive" : "bg-success")} style={{ width: `${p}%` }} /></span>
               <span className="text-[12px] tabular-nums text-muted-foreground">{p}%</span>
             </div>
             <div className="text-[12px] text-muted-foreground">
               {prox ? <p>Próximo: <span className="font-medium text-foreground">{prox.nome}</span> · {dataCurta(prox.previsto)}{atraso > 0 && <span className="text-destructive"> · {atraso} {atraso === 1 ? "dia" : "dias"} de atraso</span>}</p> : <p>Todos os marcos concluídos</p>}
               <p>Inauguração {s === "concluida" ? "em" : "prevista:"} <span className="font-medium text-foreground">{dataBR(inauguracao(o))}</span></p>
+              {o.tarefas && o.tarefas.total > 0 && <p>Tarefas: <span className="font-medium text-foreground">{o.tarefas.concluidas} de {o.tarefas.total}</span>{tAtrasadas > 0 && <span className="text-destructive"> · {tAtrasadas} atrasada{tAtrasadas > 1 ? "s" : ""}</span>}</p>}
             </div>
           </button>
         );
@@ -71,8 +73,15 @@ export function ObrasLista({ obras, abrir, hoje = hojeLocal() }: { obras: Obra[]
 
 const campo = "h-9 w-full rounded-md border border-border bg-background px-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted/40 disabled:text-muted-foreground";
 
-function ObraDialog({ inicial, podeEditar, podeApagar = false, existe, salvar, apagar, fechar }: { inicial: Obra; podeEditar: boolean; podeApagar?: boolean; existe: boolean; salvar: (o: Obra) => Promise<void>; apagar: (id: string) => Promise<void>; fechar: () => void }) {
+function ObraDialog({ inicial, podeEditar, podeApagar = false, existe, modelos = [], salvar, apagar, fechar, aoMudarTarefas }: { inicial: Obra; podeEditar: boolean; podeApagar?: boolean; existe: boolean; modelos?: ResumoModelo[]; salvar: (o: Obra, comModelo: boolean) => Promise<void>; apagar: (id: string) => Promise<void>; fechar: () => void; aoMudarTarefas?: (r: ResumoTarefas | undefined) => void }) {
   const [o, setO] = useState<Obra>(inicial);
+  const [aba, setAba] = useState<"dados" | "tarefas">("dados");
+  const [comModelo, setComModelo] = useState(true);
+  const [resumoT, setResumoT] = useState(inicial.tarefas);
+  const modeloEscolhido = modelos.find((m) => m.id === o.modelo);
+  // obra nova salva com o roteiro do modelo: a janela continua aberta e vai direto para as tarefas
+  const jaExistia = useRef(existe);
+  useEffect(() => { if (existe && !jaExistia.current) { jaExistia.current = true; setAba("tarefas"); } }, [existe]);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [achando, setAchando] = useState(false);
@@ -96,7 +105,7 @@ function ObraDialog({ inicial, podeEditar, podeApagar = false, existe, salvar, a
   const ler = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setO((x) => ({ ...x, [e.target.name]: e.target.name === "m2" ? (e.target.value === "" ? null : Number(e.target.value)) : e.target.value }));
   const guardar = async () => {
     setErro(null); setOcupado(true);
-    try { await salvar(o); } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui salvar agora."); setOcupado(false); }
+    try { await salvar(o, !existe && comModelo && Boolean(modeloEscolhido)); setOcupado(false); } catch (e) { setErro(e instanceof Error ? e.message : "Não consegui salvar agora."); setOcupado(false); }
   };
   const excluir = async () => {
     if (!window.confirm(`Apagar a obra ${o.nome || "sem nome"}? Isso não pode ser desfeito.`)) return;
@@ -106,17 +115,33 @@ function ObraDialog({ inicial, podeEditar, podeApagar = false, existe, salvar, a
   const hoje = hojeLocal();
   return (
     <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Obra">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-border bg-white p-5 shadow-xl">
+      <div className={cn("max-h-[92vh] w-full overflow-y-auto rounded-xl border border-border bg-white p-5 shadow-xl", aba === "tarefas" ? "max-w-6xl" : "max-w-3xl")}>
         <div className="flex items-start justify-between gap-3">
-          <div><h3 className="font-display text-xl font-medium">{existe ? o.nome || "Obra" : "Nova obra"}</h3><p className="text-sm text-muted-foreground">{podeEditar ? "Cada marco tem a data prevista e, quando acontece, a data real." : "Só o dono e o Master mudam as obras; aqui você consulta."}</p></div>
+          <div><h3 className="font-display text-xl font-medium">{existe ? o.nome || "Obra" : "Nova obra"}</h3><p className="text-sm text-muted-foreground">{!podeEditar ? "Só o dono e o Master mudam as obras; aqui você consulta." : aba === "tarefas" ? "O roteiro da implantação: cada mudança é gravada na hora." : "Cada marco tem a data prevista e, quando acontece, a data real."}</p></div>
           <Button variant="ghost" onClick={fechar}>Fechar</Button>
         </div>
+        {existe && podeEditar && (
+          <div className="mt-3 flex gap-1 border-b border-border" role="tablist">
+            {([["dados", "Dados e marcos"], ["tarefas", `Fases e tarefas${resumoT?.total ? ` (${resumoT.concluidas}/${resumoT.total})` : ""}`]] as const).map(([id, rotulo]) => (
+              <button key={id} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)} className={cn("-mb-px border-b-2 px-3 py-2 text-[13px]", aba === id ? "border-primary font-semibold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{rotulo}</button>
+            ))}
+          </div>
+        )}
+        {aba === "tarefas" && existe && podeEditar ? (
+          <div className="mt-4"><TarefasObra obraId={o.id} modeloDaObra={o.modelo} modelos={modelos} aoMudar={(r) => { setResumoT(r); aoMudarTarefas?.(r); }} /></div>
+        ) : (<>
         {erro && <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{erro}</p>}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-[12px] text-muted-foreground">Unidade<input name="nome" value={o.nome} onChange={ler} disabled={!podeEditar} maxLength={60} className={campo} placeholder="Nome da unidade" /></label>
           <label className="text-[12px] text-muted-foreground">Cidade<input name="cidade" value={o.cidade} onChange={ler} disabled={!podeEditar} maxLength={60} className={campo} placeholder="Cidade e estado" /></label>
           <label className="text-[12px] text-muted-foreground">Modelo
-            <select name="modelo" value={o.modelo} onChange={ler} disabled={!podeEditar} className={campo}><option value="low">Low Cost</option><option value="pro">Pro</option></select></label>
+            <select name="modelo" value={o.modelo} onChange={ler} disabled={!podeEditar} className={campo}>{(Object.keys(NOME_MODELO) as ModeloObra[]).map((m) => <option key={m} value={m}>{NOME_MODELO[m]}</option>)}</select></label>
+          {!existe && podeEditar && modeloEscolhido && (
+            <label className="flex items-start gap-2 text-[13px] text-foreground sm:col-span-2">
+              <input type="checkbox" checked={comModelo} onChange={(e) => setComModelo(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]" />
+              <span>Já criar com as fases e tarefas do modelo {NOME_MODELO[o.modelo]} <span className="block text-xs text-muted-foreground">{modeloEscolhido.fases} fases e {modeloEscolhido.tarefas} tarefas, com a duração de cada uma. As datas e os responsáveis você preenche depois, na aba Fases e tarefas.</span></span>
+            </label>
+          )}
           <label className="text-[12px] text-muted-foreground">Área (m²)<input name="m2" type="number" min={1} max={20000} value={o.m2 ?? ""} onChange={ler} disabled={!podeEditar} className={campo} /></label>
           <label className="text-[12px] text-muted-foreground sm:col-span-2">Endereço da obra (para pôr a unidade no mapa da rede)
             <div className="flex gap-2">
@@ -153,6 +178,7 @@ function ObraDialog({ inicial, podeEditar, podeApagar = false, existe, salvar, a
             {existe && podeApagar && <Button variant="outline" onClick={excluir} disabled={ocupado} className="text-destructive">Apagar obra</Button>}
           </div>
         )}
+        </>)}
       </div>
     </div>
   );
@@ -204,8 +230,15 @@ export function ObrasTab() {
       </div>
       <ObrasConteudo estado={estado} abrir={(o) => setAberta({ obra: o, existe: true })} nova={() => setAberta({ obra: obraNova(), existe: false })} />
       {dialogo && (
-        <ObraDialog key={dialogo.obra.id} inicial={dialogo.obra} existe={dialogo.existe} podeEditar={podeEditar} podeApagar={estado.fase === "pronto" && estado.podeApagar === true}
-          salvar={async (o) => { await post({ acao: "salvar", obra: o }); setAberta(null); await recarregar(); }}
+        <ObraDialog key={dialogo.obra.id} inicial={dialogo.obra} existe={dialogo.existe} podeEditar={podeEditar} podeApagar={estado.fase === "pronto" && estado.podeApagar === true} modelos={estado.fase === "pronto" ? estado.modelos : []}
+          aoMudarTarefas={(r) => setEstado((e) => (e.fase === "pronto" ? { ...e, obras: e.obras.map((x) => (x.id === dialogo.obra.id ? { ...x, tarefas: r } : x)) } : e))}
+          salvar={async (o, comModelo) => {
+            await post({ acao: "salvar", obra: o });
+            if (comModelo) await post({ acao: "aplicar-modelo", obraId: o.id, modelo: o.modelo });
+            await recarregar();
+            // obra nova com o roteiro do modelo: reabre já na obra salva, para seguir para as tarefas
+            setAberta(comModelo ? { obra: { ...o }, existe: true } : null);
+          }}
           apagar={async (id) => { await post({ acao: "apagar", id }); setAberta(null); await recarregar(); }}
           fechar={() => setAberta(null)} />
       )}

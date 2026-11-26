@@ -20,7 +20,7 @@ export interface ArtigoAjuda {
   atualizadoEm: string;
 }
 
-export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "franqueadora" | "royalties" | "juridico" | "qualidade" | "escalas" | "documentos" | "dono";
+export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "franqueadora" | "royalties" | "juridico" | "qualidade" | "escalas" | "documentos" | "obras" | "dono";
 
 export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; publico: Publico }[] = [
   { id: "comecando", titulo: "Primeiros passos", descricao: "O que é o Atlas, como escolher a unidade e o mês e como achar uma tela.", publico: "todos" },
@@ -34,6 +34,7 @@ export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; public
   { id: "qualidade", titulo: "Qualidade", descricao: "Checklists, visitas às unidades e a nota de cada uma.", publico: "qualidade" },
   { id: "escalas", titulo: "Gerador de escalas", descricao: "A escala 5x2 da equipe, a escala livre, o histórico, o PDF e o Excel.", publico: "escalas" },
   { id: "documentos", titulo: "Documentos", descricao: "Os arquivos de cada unidade: pastas, envio, limites e quem vê.", publico: "documentos" },
+  { id: "obras", titulo: "Unidades em obra", descricao: "As obras, os marcos, as fases e tarefas da implantação e os modelos.", publico: "obras" },
   { id: "dono", titulo: "Só você vê", descricao: "Usuários, rotinas automáticas e o que só você acompanha.", publico: "dono" },
 ];
 
@@ -283,13 +284,21 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "No alto da tela, quantas unidades já têm o aluguel levantado e, por modelo, a mediana, o menor e o maior valor por m². A mediana é o número que corrige o aluguel real no payback dos Estudos de ponto; o Atlas só a usa nas contas depois de você confirmar o valor, e nada é gravado nas premissas sozinho.",
     "Aluguel é dado comercial: fica guardado só no Atlas, com acesso do dono, e não vai para o repositório. Os cards das unidades sem aluguel levantado aparecem primeiro.",
   ], { tela: "franqueadora/unidades", atualizadoEm: "2026-11-26" }),
-  a("dono", "dono-unidades-em-obra", "Unidades em obra: como cadastrar e acompanhar", "Marcos, atrasos e quem pode ver.", [
-    "O menu Unidades em obra acompanha as unidades em construção até a inauguração. Você e o Master cadastram e mudam as obras, e só você apaga uma obra. Quem tem acesso a unidades consulta, se você liberar em Usuários (Pode ver unidades em obra).",
-    "Nova obra: informe a unidade, a cidade, o modelo, a área e o responsável. A obra já nasce com oito marcos: contrato do ponto assinado, projeto aprovado, alvará, início da obra, fim da obra, equipamentos instalados, vistoria da franqueadora e inauguração. Dá para renomear, apagar e acrescentar marcos, e a ordem da lista é a ordem da obra.",
+  a("obras", "dono-unidades-em-obra", "Unidades em obra: como cadastrar e acompanhar", "Marcos, atrasos, mapa e quem pode ver.", [
+    "O menu Unidades em obra acompanha as unidades em implantação até a inauguração. O dono e o Master cadastram e mudam as obras; só o dono apaga uma obra. Quem tem acesso a unidades pode consultar os marcos, se o dono liberar.",
+    "Nova obra: informe a unidade, a cidade, o modelo (Low Cost, Prime, Pro ou Pro / Recovery), a área e o responsável. A obra já nasce com oito marcos: contrato do ponto assinado, projeto aprovado, alvará, início da obra, fim da obra, equipamentos instalados, vistoria da franqueadora e inauguração. Dá para renomear, apagar e acrescentar marcos, e a ordem da lista é a ordem da obra.",
     "Cada marco tem a data prevista e, quando acontece, a data real (o botão Hoje preenche a de hoje). A obra fica Atrasada quando algum marco passou da data prevista sem data real; sem data prevista, o marco não conta como atraso. A inauguração prevista é a data do último marco.",
-    "No alto da tela: obras em andamento, atrasadas, as que inauguram em até 90 dias e as já inauguradas. Os cards mostram as atrasadas primeiro. As obras ficam guardadas só no Atlas, com acesso protegido.",
+    "No alto da tela: obras em andamento, atrasadas, as que inauguram em até 90 dias e as já inauguradas. Os cards mostram as atrasadas primeiro e, quando a obra tem tarefas, quantas já foram concluídas e quantas estão atrasadas. As obras ficam guardadas só no Atlas, com acesso protegido.",
     "Mapa da rede: para a obra aparecer no mapa dos Estudos de ponto (botão Mapa da rede), informe o endereço e clique em Achar no mapa na janela da obra. A obra aparece com um pino laranja, ao lado dos pontos em estudo (em análise e aprovados) e das unidades em operação; os botões no alto do mapa escondem cada grupo. Obra sem posição não aparece no mapa, e obra já inaugurada sai dele.",
-  ], { tela: "unidades-em-obra", atualizadoEm: "2026-11-25" }),
+  ], { tela: "unidades-em-obra", atualizadoEm: "2026-11-26" }),
+  a("obras", "obras-fases-tarefas", "Fases e tarefas da implantação", "O roteiro completo de cada modelo, com responsável, datas e atrasos.", [
+    "Cada obra pode ter o roteiro completo da implantação, dividido em fases e tarefas. O roteiro vem do modelo da unidade (Low Cost, Prime, Pro ou Pro / Recovery): cada modelo tem as suas fases e tarefas.",
+    "Ao criar a obra, deixe marcado Já criar com as fases e tarefas do modelo. Numa obra que já existe, abra a aba Fases e tarefas e clique em Trazer fases e tarefas. As tarefas chegam com a duração em dias corridos e sem datas nem responsável: isso você preenche.",
+    "Em cada tarefa: o responsável, a duração, o início e o fim. O fim é calculado pelo início e pela duração, contando o dia do início (início em 27/11 com 5 dias termina em 01/12), e dá para mudar à mão. Marque a caixa da tarefa quando ela for concluída: fica registrada a data de hoje. Tudo é gravado na hora.",
+    "Situação da tarefa: Concluída, Atrasada (o fim já passou e ela não foi concluída), Em andamento (já começou) ou A fazer. Os botões Todas, Pendentes e Atrasadas filtram a lista, e a busca acha pelo nome da tarefa, da fase ou do responsável. Cada fase mostra quantas tarefas já foram concluídas.",
+    "Dá para acrescentar e apagar tarefas, criar fases novas, renomear e apagar fases. As tarefas atrasadas aparecem no card da obra, mas a situação da obra (Atrasada ou No prazo) continua vindo dos marcos.",
+    "Quem vê: as fases e tarefas aparecem só para o dono e o Master, porque trazem contrato, taxa da franquia e aporte dos sócios. Quem tem acesso a unidades e foi liberado vê só a obra e os marcos.",
+  ], { tela: "unidades-em-obra", atualizadoEm: "2026-11-26" }),
   a("dono", "dono-royalties", "Royalties: quem vê e como atualiza", "O menu é seu, de todo Master e de quem você liberar.", [
     "A aba Royalties, no menu Franqueadora, aparece para você e para todo Master. Quem tem acesso só a unidades não vê, a não ser que você marque Pode ver royalties no acesso dele, em Usuários. Só você dá ou tira essa liberação: um Master que gerencia acessos não consegue. Em Ver como acesso de unidades, o menu some, como sumiria para a pessoa.",
     "Os dados vêm da planilha de controle dos recebimentos da marca e são atualizados todo dia de manhã. Se a leitura da planilha falhar ou as conferências não fecharem, o menu continua com a última versão boa e avisa no topo.",
@@ -336,8 +345,8 @@ const INDICADORES: ArtigoAjuda[] = Object.entries(AJUDA)
 
 export const ARTIGOS: ArtigoAjuda[] = [...ARTIGOS_ESCRITOS, ...INDICADORES];
 
-export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties, juridico, qualidade, escalas, documentos));
-export const secoesPara = (dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties, juridico, qualidade, escalas, documentos));
+export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono, obras: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties, juridico, qualidade, escalas, documentos, obras));
+export const secoesPara = (dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono, obras: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties, juridico, qualidade, escalas, documentos, obras));
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
