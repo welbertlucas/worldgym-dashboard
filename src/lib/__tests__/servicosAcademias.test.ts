@@ -150,6 +150,15 @@ describe("servidor: academias, redes e cache", () => {
     expect(porId[ID("V")].servicos).toEqual([]); // Smart Fit: o site não é lido
     expect(chamadas.some((u) => u.includes("smartfit"))).toBe(false);
   });
+  it("aulas informadas pelo dono entram na unidade certa, marcadas como informadas, e aparecem como foram escritas", async () => {
+    await S.gravarInformados({ [ID("B")]: { nome: "Academia Smart Fit - Exemplo", aulas: "FitDance, Zumba, Smart Bike e Alongamento" }, "nada": { aulas: "x" } });
+    expect(Object.keys(await S.lerInformados())).toEqual([ID("B")]);
+    const { porId } = await S.servicosDasAcademias({ ids: [ID("B"), ID("C")] }, { chave: "k", fetcher });
+    expect(porId[ID("B")].servicos).toEqual(expect.arrayContaining([{ id: "danca", fonte: "informado" }, { id: "bike", fonte: "informado" }, { id: "coletivas", fonte: "informado" }]));
+    expect(porId[ID("B")].aulas).toBe("FitDance, Zumba, Smart Bike e Alongamento");
+    expect(linhaInfo(porId[ID("B")])).toContain("aulas: FitDance, Zumba, Smart Bike e Alongamento");
+    expect(porId[ID("C")].aulas).toBeUndefined();
+  });
   it("só aceita academias da busca da área", async () => {
     await expect(S.servicosDasAcademias({ ids: [ID("A")] }, { chave: "k", fetcher, permitidos: async () => new Set([ID("B")]) })).rejects.toMatchObject({ status: 400 });
     expect((await S.servicosDasAcademias({ ids: [ID("B")] }, { chave: "k", fetcher, permitidos: async () => new Set([ID("B")]) })).porId[ID("B")]).toBeTruthy();

@@ -177,9 +177,26 @@ export async function infoDaAcademia(id, { chave, fetcher = fetch, agora = Date.
   return info;
 }
 
-/** Junta as fontes: nome e site (nas grandes redes, só o nome). Cada serviço diz de onde veio. */
-export function servicosFinais(info) {
+// ---------- aulas informadas pelo dono ----------
+/** Aulas que o dono pesquisou e informou para uma unidade específica (pelo id do Google). Guardadas no Blob, nunca no repositório. */
+export const CAMINHO_INFORMADOS = "estudos/servicos-informados.json";
+export async function lerInformados() { const d = await lerJson(CAMINHO_INFORMADOS); return d && typeof d.porId === "object" ? d.porId : {}; }
+/** Grava as aulas informadas (script do dono): `porId` = { "places/...": { nome, aulas: "FitDance, Zumba…" } }; as modalidades saem do texto das aulas. */
+export async function gravarInformados(porId, agora = new Date()) {
+  const atual = await lerInformados();
+  for (const [id, v] of Object.entries(porId ?? {})) {
+    if (!ID_OK.test(id) || !v?.aulas) continue;
+    const aulas = String(v.aulas).slice(0, 600);
+    atual[id] = { nome: String(v.nome ?? "").slice(0, 120), aulas, servicos: servicosNoTexto(aulas).filter((x) => x !== "musculacao"), informadoEm: agora.toISOString() };
+  }
+  await gravarJson(CAMINHO_INFORMADOS, { porId: atual });
+  return atual;
+}
+
+/** Junta as fontes: o que o dono informou, o nome e o site (nas grandes redes, só a página da unidade). Cada serviço diz de onde veio. */
+export function servicosFinais(info, informado = null) {
   const fonte = new Map();
+  for (const s of informado?.servicos ?? []) fonte.set(s, "informado");
   for (const s of servicosNoTexto(info.nome)) if (!fonte.has(s)) fonte.set(s, "nome"); // recalculado: a regra do nome pode mudar depois de guardar
   for (const s of info.doSite ?? []) if (!fonte.has(s)) fonte.set(s, "site"); // nas redes, o site só é lido na página da unidade
   return SERVICOS.filter((s) => fonte.has(s.id)).map((s) => ({ id: s.id, fonte: fonte.get(s.id) }));
@@ -199,12 +216,12 @@ export async function servicosDasAcademias(pedido, { chave = process.env.GOOGLE_
   const mes = mesDeBrasilia(agora), usadas = await consultasDoMes(agora);
   const cabem = Math.max(0, LIMITE_MENSAL - usadas), barradas = new Set(novas.slice(cabem));
   if (novas.length - barradas.size > 0) await gravarJson(caminhoCota(mes), { usadas: usadas + novas.length - barradas.size, limite: LIMITE_MENSAL, atualizadoEm: new Date(agora).toISOString() });
-  const porId = {};
+  const porId = {}, informados = await lerInformados();
   await Promise.all(ids.map(async (id) => {
-    if (barradas.has(id)) { porId[id] = null; return; }
+    if (barradas.has(id)) { porId[id] = informados[id] ? { nota: null, avaliacoes: 0, horario: null, site: null, servicos: servicosFinais({ nome: "" }, informados[id]), aulas: informados[id].aulas } : null; return; }
     try {
       const info = await infoDaAcademia(id, { chave, fetcher, agora });
-      porId[id] = { nota: info.nota, avaliacoes: info.avaliacoes, horario: info.horario, site: info.site, servicos: servicosFinais(info) };
+      porId[id] = { nota: info.nota, avaliacoes: info.avaliacoes, horario: info.horario, site: info.site, servicos: servicosFinais(info, informados[id]), ...(informados[id] ? { aulas: informados[id].aulas } : {}) };
     } catch { porId[id] = null; }
   }));
   return { porId, ...(barradas.size ? { limiteAtingido: true, semCota: barradas.size } : {}) };

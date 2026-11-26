@@ -1,10 +1,10 @@
 // Horários, reputação e serviços das academias concorrentes (Estudos de ponto): tipos, rótulos e contas da tela e do PDF (sem React).
 // Os serviços vêm do nome da academia e do site quando dá para ler (nas grandes redes, só do nome). Não achar um serviço não quer dizer que a
 // academia não oferece: o que não foi achado aparece como "não foi possível encontrar outras modalidades".
-export type FonteServico = "nome" | "site";
+export type FonteServico = "nome" | "site" | "informado";
 export interface ServicoInfo { id: string; fonte: FonteServico }
 export interface Horario { h24: boolean; domingo: boolean; abre: string; fecha: string }
-export interface InfoAcademia { nota: number | null; avaliacoes: number; horario: Horario | null; site: string | null; servicos: ServicoInfo[] }
+export interface InfoAcademia { nota: number | null; avaliacoes: number; horario: Horario | null; site: string | null; servicos: ServicoInfo[]; /** Aulas que o dono pesquisou e informou para esta unidade. */ aulas?: string }
 
 /** Mesma lista do servidor (server/servicosAcademias.js), na mesma ordem. */
 export const ROTULO_SERVICO: Record<string, string> = {
@@ -13,7 +13,7 @@ export const ROTULO_SERVICO: Record<string, string> = {
   avaliacao: "Avaliação física", nutricao: "Nutricionista", wellhub: "Wellhub / Gympass", totalpass: "TotalPass",
 };
 export const ORDEM_SERVICOS = Object.keys(ROTULO_SERVICO);
-export const ROTULO_FONTE: Record<FonteServico, string> = { nome: "pelo nome", site: "pelo site" };
+export const ROTULO_FONTE: Record<FonteServico, string> = { nome: "pelo nome", site: "pelo site", informado: "informado" };
 export const SEM_MODALIDADES = "não foi possível encontrar outras modalidades";
 /** Serviços além de musculação (quase toda academia tem). */
 export const outrasModalidades = (i: InfoAcademia) => i.servicos.filter((s) => s.id !== "musculacao");
@@ -22,7 +22,8 @@ export const textoHorario = (h: Horario | null) => (!h ? "sem horário no Google
 export const textoNota = (i: InfoAcademia) => (i.nota == null ? "sem nota" : `${i.nota.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} (${i.avaliacoes.toLocaleString("pt-BR")} ${i.avaliacoes === 1 ? "avaliação" : "avaliações"})`);
 /** Linha curta para a lista e o mapa: nota, horário e serviços. */
 export const linhaInfo = (i: InfoAcademia) => {
-  const mods = outrasModalidades(i).map((s) => ROTULO_SERVICO[s.id] ?? s.id);
+  // aulas informadas: mostra a lista como foi informada (FitDance, Zumba…), que diz mais que as modalidades
+  const mods = i.aulas ? [`aulas: ${i.aulas}`] : outrasModalidades(i).map((s) => ROTULO_SERVICO[s.id] ?? s.id);
   return [i.nota == null ? null : `★ ${textoNota(i)}`, i.horario ? (i.horario.h24 ? "24h" : `${i.horario.abre}–${i.horario.fecha}${i.horario.domingo ? " · domingo" : ""}`) : null, ...(mods.length ? mods : [SEM_MODALIDADES])].filter(Boolean).join(" · ");
 };
 
