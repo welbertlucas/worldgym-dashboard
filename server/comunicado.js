@@ -71,3 +71,34 @@ export function comunicadoEscalas({ nome, data, url, fontes = {} } = {}) {
     }),
   };
 }
+
+/** O comunicado do menu Documentos (26/11/2026). */
+export function comunicadoDocumentos({ nome, data, url, fontes = {} } = {}) {
+  const base = url ?? "https://atlas.worldgymacademia.com.br";
+  return {
+    assunto: "Os documentos das unidades agora ficam no Atlas",
+    html: renderizarComunicado({
+      nome, data, url: base,
+      ...(fontes.banner ? { banner: fontes.banner } : {}), ...(fontes.logo ? { assinatura: { logo: fontes.logo, selo: fontes.selo } } : {}),
+      previa: "Menu novo: contrato social, contrato de locação, alvarás e outros papéis da unidade, em pastas, num lugar só.",
+      intro: `O Atlas ganhou o menu ${b("Documentos")}. Contrato social, contrato de locação, alvarás, licenças e outros papéis da unidade, que costumam ficar espalhados em e-mails e computadores, agora podem ficar guardados num lugar só, organizados em pastas.`,
+      destaquesTitulo: "Na novidade de hoje",
+      destaques: [
+        ["📁", `Menu ${b("Documentos")} no lado esquerdo do Atlas`],
+        ["🗂️", `${b("Pastas por unidade")}, criadas por você, com pasta dentro de pasta`],
+        ["📄", `${b("PDF, imagem, Word e Excel")}: enviar, ver e baixar`],
+        ["👤", `Cada arquivo mostra ${b("quem enviou e quando")}`],
+      ],
+      secoes: [
+        { titulo: "Como funciona", emoji: "🧭", paragrafos: [
+          `Cada unidade tem o seu espaço. Você cria as pastas do jeito que preferir (por exemplo, ${b("Contratos")}, ${b("Alvarás")} e ${b("Licenças")}), com até três níveis de pasta dentro de pasta, e envia vários arquivos de uma vez.`,
+          `Entram ${b("PDF")}, imagem (${b("JPG ou PNG")}), ${b("Word (.docx)")} e ${b("Excel (.xlsx)")}, até ${b("4 MB por arquivo")} e ${b("50 MB por unidade")}. PDF e imagem abrem na própria tela; os outros você baixa com um toque.`,
+        ] },
+        { titulo: "Como começar", emoji: "🚀", paragrafos: [
+          `Entre no Atlas, abra ${b("Documentos")} no menu lateral e escolha a unidade. Uma boa forma de começar é enviar o contrato social e o contrato de locação. Na Central de ajuda há o passo a passo.`,
+        ] },
+      ],
+      botao: { texto: "Abrir Documentos", url: `${base}/#documentos` },
+    }),
+  };
+}
