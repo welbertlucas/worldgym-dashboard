@@ -12,7 +12,7 @@
 // Segredo de assinatura: SESSAO_SEGREDO (Vercel); se não existir, deriva de DASHBOARD_PASSWORD. Sem nenhum dos dois a
 // proteção fica desligada, MAS se já existem usuários o servidor recusa tudo (nunca abre por esquecimento de variável).
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { listarUsuarios, gerenciaAcessos, geraRelatorios, verRoyalties, verJuridico, verQualidade, editaQualidade, preencheChecklist, verEstudos, verObras, verEscalas, precisaTrocarSenha } from "../server/acesso.js";
+import { listarUsuarios, gerenciaAcessos, geraRelatorios, verRoyalties, verJuridico, verQualidade, editaQualidade, preencheChecklist, verEstudos, verObras, verEscalas, verDocumentos, precisaTrocarSenha } from "../server/acesso.js";
 import { UNIT_NAMES } from "../server/units.js";
 
 /** Tempo sem uso até o login cair: 12 horas para dono e Master (aparelho próprio), 4 horas para quem vê só algumas unidades (computador de recepção, em geral compartilhado). */
@@ -85,10 +85,10 @@ export const tokenValido = (token, agora = Date.now()) => lerToken(token, agora)
 
 export const tokenDaRequisicao = (req) => String(req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
 
-const SESSAO_LEGADO = Object.freeze({ id: "legado", nome: "Senha única", email: "", papel: "dono", unidades: [], verRoyalties: true, verJuridico: true, verQualidade: true, editaQualidade: true, preencheChecklist: true, verEstudos: true, verObras: true, verEscalas: true, legado: true });
-const SESSAO_ABERTA = Object.freeze({ id: "aberto", nome: "Sem proteção", email: "", papel: "dono", unidades: [], verRoyalties: true, verJuridico: true, verQualidade: true, editaQualidade: true, preencheChecklist: true, verEstudos: true, verObras: true, verEscalas: true, legado: true });
+const SESSAO_LEGADO = Object.freeze({ id: "legado", nome: "Senha única", email: "", papel: "dono", unidades: [], verRoyalties: true, verJuridico: true, verQualidade: true, editaQualidade: true, preencheChecklist: true, verEstudos: true, verObras: true, verEscalas: true, verDocumentos: true, legado: true });
+const SESSAO_ABERTA = Object.freeze({ id: "aberto", nome: "Sem proteção", email: "", papel: "dono", unidades: [], verRoyalties: true, verJuridico: true, verQualidade: true, editaQualidade: true, preencheChecklist: true, verEstudos: true, verObras: true, verEscalas: true, verDocumentos: true, legado: true });
 
-export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: geraRelatorios(u), verRoyalties: verRoyalties(u), verJuridico: verJuridico(u), verQualidade: verQualidade(u), editaQualidade: editaQualidade(u), preencheChecklist: preencheChecklist(u), verEstudos: verEstudos(u), verObras: verObras(u), verEscalas: verEscalas(u), trocarSenha: precisaTrocarSenha(u), legado: false });
+export const sessaoDe = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: geraRelatorios(u), verRoyalties: verRoyalties(u), verJuridico: verJuridico(u), verQualidade: verQualidade(u), editaQualidade: editaQualidade(u), preencheChecklist: preencheChecklist(u), verEstudos: verEstudos(u), verObras: verObras(u), verEscalas: verEscalas(u), verDocumentos: verDocumentos(u), trocarSenha: precisaTrocarSenha(u), legado: false });
 
 /**
  * "Ver como": o dono pode olhar o painel como Master ou como o acesso de algumas unidades, para conferir o que cada
@@ -101,13 +101,13 @@ export const CABECALHO_VER_COMO = "X-Atlas-Ver-Como";
 // A permissão de gerar relatórios (do dono) vale também na simulação: o dono testa o relatório com os dados do nível que está vendo.
 export function aplicarVerComo(sessao, pedido, nomesValidos = Object.values(UNIT_NAMES)) {
   if (!sessao || sessao.papel !== "dono" || typeof pedido !== "string" || !pedido) return sessao;
-  if (pedido === "master") return { ...sessao, papel: "master", unidades: [], gerenciaAcessos: false, verJuridico: true, verQualidade: true, editaQualidade: false, preencheChecklist: false, verEstudos: false, verObras: false, verEscalas: true, papelReal: "dono" };
+  if (pedido === "master") return { ...sessao, papel: "master", unidades: [], gerenciaAcessos: false, verJuridico: true, verQualidade: true, editaQualidade: false, preencheChecklist: false, verEstudos: false, verObras: false, verEscalas: true, verDocumentos: true, papelReal: "dono" };
   if (!pedido.startsWith("unidades:")) return sessao;
   let nomes = [];
   try { nomes = decodeURIComponent(pedido.slice(9)).split("|").map((n) => n.trim()); } catch { return sessao; }
   const unidades = [...new Set(nomes.filter((n) => nomesValidos.includes(n)))];
   // Como quem vê só algumas unidades, os royalties ficam fechados (a marca de liberação é de cada pessoa, não do nível).
-  return unidades.length ? { ...sessao, papel: "unidades", unidades, gerenciaAcessos: false, verRoyalties: false, verJuridico: false, verQualidade: false, editaQualidade: false, preencheChecklist: false, verEstudos: false, verObras: false, verEscalas: false, papelReal: "dono" } : sessao;
+  return unidades.length ? { ...sessao, papel: "unidades", unidades, gerenciaAcessos: false, verRoyalties: false, verJuridico: false, verQualidade: false, editaQualidade: false, preencheChecklist: false, verEstudos: false, verObras: false, verEscalas: false, verDocumentos: false, papelReal: "dono" } : sessao;
 }
 const pedidoVerComo = (req) => req.headers?.[CABECALHO_VER_COMO.toLowerCase()];
 
@@ -204,6 +204,6 @@ export function cors(req, res) {
   if (origin && ORIGENS.has(origin)) res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Vary", `Origin, Authorization, ${CABECALHO_VER_COMO}`);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", `Authorization, Content-Type, ${CABECALHO_VER_COMO}`);
+  res.setHeader("Access-Control-Allow-Headers", `Authorization, Content-Type, ${CABECALHO_VER_COMO}, X-Atlas-Documento`);
   res.setHeader("Access-Control-Expose-Headers", CABECALHO_TOKEN);
 }

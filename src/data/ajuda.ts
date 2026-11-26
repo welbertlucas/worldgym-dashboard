@@ -20,7 +20,7 @@ export interface ArtigoAjuda {
   atualizadoEm: string;
 }
 
-export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "franqueadora" | "royalties" | "juridico" | "qualidade" | "escalas" | "dono";
+export type SecaoAjuda = "comecando" | "telas" | "alertas" | "duvidas" | "indicadores" | "franqueadora" | "royalties" | "juridico" | "qualidade" | "escalas" | "documentos" | "dono";
 
 export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; publico: Publico }[] = [
   { id: "comecando", titulo: "Primeiros passos", descricao: "O que é o Atlas, como escolher a unidade e o mês e como achar uma tela.", publico: "todos" },
@@ -33,12 +33,13 @@ export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; public
   { id: "juridico", titulo: "Jurídico", descricao: "Os processos da rede e como ler a tela.", publico: "juridico" },
   { id: "qualidade", titulo: "Qualidade", descricao: "Checklists, visitas às unidades e a nota de cada uma.", publico: "qualidade" },
   { id: "escalas", titulo: "Gerador de escalas", descricao: "A escala 5x2 da equipe, a escala livre, o histórico, o PDF e o Excel.", publico: "escalas" },
+  { id: "documentos", titulo: "Documentos", descricao: "Os arquivos de cada unidade: pastas, envio, limites e quem vê.", publico: "documentos" },
   { id: "dono", titulo: "Só você vê", descricao: "Usuários, rotinas automáticas e o que só você acompanha.", publico: "dono" },
 ];
 
 const DATA = "2026-11-16";
 const a = (secao: SecaoAjuda, id: string, titulo: string, resumo: string, paragrafos: string[], extra: Partial<ArtigoAjuda> = {}): ArtigoAjuda =>
-  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : secao === "juridico" ? "juridico" : secao === "qualidade" ? "qualidade" : secao === "escalas" ? "escalas" : secao === "franqueadora" ? "franqueadora" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
+  ({ id, secao, titulo, resumo, paragrafos, publico: secao === "dono" ? "dono" : secao === "royalties" ? "royalties" : secao === "juridico" ? "juridico" : secao === "qualidade" ? "qualidade" : secao === "escalas" ? "escalas" : secao === "documentos" ? "documentos" : secao === "franqueadora" ? "franqueadora" : "todos", autora: AUTORA, atualizadoEm: DATA, ...extra });
 
 const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   // Primeiros passos
@@ -224,6 +225,15 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
   ], { tela: "qualidade", atualizadoEm: "2026-11-20" }),
 
   // Gerador de escalas (só quem vê o menu)
+  a("documentos", "documentos-o-que-e", "O que é o menu Documentos", "Os arquivos de cada unidade, em pastas.", [
+    "O menu Documentos guarda os papéis de cada unidade: contrato social, contrato de locação, alvarás, licenças e o que mais fizer sentido. Se você acompanha mais de uma unidade, escolha a unidade primeiro.",
+    "Quem vê: o dono e o Master veem os documentos de todas as unidades. Quem tem acesso a unidades vê só as suas, e só se tiver a liberação de acessar documentos. Quem vê também pode enviar, baixar e criar pastas. Para apagar um arquivo ou uma pasta, fale com o dono do Atlas.",
+  ], { tela: "documentos", atualizadoEm: "2026-11-25" }),
+  a("documentos", "documentos-como-enviar", "Como enviar e organizar", "Pastas, tipos de arquivo e limites de tamanho.", [
+    "Abra a unidade, entre na pasta (ou crie uma com Nova pasta; dá para ter pasta dentro de pasta, até três níveis) e toque em Enviar arquivo. Você pode escolher vários de uma vez.",
+    "Entram PDF, imagem (JPG ou PNG), Word (.docx) e Excel (.xlsx), até 4 MB cada. Cada unidade tem 50 MB no total. Se um PDF digitalizado passar do limite, salve-o de novo com resolução menor ou use a opção de reduzir o tamanho do arquivo.",
+    "O olho abre PDF e imagem na própria tela; a seta baixa o arquivo. No celular, se o PDF não aparecer na janela, use Baixar. Não guarde documentos de alunos aqui.",
+  ], { tela: "documentos", atualizadoEm: "2026-11-25" }),
   a("escalas", "escalas-o-que-e", "O que é o Gerador de escalas", "A escala 5x2 mensal da equipe de cada unidade, dentro do Atlas.", [
     "O Gerador de escalas monta a escala do mês da equipe de cada unidade, em duas coordenações: a Administrativa (Recepção e Serviços Gerais) e a Técnica (Professores e Estagiários). O sistema distribui folgas e turnos no 5x2 (cinco dias de trabalho e duas folgas por semana), confere jornada, descanso e cobertura e mostra os conflitos antes de você confirmar.",
     "Quem usa: o dono e todo Master. Quem tem acesso só a algumas unidades usa se o dono liberar na tela Usuários, e vê apenas as unidades dele. O campo Unidade, no alto da tela, escolhe a unidade; o sino ao lado mostra os avisos (escalas atrasadas, conflitos e alterações de outra pessoa).",
@@ -326,8 +336,8 @@ const INDICADORES: ArtigoAjuda[] = Object.entries(AJUDA)
 
 export const ARTIGOS: ArtigoAjuda[] = [...ARTIGOS_ESCRITOS, ...INDICADORES];
 
-export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties, juridico, qualidade, escalas));
-export const secoesPara = (dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties, juridico, qualidade, escalas));
+export const artigosPara = (dono: boolean, lista: ArtigoAjuda[] = ARTIGOS, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono) => lista.filter((x) => publicoVe(x.publico, dono, royalties, juridico, qualidade, escalas, documentos));
+export const secoesPara = (dono: boolean, royalties: boolean = dono, juridico: boolean = dono, qualidade: boolean = dono, escalas: boolean = dono, documentos: boolean = dono) => SECOES.filter((s) => publicoVe(s.publico, dono, royalties, juridico, qualidade, escalas, documentos));
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 

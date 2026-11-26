@@ -24,7 +24,8 @@
     { "source": "/api/estudos", "destination": "/api/royalties?modulo=estudos" },
     { "source": "/api/escalas", "destination": "/api/royalties?modulo=escalas" },
     { "source": "/api/obras", "destination": "/api/royalties?modulo=obras" },
-    { "source": "/api/fichas", "destination": "/api/royalties?modulo=fichas" }
+    { "source": "/api/fichas", "destination": "/api/royalties?modulo=fichas" },
+    { "source": "/api/documentos", "destination": "/api/royalties?modulo=documentos" }
   ],
   "headers": [
     {

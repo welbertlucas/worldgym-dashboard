@@ -136,7 +136,7 @@ export function AcessosTab() {
               {mostrados.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
                   <td className="px-5 py-3"><div className="font-medium text-foreground"><button type="button" onClick={() => setDetalhe(u)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" title="Ver último acesso e histórico">{u.nome}</button>{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
-                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel === "unidades" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Edita qualidade</span>}{u.papel === "unidades" && u.preencheChecklist && <span className="block text-xs text-muted-foreground">Preenche checklist</span>}{u.verEstudos && <span className="block text-xs text-muted-foreground">Faz estudos de ponto</span>}{u.verObras && <span className="block text-xs text-muted-foreground">Vê unidades em obra</span>}</td>
+                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel === "unidades" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Edita qualidade</span>}{u.papel === "unidades" && u.preencheChecklist && <span className="block text-xs text-muted-foreground">Preenche checklist</span>}{u.papel === "unidades" && u.acessaDocumentos && <span className="block text-xs text-muted-foreground">Acessa documentos</span>}{u.verEstudos && <span className="block text-xs text-muted-foreground">Faz estudos de ponto</span>}{u.verObras && <span className="block text-xs text-muted-foreground">Vê unidades em obra</span>}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
                   <td className="px-3 py-3">
@@ -236,7 +236,7 @@ function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSa
   semente?: UsuarioApi | null;
   /** Só o dono vê a opção "Pode gerenciar acessos". */
   podeLiberar: boolean;
-  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean; preencheChecklist?: boolean; verEstudos?: boolean; verObras?: boolean; verEscalas?: boolean }) => Promise<string | null>;
+  onSalvar: (v: { nome: string; email: string; papel: Papel; unidades: string[]; resumo: boolean; gerenciaAcessos?: boolean; geraRelatorios?: boolean; verRoyalties?: boolean; verJuridico?: boolean; verQualidade?: boolean; preencheChecklist?: boolean; verEstudos?: boolean; verObras?: boolean; verEscalas?: boolean; acessaDocumentos?: boolean }) => Promise<string | null>;
   onCancelar?: () => void;
 }) {
   const base = inicial ?? semente;
@@ -254,6 +254,7 @@ function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSa
   const [estudos, setEstudos] = useState(base?.verEstudos === true);
   const [obras, setObras] = useState(base?.verObras === true);
   const [escalas, setEscalas] = useState(base?.papel === "unidades" && base?.verEscalas === true);
+  const [documentos, setDocumentos] = useState(base?.papel === "unidades" && base?.acessaDocumentos === true);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -262,10 +263,10 @@ function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSa
     e.preventDefault();
     setEnviando(true);
     setErro("");
-    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties, verJuridico: juridico, verQualidade: qualidade, preencheChecklist: papel === "unidades" && preenche, verEstudos: estudos, verObras: obras, verEscalas: papel === "unidades" && escalas } : {}) });
+    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties, verJuridico: juridico, verQualidade: qualidade, preencheChecklist: papel === "unidades" && preenche, verEstudos: estudos, verObras: obras, verEscalas: papel === "unidades" && escalas, acessaDocumentos: papel === "unidades" && documentos } : {}) });
     setEnviando(false);
     if (r) return setErro(r);
-    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); setRelatorios(false); setJuridico(false); setQualidade(false); setPreenche(false); setEstudos(false); setObras(false); }
+    if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); setRelatorios(false); setJuridico(false); setQualidade(false); setPreenche(false); setEstudos(false); setObras(false); setDocumentos(false); }
   };
 
   return (
@@ -338,6 +339,12 @@ function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSa
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={estudos} onChange={(e) => setEstudos(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
           <span>Pode fazer estudos de ponto <span className="block text-xs text-muted-foreground">Cria e decide estudos de pontos novos. Sem esta liberação, quem tem acesso a unidades vê só o estudo da própria unidade, e o Master consulta tudo sem editar.</span></span>
+        </label>
+      )}
+      {podeLiberar && papel === "unidades" && (
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={documentos} onChange={(e) => setDocumentos(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
+          <span>Pode acessar documentos da unidade <span className="block text-xs text-muted-foreground">Mostra o menu Documentos: ver, baixar, enviar e criar pastas, só nas unidades marcadas acima. Só o dono apaga. O Master e o dono sempre acessam todas.</span></span>
         </label>
       )}
       {podeLiberar && papel === "unidades" && (

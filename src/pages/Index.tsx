@@ -35,6 +35,7 @@ import { ABAS_SO_DONO, enderecoAtual, SUBMENUS, TODOS_OS_MENUS } from "@/compone
 import { EmBreve } from "@/components/EmBreve";
 import { ObrasTab } from "@/components/tabs/ObrasTab";
 import { FichasTab } from "@/components/tabs/FichasTab";
+import { DocumentosTab } from "@/components/tabs/DocumentosTab";
 import { SectionTitle } from "@/components/SectionTitle";
 import { ExecutivaTab } from "@/components/tabs/ExecutivaTab";
 import { KpiGrid, type KpiContext } from "@/components/kpi/KpiGrid";
@@ -58,7 +59,7 @@ import { DonutList } from "@/components/DonutList";
 import { RefreshCw, LogOut, Menu, Landmark } from "lucide-react";
 import { formatAbbreviatedNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerObras, podeVerJuridico, podeVerQualidade, podeVerEscalas, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
+import { ehDono, getToken, getUsuario, podeAtualizar, podeGerarRelatorios, podeGerirAcessos, podeVerComo, podeCompararTaxasCartao, podePreencherChecklist, podeVerObras, podeVerJuridico, podeVerQualidade, podeVerEscalas, podeVerDocumentos, podeVerRoyalties, sair, unidadesProprias } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 // Telas que não abrem de cara: o código delas só é baixado quando a pessoa entra nelas (o site abre mais rápido).
@@ -213,7 +214,7 @@ const Index = () => {
   const soAsProprias = unidadesProprias();
   const semFiltroDeUnidade = false;
   /** Telas sem mês nem unidade: Usuários, Novidades e Central de ajuda. */
-  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "franqueadora" || activeTab === "qualidade" || activeTab === "escalas" || activeTab === "estudos-de-ponto" || activeTab === "unidades-em-obra" || activeTab === "ajuda" || activeTab === "novidades";
+  const semFiltros = activeTab === "acessos" || activeTab === "relatorios" || activeTab === "franqueadora" || activeTab === "documentos" || activeTab === "qualidade" || activeTab === "escalas" || activeTab === "estudos-de-ponto" || activeTab === "unidades-em-obra" || activeTab === "ajuda" || activeTab === "novidades";
   const comBotaoDeUnidade = !semFiltroDeUnidade && !seletorProprio && !semFiltros;
   const comparison = compareMonth ? comparePeriods(fullMonthData.month, compareMonth, semFiltroDeUnidade || activeTab === "benchmark" ? null : selectedUnit) : null;
 
@@ -554,6 +555,8 @@ const Index = () => {
             </section>
           );
         })()}
+
+        {activeTab === "documentos" && podeVerDocumentos() && <DocumentosTab />}
 
         {activeTab === "qualidade" && (podeVerQualidade() || podePreencherChecklist()) && <QualidadeTab />}
 

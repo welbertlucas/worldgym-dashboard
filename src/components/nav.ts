@@ -1,4 +1,4 @@
-import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, Presentation, Landmark, Scale, ClipboardCheck, CalendarDays, MapPinned, HardHat, type LucideIcon } from "lucide-react";
+import { KeyRound, LifeBuoy, LayoutDashboard, Sparkles, TrendingUp, Users, UserCheck, BarChart3, DoorOpen, ListChecks, Megaphone, Target, ShieldAlert, Presentation, Landmark, Scale, ClipboardCheck, CalendarDays, MapPinned, HardHat, FolderOpen, type LucideIcon } from "lucide-react";
 
 import type { Aba } from "@/components/Abas";
 
@@ -30,6 +30,8 @@ export const NAV_RODAPE: NavItem[] = [
 const USUARIOS: NavItem = { id: "acessos", label: "Usuários", icon: KeyRound };
 /** Só aparece para dono, Master e quem o dono liberou. */
 const FRANQUEADORA: NavItem = { id: "franqueadora", label: "Franqueadora", icon: Landmark };
+/** Arquivos das unidades: dono e Master sempre; quem tem acesso a unidades, com a permissão de acessar documentos. */
+const DOCUMENTOS: NavItem = { id: "documentos", label: "Documentos", icon: FolderOpen };
 /** Só aparece para o dono e quem ele liberou. */
 const QUALIDADE: NavItem = { id: "qualidade", label: "Qualidade", icon: ClipboardCheck };
 /** Escala 5x2 da equipe das unidades: dono e Master sempre; quem tem acesso só a unidades, se o dono liberou. */
@@ -47,13 +49,13 @@ export const MENUS_EM_BREVE = new Set<string>([]);
 export const MENUS_NOVIDADE = new Set(["estudos-de-ponto", "escalas", "unidades-em-obra"]);
 export const ABAS_SO_DONO = new Set(["gerencial/despesas"]);
 /** Todos os menus que têm endereço (#id). */
-export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, FRANQUEADORA, QUALIDADE, ESCALAS, RELATORIOS, ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA, ...NAV_RODAPE, USUARIOS];
+export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, FRANQUEADORA, DOCUMENTOS, QUALIDADE, ESCALAS, RELATORIOS, ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA, ...NAV_RODAPE, USUARIOS];
 
 /** Itens do menu para quem está logado: a tela de usuários só aparece para o dono. `comOcultos` serve à busca, que ainda acha as telas fora da barra lateral. */
-export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorios = false, royalties = false, juridico = false, qualidade = false, emBreve: boolean | { estudos?: boolean; obras?: boolean } = false, escalas = false): NavItem[] => {
+export const itensDoMenu = (gerirAcessos: boolean, comOcultos = false, relatorios = false, royalties = false, juridico = false, qualidade = false, emBreve: boolean | { estudos?: boolean; obras?: boolean } = false, escalas = false, documentos = false): NavItem[] => {
   const e = emBreve === true ? { estudos: true, obras: true } : emBreve || {};
   const base = comOcultos ? NAV_ITEMS : NAV_ITEMS.filter((i) => !i.oculto);
-  return [...base, ...(royalties || juridico ? [FRANQUEADORA] : []), ...(qualidade ? [QUALIDADE] : []), ...(escalas ? [ESCALAS] : []), ...(relatorios ? [RELATORIOS] : []), ...(e.estudos ? [ESTUDOS_DE_PONTO] : []), ...(e.obras ? [UNIDADES_EM_OBRA] : []), ...(gerirAcessos ? [USUARIOS] : [])];
+  return [...base, ...(royalties || juridico ? [FRANQUEADORA] : []), ...(documentos ? [DOCUMENTOS] : []), ...(qualidade ? [QUALIDADE] : []), ...(escalas ? [ESCALAS] : []), ...(relatorios ? [RELATORIOS] : []), ...(e.estudos ? [ESTUDOS_DE_PONTO] : []), ...(e.obras ? [UNIDADES_EM_OBRA] : []), ...(gerirAcessos ? [USUARIOS] : [])];
 };
 
 /** "gerencial/vendas" → "Gerencial › Vendas" (nome do menu e da aba; endereço desconhecido aparece como está). */
@@ -151,6 +153,7 @@ const PALAVRAS: Record<string, string> = {
   novidades: "novidades o que mudou novo melhoria atualizacoes lancamentos",
   royalties: "royalties taxa fixa recebimentos marca franquia devedores inadimplencia saldo devedor matriz situacao",
   juridico: "juridico processos acoes judiciais extrajudiciais procon tribunal advogado valor da causa contencioso risco",
+  documentos: "documentos arquivos pastas contrato social contratos locacao alvara licenca cnpj pdf anexo baixar enviar",
   escalas: "gerador de escalas escala 5x2 folga folgas equipe recepcao servicos gerais jornada turno feriado colaboradores pdf excel",
   qualidade: "qualidade checklist visita vistoria limpeza uniforme organizacao padrao unidade auditoria nota fotos roteiro",
   "estudos-de-ponto": "estudos de ponto geomarketing geolocalizacao onde abrir nova unidade mapfry concorrentes regiao praca",
