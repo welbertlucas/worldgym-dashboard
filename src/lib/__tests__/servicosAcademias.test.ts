@@ -15,8 +15,10 @@ describe("serviços pelo texto e horário", () => {
   it("reconhece serviços pelo nome, sem acento e sem diferenciar maiúsculas", () => {
     expect(S.servicosNoTexto("Crossfit Exemplo Sul")).toContain("cross");
     expect(S.servicosNoTexto("CT Jiu-Jitsu e Muay Thai")).toContain("lutas");
-    expect(S.servicosNoTexto("Studio Dança Exemplo")).toEqual(expect.arrayContaining(["danca", "personal"]));
+    expect(S.servicosNoTexto("Studio Dança Exemplo")).toEqual(["danca"]); // studio de dança não é personal
     expect(S.servicosNoTexto("Academia Exemplo")).toEqual([]);
+    expect(S.servicosNoTexto("Studio X Estética e Esmalteria")).toEqual([]);
+    for (const n of ["Studio Exemplo fitness", "Studio Corps", "Studio Força E Movimento", "Exemplo Personal Training"]) expect(S.servicosNoTexto(n)).toContain("personal");
   });
   it("horário: 24 horas, domingo, abertura mais cedo e fechamento mais tarde", () => {
     expect(S.resumoHorario({ periods: [{ open: { day: 0, hour: 0, minute: 0 } }] })).toEqual({ h24: true, domingo: true, abre: "00:00", fecha: "24:00" });

@@ -40,7 +40,12 @@ export const totalPois = (res: ResultadoPois) => (res.categoria === "academias" 
 export const NAO_ACADEMIA = /\b(quadras?|campos?|society|parques?|parquinho|pra[çc]as?|institutos?|escolas?|col[eé]gios?|associa[çc][aã]o|capoeira|pilates|igrejas?|condom[ií]nios?)\b/i;
 /** Nome com cara de academia fica sempre (ex.: "Academia Campos" não sai por causa de "campos"). */
 const EH_ACADEMIA = /academia|fitness|\bgym\b|\bfit\b|crossfit|muscula[çc][aã]o/i;
-export const ehAcademiaConcorrente = (nome: string) => EH_ACADEMIA.test(nome) || !NAO_ACADEMIA.test(nome);
+/**
+ * O que o Google cadastra como academia e nunca é concorrente, mesmo com "academia" ou "fitness" no nome (pedido do dono, 26/11/2026, no estudo
+ * do Recanto das Emas): academias ao ar livre e do idoso (aparelhos em praça), estética, loja e moda fitness, pista de skate e escolinha de futsal.
+ */
+export const NUNCA_ACADEMIA = /ao ar livre|academia (do|da) idos[oa]|melhor idade|ponto comunit[aá]rio|est[eé]tica|esmalteria|sal[aã]o de beleza|\bmoda\b|beachwear|\blojas?\b|\bloj[aã]o\b|\bskate\b|futsal|escolinha/i;
+export const ehAcademiaConcorrente = (nome: string) => !NUNCA_ACADEMIA.test(nome) && (EH_ACADEMIA.test(nome) || !NAO_ACADEMIA.test(nome));
 
 export async function buscarPois(c: [number, number], raioKm: number, categoria: string): Promise<ResultadoPois> {
   const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "pois", c, raioKm, categoria }) });

@@ -41,7 +41,8 @@ export const SERVICOS = [
   { id: "funcional", rotulo: "Funcional", re: /\bfuncional\b|\bhiit\b/ },
   { id: "coletivas", rotulo: "Aulas coletivas", re: /aulas? coletivas?|les mills|body\s?(pump|combat|balance)|\bjump\b|\bstep\b/ },
   { id: "natacao", rotulo: "Piscina / natação", re: /piscina|natacao|hidroginastica/ },
-  { id: "personal", rotulo: "Studio / personal", re: /\bstudio\b|\bestudio\b|personal|treinamento personalizado/ },
+  // "studio" sozinho não basta ("Studio de Estética"): vale com sinal de treino no mesmo texto
+  { id: "personal", rotulo: "Studio / personal", re: /personal|treinamento personalizado|\b(studio|estudio)\b(?=.*\b(fit|fitness|treino|training|gym|academia|workout|funcional|forca|movimento|corpo|corps)\b)|\b(fit|fitness|treino|training|gym|academia|workout|funcional|forca|movimento|corpo|corps)\b.*\b(studio|estudio)\b/ },
   { id: "kids", rotulo: "Espaço kids", re: /espaco kids|\bkids\b|brinquedoteca/ },
   { id: "avaliacao", rotulo: "Avaliação física", re: /avaliacao fisica|bioimpedancia/ },
   { id: "nutricao", rotulo: "Nutricionista", re: /nutricionista|nutricao/ },
@@ -167,7 +168,7 @@ export async function infoDaAcademia(id, { chave, fetcher = fetch, agora = Date.
 /** Junta as fontes: nome e site (nas grandes redes, só o nome). Cada serviço diz de onde veio. */
 export function servicosFinais(info) {
   const fonte = new Map();
-  for (const s of info.doNome ?? []) if (!fonte.has(s)) fonte.set(s, "nome");
+  for (const s of servicosNoTexto(info.nome)) if (!fonte.has(s)) fonte.set(s, "nome"); // recalculado: a regra do nome pode mudar depois de guardar
   if (!info.rede) for (const s of info.doSite ?? []) if (!fonte.has(s)) fonte.set(s, "site");
   return SERVICOS.filter((s) => fonte.has(s.id)).map((s) => ({ id: s.id, fonte: fonte.get(s.id) }));
 }
