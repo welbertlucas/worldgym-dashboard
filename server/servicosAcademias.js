@@ -10,8 +10,18 @@ import { redeDe } from "./pois.js";
 export class ErroServicos extends Error { constructor(msg, status = 400) { super(msg); this.status = status; } }
 
 export const VALIDADE_DIAS = 90, MAX_POR_PEDIDO = 15;
-/** Versão da leitura de site: 2 = também as páginas de aulas, modalidades e grade (26/11/2026). Guardado com versão menor é relido sem o Google. */
-export const LEITURA_SITE = 2;
+/**
+ * Versão da leitura de site: 2 = também as páginas de aulas, modalidades e grade; 3 = nas grandes redes, a página da UNIDADE quando o Google
+ * aponta para ela (só essa página, sem as gerais da rede) (26/11/2026). Guardado com versão menor é relido; nas redes isso pede o Google de novo.
+ */
+export const LEITURA_SITE = 3;
+/**
+ * Grandes redes cuja página da UNIDADE traz a grade de aulas no próprio conteúdo (conferido em 26/11/2026). As outras ficam de fora: a Smart Fit
+ * monta as aulas só no navegador e a página traz blog e planos (pilates, nutricionista) que dariam falso positivo; SkyFit, Evolve e Corpo e
+ * Saúde apontam para páginas gerais da rede.
+ */
+export const REDES_COM_GRADE_NA_PAGINA = [{ rede: "Ultra", endereco: /[?&]AC=Unidade\b/i }];
+export const paginaDeUnidade = (rede, url) => REDES_COM_GRADE_NA_PAGINA.some((r) => r.rede === rede && r.endereco.test(String(url ?? "")));
 /**
  * Trava de custo (pedido do dono, 26/11/2026): o Google dá 1.000 consultas completas (nota, avaliações, site) grátis por mês; o Atlas para em 900,
  * com folga para outros usos da mesma chave. A conta é por mês de Brasília, guardada no Blob; o que já está guardado não conta.
@@ -20,10 +30,11 @@ export const LIMITE_MENSAL = 900;
 export const mesDeBrasilia = (agora) => new Date(agora - 3 * 3600e3).toISOString().slice(0, 7);
 const caminhoCota = (mes) => `estudos/servicos-cota/${mes}.json`;
 export async function consultasDoMes(agora = Date.now()) { const d = await lerJson(caminhoCota(mesDeBrasilia(agora))); return Number(d?.usadas ?? 0); }
-const guardadoValido = (g, agora) => g && agora - Date.parse(g.em) < VALIDADE_DIAS * 864e5;
+// nas redes com grade na página guardadas antes da leitura 3 o endereço da unidade não foi guardado: refaz com o Google (conta na cota)
+const guardadoValido = (g, agora) => g && agora - Date.parse(g.em) < VALIDADE_DIAS * 864e5 && !(REDES_COM_GRADE_NA_PAGINA.some((r) => r.rede === g.rede) && (g.leituraSite ?? 1) < LEITURA_SITE);
 /** Lê o site e devolve as modalidades dele ("personal" no site aparece em qualquer academia: só vale pelo nome). */
-async function lerSite(url, fetcher) {
-  try { const t = await textoDoSite(url, fetcher); return { doSite: t ? servicosNoTexto(t).filter((x) => x !== "personal") : [], siteFalhou: false }; }
+async function lerSite(url, fetcher, soEstaPagina = false) {
+  try { const t = await textoDoSite(url, fetcher, 8000, { soEstaPagina }); return { doSite: t ? servicosNoTexto(t).filter((x) => x !== "personal") : [], siteFalhou: false }; }
   catch { return { doSite: [], siteFalhou: true }; }
 }
 const caminho = (id) => `estudos/servicos/${id.replace(/^places\//, "")}.json`;
@@ -33,13 +44,13 @@ const ID_OK = /^places\/[A-Za-z0-9_-]{10,200}$/;
 export const SERVICOS = [
   { id: "musculacao", rotulo: "Musculação", re: /musculac/ },
   { id: "cross", rotulo: "Cross", re: /cross\s?(fit|training|train)|\bcrossfit\b|\bcf\b|\bwod\b/ },
-  { id: "lutas", rotulo: "Lutas", re: /\b(muay\s?thai|jiu.?jitsu|jitsu|boxe|boxing|kick\s?boxing|karate|judo|mma|taekwondo|lutas?)\b/ },
-  { id: "danca", rotulo: "Dança", re: /\b(danca|dance|zumba|ritmos|ballet|bale)\b/ },
+  { id: "lutas", rotulo: "Lutas", re: /\b(muay\s?thai|jiu.?jitsu|jiujitsu|jitsu|boxe|boxing|kick\s?boxing|karate|judo|mma|taekwondo|hapkido|defesa pessoal|lutas?)\b/ },
+  { id: "danca", rotulo: "Dança", re: /\b(danca|dance|fit\s?dance|zumba|ritmos|ritbox|forro|lets?\s?danc\w*|ballet|bale)\b/ },
   { id: "pilates", rotulo: "Pilates", re: /pilates/ },
   { id: "yoga", rotulo: "Yoga", re: /\byoga\b/ },
-  { id: "bike", rotulo: "Bike / spinning", re: /spinning|bike indoor|\bcycling\b|\bciclismo indoor/ },
-  { id: "funcional", rotulo: "Funcional", re: /\bfuncional\b|\bhiit\b/ },
-  { id: "coletivas", rotulo: "Aulas coletivas", re: /aulas? coletivas?|les mills|body\s?(pump|combat|balance)|\bjump\b|\bstep\b/ },
+  { id: "bike", rotulo: "Bike / spinning", re: /spinning|bike indoor|smart\s?bike|\bcycling\b|\bciclismo indoor/ },
+  { id: "funcional", rotulo: "Funcional", re: /\bfuncional\b|\bhiit\b|bootcamp/ },
+  { id: "coletivas", rotulo: "Aulas coletivas", re: /aulas? coletivas?|les mills|body\s?(pump|combat|balance)|\bjump\b|\bstep\b|alongamento|ginastica localizada|\blocalizada\b|\babdominal\b/ },
   { id: "natacao", rotulo: "Piscina / natação", re: /piscina|natacao|hidroginastica/ },
   // "studio" sozinho não basta ("Studio de Estética"): vale com sinal de treino no mesmo texto
   { id: "personal", rotulo: "Studio / personal", re: /personal|treinamento personalizado|\b(studio|estudio)\b(?=.*\b(fit|fitness|treino|training|gym|academia|workout|funcional|forca|movimento|corpo|corps)\b)|\b(fit|fitness|treino|training|gym|academia|workout|funcional|forca|movimento|corpo|corps)\b.*\b(studio|estudio)\b/ },
@@ -119,12 +130,12 @@ export function linksDeAulas(html, base) {
  * Lê o texto do site: a página inicial e até 3 páginas do mesmo site com cara de aulas, modalidades, grade ou serviços. 8 s no total.
  * Devolve null quando não deu para ler (página quase vazia, montada no navegador, não conta). Grade de aulas em imagem não dá para ler.
  */
-export async function textoDoSite(url, fetcher = fetch, prazoMs = 8000) {
+export async function textoDoSite(url, fetcher = fetch, prazoMs = 8000, { soEstaPagina = false } = {}) {
   const sinal = AbortSignal.timeout(prazoMs);
   const inicio = await pagina(url, fetcher, sinal);
   if (!inicio) return null;
   let texto = textoDoHtml(inicio.html);
-  for (const link of linksDeAulas(inicio.html, inicio.url)) {
+  for (const link of soEstaPagina ? [] : linksDeAulas(inicio.html, inicio.url)) {
     try { const p = await pagina(link, fetcher, sinal); if (p) texto += ` ${textoDoHtml(p.html)}`; } catch { break; } // estourou o tempo: fica com o que já leu
   }
   return texto.length >= 200 ? texto : null;
@@ -140,7 +151,7 @@ export async function infoDaAcademia(id, { chave, fetcher = fetch, agora = Date.
     // e o site lido antes da leitura das páginas de aulas (versão 2, 26/11/2026) é relido uma vez, também sem o Google
     const velho = guardado.site && (guardado.leituraSite ?? 1) < LEITURA_SITE;
     if (!velho && (!guardado.siteFalhou || !guardado.site || agora - Date.parse(guardado.siteTentouEm ?? guardado.em) < 864e5)) return guardado;
-    const novo = { ...guardado, ...(await lerSite(guardado.siteUrl ?? `https://${guardado.site}/`, fetcher)), siteTentouEm: new Date(agora).toISOString(), leituraSite: LEITURA_SITE };
+    const novo = { ...guardado, ...(await lerSite(guardado.siteUrl ?? `https://${guardado.site}/`, fetcher, Boolean(guardado.rede))), siteTentouEm: new Date(agora).toISOString(), leituraSite: LEITURA_SITE };
     await gravarJson(arquivo, novo);
     return novo;
   }
@@ -150,10 +161,11 @@ export async function infoDaAcademia(id, { chave, fetcher = fetch, agora = Date.
   const nome = j.displayName.text ?? "";
   const rede = redeDe(nome);
   let site = null, siteUrl = null, siteFalhou = false, doSite = [];
-  // grandes redes: o site não é lido (fala de todas as unidades da rede)
-  if (!rede && j.websiteUri && siteLegivel(j.websiteUri)) {
+  // grandes redes: só a página da UNIDADE, quando o Google aponta para ela, e só essa página (as gerais falam de todas as unidades da rede)
+  const ehRede = rede && rede !== "World Gym";
+  if (j.websiteUri && siteLegivel(j.websiteUri) && (!ehRede || paginaDeUnidade(rede, j.websiteUri))) {
     site = siteLegivel(j.websiteUri).hostname; siteUrl = j.websiteUri;
-    ({ doSite, siteFalhou } = await lerSite(j.websiteUri, fetcher));
+    ({ doSite, siteFalhou } = await lerSite(j.websiteUri, fetcher, Boolean(ehRede)));
   }
   const info = {
     em: new Date(agora).toISOString(), id, nome, rede,
@@ -169,7 +181,7 @@ export async function infoDaAcademia(id, { chave, fetcher = fetch, agora = Date.
 export function servicosFinais(info) {
   const fonte = new Map();
   for (const s of servicosNoTexto(info.nome)) if (!fonte.has(s)) fonte.set(s, "nome"); // recalculado: a regra do nome pode mudar depois de guardar
-  if (!info.rede) for (const s of info.doSite ?? []) if (!fonte.has(s)) fonte.set(s, "site");
+  for (const s of info.doSite ?? []) if (!fonte.has(s)) fonte.set(s, "site"); // nas redes, o site só é lido na página da unidade
   return SERVICOS.filter((s) => fonte.has(s.id)).map((s) => ({ id: s.id, fonte: fonte.get(s.id) }));
 }
 

@@ -18,6 +18,10 @@ describe("serviços pelo texto e horário", () => {
     expect(S.servicosNoTexto("Studio Dança Exemplo")).toEqual(["danca"]); // studio de dança não é personal
     expect(S.servicosNoTexto("Academia Exemplo")).toEqual([]);
     expect(S.servicosNoTexto("Studio X Estética e Esmalteria")).toEqual([]);
+    expect(S.servicosNoTexto("FIT DANCE 19:00 RITBOX FORRÓ")).toContain("danca");
+    expect(S.servicosNoTexto("Hapkidô e defesa pessoal")).toContain("lutas");
+    expect(S.servicosNoTexto("Smart Bike")).toContain("bike");
+    expect(S.servicosNoTexto("Alongamento e ginástica localizada")).toContain("coletivas");
     for (const n of ["Studio Exemplo fitness", "Studio Corps", "Studio Força E Movimento", "Exemplo Personal Training"]) expect(S.servicosNoTexto(n)).toContain("personal");
   });
   it("horário: 24 horas, domingo, abertura mais cedo e fechamento mais tarde", () => {
@@ -131,6 +135,20 @@ describe("servidor: academias, redes e cache", () => {
     chamadas = [];
     await S.servicosDasAcademias({ ids: [ID("E")] }, { chave: "k", fetcher, agora: t0 + 7200e3 });
     expect(chamadas).toEqual([]); // já relido: não lê de novo
+  });
+  it("grande rede: lê só a página da unidade das redes que trazem a grade nela (Ultra), sem abrir outras páginas", async () => {
+    google[ID("U")] = { displayName: { text: "Ultra Academia Exemplo" }, websiteUri: "https://ultraexemplo.com.br/index.php?AC=Unidade&a1=1" };
+    google[ID("V")] = { displayName: { text: "Academia Smart Fit - Exemplo II" }, websiteUri: "https://www.smartfit.com.br/academias/exemplo" };
+    const vistos: string[] = [];
+    const f = async (url: string, o: unknown) => {
+      if (url.includes("ultraexemplo")) { vistos.push(url); return resp(`<html><body>${"FIT DANCE 19:00 MUAY THAI 20:00 ALONGAMENTO ".repeat(8)}<a href="/aulas">Aulas da rede</a></body></html>`, { headers: { "content-type": "text/html" } }); }
+      return (fetcher as (u: string, o?: unknown) => ReturnType<typeof fetcher>)(url, o);
+    };
+    const { porId } = await S.servicosDasAcademias({ ids: [ID("U"), ID("V")] }, { chave: "k", fetcher: f as never });
+    expect(porId[ID("U")].servicos.map((x: { id: string }) => x.id)).toEqual(expect.arrayContaining(["lutas", "danca", "coletivas"]));
+    expect(vistos).toEqual(["https://ultraexemplo.com.br/index.php?AC=Unidade&a1=1"]); // não abre "/aulas" (página geral da rede)
+    expect(porId[ID("V")].servicos).toEqual([]); // Smart Fit: o site não é lido
+    expect(chamadas.some((u) => u.includes("smartfit"))).toBe(false);
   });
   it("só aceita academias da busca da área", async () => {
     await expect(S.servicosDasAcademias({ ids: [ID("A")] }, { chave: "k", fetcher, permitidos: async () => new Set([ID("B")]) })).rejects.toMatchObject({ status: 400 });
