@@ -158,7 +158,7 @@ export interface Ponto { id: string; nome: string; regiao?: string; /** Endereç
 export const DECISAO_ROTULO: Record<StatusDecisao, string> = { analise: "Em análise", aprovado: "Aprovado", recusado: "Recusado", unidade: "Virou unidade" };
 /** completo: dono e liberados (criam e decidem); consulta: Master (vê tudo, não edita); unidade: só a própria unidade, sem premissas. */
 export type ModoEstudos = "completo" | "consulta" | "unidade";
-export interface DadosEstudos { disponivel: boolean; modo?: ModoEstudos; /** No modo unidade: as unidades da pessoa. */ minhas?: string[]; premissas?: Premissas; vendasPorM2?: Record<Modelo, FaixaM2 | null>; unidades?: UnidadeEstudo[]; censo?: Censo | null; pontos?: Ponto[] }
+export interface DadosEstudos { disponivel: boolean; modo?: ModoEstudos; /** Quem está vendo (id de autor) e se edita os estudos de todos (só o dono); sem os campos, edita todos. */ autorId?: string; editaTodos?: boolean; /** No modo unidade: as unidades da pessoa. */ minhas?: string[]; premissas?: Premissas; vendasPorM2?: Record<Modelo, FaixaM2 | null>; unidades?: UnidadeEstudo[]; censo?: Censo | null; pontos?: Ponto[] }
 
 export type Veredito = "aprovado" | "atencao" | "reprovado";
 export interface Resultado {

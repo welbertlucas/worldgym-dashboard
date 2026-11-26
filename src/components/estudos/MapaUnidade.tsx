@@ -48,6 +48,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const [verRua, setVerRua] = useState(false);
   const [rua, setRua] = useState<[number, number] | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [avisoPdf, setAvisoPdf] = useState("");
   const [pois, setPois] = useState<ResultadoPois | null>(null);
   const [modoPois, setModoPois] = useState<ModoPois>("nomes");
   const [verPois, setVerPois] = useState(true);
@@ -274,6 +275,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   const exportar = async () => {
     const m = ref.current;
     if (!m || !u.c) return;
+    setAvisoPdf("");
     setGerando(true);
     // as fotos saem do mapa: na aba Estudo ele está escondido (sem tamanho) e as fotos vinham vazias; mostra o mapa durante a exportação
     const vistaAntes = vista;
@@ -327,6 +329,10 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         proximas: u.c ? unidadesMaisProximas(u.c, dados.unidades ?? [], 3, u.nome) : [],
         esperadoNaArea, perfil, renda, rendaTotal: resumoCenso?.rendaTotal ?? null, comercio: resumoCenso?.comercio ?? null, novaUnidade, enderecosNova: novaUnidade?.sugestoes.length ? await Promise.all(novaUnidade.sugestoes.map((x) => enderecoDaPosicao(x.c))) : [], zonas: zonas ? { lista: zonas.lista, na10: zonas.na10, total: zonas.total } : null, canibalObservada: observada, parecidas: compParec, densidade: area10 && censo ? densidadeNaArea(censo, area10) : null, potencial: area10 && censo ? potencialNaArea(censo, area10) : null, pois: poisAntes, divideCom: cap?.divideCom ?? [], fotos,
       }), fotosRua));
+    } catch (e) {
+      // antes o erro sumia: o botão voltava a "Exportar PDF" e nada baixava. Agora aparece ao lado do botão, com o motivo.
+      console.error("Exportar PDF da unidade", e);
+      setAvisoPdf(`Não consegui gerar o PDF (${(e as Error)?.message || String(e)}). Tire um print desta mensagem e mande para o suporte do Atlas.`);
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };
 
@@ -348,7 +354,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
           {voltar && <Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={voltar}>Todos os estudos</Button>}
           {verRede && <Button variant="outline" size="sm" className="h-7 px-2 text-[12px]" onClick={verRede}>Mapa da rede</Button>}
         </>}
-        acoes={<Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>}
+        acoes={<><Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>{avisoPdf && <span role="alert" className="text-[11px] font-medium text-red-700">{avisoPdf}</span>}</>}
         painel={<PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" naColuna
           legenda={lente === "modelo" ? <>
             <div className="flex items-center gap-2">poucos<span className="h-1.5 flex-1 rounded" style={{ background: gradienteRampa }} />muitos alunos</div>

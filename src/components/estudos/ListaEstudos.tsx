@@ -18,7 +18,7 @@ const NOME_MODELO = { low: "Low Cost", pro: "Pro" } as const;
 const dataBR = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "—");
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-interface Linha { p: Ponto; r: Resultado | null; regiao: string; real: number | null; /** O parecer já inclui população, renda e alunos contra a rede (precisa da área de 10 min do ponto, guardada ao abrir o estudo). */ completo: boolean }
+interface Linha { p: Ponto; r: Resultado | null; regiao: string; real: number | null; /** O parecer já inclui população, renda e alunos contra a rede (precisa da área de 10 min do ponto, guardada ao abrir o estudo). */ completo: boolean; /** Fora da malha do Censo (nem a principal nem a de um município gerado): o valor sai só do m² e das vendas por m² da rede. */ semCenso: boolean }
 
 /** Mapa pequeno com todos os estudos filtrados, coloridos pelo veredito (borda azul: virou unidade). */
 function MiniMapa({ linhas, abrir }: { linhas: Linha[]; abrir: (id: string) => void }) {
@@ -111,7 +111,7 @@ function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nom
   );
 }
 
-export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar, verRede, importar }: { dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void; verRede?: () => void; importar?: (novos: Ponto[]) => void }) {
+export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar, verRede, importar, carregandoCenso = false, podeMexer }: { /** Pode apagar este estudo? (o Master liberado só apaga os próprios) Sem a função, vale `editavel`. */ podeMexer?: (p: Ponto) => boolean; /** O Censo das cidades de fora da malha ainda está chegando: não marca "sem Censo" antes da hora. */ carregandoCenso?: boolean; dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void; verRede?: () => void; importar?: (novos: Ponto[]) => void }) {
   const [importando, setImportando] = useState(false);
   const [busca, setBusca] = useState("");
   const [veredito, setVeredito] = useState<Veredito | "">("");
@@ -129,9 +129,10 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
   const linhas: Linha[] = useMemo(() => pontos.map((p) => {
     const u = p.decisao?.status === "unidade" ? dados.unidades?.find((x) => x.nome === p.decisao?.unidade) : undefined;
     // sem Censo na região do ponto, o veredito nunca passa de "com condicionantes" (decisão do dono, 24/11/2026)
-    const res = dados.premissas && dados.vendasPorM2 ? avaliarCompleto(p, { premissas: dados.premissas, vendasPorM2: dados.vendasPorM2, unidades: dados.unidades ?? SEM_UNIDADES, censo: dados.censo, refs: refsTodas, area: areas.get(p.id) ?? null, semCenso: foraDaMalhaDoCenso(p.c, dados.censo) }) : null;
+    const semCenso = foraDaMalhaDoCenso(p.c, dados.censo);
+    const res = dados.premissas && dados.vendasPorM2 ? avaliarCompleto(p, { premissas: dados.premissas, vendasPorM2: dados.vendasPorM2, unidades: dados.unidades ?? SEM_UNIDADES, censo: dados.censo, refs: refsTodas, area: areas.get(p.id) ?? null, semCenso }) : null;
     const r = res ? { ...res.r, veredito: res.veredito } : null;
-    return { p, r, regiao: regiaoDe(p, dados.unidades ?? []), real: u?.madura ? u.vendas : null, completo: !!res?.completo };
+    return { p, r, regiao: regiaoDe(p, dados.unidades ?? []), real: u?.madura ? u.vendas : null, completo: !!res?.completo, semCenso };
   }).sort((a, b) => (b.p.criadoEm ?? "").localeCompare(a.p.criadoEm ?? "")), [pontos, dados, refsTodas, areas]);
   const autores = [...new Set(pontos.map((p) => p.autor?.nome).filter(Boolean))] as string[];
   const agora = Date.now();
@@ -210,7 +211,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
             <div className="card-surface p-10 text-center text-sm text-muted-foreground">Nenhum estudo com esses filtros.</div>
           ) : (
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {filtradas.map(({ p, r, regiao, real }) => (
+              {filtradas.map(({ p, r, regiao, real, semCenso }) => (
                 // card enxuto, no mesmo estilo dos cards das unidades (pedido do dono, 23/11/2026)
                 <div key={p.id} role="button" tabIndex={0} onClick={() => abrir(p.id)} onKeyDown={(e) => e.key === "Enter" && abrir(p.id)}
                   className={`card-surface flex cursor-pointer flex-col gap-1 px-3 py-2.5 transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${sel.has(p.id) ? "border-primary ring-1 ring-primary" : ""}`}>
@@ -225,9 +226,16 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
                     <span className="text-[15px] font-semibold tabular-nums">{r ? reais(r.provavel) : "—"}<span className="ml-1 text-[11px] font-normal text-muted-foreground">por mês{real != null ? ` · real ${reais(real)}` : ""}</span></span>
                     <span className="text-[11px] tabular-nums text-muted-foreground">{p.origem?.aluguel ? `aluguel ${reais(p.origem.aluguel)} · ` : "sem aluguel · "}{r ? `payback ${meses(r.payback)}` : ""}</span>
                   </div>
+                  {semCenso && !carregandoCenso && (
+                    // sem o Censo da cidade a venda sai só do m² (dois imóveis do mesmo tamanho dão o mesmo valor): o card avisa (pedido do dono, 26/11/2026)
+                    <p className="flex items-center gap-1.5 text-[11px] font-medium text-warning" title="Abra o estudo e clique em Buscar o Censo desta cidade">
+                      <span className="rounded-full bg-warning/15 px-1.5 py-px text-[10.5px] font-semibold">Sem Censo</span>
+                      <span className="truncate">valor só pelo m² · abra para buscar o Censo</span>
+                    </p>
+                  )}
                   <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                     <span className="truncate">{p.autor?.nome ?? "Você"} · {dataBR(p.criadoEm)}{(p.decisao?.status ?? "analise") !== "analise" ? ` · ${DECISAO_ROTULO[p.decisao!.status]}` : ""}</span>
-                    {apagar && editavel && (
+                    {apagar && editavel && (podeMexer ? podeMexer(p) : true) && (
                       <button type="button" title="Apagar este estudo" aria-label={`Apagar o estudo ${p.nome}`}
                         onClick={(e) => { e.stopPropagation(); if (window.confirm(`Apagar o estudo "${p.nome}"? Ele sai da lista e não dá para desfazer.`)) apagar(p.id); }}
                         className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
