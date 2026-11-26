@@ -10,7 +10,7 @@ import { PedirCenso } from "@/components/estudos/PedirCenso";
 import { CREDITO_DO_MAPA, camadaRuas, ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, pinoUnidade, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, raioQueCobre, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
-import { CSS_POIS, AcoesPois, ControlePois, buscarPois, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { CSS_POIS, AcoesPois, ControlePois, buscarPois, carregarServicos, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { Destaque, Faixa, Linha, Nota, Secao } from "@/components/estudos/blocos";
 import { Building2, Calculator, Gavel, ListChecks, Pencil, Store, TrendingUp } from "lucide-react";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
@@ -376,10 +376,12 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     }
     setAvisoPdf("");
     setGerando(true);
+    // horários, nota e serviços das academias entram no PDF: gerar o PDF já é o pedido (cada academia fica guardada por 90 dias); se falhar, o PDF sai sem eles
+    if (poisPdf?.categoria === "academias" && !poisPdf.servicosCarregados) { try { poisPdf = await carregarServicos(poisPdf); setPois(poisPdf); } catch { /* segue sem os serviços */ } }
     // as fotos saem do mapa: na aba Estudo ele está escondido (sem tamanho) e as fotos vinham vazias; mostra o mapa durante a exportação
     const vistaAntes = vista;
     if (vista === "estudo") { setVista("mapa"); await pausa(400); m.mapa.invalidateSize({ animate: false }); }
-    const lenteAntes = lente, poisAntes = pois, verAntes = verPois, poisUso = poisPdf;
+    const lenteAntes = lente, poisAntes = pois?.categoria === "academias" ? poisPdf : pois, verAntes = verPois, poisUso = poisPdf; // volta à tela já com os serviços buscados para o PDF
     // fotos de rua do último slide (até 4 pontos): pedidas já no começo; se a pessoa não autorizar mandar a posição ao Google, para no primeiro
     const ruaP = (async () => {
       const out: (ReturnType<typeof paginaDeFotos>)[] = [];
@@ -537,7 +539,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <p className="rounded-2xl border bg-white p-5 text-sm text-muted-foreground">{editavel ? "Clique em \u201c+ Adicionar ponto\u201d e depois no mapa onde fica o imóvel. A conta aparece aqui." : "Nenhum ponto neste estudo."}</p>
       )}
 
-      {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} /></div>}
+      {pois && <div className="grid gap-4 lg:grid-cols-2"><SecaoPois res={pois} aoMudar={setPois} /></div>}
       {atual && <div className="grid gap-4 lg:grid-cols-2"><SecaoSugestoes res={sugestoes} tipo="ponto" nome={atual.nome} aoEstudar={editavel ? estudarSugestao : undefined} /></div>}
 
       {/* estudo do ponto escolhido, no padrão do estudo de geomarketing */}
@@ -557,8 +559,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
               ))}
             </div>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <input type="number" min={300} max={8000} step={50} value={atual.m2} onChange={(e) => mudar(atual.id, { m2: Math.max(300, Math.min(8000, Number(e.target.value) || 0)) })}
-                className="w-20 rounded-md border bg-white px-2 py-1 text-right text-sm tabular-nums text-foreground" aria-label="Tamanho do imóvel em m²" /> m²
+              <CampoM2 valor={atual.m2} aoMudar={(m2) => mudar(atual.id, { m2 })} /> m²
             </label>
           </div>
 
@@ -750,6 +751,30 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
 type Visao = { tela: "lista" } | { tela: "rede" } | { tela: "unidade"; nome: string } | { tela: "mapa"; atualId: string | null; novo: boolean; comparando: Set<string> | null };
 
 /** Estudos de ponto: abre na lista (carteira de estudos); o mapa abre num estudo, num estudo novo ou na comparação. */
+/**
+ * Tamanho do imóvel: aceita a digitação livre (apagar e digitar 1600 não pode virar 300 no meio do caminho); o número vale na hora quando já está
+ * entre 300 e 8.000 m², e ao sair do campo (ou Enter) é trazido para dentro desse limite.
+ */
+export function CampoM2({ valor, aoMudar }: { valor: number; aoMudar: (m2: number) => void }) {
+  const [texto, setTexto] = useState(String(valor));
+  const [editando, setEditando] = useState(false);
+  useEffect(() => { if (!editando) setTexto(String(valor)); }, [valor, editando]);
+  const fechar = () => {
+    setEditando(false);
+    const n = Number(texto.replace(/\D/g, ""));
+    const m2 = n ? Math.max(300, Math.min(8000, Math.round(n))) : valor;
+    setTexto(String(m2));
+    if (m2 !== valor) aoMudar(m2);
+  };
+  return (
+    <input type="text" inputMode="numeric" value={texto} aria-label="Tamanho do imóvel em m²" title="Entre 300 e 8.000 m²"
+      onFocus={() => setEditando(true)}
+      onChange={(e) => { const t = e.target.value.replace(/\D/g, "").slice(0, 5); setTexto(t); const n = Number(t); if (n >= 300 && n <= 8000 && n !== valor) aoMudar(n); }}
+      onBlur={fechar} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      className="w-20 rounded-md border bg-white px-2 py-1 text-right text-sm tabular-nums text-foreground" />
+  );
+}
+
 export function EstudosPontoTab() {
   const [dadosApi, setDados] = useState<DadosEstudos | null>(null);
   const [erro, setErro] = useState("");
