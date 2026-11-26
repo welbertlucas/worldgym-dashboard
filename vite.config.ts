@@ -31,6 +31,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // Cenários sem solução fazem o gerador de escalas ampliar a busca: alguns testes passam de 5 s.
-  test: { testTimeout: 60000 },
+  // Os testes do gerador de escalas testam muitas combinações (10 a 26 s cada aqui); na máquina do GitHub, rodando junto com os outros,
+  // passavam de 60 s e derrubavam o deploy (26/11/2026). 3 minutos dá folga sem esconder um teste travado de verdade.
+  test: { testTimeout: 180000 },
 });
