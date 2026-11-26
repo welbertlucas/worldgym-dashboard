@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { API_BASE, authFetch } from "@/lib/auth";
 import type { Leaflet } from "@/components/estudos/mapaComum";
 import { Linha, Secao } from "@/components/estudos/blocos";
-import { MapPinned } from "lucide-react";
+import { Clock, MapPinned } from "lucide-react";
 import { dentroDaArea, type Geometria } from "@/lib/estudoPonto";
 import { raioQueCobre } from "@/components/estudos/deslocamento";
 import { type InfoAcademia, ROTULO_FONTE, ROTULO_SERVICO, linhaInfo, resumoServicos } from "@/lib/servicosAcademias";
@@ -230,7 +230,7 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
           ))}
         </div>
       )}
-      <p className="text-[11px] text-muted-foreground">Dados do Google. A mesma busca fica guardada por 90 dias. A lista completa aparece embaixo do mapa.</p>
+      <p className="text-[11px] text-muted-foreground">Dados do Google. A mesma busca fica guardada por 90 dias. A lista completa aparece embaixo do mapa{res?.categoria === "academias" ? ", com o botão Ver horários e serviços" : ""}.</p>
     </div>
   );
   return (
@@ -303,17 +303,21 @@ function ServicosDaArea({ res, aoMudar }: { res: ResultadoPois; aoMudar?: (r: Re
     try { aoMudar(await carregarServicos(res, (f, t) => setProgresso([f, t]))); } catch (e) { setErro((e as Error).message); } finally { setProgresso(null); }
   };
   if (!res.servicosCarregados) return (
-    <div className="mt-3 rounded-lg border border-dashed px-3 py-2.5 text-xs text-muted-foreground">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" onClick={buscar} disabled={!!progresso || !aoMudar}>{progresso ? `Buscando… ${progresso[1] ? `${progresso[0]} de ${progresso[1]}` : ""}` : "Ver horários e serviços"}</Button>
-        <span>Horário, nota e serviços das {Math.min(MAX_SERVICOS, res.lugares.filter((l) => l.rede !== "World Gym").length)} academias mais próximas, pelo Google e pelo site de cada uma (guardado por 90 dias).</span>
+    <div className="mb-4 rounded-xl border-2 border-primary/40 bg-primary/5 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Clock className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">Horários, notas e modalidades das concorrentes</p>
+          <p className="text-xs text-muted-foreground">Quem abre 24 horas e no domingo, a nota no Google e as modalidades de cada uma das {Math.min(MAX_SERVICOS, res.lugares.filter((l) => l.rede !== "World Gym").length)} academias mais próximas, pelo Google e pelo site de cada uma.</p>
+        </div>
+        <Button onClick={buscar} disabled={!!progresso || !aoMudar}>{progresso ? `Buscando… ${progresso[1] ? `${progresso[0]} de ${progresso[1]}` : ""}` : "Ver horários e serviços"}</Button>
       </div>
-      {erro && <p className="mt-1 text-destructive">{erro}</p>}
+      {erro && <p className="mt-2 text-xs text-destructive">{erro}</p>}
     </div>
   );
   const r = resumoServicos(res.lugares.filter((l) => l.rede !== "World Gym").slice(0, MAX_SERVICOS).map((l) => l.info));
   return (
-    <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs">
+    <div className="mb-4 rounded-xl bg-muted/50 px-3 py-2.5 text-xs">
       <div className="grid gap-2 sm:grid-cols-4">
         <div><b className="text-base tabular-nums">{r.h24}</b> <span className="text-muted-foreground">abrem 24 horas</span></div>
         <div><b className="text-base tabular-nums">{r.domingo}</b> <span className="text-muted-foreground">abrem no domingo</span></div>
@@ -334,6 +338,7 @@ export function SecaoPois({ res, aoMudar }: { res: ResultadoPois; /** Recebe o r
   const redes = [...new Set(res.lugares.map((l) => l.rede).filter((r): r is string => !!r && r !== "World Gym"))];
   return (
     <Secao icone={MapPinned} titulo={`${rotuloPois(res)} ${ondePois(res)}`} className="lg:col-span-2">
+      {res.categoria === "academias" && <ServicosDaArea res={res} aoMudar={aoMudar} />}
       <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
         <div className="text-center">
           <div className="font-display text-[44px] font-semibold leading-none text-primary">{total}</div>
@@ -348,7 +353,6 @@ export function SecaoPois({ res, aoMudar }: { res: ResultadoPois; /** Recebe o r
             {l.info && <p className="-mt-1 mb-1 pl-6 text-[11px] text-muted-foreground" title={l.info.servicos.map((s) => `${ROTULO_SERVICO[s.id]}: ${ROTULO_FONTE[s.fonte]}`).join("\n")}>{linhaInfo(l.info)}</p>}</div>)}
         </div>
       </div>
-      {res.categoria === "academias" && <ServicosDaArea res={res} aoMudar={aoMudar} />}
       <p className="mt-2 text-[11px] text-muted-foreground">Fonte: Google. Os números seguem a ordem de distância e são os mesmos do mapa no modo "Números + lista".</p>
     </Secao>
   );

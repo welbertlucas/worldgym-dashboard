@@ -9,7 +9,9 @@ import { redeDe } from "./pois.js";
 
 export class ErroServicos extends Error { constructor(msg, status = 400) { super(msg); this.status = status; } }
 
-export const VALIDADE_DIAS = 90, VALIDADE_FALHA_DIAS = 7, MAX_POR_PEDIDO = 15;
+export const VALIDADE_DIAS = 90, MAX_POR_PEDIDO = 15;
+/** Versão da leitura de site: 2 = também as páginas de aulas, modalidades e grade (26/11/2026). Guardado com versão menor é relido sem o Google. */
+export const LEITURA_SITE = 2;
 /**
  * Trava de custo (pedido do dono, 26/11/2026): o Google dá 1.000 consultas completas (nota, avaliações, site) grátis por mês; o Atlas para em 900,
  * com folga para outros usos da mesma chave. A conta é por mês de Brasília, guardada no Blob; o que já está guardado não conta.
@@ -18,7 +20,12 @@ export const LIMITE_MENSAL = 900;
 export const mesDeBrasilia = (agora) => new Date(agora - 3 * 3600e3).toISOString().slice(0, 7);
 const caminhoCota = (mes) => `estudos/servicos-cota/${mes}.json`;
 export async function consultasDoMes(agora = Date.now()) { const d = await lerJson(caminhoCota(mesDeBrasilia(agora))); return Number(d?.usadas ?? 0); }
-const guardadoValido = (g, agora) => g && agora - Date.parse(g.em) < (g.siteFalhou ? VALIDADE_FALHA_DIAS : VALIDADE_DIAS) * 864e5;
+const guardadoValido = (g, agora) => g && agora - Date.parse(g.em) < VALIDADE_DIAS * 864e5;
+/** Lê o site e devolve as modalidades dele ("personal" no site aparece em qualquer academia: só vale pelo nome). */
+async function lerSite(url, fetcher) {
+  try { const t = await textoDoSite(url, fetcher); return { doSite: t ? servicosNoTexto(t).filter((x) => x !== "personal") : [], siteFalhou: false }; }
+  catch { return { doSite: [], siteFalhou: true }; }
+}
 const caminho = (id) => `estudos/servicos/${id.replace(/^places\//, "")}.json`;
 const ID_OK = /^places\/[A-Za-z0-9_-]{10,200}$/;
 
@@ -75,10 +82,9 @@ export function siteLegivel(url) {
 }
 /** Navegador comum: o site do concorrente não deve ver quem está olhando. */
 const NAVEGADOR = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
-/** Lê o texto do site (até 3 redirecionamentos, cada um conferido; 5 s no total; 800 KB). Devolve null quando não deu para ler. */
-export async function textoDoSite(url, fetcher = fetch, prazoMs = 5000) {
+/** Uma página: segue até 3 redirecionamentos (cada um conferido), lê até 800 KB. Devolve o HTML e o endereço final, ou null. */
+async function pagina(url, fetcher, sinal) {
   let u = siteLegivel(url);
-  const sinal = AbortSignal.timeout(prazoMs);
   for (let i = 0; u && i < 4; i++) {
     const r = await fetcher(u.href, { redirect: "manual", signal: sinal, headers: { "User-Agent": NAVEGADOR, Accept: "text/html", "Accept-Language": "pt-BR" } });
     if (r.status >= 300 && r.status < 400) { const prox = r.headers.get("location"); u = prox ? siteLegivel(new URL(prox, u).href) : null; continue; }
@@ -90,10 +96,37 @@ export async function textoDoSite(url, fetcher = fetch, prazoMs = 5000) {
       for (let lido = 0; lido < 800_000;) { const { done, value } = await leitor.read(); if (done) break; lido += value.length; html += dec.decode(value, { stream: true }); }
       leitor.cancel().catch(() => {});
     } else html = (await r.text()).slice(0, 800_000);
-    const texto = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
-    return texto.length >= 200 ? texto : null; // página quase vazia (montada no navegador) não conta como lida
+    return { html, url: u };
   }
   return null;
+}
+const textoDoHtml = (html) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
+/** Links do mesmo site que parecem levar às aulas, modalidades, grade ou serviços (até 3). */
+export function linksDeAulas(html, base) {
+  const out = [];
+  for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const alvo = `${m[1]} ${semAcento(textoDoHtml(m[2]))}`;
+    if (!/aula|grade|modalidad|servico|atividade|horario|estrutura|treino/.test(semAcento(alvo))) continue;
+    let u; try { u = new URL(m[1], base); } catch { continue; }
+    if (u.hostname !== base.hostname || !siteLegivel(u.href) || /\.(png|jpe?g|gif|webp|pdf|svg)$/i.test(u.pathname) || u.href === base.href) continue;
+    if (!out.includes(u.href)) out.push(u.href);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+/**
+ * Lê o texto do site: a página inicial e até 3 páginas do mesmo site com cara de aulas, modalidades, grade ou serviços. 8 s no total.
+ * Devolve null quando não deu para ler (página quase vazia, montada no navegador, não conta). Grade de aulas em imagem não dá para ler.
+ */
+export async function textoDoSite(url, fetcher = fetch, prazoMs = 8000) {
+  const sinal = AbortSignal.timeout(prazoMs);
+  const inicio = await pagina(url, fetcher, sinal);
+  if (!inicio) return null;
+  let texto = textoDoHtml(inicio.html);
+  for (const link of linksDeAulas(inicio.html, inicio.url)) {
+    try { const p = await pagina(link, fetcher, sinal); if (p) texto += ` ${textoDoHtml(p.html)}`; } catch { break; } // estourou o tempo: fica com o que já leu
+  }
+  return texto.length >= 200 ? texto : null;
 }
 
 // ---------- uma academia ----------
@@ -101,22 +134,30 @@ export async function textoDoSite(url, fetcher = fetch, prazoMs = 5000) {
 export async function infoDaAcademia(id, { chave, fetcher = fetch, agora = Date.now() } = {}) {
   const arquivo = caminho(id);
   const guardado = await lerJson(arquivo);
-  if (guardadoValido(guardado, agora)) return guardado;
+  if (guardadoValido(guardado, agora)) {
+    // o site que falhou (fora do ar, lento) é lido de novo, sem consultar o Google, no máximo uma vez por dia
+    // e o site lido antes da leitura das páginas de aulas (versão 2, 26/11/2026) é relido uma vez, também sem o Google
+    const velho = guardado.site && (guardado.leituraSite ?? 1) < LEITURA_SITE;
+    if (!velho && (!guardado.siteFalhou || !guardado.site || agora - Date.parse(guardado.siteTentouEm ?? guardado.em) < 864e5)) return guardado;
+    const novo = { ...guardado, ...(await lerSite(guardado.siteUrl ?? `https://${guardado.site}/`, fetcher)), siteTentouEm: new Date(agora).toISOString(), leituraSite: LEITURA_SITE };
+    await gravarJson(arquivo, novo);
+    return novo;
+  }
   const r = await fetcher(`https://places.googleapis.com/v1/${id}`, { headers: { "X-Goog-Api-Key": chave, "X-Goog-FieldMask": "displayName,regularOpeningHours,rating,userRatingCount,websiteUri", "Accept-Language": "pt-BR" } });
   const j = await r.json();
   if (j.error || !j.displayName) throw new ErroServicos("O Google não respondeu agora.", 502);
   const nome = j.displayName.text ?? "";
   const rede = redeDe(nome);
-  let site = null, siteFalhou = false, doSite = [];
+  let site = null, siteUrl = null, siteFalhou = false, doSite = [];
   // grandes redes: o site não é lido (fala de todas as unidades da rede)
   if (!rede && j.websiteUri && siteLegivel(j.websiteUri)) {
-    site = siteLegivel(j.websiteUri).hostname;
-    try { const t = await textoDoSite(j.websiteUri, fetcher); if (t) doSite = servicosNoTexto(t).filter((x) => x !== "personal"); } catch { siteFalhou = true; } // "personal" no site aparece em qualquer academia; só vale pelo nome
+    site = siteLegivel(j.websiteUri).hostname; siteUrl = j.websiteUri;
+    ({ doSite, siteFalhou } = await lerSite(j.websiteUri, fetcher));
   }
   const info = {
     em: new Date(agora).toISOString(), id, nome, rede,
     nota: typeof j.rating === "number" ? j.rating : null, avaliacoes: Number(j.userRatingCount ?? 0),
-    horario: resumoHorario(j.regularOpeningHours), site, siteFalhou,
+    horario: resumoHorario(j.regularOpeningHours), site, siteUrl, siteFalhou, leituraSite: LEITURA_SITE,
     doNome: servicosNoTexto(nome), doSite,
   };
   await gravarJson(arquivo, info);

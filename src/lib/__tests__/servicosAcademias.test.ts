@@ -44,6 +44,17 @@ describe("leitura de site com segurança", () => {
   });
 });
 
+describe("páginas de aulas do site", () => {
+  it("acha links do mesmo site para aulas, modalidades, grade ou serviços (sem imagens nem outros sites)", () => {
+    const html = `<a href="/aulas">Nossas aulas</a><a href="https://outro.com/aulas">Aulas</a><a href="/grade.png">Grade</a><a href="/contato">Contato</a><a href="modalidades/">Ver</a>`;
+    expect(S.linksDeAulas(html, new URL("https://academia.exemplo.com.br/"))).toEqual(["https://academia.exemplo.com.br/aulas", "https://academia.exemplo.com.br/modalidades/"]);
+  });
+  it("lê também a página de aulas", async () => {
+    const f = async (url: string) => resp(url.endsWith("/aulas") ? `<html><body>${"Grade com pilates, zumba e spinning. ".repeat(8)}</body></html>` : `<html><body>${"Bem-vindo à academia exemplo. ".repeat(10)}<a href="/aulas">Aulas</a></body></html>`, { headers: { "content-type": "text/html" } });
+    expect(S.servicosNoTexto(await S.textoDoSite("https://academia.exemplo.com.br/", f))).toEqual(expect.arrayContaining(["pilates", "danca", "bike"]));
+  });
+});
+
 describe("servidor: academias, redes e cache", () => {
   let mem: Map<string, unknown>;
   beforeEach(() => {
@@ -98,6 +109,26 @@ describe("servidor: academias, redes e cache", () => {
     const r2 = await S.servicosDasAcademias({ ids: [ID("A"), ID("C")] }, { chave: "k", fetcher, agora: dez });
     expect(r2.semCota).toBeUndefined();
     expect(await S.consultasDoMes(dez)).toBe(1);
+  });
+  it("site que falhou é lido de novo sem consultar o Google, no máximo uma vez por dia", async () => {
+    const t0 = Date.parse("2026-11-20T10:00:00Z");
+    mem.set("estudos/servicos/ExemploDAbcdefgh.json", { em: new Date(t0).toISOString(), id: ID("D"), nome: "Academia D", rede: null, nota: 4, avaliacoes: 9, horario: null, site: "ctexemplo.com.br", siteFalhou: true, doNome: [], doSite: [] });
+    chamadas = [];
+    const r = await S.servicosDasAcademias({ ids: [ID("D")] }, { chave: "k", fetcher, agora: t0 + 2 * 864e5 });
+    expect(r.porId[ID("D")].servicos.map((x: { id: string }) => x.id)).toEqual(expect.arrayContaining(["pilates", "natacao"]));
+    expect(chamadas.some((u) => u.includes("places.googleapis"))).toBe(false);
+    expect(await S.consultasDoMes(t0 + 2 * 864e5)).toBe(0);
+  });
+  it("site lido na versão antiga é relido uma vez, sem o Google", async () => {
+    const t0 = Date.parse("2026-11-26T10:00:00Z");
+    mem.set("estudos/servicos/ExemploEAbcdefgh.json", { em: new Date(t0).toISOString(), id: ID("E"), nome: "Academia E", rede: null, nota: null, avaliacoes: 0, horario: null, site: "ctexemplo.com.br", siteFalhou: false, doNome: [], doSite: [] });
+    chamadas = [];
+    const r = await S.servicosDasAcademias({ ids: [ID("E")] }, { chave: "k", fetcher, agora: t0 + 3600e3 });
+    expect(r.porId[ID("E")].servicos.length).toBeGreaterThan(0);
+    expect(chamadas.some((u) => u.includes("places.googleapis"))).toBe(false);
+    chamadas = [];
+    await S.servicosDasAcademias({ ids: [ID("E")] }, { chave: "k", fetcher, agora: t0 + 7200e3 });
+    expect(chamadas).toEqual([]); // já relido: não lê de novo
   });
   it("só aceita academias da busca da área", async () => {
     await expect(S.servicosDasAcademias({ ids: [ID("A")] }, { chave: "k", fetcher, permitidos: async () => new Set([ID("B")]) })).rejects.toMatchObject({ status: 400 });
