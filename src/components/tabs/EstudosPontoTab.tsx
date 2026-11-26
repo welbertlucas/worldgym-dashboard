@@ -789,6 +789,8 @@ export function EstudosPontoTab() {
     return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">As premissas dos estudos de ponto ainda não foram carregadas.</p>;
 
   const editavel = (dados.modo ?? "completo") === "completo";
+  // o Master liberado a fazer estudos vê os de todos, mas só mexe nos próprios (o servidor ignora o resto ao gravar)
+  const podeMexer = (p: Ponto | undefined) => editavel && (dados.editaTodos !== false || !p?.autor || p.autor.id === dados.autorId);
   // quem tem acesso a unidades vê só o estudo da(s) própria(s) unidade(s)
   if (dados.modo === "unidade") {
     const minhas = (dados.unidades ?? []).filter((u) => dados.minhas?.includes(u.nome));
@@ -812,7 +814,7 @@ export function EstudosPontoTab() {
   }
   if (visao.tela === "lista")
     return (
-      <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} carregandoCenso={carregandoCenso} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })} verRede={() => setVisao({ tela: "rede" })}
+      <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} podeMexer={podeMexer} carregandoCenso={carregandoCenso} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })} verRede={() => setVisao({ tela: "rede" })}
         apagar={editavel ? (id: string) => setPontos((ps) => ps.filter((x) => x.id !== id)) : undefined}
         importar={editavel ? (novos: Ponto[]) => setPontos((ps) => [...ps, ...novos]) : undefined}
         abrir={(id) => setVisao({ tela: "mapa", atualId: id, novo: false, comparando: null })}
@@ -820,7 +822,7 @@ export function EstudosPontoTab() {
         comparar={(ids) => setVisao({ tela: "mapa", atualId: ids[0] ?? null, novo: false, comparando: new Set(ids) })} />
     );
   return (
-    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={editavel} carregandoCenso={carregandoCenso} recarregarCenso={recarregarCenso} iniciarAdicionando={visao.novo} comparando={visao.comparando}
+    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={visao.atualId ? podeMexer(pontos.find((p) => p.id === visao.atualId)) : editavel} carregandoCenso={carregandoCenso} recarregarCenso={recarregarCenso} iniciarAdicionando={visao.novo} comparando={visao.comparando}
       atualId={visao.atualId} setAtualId={(id) => setVisao((v) => (v.tela === "mapa" ? { ...v, atualId: id, comparando: v.comparando && id && !v.comparando.has(id) ? new Set([...v.comparando, id]) : v.comparando } : v))}
       voltar={() => setVisao({ tela: "lista" })} />
   );

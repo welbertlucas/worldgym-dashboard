@@ -1,7 +1,7 @@
 // Estudos de ponto: o que a tela precisa para estimar vendas, payback e captação de um ponto candidato.
 // As premissas (custos, investimento, régua de payback, m² e abertura das unidades) e a grade do Censo ficam no Blob privado
 // (estudos/premissas.json e estudos/censo.json), nunca no repositório: são estratégia comercial. O código só tem as contas.
-// Os pontos estudados ficam no Blob, um arquivo por autor (estudos/pontos/<id>.json): o dono lê todos; os outros, só os próprios.
+// Os pontos estudados ficam no Blob, um arquivo por autor (estudos/pontos/<id>.json): o dono e o Master leem todos; os outros, só os próprios.
 // Só quem pode ver Estudos de ponto (dono e liberados) chega aqui.
 import { lerJson, gravarJson, listarCaminhos } from "./armazem.js";
 import { COORDENADAS_UNIDADES, ENDERECOS_UNIDADES, UNIT_NAMES } from "./units.js";
@@ -138,8 +138,10 @@ function decisaoValida(d) {
 const ehDono = (sessao) => (sessao?.papelReal ?? sessao?.papel) === "dono";
 const autorDe = (sessao) => ({ id: idSeguro(sessao?.id), nome: String(sessao?.nome ?? "") });
 
-/** Pontos que a sessão pode ver: o dono vê os de todos os autores; os outros, só os próprios. */
-export async function lerPontos(sessao, todos = ehDono(sessao)) {
+/** O dono e o Master veem os estudos de todos os autores, mesmo o Master liberado a fazer estudos (pedido do dono, 26/11/2026). */
+const veTodos = (sessao) => ehDono(sessao) || sessao?.papel === "master";
+/** Pontos que a sessão pode ver: o dono e o Master veem os de todos os autores; os outros, só os próprios. */
+export async function lerPontos(sessao, todos = veTodos(sessao)) {
   const caminhos = todos ? (await listarCaminhos(PASTA_PONTOS)).filter((c) => c.endsWith(".json")) : [arquivoDePontos(autorDe(sessao).id)];
   const arquivos = await Promise.all(caminhos.map((c) => lerJson(c)));
   return arquivos.flatMap((d) => (Array.isArray(d?.pontos) ? d.pontos : []));
@@ -153,7 +155,9 @@ export async function salvarPontos(lista, sessao) {
   if (!Array.isArray(lista)) throw new ErroEstudos("Lista de pontos inválida.");
   if (lista.length > MAX_PONTOS) throw new ErroEstudos(`No máximo ${MAX_PONTOS} pontos.`);
   const eu = autorDe(sessao), dono = ehDono(sessao);
-  const pontos = lista.map(pontoValido).map((p) => (p.autor && (dono || p.autor.id === eu.id) ? p : { ...p, autor: eu })).filter((p) => dono || p.autor.id === eu.id);
+  // ponto de outro autor que não seja o dono mandando: ignorado (antes virava de quem salvou; com o Master vendo os estudos de todos,
+  // cada gravação dele copiaria os estudos dos outros para o arquivo dele)
+  const pontos = lista.map(pontoValido).filter((p) => dono || !p.autor || p.autor.id === eu.id).map((p) => (p.autor ? p : { ...p, autor: eu }));
   const porAutor = new Map();
   for (const p of pontos) { if (!porAutor.has(p.autor.id)) porAutor.set(p.autor.id, []); porAutor.get(p.autor.id).push(p); }
   // autores que tinham pontos visíveis a esta sessão e ficaram sem nenhum: esvazia o arquivo deles
@@ -198,8 +202,9 @@ export async function lerEstudos(carregarMeses, mesAtual, sessao) {
   const vendasPorM2 = reguaPorM2(base, premissas);
   const unidades = comPrevisao(base, vendasPorM2, premissas);
   if (modo !== "unidade") {
-    const pontos = await lerPontos(sessao, modo === "consulta" || sessao?.papel === "dono");
-    return { disponivel: true, modo, premissas: { regua: premissas.regua, modelos: premissas.modelos, curva: premissas.curva }, vendasPorM2, unidades, censo: censo ?? null, pontos };
+    const pontos = await lerPontos(sessao, modo === "consulta" || veTodos(sessao));
+    // quem grava só os próprios (Master liberado a fazer estudos) vê os dos outros sem editar: a tela usa `autorId` e `editaTodos` para isso
+    return { disponivel: true, modo, autorId: autorDe(sessao).id, editaTodos: ehDono(sessao), premissas: { regua: premissas.regua, modelos: premissas.modelos, curva: premissas.curva }, vendasPorM2, unidades, censo: censo ?? null, pontos };
   }
   // unidade: as próprias completas; as outras só com nome, posição e m² (para a divisão da captação), sem vendas, alunos nem bairros
   const minhas = new Set(sessao?.unidades ?? []);

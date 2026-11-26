@@ -29,12 +29,29 @@ export function pedidoEmAndamento(c: [number, number], agora = Date.now()): numb
 }
 const hora = (t: number) => new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
+/** Tempo típico da rotina, do pedido ao Censo gravado: 5 a 12 min nas cidades médias, 22 min numa capital (medido em 24 e 26/11/2026). */
+export const ESTIMATIVA_MIN = 20;
+/**
+ * Andamento do pedido SÓ PELO TEMPO (a tela não vê a rotina do GitHub: o pedido vai por um código, sem ligação com o estudo, porque o
+ * repositório é público). A barra para em 95% até o Censo chegar; passando da estimativa, avisa que está demorando.
+ */
+export function andamentoDoPedido(desde: number, agora: number) {
+  const min = Math.max(0, (agora - desde) / 60_000);
+  return { min: Math.floor(min), parte: Math.min(0.95, min / ESTIMATIVA_MIN), previsto: desde + ESTIMATIVA_MIN * 60_000, atrasado: min > ESTIMATIVA_MIN };
+}
+
 export function PedirCenso({ c, aoChegar }: { c: [number, number]; /** Busca o Censo de novo (já deve ter chegado). */ aoChegar: () => void }) {
   const [fase, setFase] = useState<"ocioso" | "enviando" | "aguardando" | "desistiu">(() => (pedidoEmAndamento(c) ? "aguardando" : "ocioso"));
   const [erro, setErro] = useState("");
   const desde = useRef(pedidoEmAndamento(c) ?? 0);
   const olhar = useRef(aoChegar);
   olhar.current = aoChegar;
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    if (fase !== "aguardando") return;
+    const t = setInterval(() => setAgora(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, [fase]);
   useEffect(() => {
     if (fase !== "aguardando") return;
     const t = setInterval(() => { if (Date.now() - desde.current > DESISTE_APOS_MS) { gravarPedido(c, null); setFase("desistiu"); } else olhar.current(); }, A_CADA_MS);
@@ -42,7 +59,7 @@ export function PedirCenso({ c, aoChegar }: { c: [number, number]; /** Busca o C
   }, [fase]); // eslint-disable-line react-hooks/exhaustive-deps
   const pedir = async () => {
     // estudo de ponto é estratégia comercial: a posição vai ao Mapbox (só para achar o estado) e o pedido segue ao GitHub por um código
-    if (!window.confirm("Para buscar o Censo desta cidade, a posição do ponto será enviada ao Mapbox (só para achar o estado). O pedido segue ao GitHub por um código, sem endereço nem nome da cidade, e leva uns 10 a 15 minutos. Continuar?")) return;
+    if (!window.confirm(`Para buscar o Censo desta cidade, a posição do ponto será enviada ao Mapbox (só para achar o estado). O pedido segue ao GitHub por um código, sem endereço nem nome da cidade, e leva uns ${ESTIMATIVA_MIN} minutos. Continuar?`)) return;
     setFase("enviando"); setErro("");
     try {
       const r = await pedirCensoDaCidade(c);
@@ -52,7 +69,23 @@ export function PedirCenso({ c, aoChegar }: { c: [number, number]; /** Busca o C
       desde.current = em; gravarPedido(c, em); setFase("aguardando");
     } catch (e) { setErro((e as Error).message); setFase("ocioso"); }
   };
-  if (fase === "aguardando") return <p className="text-[13px]"><b>Buscando o Censo desta cidade</b> (pedido às {hora(desde.current)})… leva uns 10 a 15 minutos, mais em cidade grande; com dois pedidos, um espera o outro. Pode fechar a página: o estudo se completa sozinho quando o Censo chegar.</p>;
+  if (fase === "aguardando") {
+    const a = andamentoDoPedido(desde.current, Math.max(agora, desde.current));
+    return (
+      <div className="w-full max-w-md space-y-1.5 text-[13px]" role="status">
+        <p><b>Buscando o Censo desta cidade</b> · pedido às {hora(desde.current)}</p>
+        <div className="h-2 overflow-hidden rounded-full bg-foreground/10" role="progressbar" aria-label="Tempo estimado do pedido do Censo" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(a.parte * 100)}>
+          <div className={`h-full rounded-full transition-[width] duration-700 ${a.atrasado ? "bg-warning" : "bg-primary"}`} style={{ width: `${Math.max(3, a.parte * 100)}%` }} />
+        </div>
+        <p className="text-[12px] text-foreground/75">
+          {a.atrasado
+            ? `${a.min} min até agora: está passando do normal (cidade grande ou outro pedido na fila, um espera o outro).`
+            : `${a.min} de cerca de ${ESTIMATIVA_MIN} min · previsto para umas ${hora(a.previsto)}.`}
+          {" "}É uma estimativa pelo tempo. Pode fechar a página: o estudo se completa sozinho quando o Censo chegar.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button size="sm" onClick={pedir} disabled={fase === "enviando"}>{fase === "enviando" ? "Enviando o pedido…" : "Buscar o Censo desta cidade"}</Button>

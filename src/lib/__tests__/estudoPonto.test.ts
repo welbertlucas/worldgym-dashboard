@@ -169,21 +169,38 @@ describe("servidor dos estudos (server/estudos.js)", () => {
     const m = await lerEstudos(async () => comBairros, "2026-11", ANA);
     expect(m.modo).toBe("consulta"); expect(m.pontos.map((p: { nome: string }) => p.nome)).toEqual(["Do dono"]);
   });
-  it("cada autor vê só os próprios estudos; o dono vê todos e pode editar os de qualquer um", async () => {
+  it("cada autor vê só os próprios estudos; o dono e o Master veem todos; só o dono edita os de qualquer um", async () => {
     const mem = memoria(); definirArmazem(mem);
     await salvarPontos([{ c: [-15.8, -47.9], m2: 1200, nome: "Da Ana" }], ANA);
     await salvarPontos([{ c: [-15.7, -47.9], m2: 1300, nome: "Do Beto" }], BETO);
-    // Beto tenta gravar um ponto com autor da Ana: vira dele, e o da Ana não muda
+    // Beto tenta gravar um ponto com autor da Ana: é ignorado, e o da Ana não muda
     await salvarPontos([{ c: [-15.7, -47.9], m2: 1300, nome: "Do Beto" }, { c: [-15.6, -47.9], m2: 1000, nome: "Falso", autor: { id: "ana", nome: "Ana" } }], BETO);
-    expect((await lerPontos(ANA)).map((p: { nome: string }) => p.nome)).toEqual(["Da Ana"]);
-    expect((await lerPontos(BETO)).map((p: { nome: string }) => p.nome).sort()).toEqual(["Do Beto", "Falso"]);
+    expect((await lerPontos(ANA)).map((p: { nome: string }) => p.nome).sort()).toEqual(["Da Ana", "Do Beto"]); // Ana é Master
+    expect((await lerPontos(BETO)).map((p: { nome: string }) => p.nome)).toEqual(["Do Beto"]);
     const todos = await lerPontos(DONO);
-    expect(todos).toHaveLength(3);
+    expect(todos).toHaveLength(2);
     // o dono apaga o ponto da Ana e renomeia o do Beto: cada um continua no próprio arquivo
     const doBeto = todos.filter((p: { autor: { id: string } }) => p.autor.id === "beto").map((p: { nome: string }) => (p.nome === "Do Beto" ? { ...p, nome: "Revisado" } : p));
     await salvarPontos(doBeto, DONO);
-    expect(await lerPontos(ANA)).toEqual([]);
-    expect((await lerPontos(BETO)).map((p: { nome: string }) => p.nome).sort()).toEqual(["Falso", "Revisado"]);
+    expect((await lerPontos(ANA)).map((p: { nome: string }) => p.nome)).toEqual(["Revisado"]);
+    expect((await lerPontos(BETO)).map((p: { nome: string }) => p.nome)).toEqual(["Revisado"]);
+  });
+  it("o Master liberado a fazer estudos vê os de todos, mas só grava os próprios (os dos outros não mudam nem somem)", async () => {
+    const mem = memoria(); definirArmazem(mem);
+    mem.m.set(ARQUIVO_PREMISSAS, premissas);
+    const VANESSA = { id: "vanessa", nome: "Vanessa", papel: "master", verEstudos: true };
+    await salvarPontos([{ c: [-15.8, -47.9], m2: 1200, nome: "Do Beto" }], BETO);
+    await salvarPontos([{ c: [-15.7, -47.9], m2: 1200, nome: "Da Vanessa" }], VANESSA);
+    const v = await lerEstudos(async () => meses, "2026-11", VANESSA);
+    expect(v.modo).toBe("completo"); expect(v.editaTodos).toBe(false); expect(v.autorId).toBe("vanessa");
+    expect(v.pontos.map((p: { nome: string }) => p.nome).sort()).toEqual(["Da Vanessa", "Do Beto"]);
+    // a tela manda a lista sem o do Beto e com ele renomeado: nada muda no arquivo dele
+    await salvarPontos(v.pontos.filter((p: { nome: string }) => p.nome === "Da Vanessa"), VANESSA);
+    await salvarPontos(v.pontos.map((p: { nome: string }) => ({ ...p, nome: p.nome === "Do Beto" ? "Mexido" : p.nome })), VANESSA);
+    expect((await lerPontos(BETO)).map((p: { nome: string }) => p.nome)).toEqual(["Do Beto"]);
+    // e nada dos outros foi copiado para o arquivo dela
+    expect((await lerPontos({ ...VANESSA, papel: "unidades" })).map((p: { nome: string }) => p.nome)).toEqual(["Da Vanessa"]);
+    expect((await lerEstudos(async () => meses, "2026-11", DONO)).editaTodos).toBe(true);
   });
 });
 

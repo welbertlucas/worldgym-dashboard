@@ -111,7 +111,7 @@ function UnidadesEmOperacao({ dados, abrir }: { dados: DadosEstudos; abrir: (nom
   );
 }
 
-export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar, verRede, importar, carregandoCenso = false }: { /** O Censo das cidades de fora da malha ainda está chegando: não marca "sem Censo" antes da hora. */ carregandoCenso?: boolean; dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void; verRede?: () => void; importar?: (novos: Ponto[]) => void }) {
+export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = true, abrirUnidade, apagar, verRede, importar, carregandoCenso = false, podeMexer }: { /** Pode apagar este estudo? (o Master liberado só apaga os próprios) Sem a função, vale `editavel`. */ podeMexer?: (p: Ponto) => boolean; /** O Censo das cidades de fora da malha ainda está chegando: não marca "sem Censo" antes da hora. */ carregandoCenso?: boolean; dados: DadosEstudos; pontos: Ponto[]; abrir: (id: string) => void; novo: () => void; comparar: (ids: string[]) => void; editavel?: boolean; abrirUnidade?: (nome: string) => void; apagar?: (id: string) => void; verRede?: () => void; importar?: (novos: Ponto[]) => void }) {
   const [importando, setImportando] = useState(false);
   const [busca, setBusca] = useState("");
   const [veredito, setVeredito] = useState<Veredito | "">("");
@@ -235,7 +235,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
                   )}
                   <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                     <span className="truncate">{p.autor?.nome ?? "Você"} · {dataBR(p.criadoEm)}{(p.decisao?.status ?? "analise") !== "analise" ? ` · ${DECISAO_ROTULO[p.decisao!.status]}` : ""}</span>
-                    {apagar && editavel && (
+                    {apagar && editavel && (podeMexer ? podeMexer(p) : true) && (
                       <button type="button" title="Apagar este estudo" aria-label={`Apagar o estudo ${p.nome}`}
                         onClick={(e) => { e.stopPropagation(); if (window.confirm(`Apagar o estudo "${p.nome}"? Ele sai da lista e não dá para desfazer.`)) apagar(p.id); }}
                         className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
