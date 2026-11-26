@@ -194,7 +194,8 @@ async function fichas(req, res, sessao) {
 
 async function obras(req, res, sessao) {
   const edita = sessao.papel === "dono" || sessao.papel === "master";
-  if (req.method === "GET") return res.status(200).json({ obras: await lerObras(), podeEditar: edita, podeApagar: sessao.papel === "dono", ...(edita ? { modelos: resumoDosModelos(await lerModelosDeObra()) } : {}) });
+  // quem só consulta (acesso a unidades liberado) não recebe o nome da próxima tarefa: as tarefas são só de dono e Master
+  if (req.method === "GET") return res.status(200).json({ obras: edita ? await lerObras() : (await lerObras()).map((o) => (o.tarefas ? { ...o, tarefas: { ...o.tarefas, proxima: null } } : o)), podeEditar: edita, podeApagar: sessao.papel === "dono", ...(edita ? { modelos: resumoDosModelos(await lerModelosDeObra()) } : {}) });
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
   const { acao, ...c } = doCorpo(req);
   if (acao === "salvar") return res.status(200).json({ obra: await salvarObra(sessao, c.obra) });

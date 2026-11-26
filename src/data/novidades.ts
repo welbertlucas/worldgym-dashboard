@@ -29,7 +29,7 @@ export const NOVIDADES: Novidade[] = [
   {
     id: "2026-11-26-obras-fases-tarefas", data: "2026-11-26", tipo: "novo", publico: "obras", autora: AUTORA, tela: "unidades-em-obra", artigo: "obras-fases-tarefas",
     titulo: "Unidades em obra: fases e tarefas da implantação",
-    texto: "Cada obra agora pode ter o roteiro completo da implantação, com as fases e tarefas do modelo da unidade (Low Cost, Prime, Pro ou Pro / Recovery). Em cada tarefa você marca o responsável, o início e o fim, e a caixa de concluída. Os filtros mostram as pendentes e as atrasadas, e o card da obra mostra quantas tarefas já foram feitas. O Master também cadastra e muda as obras.",
+    texto: "Cada obra agora pode ter o roteiro completo da implantação, com as fases e tarefas do modelo da unidade (Low Cost, Prime, Pro ou Pro / Recovery). Em cada tarefa você marca o responsável, o início e o fim, e a caixa de concluída. Os filtros mostram as pendentes e as atrasadas. As fases e tarefas substituem os antigos marcos: a situação, o percentual e a inauguração prevista (pela tarefa Data de abertura) saem delas. O Master também cadastra e muda as obras.",
   },
   {
     id: "2026-11-25-documentos", data: "2026-11-25", tipo: "novo", publico: "documentos", autora: AUTORA, tela: "documentos", artigo: "documentos-o-que-e",

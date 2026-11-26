@@ -6,7 +6,7 @@ import { ObrasLista } from "@/components/tabs/ObrasTab";
 import * as S from "../../../server/obras.js";
 // @ts-expect-error módulo JS do servidor
 import { definirArmazem } from "../../../server/armazem.js";
-import { MARCOS_PADRAO, diasDeAtraso, filtrarFases, fimPelaDuracao, inauguracao, obraNova, ordenar, progresso, progressoTarefas, proximoMarco, resumoDasObras, situacao, situacaoTarefa, tarefasAtrasadas, type Fase, type Obra } from "@/lib/obras";
+import { proximoPasso, usaTarefas, diasDeAtraso, filtrarFases, fimPelaDuracao, inauguracao, obraNova, ordenar, progresso, progressoTarefas, proximoMarco, resumoDasObras, situacao, situacaoTarefa, tarefasAtrasadas, type Fase, type Obra } from "@/lib/obras";
 
 // Dados INVENTADOS (unidades, cidades e datas fictícias).
 const HOJE = "2026-11-25";
@@ -54,11 +54,9 @@ describe("resumo e ordem da lista", () => {
   it("atrasadas primeiro, depois a que inaugura antes, concluídas por último", () => {
     expect(ordenar(lista, HOJE).map((o) => o.nome)).toEqual(["Atrasada", "Breve", "Zulu", "Pronta"]);
   });
-  it("uma obra nova já vem com os marcos de partida e sem datas", () => {
-    const n = obraNova();
-    expect(n.marcos.map((m) => m.nome)).toEqual([...MARCOS_PADRAO]);
-    expect(n.marcos.every((m) => !m.previsto && !m.real)).toBe(true);
-    expect(new Set(n.marcos.map((m) => m.id)).size).toBe(MARCOS_PADRAO.length);
+  it("uma obra nova não tem marcos: anda pelas fases e tarefas", () => {
+    expect(obraNova().marcos).toEqual([]);
+    expect(situacao(obraNova(), HOJE)).toBe("no-prazo");
   });
 });
 
@@ -101,7 +99,7 @@ describe("servidor: guardar as obras", () => {
     await expect(S.salvarObra(dono, valida({ nome: "  " }))).rejects.toMatchObject({ status: 400 });
     await expect(S.salvarObra(dono, valida({ id: "../x" }))).rejects.toMatchObject({ status: 400 });
     await expect(S.salvarObra(dono, valida({ m2: -5 }))).rejects.toMatchObject({ status: 400 });
-    await expect(S.salvarObra(dono, valida({ marcos: [] }))).rejects.toMatchObject({ status: 400 });
+    await expect(S.salvarObra(dono, valida({ marcos: Array.from({ length: 25 }, (_, i) => ({ id: `m${i}`, nome: `M${i}`, previsto: null, real: null })) }))).rejects.toMatchObject({ status: 400 });
     await expect(S.salvarObra(dono, valida({ marcos: [{ id: "a", nome: "X", previsto: "31/12/2026", real: null }] }))).rejects.toMatchObject({ status: 400 });
     await expect(S.salvarObra(dono, valida({ marcos: [{ id: "a", nome: "X", previsto: null, real: null }, { id: "a", nome: "Y", previsto: null, real: null }] }))).rejects.toMatchObject({ status: 400 });
   });
@@ -191,7 +189,7 @@ describe("servidor: modelos, fases e tarefas", () => {
     const r = await S.aplicarModelo(master, "obra1", "pro", { agora: new Date("2026-11-26T10:00:00Z") });
     expect(r.fases.map((f: Fase) => f.nome)).toEqual(["Fase Um", "Fase Dois"]);
     expect(r.fases[0].tarefas[0]).toMatchObject({ nome: "Tarefa A", dias: 5, resp: "", inicio: null, fim: null, feito: null });
-    expect((await S.lerObras())[0].tarefas).toEqual({ modelo: "pro", total: 3, concluidas: 0, fimPendente: {} });
+    expect((await S.lerObras())[0].tarefas).toEqual({ modelo: "pro", total: 3, concluidas: 0, fimPendente: {}, proxima: null, abertura: null, ultimoFim: null });
     await expect(S.aplicarModelo(dono, "obra1", "pro")).rejects.toMatchObject({ status: 409 });
     await expect(S.lerTarefas(unidade, "obra1")).rejects.toMatchObject({ status: 403 });
     expect((await S.lerTarefas(master, "obra1")).fases).toHaveLength(2);
@@ -261,5 +259,51 @@ describe("tela das tarefas", () => {
     expect(html).toContain("1 de 4");
     expect(html).toContain("2 atrasadas");
     expect(html).toContain("25%");
+  });
+});
+
+describe("obra que anda pelas fases e tarefas", () => {
+  const comTarefas = (r: Partial<NonNullable<Obra["tarefas"]>>): Obra => ({ ...obraNova(), id: "t1", nome: "Obra Tarefas", marcos: [], tarefas: { modelo: "low", total: 10, concluidas: 2, fimPendente: {}, proxima: null, abertura: null, ultimoFim: null, ...r } });
+  it("situação: atrasada por tarefa vencida; sem datas fica no prazo; inaugurada quando a Data de abertura é concluída", () => {
+    expect(usaTarefas(comTarefas({}))).toBe(true);
+    expect(situacao(comTarefas({}), HOJE)).toBe("no-prazo");
+    const atrasada = comTarefas({ fimPendente: { "2026-11-10": 1, "2026-12-01": 2 }, proxima: { nome: "Tarefa Vencida", fim: "2026-11-10" } });
+    expect(situacao(atrasada, HOJE)).toBe("atrasada");
+    expect(diasDeAtraso(atrasada, HOJE)).toBe(15);
+    expect(proximoPasso(atrasada)).toEqual({ nome: "Tarefa Vencida", data: "2026-11-10" });
+    expect(situacao(comTarefas({ abertura: { fim: "2026-11-20", feito: "2026-11-21" } }), HOJE)).toBe("concluida");
+  });
+  it("inauguração prevista pela Data de abertura; sem ela, pelo último fim", () => {
+    expect(inauguracao(comTarefas({ abertura: { fim: "2027-07-23", feito: null }, ultimoFim: "2027-08-01" }))).toBe("2027-07-23");
+    expect(inauguracao(comTarefas({ ultimoFim: "2027-08-01" }))).toBe("2027-08-01");
+    expect(progresso(comTarefas({}))).toBe(20);
+  });
+  it("obra sem fases nem marcos (modelo não trazido ou fases apagadas) segue em andamento, não inaugurada", () => {
+    const vazia: Obra = { ...obraNova(), id: "v", nome: "Vazia", marcos: [], tarefas: { modelo: "low", total: 0, concluidas: 0, fimPendente: {} } };
+    expect(situacao(vazia, HOJE)).toBe("no-prazo");
+    expect(situacao({ ...vazia, tarefas: undefined }, HOJE)).toBe("no-prazo");
+    expect(proximoPasso(vazia)).toBeUndefined();
+    expect(resumoDasObras([vazia], HOJE)).toMatchObject({ emObra: 1, concluidas: 0 });
+  });
+  it("próximo passo: escondido (undefined) para quem não vê as tarefas; nulo quando tudo foi concluído", () => {
+    expect(proximoPasso(comTarefas({ fimPendente: { "2026-12-01": 1 } }))).toBeUndefined();
+    expect(proximoPasso(comTarefas({ concluidas: 10 }))).toBeNull();
+  });
+  it("servidor: a tarefa Data de abertura vira a inauguração e a próxima tarefa é a que vence primeiro", () => {
+    const r = S.resumoTarefas([{ id: "f", nome: "F", marco: null, tarefas: [
+      { id: "a", nome: "Tarefa Um", dias: 1, resp: "", inicio: null, fim: "2026-12-05", feito: null },
+      { id: "b", nome: "Tarefa Dois", dias: 1, resp: "", inicio: null, fim: "2026-12-01", feito: null },
+      { id: "c", nome: "Data de Abertura", dias: 1, resp: "", inicio: null, fim: "2027-07-23", feito: null },
+    ] }], "low");
+    expect(r.proxima).toEqual({ nome: "Tarefa Dois", fim: "2026-12-01" });
+    expect(r.abertura).toEqual({ fim: "2027-07-23", feito: null });
+    expect(r.ultimoFim).toBe("2027-07-23");
+    expect(S.ehAbertura("DATA DE ABERTURA")).toBe(true);
+  });
+  it("servidor: a obra com tarefas é salva sem marcos", async () => {
+    const mem = new Map();
+    definirArmazem({ async ler(c: string) { return mem.get(c) ?? null; }, async gravar(c: string, d: unknown) { mem.set(c, JSON.parse(JSON.stringify(d))); } });
+    try { expect((await S.salvarObra({ papel: "master" }, { ...obraNova(), id: "sm", nome: "Sem Marcos", marcos: [] })).marcos).toEqual([]); }
+    finally { definirArmazem(null); }
   });
 });

@@ -34,7 +34,7 @@ export const SECOES: { id: SecaoAjuda; titulo: string; descricao: string; public
   { id: "qualidade", titulo: "Qualidade", descricao: "Checklists, visitas às unidades e a nota de cada uma.", publico: "qualidade" },
   { id: "escalas", titulo: "Gerador de escalas", descricao: "A escala 5x2 da equipe, a escala livre, o histórico, o PDF e o Excel.", publico: "escalas" },
   { id: "documentos", titulo: "Documentos", descricao: "Os arquivos de cada unidade: pastas, envio, limites e quem vê.", publico: "documentos" },
-  { id: "obras", titulo: "Unidades em obra", descricao: "As obras, os marcos, as fases e tarefas da implantação e os modelos.", publico: "obras" },
+  { id: "obras", titulo: "Unidades em obra", descricao: "As obras, as fases e tarefas da implantação e os modelos.", publico: "obras" },
   { id: "dono", titulo: "Só você vê", descricao: "Usuários, rotinas automáticas e o que só você acompanha.", publico: "dono" },
 ];
 
@@ -284,11 +284,11 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "No alto da tela, quantas unidades já têm o aluguel levantado e, por modelo, a mediana, o menor e o maior valor por m². A mediana é o número que corrige o aluguel real no payback dos Estudos de ponto; o Atlas só a usa nas contas depois de você confirmar o valor, e nada é gravado nas premissas sozinho.",
     "Aluguel é dado comercial: fica guardado só no Atlas, com acesso do dono, e não vai para o repositório. Os cards das unidades sem aluguel levantado aparecem primeiro.",
   ], { tela: "franqueadora/unidades", atualizadoEm: "2026-11-26" }),
-  a("obras", "dono-unidades-em-obra", "Unidades em obra: como cadastrar e acompanhar", "Marcos, atrasos, mapa e quem pode ver.", [
-    "O menu Unidades em obra acompanha as unidades em implantação até a inauguração. O dono e o Master cadastram e mudam as obras; só o dono apaga uma obra. Quem tem acesso a unidades pode consultar os marcos, se o dono liberar.",
-    "Nova obra: informe a unidade, a cidade, o modelo (Low Cost, Prime, Pro ou Pro / Recovery), a área e o responsável. A obra já nasce com oito marcos: contrato do ponto assinado, projeto aprovado, alvará, início da obra, fim da obra, equipamentos instalados, vistoria da franqueadora e inauguração. Dá para renomear, apagar e acrescentar marcos, e a ordem da lista é a ordem da obra.",
-    "Cada marco tem a data prevista e, quando acontece, a data real (o botão Hoje preenche a de hoje). A obra fica Atrasada quando algum marco passou da data prevista sem data real; sem data prevista, o marco não conta como atraso. A inauguração prevista é a data do último marco.",
-    "No alto da tela: obras em andamento, atrasadas, as que inauguram em até 90 dias e as já inauguradas. Os cards mostram as atrasadas primeiro e, quando a obra tem tarefas, quantas já foram concluídas e quantas estão atrasadas. As obras ficam guardadas só no Atlas, com acesso protegido.",
+  a("obras", "dono-unidades-em-obra", "Unidades em obra: como cadastrar e acompanhar", "Modelo, situação, mapa e quem pode ver.", [
+    "O menu Unidades em obra acompanha as unidades em implantação até a inauguração. O dono e o Master cadastram e mudam as obras; só o dono apaga uma obra. Quem tem acesso a unidades pode consultar a situação das obras, se o dono liberar.",
+    "Nova obra: informe a unidade, a cidade, o modelo (Low Cost, Prime, Pro ou Pro / Recovery), a área e o responsável. Com a caixa Já criar com as fases e tarefas do modelo marcada, a obra anda pelas fases e tarefas da implantação (veja o artigo Fases e tarefas da implantação): a obra fica Atrasada quando alguma tarefa passou do fim sem ser concluída, e a inauguração prevista é o fim da tarefa Data de abertura; quando ela é concluída, a obra conta como inaugurada.",
+    "Com a caixa desmarcada, a obra nasce sem roteiro e fica No prazo até ter tarefas: na aba Fases e tarefas dá para trazer o modelo depois ou começar em branco, criando as próprias fases e tarefas.",
+    "No alto da tela: obras em andamento, atrasadas, as que inauguram em até 90 dias e as já inauguradas. Os cards mostram as atrasadas primeiro, o percentual concluído, o próximo passo e, quando a obra tem tarefas, quantas já foram concluídas e quantas estão atrasadas. As obras ficam guardadas só no Atlas, com acesso protegido.",
     "Mapa da rede: para a obra aparecer no mapa dos Estudos de ponto (botão Mapa da rede), informe o endereço e clique em Achar no mapa na janela da obra. A obra aparece com um pino laranja, ao lado dos pontos em estudo (em análise e aprovados) e das unidades em operação; os botões no alto do mapa escondem cada grupo. Obra sem posição não aparece no mapa, e obra já inaugurada sai dele.",
   ], { tela: "unidades-em-obra", atualizadoEm: "2026-11-26" }),
   a("obras", "obras-fases-tarefas", "Fases e tarefas da implantação", "O roteiro completo de cada modelo, com responsável, datas e atrasos.", [
@@ -296,8 +296,8 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Ao criar a obra, deixe marcado Já criar com as fases e tarefas do modelo. Numa obra que já existe, abra a aba Fases e tarefas e clique em Trazer fases e tarefas. As tarefas chegam com a duração em dias corridos e sem datas nem responsável: isso você preenche.",
     "Em cada tarefa: o responsável, a duração, o início e o fim. O fim é calculado pelo início e pela duração, contando o dia do início (início em 27/11 com 5 dias termina em 01/12), e dá para mudar à mão. Marque a caixa da tarefa quando ela for concluída: fica registrada a data de hoje. Tudo é gravado na hora.",
     "Situação da tarefa: Concluída, Atrasada (o fim já passou e ela não foi concluída), Em andamento (já começou) ou A fazer. Os botões Todas, Pendentes e Atrasadas filtram a lista, e a busca acha pelo nome da tarefa, da fase ou do responsável. Cada fase mostra quantas tarefas já foram concluídas.",
-    "Dá para acrescentar e apagar tarefas, criar fases novas, renomear e apagar fases. As tarefas atrasadas aparecem no card da obra, mas a situação da obra (Atrasada ou No prazo) continua vindo dos marcos.",
-    "Quem vê: as fases e tarefas aparecem só para o dono e o Master, porque trazem contrato, taxa da franquia e aporte dos sócios. Quem tem acesso a unidades e foi liberado vê só a obra e os marcos.",
+    "Dá para acrescentar e apagar tarefas, criar fases novas, renomear e apagar fases. A situação da obra (Atrasada ou No prazo), o percentual do card e a inauguração prevista saem das tarefas. Tarefa sem data de fim não conta como atraso.",
+    "Quem vê: as fases e tarefas aparecem só para o dono e o Master, porque trazem contrato, taxa da franquia e aporte dos sócios. Quem tem acesso a unidades e foi liberado vê só os dados da obra, a situação, o percentual e a inauguração prevista.",
   ], { tela: "unidades-em-obra", atualizadoEm: "2026-11-26" }),
   a("dono", "dono-royalties", "Royalties: quem vê e como atualiza", "O menu é seu, de todo Master e de quem você liberar.", [
     "A aba Royalties, no menu Franqueadora, aparece para você e para todo Master. Quem tem acesso só a unidades não vê, a não ser que você marque Pode ver royalties no acesso dele, em Usuários. Só você dá ou tira essa liberação: um Master que gerencia acessos não consegue. Em Ver como acesso de unidades, o menu some, como sumiria para a pessoa.",

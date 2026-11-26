@@ -55,7 +55,8 @@ export function limparObra(o) {
   if (!nome) throw new ErroObras("informe o nome da unidade");
   const m2 = o.m2 === null || o.m2 === undefined || o.m2 === "" ? null : Number(o.m2);
   if (m2 !== null && !(m2 > 0 && m2 <= 20000)) throw new ErroObras("m² inválido");
-  if (!Array.isArray(o.marcos) || o.marcos.length < 1 || o.marcos.length > MAX_MARCOS) throw new ErroObras(`a obra precisa de 1 a ${MAX_MARCOS} marcos`);
+  // a obra com fases e tarefas (do modelo) não usa marcos: a lista pode vir vazia
+  if (!Array.isArray(o.marcos) || o.marcos.length > MAX_MARCOS) throw new ErroObras(`a obra aceita até ${MAX_MARCOS} marcos`);
   const ids = new Set();
   const marcos = o.marcos.map((m, i) => {
     if (!m || !ID_OK.test(String(m.id ?? "")) || ids.has(m.id)) throw new ErroObras(`marco ${i + 1}: identificador inválido`);
@@ -144,16 +145,25 @@ export const resumoDosModelos = (modelos) => modelos.map((m) => ({ id: m.id, nom
 
 // ---------- fases e tarefas de uma obra ----------
 
-/** Resumo guardado na obra (vai para todos que veem a obra): totais e, das tarefas pendentes com fim, quantas vencem em cada dia. */
+/** A tarefa que marca a inauguração da unidade (existe nos modelos, na fase de finalização). */
+export const ehAbertura = (nome) => String(nome ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() === "DATA DE ABERTURA";
+
+/** Resumo guardado na obra: é dele que saem a situação, o progresso e a inauguração da obra que tem tarefas.
+ * Totais; das pendentes com fim, quantas vencem em cada dia; a próxima a vencer; a tarefa "Data de abertura"; o último fim. */
 export function resumoTarefas(fases, modelo = null) {
-  let total = 0, concluidas = 0;
+  let total = 0, concluidas = 0, proxima = null, abertura = null, ultimoFim = null;
   const fimPendente = {};
   for (const f of fases) for (const t of f.tarefas) {
     total += 1;
-    if (t.feito) concluidas += 1;
-    else if (t.fim) fimPendente[t.fim] = (fimPendente[t.fim] ?? 0) + 1;
+    if (t.fim && (!ultimoFim || t.fim > ultimoFim)) ultimoFim = t.fim;
+    if (ehAbertura(t.nome) && !abertura) abertura = { fim: t.fim ?? null, feito: t.feito ?? null };
+    if (t.feito) { concluidas += 1; continue; }
+    if (t.fim) {
+      fimPendente[t.fim] = (fimPendente[t.fim] ?? 0) + 1;
+      if (!proxima || t.fim < proxima.fim) proxima = { nome: t.nome, fim: t.fim };
+    }
   }
-  return { modelo, total, concluidas, fimPendente };
+  return { modelo, total, concluidas, fimPendente, proxima, abertura, ultimoFim };
 }
 
 async function lerTarefasDe(obraId) {

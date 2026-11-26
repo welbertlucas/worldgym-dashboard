@@ -8,7 +8,7 @@ import { StreetView } from "@/components/estudos/StreetView";
 import { DECISAO_ROTULO, reais, type Ponto, type UnidadeEstudo } from "@/lib/estudoPonto";
 import { carregarObras } from "@/components/tabs/ObrasTab";
 import { ehDono, podeVerObras } from "@/lib/auth";
-import { type Obra, dataBR, diasDeAtraso, inauguracao, proximoMarco, situacao } from "@/lib/obras";
+import { type Obra, dataBR, diasDeAtraso, inauguracao, proximoPasso, situacao } from "@/lib/obras";
 
 const COR = { low: "#c41230", pro: "#1b2130" } as const;
 const NOME = { low: "Low Cost", pro: "Pro" } as const;
@@ -65,9 +65,9 @@ export function MapaRede({ unidades, abrir, voltar, pontos = [], abrirPonto }: {
       if (abrir) mk.on("click", () => abrir(u.nome));
     }
     if (verObras) for (const o of obrasNoMapa) {
-      const prox = proximoMarco(o), atraso = diasDeAtraso(o), inaug = inauguracao(o);
+      const prox = proximoPasso(o), atraso = diasDeAtraso(o), inaug = inauguracao(o);
       m.L.marker(o.c as [number, number], { title: o.nome, zIndexOffset: 400, icon: pino(m.L, COR_OBRA, 28) })
-        .bindTooltip(`<strong>Em obra: ${esc(o.nome)}</strong>${o.cidade ? `<br/>${esc(o.cidade)}` : ""}<br/>${prox ? `Próximo: ${esc(prox.nome)}` : "Todos os marcos concluídos"}${atraso > 0 ? ` · <span style="color:#b91c1c">${atraso} ${atraso === 1 ? "dia" : "dias"} de atraso</span>` : ""}<br/>Inauguração prevista: ${dataBR(inaug)}`, { direction: "top" })
+        .bindTooltip(`<strong>Em obra: ${esc(o.nome)}</strong>${o.cidade ? `<br/>${esc(o.cidade)}` : ""}<br/>${prox ? `Próximo: ${esc(prox.nome)}` : prox === null ? "Tudo concluído" : ""}${atraso > 0 ? ` · <span style="color:#b91c1c">${atraso} ${atraso === 1 ? "dia" : "dias"} de atraso</span>` : ""}<br/>Inauguração prevista: ${dataBR(inaug)}`, { direction: "top" })
         .addTo(m.grupo);
     }
     if (verPontos) for (const p of pontosNoMapa) {
