@@ -27,7 +27,7 @@ export function buscarCensoDoPonto(c: [number, number]): Promise<MunicipioCenso[
 /** O Censo desta posição usa o fator nacional de renda (o estado ainda não tem o próprio)? Só vale depois de o Censo ter chegado. */
 export const usaFatorPadrao = (c: [number, number]) => !!resolvidos.get(chavePonto(c))?.some((m) => m.fatorPadrao);
 
-export type EstadoDoPedido = { estado: "pronto" | "em-andamento" | "pedido"; uf?: string };
+export type EstadoDoPedido = { estado: "pronto" | "em-andamento" | "pedido"; uf?: string; /** "em-andamento": quando o pedido anterior da mesma área foi feito (ms). */ desde?: number };
 /** Pede ao servidor a geração do Censo do município do ponto (rotina do GitHub; leva uns 10 a 15 minutos). */
 export async function pedirCensoDaCidade(c: [number, number]): Promise<EstadoDoPedido> {
   const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "pedir-censo", c }) });

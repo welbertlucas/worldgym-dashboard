@@ -453,6 +453,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             parecidas: foraDaMalhaDoCenso(p.c, censo) ? { ...compararComParecidas(p.c, p.modelo, censo, dados.unidades!), itens: [] } : compararComParecidas(p.c, p.modelo, censo, dados.unidades!), foto: sats.get(p.id) ?? null, semCenso: foraDaMalhaDoCenso(p.c, censo) };
         }),
       }), ...paginasRua));
+    } catch (e) {
+      // antes o erro sumia: o botão voltava a "Exportar PDF" e nada baixava (visto em 26/11/2026). Agora aparece ao lado do botão, com o motivo.
+      console.error("Exportar PDF do estudo de ponto", e);
+      setAvisoPdf(`Não consegui gerar o PDF (${(e as Error)?.message || String(e)}). Tire um print desta mensagem e mande para o suporte do Atlas.`);
     } finally { setLente(lenteAntes); setPois(poisAntes); setVerPois(verAntes); setGerando(false); setVista(vistaAntes); }
   };
 
@@ -496,7 +500,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <div ref={mapaEl} className="absolute inset-0" aria-label="Mapa do estudo de ponto" />
         {(avisoCenso || (semCenso && carregandoCenso)) && !(adicionando || verRua || achado) && (
           <div role="status" className="absolute left-1/2 top-3 z-[456] max-w-[calc(100%-34rem)] -translate-x-1/2 rounded-lg bg-foreground px-3 py-1.5 text-center text-xs text-background shadow max-lg:bottom-20 max-lg:top-auto max-lg:max-w-[calc(100%-1.5rem)]">
-            {carregandoCenso ? "Buscando o Censo desta região…" : "Sem dados do Censo nesta região: as camadas de população, renda, idade e consumo ficam vazias."}
+            {carregandoCenso ? "Buscando o Censo desta região…" : `Sem dados do Censo nesta região: as camadas de população, renda, idade e consumo ficam vazias.${editavel ? " Para buscar o Censo da cidade, abra a aba Estudo." : ""}`}
           </div>
         )}
         {(adicionando || verRua || achado) && (
@@ -576,11 +580,19 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
             </div>
           )}
 
+          {/* sem Censo: o aviso e o botão vêm antes do parecer, em destaque (pedido do dono, 26/11/2026: "quase não vi o botão") */}
+          {avisoCenso && (
+            <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-warning/60 bg-warning/10 px-4 py-3">
+              <div className="min-w-[240px] flex-1 text-[13px] leading-relaxed">
+                <p className="text-sm font-semibold">Este estudo está sem os dados do Censo da cidade</p>
+                <p className="text-foreground/80">Moradores, renda, idade, potencial de consumo e divisão com a rede não foram medidos: a venda prevista sai só do tamanho do imóvel e das vendas por m² da rede, e o parecer não passa de "com condicionantes".{editavel ? " Busque o Censo para completar o estudo." : ""}</p>
+              </div>
+              {editavel && atual && <PedirCenso c={atual.c} aoChegar={recarregarCenso} />}
+            </div>
+          )}
           <Faixa tom={vf === "aprovado" ? "bom" : vf === "atencao" ? "atencao" : "ruim"}>
             Parecer do Atlas: {PARECER_ROTULO[vf ?? r.veredito]} · payback {meses(r.payback)}{ex?.vagas?.situacao === "insuficiente" ? " · estacionamento insuficiente" : ""}
           </Faixa>
-          {avisoCenso && <Nota><b>Sem dados do Censo nesta região.</b> O Atlas ainda não tem o Censo desta cidade. Moradores, renda, idade, potencial de consumo e divisão com a rede não foram medidos, e o parecer vale só pela estimativa de vendas por m² da rede.
-            {editavel && atual && <div className="mt-2"><PedirCenso c={atual.c} aoChegar={recarregarCenso} /></div>}</Nota>}
           {atual && !semCenso && usaFatorPadrao(atual.c) && <Nota><b>Renda estimada com o fator nacional.</b> Para passar da renda do responsável à renda do domicílio, o estado desta cidade ainda não tem o fator próprio, então vale o padrão do país (1,50). A renda e o consumo podem variar uns 3%.</Nota>}
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -800,7 +812,7 @@ export function EstudosPontoTab() {
   }
   if (visao.tela === "lista")
     return (
-      <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })} verRede={() => setVisao({ tela: "rede" })}
+      <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} carregandoCenso={carregandoCenso} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })} verRede={() => setVisao({ tela: "rede" })}
         apagar={editavel ? (id: string) => setPontos((ps) => ps.filter((x) => x.id !== id)) : undefined}
         importar={editavel ? (novos: Ponto[]) => setPontos((ps) => [...ps, ...novos]) : undefined}
         abrir={(id) => setVisao({ tela: "mapa", atualId: id, novo: false, comparando: null })}

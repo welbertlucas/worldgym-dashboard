@@ -27,6 +27,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-26-estudos-sem-censo", data: "2026-11-26", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "estudos-de-ponto",
+    titulo: "Estudos de ponto: aviso de estudo sem Censo e PDF que avisa quando falha",
+    texto: "Em cidades onde o Atlas ainda não tem o Censo, a venda prevista sai só do tamanho do imóvel, e dois imóveis do mesmo tamanho davam o mesmo valor sem explicação. Agora o card do estudo mostra \"Sem Censo\", e na aba Estudo o aviso e o botão Buscar o Censo desta cidade ficam em destaque, logo acima do parecer. Depois do pedido, a tela continua mostrando que o Censo está a caminho, mesmo saindo e voltando ao estudo. E quando o PDF não consegue ser gerado, aparece a mensagem com o motivo ao lado do botão, em vez de não acontecer nada.",
+  },
+  {
     id: "2026-11-26-obras-fases-tarefas", data: "2026-11-26", tipo: "novo", publico: "obras", autora: AUTORA, tela: "unidades-em-obra", artigo: "obras-fases-tarefas",
     titulo: "Unidades em obra: fases e tarefas da implantação",
     texto: "Cada obra agora pode ter o roteiro completo da implantação, com as fases e tarefas do modelo da unidade (Low Cost, Prime, Pro ou Pro / Recovery). Em cada tarefa você marca o responsável, o início e o fim, e a caixa de concluída. Os filtros mostram as pendentes e as atrasadas. As fases e tarefas substituem os antigos marcos: a situação, o percentual e a inauguração prevista (pela tarefa Data de abertura) saem delas. O Master também cadastra e muda as obras.",
