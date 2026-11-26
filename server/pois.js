@@ -86,7 +86,9 @@ export async function buscarPois(pedido, { chave = process.env.GOOGLE_PLACES_KEY
   const { c, raioKm, categoria } = pedidoValido(pedido);
   const arquivo = chaveDaBusca(c, raioKm, categoria);
   const guardado = await lerJson(arquivo);
-  if (guardado && agora - Date.parse(guardado.em) < VALIDADE_DIAS * 864e5) return { ...comRedes(guardado), doCache: true };
+  // `comIds`: quem pede horários e serviços precisa do id do Google de cada lugar; buscas guardadas antes de 26/11/2026 não têm e são refeitas só nesse caso
+  const semIds = pedido?.comIds === true && guardado?.lugares?.some((l) => !l.id);
+  if (guardado && !semIds && agora - Date.parse(guardado.em) < VALIDADE_DIAS * 864e5) return { ...comRedes(guardado), doCache: true };
   if (!chave) throw new ErroPois("A busca de pontos de interesse ainda não foi configurada no servidor.", 503);
   const ids = [...new Set(await lugaresNoCirculo(chave, c, raioKm * 1000, CATEGORIAS[categoria].tipos, fetcher))];
   const lugares = [];
@@ -97,7 +99,7 @@ export async function buscarPois(pedido, { chave = process.env.GOOGLE_PLACES_KEY
         const j = await r.json();
         if (!j.location) return null;
         const pc = [j.location.latitude, j.location.longitude];
-        return { nome: j.displayName?.text ?? "Sem nome", endereco: j.formattedAddress ?? "", c: pc, km: Math.round(km(c, pc) * 100) / 100, rede: categoria === "academias" ? redeDe(j.displayName?.text) : null };
+        return { id, nome: j.displayName?.text ?? "Sem nome", endereco: j.formattedAddress ?? "", c: pc, km: Math.round(km(c, pc) * 100) / 100, rede: categoria === "academias" ? redeDe(j.displayName?.text) : null };
       } catch { return null; }
     }));
     lugares.push(...lote.filter((x) => x && x.km <= raioKm + 0.05));

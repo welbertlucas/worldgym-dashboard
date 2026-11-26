@@ -5,7 +5,7 @@ import { CREDITO_DO_MAPA, camadaRuas, ZOOMS_DO_SATELITE, gradienteArco, aplicarF
 import { StreetView } from "@/components/estudos/StreetView";
 import { BarraMapa, PainelCamadas, TelaDeMapa, useAlturaAteOFim } from "@/components/estudos/controlesMapa";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, raioQueCobre, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
-import { CSS_POIS, AcoesPois, ControlePois, SecaoPois, buscarPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
+import { CSS_POIS, AcoesPois, ControlePois, SecaoPois, buscarPois, carregarServicos, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { gerarPdfDoEstudo } from "@/lib/estudoPdf";
 import { Barras, Destaque, Linha, Nota, Partes, ReguaSimples, Secao } from "@/components/estudos/blocos";
@@ -277,10 +277,13 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     if (!m || !u.c) return;
     setAvisoPdf("");
     setGerando(true);
+    // horários, nota e serviços das academias entram no PDF: gerar o PDF já é o pedido (guardado por 90 dias); se falhar, sai sem eles
+    let poisComServicos = pois;
+    if (pois?.categoria === "academias" && !pois.servicosCarregados) { try { poisComServicos = await carregarServicos(pois); setPois(poisComServicos); } catch { /* segue sem os serviços */ } }
     // as fotos saem do mapa: na aba Estudo ele está escondido (sem tamanho) e as fotos vinham vazias; mostra o mapa durante a exportação
     const vistaAntes = vista;
     if (vista === "estudo") { setVista("mapa"); await pausa(400); m.mapa.invalidateSize({ animate: false }); }
-    const lenteAntes = lente, poisAntes = pois, verAntes = verPois;
+    const lenteAntes = lente, poisAntes = poisComServicos, verAntes = verPois;
     // fotos de rua do último slide: pedidas já no começo (endereço público da unidade, sem pergunta)
     const ruaP = buscarFotosDaRua(u.c, false);
     setPois(null); // as academias só aparecem na foto delas
@@ -414,7 +417,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
         </>}
         estudo={<EstudoDaUnidade u={u} porM2={porM2} mediana={mediana} area10={!!area10} parte10={parte10} onde80={onde80}
           moradoresArea={moradoresArea} resumo={resumoCenso} topBairros={[...(u.bairros ?? [])].sort((a, b) => b[3] - a[3]).slice(0, 8)} alunosBairro={alunosBairro}
-          divideCom={cap?.divideCom ?? null} observada={observada} compParec={compParec} faixaFatia={faixaDaFatia(refsModelo)} novaUnidade={candidatasNova ? novaUnidade : null} pois={pois}
+          divideCom={cap?.divideCom ?? null} observada={observada} compParec={compParec} faixaFatia={faixaDaFatia(refsModelo)} novaUnidade={candidatasNova ? novaUnidade : null} pois={pois} aoMudarPois={setPois}
           aoEstudar={estudarPosicao ? (s, i, e) => estudarPosicao(s.c, `Nova unidade ${i + 1} perto de ${u.nome}`, u, e) : undefined}
           aoVerNoMapa={() => { setVista("mapa"); setVerNova(true); setTimeout(verNovaUnidade, 60); }} />}
       />
@@ -449,11 +452,11 @@ function ListaDeBairros({ bairros, total, ativos }: { bairros: [string, number, 
   );
 }
 
-function EstudoDaUnidade({ u, porM2, mediana, area10, parte10, onde80, moradoresArea, resumo, topBairros, alunosBairro, divideCom, observada, compParec, faixaFatia, novaUnidade, pois, aoEstudar, aoVerNoMapa }: {
+function EstudoDaUnidade({ u, porM2, mediana, area10, parte10, onde80, moradoresArea, resumo, topBairros, alunosBairro, divideCom, observada, compParec, faixaFatia, novaUnidade, pois, aoMudarPois, aoEstudar, aoVerNoMapa }: {
   u: UnidadeEstudo; porM2: number | null; mediana: number | null; area10: boolean; parte10: number | null; onde80: string;
   moradoresArea: number | null; resumo: ResumoCenso | undefined; topBairros: [string, number, number, number][]; alunosBairro: number;
   divideCom: { nome: string; parte: number }[] | null; observada: ReturnType<typeof canibalizacaoObservada>; compParec: ReturnType<typeof compararComParecidas> | null; faixaFatia: ReturnType<typeof faixaDaFatia>;
-  novaUnidade: ResultadoSugestoes | null; pois: ResultadoPois | null; aoEstudar?: (s: Sugestao, i: number, endereco?: string | null) => void; aoVerNoMapa: () => void;
+  novaUnidade: ResultadoSugestoes | null; pois: ResultadoPois | null; aoMudarPois?: (r: ResultadoPois) => void; aoEstudar?: (s: Sugestao, i: number, endereco?: string | null) => void; aoVerNoMapa: () => void;
 }) {
   const pct = (x: number) => `${Math.round(x * 100)}%`;
   const mil = (x: number) => `${Math.round(x / 1000).toLocaleString("pt-BR")} mil`;
@@ -546,7 +549,7 @@ function EstudoDaUnidade({ u, porM2, mediana, area10, parte10, onde80, moradores
       </Secao>
 
       {novaUnidade && <SecaoSugestoes res={novaUnidade} tipo="nova" nome={u.nome} aoEstudar={aoEstudar} aoVerNoMapa={aoVerNoMapa} />}
-      {pois && <SecaoPois res={pois} />}
+      {pois && <SecaoPois res={pois} aoMudar={aoMudarPois} />}
     </div>
   );
 }

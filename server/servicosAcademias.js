@@ -1,0 +1,157 @@
+// Horários, reputação e serviços das academias concorrentes (Estudos de ponto). Só sob pedido, academia por academia, guardado por 90 dias.
+// Fontes, cada serviço com a sua: o NOME da academia ("Crossfit…", "…Jitsu") e o SITE quando dá para ler (Instagram e afins não dão).
+// Nas grandes redes o site não é lido: ele lista o que a rede tem no país, não o da unidade. Sem lista manual (pedido do dono, 26/11/2026):
+// o que não for encontrado aparece como "não foi possível encontrar outras modalidades".
+// Do Google vêm o horário (24 horas, domingo), a nota e o número de avaliações. Avaliações escritas não entram: "não tem piscina" viraria piscina.
+// Medição em 26/11/2026 (25 academias em volta da World Gym Gama): nenhuma com resumo do Google, tipos genéricos, só ~3 sites independentes úteis.
+import { lerJson, gravarJson } from "./armazem.js";
+import { redeDe } from "./pois.js";
+
+export class ErroServicos extends Error { constructor(msg, status = 400) { super(msg); this.status = status; } }
+
+export const VALIDADE_DIAS = 90, VALIDADE_FALHA_DIAS = 7, MAX_POR_PEDIDO = 15;
+/**
+ * Trava de custo (pedido do dono, 26/11/2026): o Google dá 1.000 consultas completas (nota, avaliações, site) grátis por mês; o Atlas para em 900,
+ * com folga para outros usos da mesma chave. A conta é por mês de Brasília, guardada no Blob; o que já está guardado não conta.
+ */
+export const LIMITE_MENSAL = 900;
+export const mesDeBrasilia = (agora) => new Date(agora - 3 * 3600e3).toISOString().slice(0, 7);
+const caminhoCota = (mes) => `estudos/servicos-cota/${mes}.json`;
+export async function consultasDoMes(agora = Date.now()) { const d = await lerJson(caminhoCota(mesDeBrasilia(agora))); return Number(d?.usadas ?? 0); }
+const guardadoValido = (g, agora) => g && agora - Date.parse(g.em) < (g.siteFalhou ? VALIDADE_FALHA_DIAS : VALIDADE_DIAS) * 864e5;
+const caminho = (id) => `estudos/servicos/${id.replace(/^places\//, "")}.json`;
+const ID_OK = /^places\/[A-Za-z0-9_-]{10,200}$/;
+
+/** Serviços reconhecidos. `re` procura no texto já sem acento e em minúsculas. */
+export const SERVICOS = [
+  { id: "musculacao", rotulo: "Musculação", re: /musculac/ },
+  { id: "cross", rotulo: "Cross", re: /cross\s?(fit|training|train)|\bcrossfit\b|\bcf\b|\bwod\b/ },
+  { id: "lutas", rotulo: "Lutas", re: /\b(muay\s?thai|jiu.?jitsu|jitsu|boxe|boxing|kick\s?boxing|karate|judo|mma|taekwondo|lutas?)\b/ },
+  { id: "danca", rotulo: "Dança", re: /\b(danca|dance|zumba|ritmos|ballet|bale)\b/ },
+  { id: "pilates", rotulo: "Pilates", re: /pilates/ },
+  { id: "yoga", rotulo: "Yoga", re: /\byoga\b/ },
+  { id: "bike", rotulo: "Bike / spinning", re: /spinning|bike indoor|\bcycling\b|\bciclismo indoor/ },
+  { id: "funcional", rotulo: "Funcional", re: /\bfuncional\b|\bhiit\b/ },
+  { id: "coletivas", rotulo: "Aulas coletivas", re: /aulas? coletivas?|les mills|body\s?(pump|combat|balance)|\bjump\b|\bstep\b/ },
+  { id: "natacao", rotulo: "Piscina / natação", re: /piscina|natacao|hidroginastica/ },
+  { id: "personal", rotulo: "Studio / personal", re: /\bstudio\b|\bestudio\b|personal|treinamento personalizado/ },
+  { id: "kids", rotulo: "Espaço kids", re: /espaco kids|\bkids\b|brinquedoteca/ },
+  { id: "avaliacao", rotulo: "Avaliação física", re: /avaliacao fisica|bioimpedancia/ },
+  { id: "nutricao", rotulo: "Nutricionista", re: /nutricionista|nutricao/ },
+  { id: "wellhub", rotulo: "Wellhub / Gympass", re: /wellhub|gympass/ },
+  { id: "totalpass", rotulo: "TotalPass", re: /total\s?pass/ },
+];
+const IDS = new Set(SERVICOS.map((s) => s.id));
+export const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+/** Serviços citados num texto (nome ou site). */
+export const servicosNoTexto = (texto) => { const t = semAcento(texto); return SERVICOS.filter((s) => s.re.test(t)).map((s) => s.id); };
+
+// ---------- horário ----------
+const hhmm = (p) => `${String(p?.hour ?? 0).padStart(2, "0")}:${String(p?.minute ?? 0).padStart(2, "0")}`;
+/** Do horário do Google: abre 24 horas, abre no domingo, horário de abertura mais cedo e de fechamento mais tarde. */
+export function resumoHorario(regular) {
+  const periodos = Array.isArray(regular?.periods) ? regular.periods : [];
+  if (!periodos.length) return null;
+  // 24 horas: um período aberto sem fechamento (como o Google descreve "aberto 24 horas")
+  const h24 = periodos.some((p) => p.open && !p.close) || periodos.filter((p) => p.open && p.close && p.open.hour === 0 && p.open.minute === 0 && (p.close.day !== p.open.day) && p.close.hour === 0).length >= 7;
+  const domingo = periodos.some((p) => p.open?.day === 0);
+  if (h24) return { h24: true, domingo: true, abre: "00:00", fecha: "24:00" };
+  const abre = periodos.map((p) => hhmm(p.open)).sort()[0];
+  const fecha = periodos.map((p) => (p.close && p.close.day !== p.open?.day ? "24:00" : hhmm(p.close))).sort().at(-1);
+  return { h24: false, domingo, abre, fecha };
+}
+
+// ---------- site ----------
+const SOCIAIS = /(^|\.)(instagram|facebook|fb|wa|whatsapp|linktr|heylink|tiktok|youtube|youtu|twitter|x|linkedin|bio|beacons)\.(com|me|ee|be|site|link)(\.br)?$/i;
+/** Endereço que dá para ler com segurança: http/https, nome de domínio público (sem IP, localhost ou rede interna) e não rede social. */
+export function siteLegivel(url) {
+  let u;
+  try { u = new URL(url); } catch { return null; }
+  if (!["http:", "https:"].includes(u.protocol) || u.username || u.password) return null;
+  const h = u.hostname.toLowerCase();
+  if (!h.includes(".") || /^[\d.]+$/.test(h) || h.includes(":") || /(^|\.)(localhost|local|internal|lan|home|corp)$/.test(h)) return null;
+  if (SOCIAIS.test(h) || /^(www\.)?(instagram|facebook|linktr|heylink)\./.test(h)) return null;
+  return u;
+}
+/** Navegador comum: o site do concorrente não deve ver quem está olhando. */
+const NAVEGADOR = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+/** Lê o texto do site (até 3 redirecionamentos, cada um conferido; 5 s no total; 800 KB). Devolve null quando não deu para ler. */
+export async function textoDoSite(url, fetcher = fetch, prazoMs = 5000) {
+  let u = siteLegivel(url);
+  const sinal = AbortSignal.timeout(prazoMs);
+  for (let i = 0; u && i < 4; i++) {
+    const r = await fetcher(u.href, { redirect: "manual", signal: sinal, headers: { "User-Agent": NAVEGADOR, Accept: "text/html", "Accept-Language": "pt-BR" } });
+    if (r.status >= 300 && r.status < 400) { const prox = r.headers.get("location"); u = prox ? siteLegivel(new URL(prox, u).href) : null; continue; }
+    if (!r.ok || !/html/i.test(r.headers.get("content-type") ?? "html")) return null;
+    const leitor = r.body?.getReader?.();
+    let html = "";
+    if (leitor) {
+      const dec = new TextDecoder();
+      for (let lido = 0; lido < 800_000;) { const { done, value } = await leitor.read(); if (done) break; lido += value.length; html += dec.decode(value, { stream: true }); }
+      leitor.cancel().catch(() => {});
+    } else html = (await r.text()).slice(0, 800_000);
+    const texto = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
+    return texto.length >= 200 ? texto : null; // página quase vazia (montada no navegador) não conta como lida
+  }
+  return null;
+}
+
+// ---------- uma academia ----------
+/** Busca (ou lê do Blob) o que dá para saber de uma academia: nome, horário, nota, avaliações e serviços pelo nome e pelo site. */
+export async function infoDaAcademia(id, { chave, fetcher = fetch, agora = Date.now() } = {}) {
+  const arquivo = caminho(id);
+  const guardado = await lerJson(arquivo);
+  if (guardadoValido(guardado, agora)) return guardado;
+  const r = await fetcher(`https://places.googleapis.com/v1/${id}`, { headers: { "X-Goog-Api-Key": chave, "X-Goog-FieldMask": "displayName,regularOpeningHours,rating,userRatingCount,websiteUri", "Accept-Language": "pt-BR" } });
+  const j = await r.json();
+  if (j.error || !j.displayName) throw new ErroServicos("O Google não respondeu agora.", 502);
+  const nome = j.displayName.text ?? "";
+  const rede = redeDe(nome);
+  let site = null, siteFalhou = false, doSite = [];
+  // grandes redes: o site não é lido (fala de todas as unidades da rede)
+  if (!rede && j.websiteUri && siteLegivel(j.websiteUri)) {
+    site = siteLegivel(j.websiteUri).hostname;
+    try { const t = await textoDoSite(j.websiteUri, fetcher); if (t) doSite = servicosNoTexto(t).filter((x) => x !== "personal"); } catch { siteFalhou = true; } // "personal" no site aparece em qualquer academia; só vale pelo nome
+  }
+  const info = {
+    em: new Date(agora).toISOString(), id, nome, rede,
+    nota: typeof j.rating === "number" ? j.rating : null, avaliacoes: Number(j.userRatingCount ?? 0),
+    horario: resumoHorario(j.regularOpeningHours), site, siteFalhou,
+    doNome: servicosNoTexto(nome), doSite,
+  };
+  await gravarJson(arquivo, info);
+  return info;
+}
+
+/** Junta as fontes: nome e site (nas grandes redes, só o nome). Cada serviço diz de onde veio. */
+export function servicosFinais(info) {
+  const fonte = new Map();
+  for (const s of info.doNome ?? []) if (!fonte.has(s)) fonte.set(s, "nome");
+  if (!info.rede) for (const s of info.doSite ?? []) if (!fonte.has(s)) fonte.set(s, "site");
+  return SERVICOS.filter((s) => fonte.has(s.id)).map((s) => ({ id: s.id, fonte: fonte.get(s.id) }));
+}
+
+/**
+ * Até 15 academias por pedido (a tela manda em lotes). Ids conferidos e só os que estão na busca de academias da mesma área (`permitidos`);
+ * nada de endereço vindo da tela. `permitidos`: função que devolve o conjunto de ids da busca da área (chamada depois de conferir o formato).
+ */
+export async function servicosDasAcademias(pedido, { chave = process.env.GOOGLE_PLACES_KEY, fetcher = fetch, agora = Date.now(), permitidos = null } = {}) {
+  const ids = Array.isArray(pedido?.ids) ? [...new Set(pedido.ids.map(String))] : [];
+  if (!ids.length || ids.length > MAX_POR_PEDIDO || !ids.every((x) => ID_OK.test(x))) throw new ErroServicos(`Mande de 1 a ${MAX_POR_PEDIDO} academias.`);
+  if (permitidos) { const ok = await permitidos(); if (!ids.every((x) => ok.has(x))) throw new ErroServicos("Academia fora da busca desta área."); }
+  if (!chave) throw new ErroServicos("A busca no Google ainda não foi configurada no servidor.", 503);
+  // quais precisam do Google (as guardadas não contam); reserva na cota do mês antes de consultar e corta o que passaria do limite
+  const novas = (await Promise.all(ids.map(async (id) => (guardadoValido(await lerJson(caminho(id)), agora) ? null : id)))).filter(Boolean);
+  const mes = mesDeBrasilia(agora), usadas = await consultasDoMes(agora);
+  const cabem = Math.max(0, LIMITE_MENSAL - usadas), barradas = new Set(novas.slice(cabem));
+  if (novas.length - barradas.size > 0) await gravarJson(caminhoCota(mes), { usadas: usadas + novas.length - barradas.size, limite: LIMITE_MENSAL, atualizadoEm: new Date(agora).toISOString() });
+  const porId = {};
+  await Promise.all(ids.map(async (id) => {
+    if (barradas.has(id)) { porId[id] = null; return; }
+    try {
+      const info = await infoDaAcademia(id, { chave, fetcher, agora });
+      porId[id] = { nota: info.nota, avaliacoes: info.avaliacoes, horario: info.horario, site: info.site, servicos: servicosFinais(info) };
+    } catch { porId[id] = null; }
+  }));
+  return { porId, ...(barradas.size ? { limiteAtingido: true, semCota: barradas.size } : {}) };
+}

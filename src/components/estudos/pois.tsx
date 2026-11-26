@@ -10,9 +10,12 @@ import { Linha, Secao } from "@/components/estudos/blocos";
 import { MapPinned } from "lucide-react";
 import { dentroDaArea, type Geometria } from "@/lib/estudoPonto";
 import { raioQueCobre } from "@/components/estudos/deslocamento";
+import { type InfoAcademia, ROTULO_FONTE, ROTULO_SERVICO, linhaInfo, resumoServicos } from "@/lib/servicosAcademias";
 
-export interface Lugar { nome: string; endereco: string; c: [number, number]; km: number; rede: string | null }
-export interface ResultadoPois { categoria: string; rotulo: string; c: [number, number]; raioKm: number; total: number; cortado?: boolean; lugares: Lugar[]; areaRotulo?: string; /** Lugares que o Google chama de academia mas não são (quadra, campo, parque...), tirados da conta. */ foraDaConta?: number }
+export interface Lugar { /** Id do Google (buscas a partir de 26/11/2026). */ id?: string; nome: string; endereco: string; c: [number, number]; km: number; rede: string | null;
+  /** Horário, nota e serviços (depois de "Ver horários e serviços"); null quando o Google não respondeu para esta academia. */ info?: InfoAcademia | null }
+export interface ResultadoPois { categoria: string; rotulo: string; c: [number, number]; raioKm: number; total: number; cortado?: boolean; lugares: Lugar[]; areaRotulo?: string; /** Já buscou horários e serviços das academias (as mais próximas, até MAX_SERVICOS). */ servicosCarregados?: boolean;
+  /** Academias que ficaram sem consulta porque o limite grátis do mês do Google foi atingido (trava do Atlas). */ servicosSemCota?: number; /** Lugares que o Google chama de academia mas não são (quadra, campo, parque...), tirados da conta. */ foraDaConta?: number }
 export type ModoPois = "nomes" | "numeros";
 
 export const CATEGORIAS_POIS: { id: string; rotulo: string; singular: string }[] = [
@@ -47,6 +50,42 @@ export async function buscarPois(c: [number, number], raioKm: number, categoria:
   if (res.categoria !== "academias") return res;
   const lugares = res.lugares.filter((l) => ehAcademiaConcorrente(l.nome));
   return { ...res, lugares, total: lugares.length, foraDaConta: res.lugares.length - lugares.length };
+}
+
+/** Quantas academias, das mais próximas, têm horário e serviços buscados (cada uma é uma consulta ao Google, guardada por 90 dias). */
+export const MAX_SERVICOS = 80;
+const postEstudos = async (corpo: object) => {
+  const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error ?? "Não consegui buscar agora.");
+  return j;
+};
+const chaveLugar = (l: { nome: string; c: [number, number] }) => `${l.nome}|${l.c[0].toFixed(5)},${l.c[1].toFixed(5)}`;
+/**
+ * Horários, nota e serviços das academias concorrentes (sem as World Gym), das mais próximas até MAX_SERVICOS, em lotes de 15.
+ * Buscas guardadas antes de 26/11/2026 não têm o id do Google de cada lugar: nesse caso a busca é refeita uma vez para pegar os ids.
+ */
+export async function carregarServicos(res: ResultadoPois, aoProgresso?: (feitas: number, total: number) => void): Promise<ResultadoPois> {
+  if (res.categoria !== "academias") return res;
+  let lugares = res.lugares;
+  if (lugares.some((l) => !l.id)) {
+    const novo = (await postEstudos({ acao: "pois", c: res.c, raioKm: res.raioKm, categoria: "academias", comIds: true })) as ResultadoPois;
+    const ids = new Map(novo.lugares.map((l) => [chaveLugar(l), l.id]));
+    lugares = lugares.map((l) => ({ ...l, id: l.id ?? ids.get(chaveLugar(l)) }));
+  }
+  const alvo = lugares.filter((l) => l.id && l.rede !== "World Gym").slice(0, MAX_SERVICOS).map((l) => l.id!);
+  const porId: Record<string, InfoAcademia | null> = {};
+  let falhas = 0, semCota = 0;
+  for (let i = 0; i < alvo.length; i += 15) {
+    aoProgresso?.(i, alvo.length);
+    const lote = alvo.slice(i, i + 15);
+    // um lote com erro fica "sem resposta" e os outros seguem
+    try { const j = (await postEstudos({ acao: "servicos-academias", c: res.c, raioKm: res.raioKm, ids: lote })) as { porId: Record<string, InfoAcademia | null>; semCota?: number }; Object.assign(porId, j.porId); semCota += j.semCota ?? 0; }
+    catch { falhas += 1; for (const id of lote) porId[id] = null; }
+  }
+  if (falhas && falhas * 15 >= alvo.length) throw new Error("O Google não respondeu agora. Tente de novo em instantes.");
+  aoProgresso?.(alvo.length, alvo.length);
+  return { ...res, servicosCarregados: true, servicosSemCota: semCota, lugares: lugares.map((l) => (l.id && l.id in porId ? { ...l, info: porId[l.id] } : l)) };
 }
 
 /** Cor de cada grande rede no mapa (fundo e texto, aproximada da marca), para reconhecer a concorrente de longe, como no Mapfry. */
@@ -95,7 +134,7 @@ export function desenharPois(L: Leaflet, mapa: import("leaflet").Map, grupo: imp
       ? `<div class="poi-num${l.rede ? " rede" : ""}" data-poi-num="${i + 1}"${cr ? ` style="background:${cr[0]};color:${cr[1]}"` : ""}>${i + 1}</div>`
       : `<div class="poi${l.rede ? " poi-rede" : ""}" data-poi-nome="${esc(curto(l.nome))}" data-poi-prioridade="${l.rede ? 0 : 1}"><span class="poi-ponto"${cr ? ` style="background:${cr[0]}"` : ""}></span><span class="poi-nome"${cr ? ` style="background:${cr[0]};color:${cr[1]}"` : ""}>${esc(curto(l.nome))}</span></div>`;
     L.marker(l.c, { zIndexOffset: l.rede ? 600 : 500, icon: L.divIcon({ className: "", iconSize: modo === "numeros" ? [20, 20] : [10, 10], iconAnchor: modo === "numeros" ? [10, 10] : [7, 7], html }) })
-      .bindTooltip(`<strong>${esc(l.nome)}</strong><br/>${esc(l.endereco)}<br/>${l.km.toLocaleString("pt-BR")} km`, { direction: "top" }).addTo(grupo);
+      .bindTooltip(`<strong>${esc(l.nome)}</strong><br/>${esc(l.endereco)}<br/>${l.km.toLocaleString("pt-BR")} km${l.info ? `<br/>${esc(linhaInfo(l.info))}` : ""}`, { direction: "top" }).addTo(grupo);
   }
   // esconde as etiquetas que encostam numa já mostrada (redes primeiro, depois as mais perto)
   const arrumar = () => {
@@ -254,8 +293,42 @@ export function usePoisNoMapa(mapa: { L: Leaflet; mapa: import("leaflet").Map } 
   }, [mapa, res, modo]);
 }
 
+/** Horários, reputação e serviços das academias (sob pedido): botão, resumo da área e a explicação das fontes. */
+function ServicosDaArea({ res, aoMudar }: { res: ResultadoPois; aoMudar?: (r: ResultadoPois) => void }) {
+  const [progresso, setProgresso] = useState<[number, number] | null>(null);
+  const [erro, setErro] = useState("");
+  const buscar = async () => {
+    if (!aoMudar) return;
+    setErro(""); setProgresso([0, 0]);
+    try { aoMudar(await carregarServicos(res, (f, t) => setProgresso([f, t]))); } catch (e) { setErro((e as Error).message); } finally { setProgresso(null); }
+  };
+  if (!res.servicosCarregados) return (
+    <div className="mt-3 rounded-lg border border-dashed px-3 py-2.5 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" onClick={buscar} disabled={!!progresso || !aoMudar}>{progresso ? `Buscando… ${progresso[1] ? `${progresso[0]} de ${progresso[1]}` : ""}` : "Ver horários e serviços"}</Button>
+        <span>Horário, nota e serviços das {Math.min(MAX_SERVICOS, res.lugares.filter((l) => l.rede !== "World Gym").length)} academias mais próximas, pelo Google e pelo site de cada uma (guardado por 90 dias).</span>
+      </div>
+      {erro && <p className="mt-1 text-destructive">{erro}</p>}
+    </div>
+  );
+  const r = resumoServicos(res.lugares.filter((l) => l.rede !== "World Gym").slice(0, MAX_SERVICOS).map((l) => l.info));
+  return (
+    <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2.5 text-xs">
+      <div className="grid gap-2 sm:grid-cols-4">
+        <div><b className="text-base tabular-nums">{r.h24}</b> <span className="text-muted-foreground">abrem 24 horas</span></div>
+        <div><b className="text-base tabular-nums">{r.domingo}</b> <span className="text-muted-foreground">abrem no domingo</span></div>
+        <div><span className="text-muted-foreground">Horário da área: </span><b>{r.abreMaisCedo ?? "—"} às {r.fechaMaisTarde ?? "—"}</b></div>
+        <div><span className="text-muted-foreground">Nota média: </span><b>{r.notaMedia == null ? "—" : r.notaMedia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</b> <span className="text-muted-foreground">({r.comNota} com 5+ avaliações)</span></div>
+      </div>
+      {res.servicosSemCota ? <p className="mt-2 rounded-md bg-warning/10 px-2 py-1.5 text-[12px] text-foreground">Limite grátis do mês atingido: {res.servicosSemCota} {res.servicosSemCota === 1 ? "academia ficou" : "academias ficaram"} sem consulta. Dá para buscar de novo a partir do dia 1º; o que já foi buscado continua valendo.</p> : null}
+      <p className="mt-2"><span className="text-muted-foreground">Modalidades encontradas: </span>{r.porServico.length ? r.porServico.map((s) => `${s.rotulo} ${s.n}`).join(" · ") : "nenhuma"}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">De {r.consultadas} academias consultadas, {r.comServico} têm alguma modalidade além de musculação encontrada; nas outras {r.consultadas - r.comServico} não foi possível encontrar outras modalidades (não quer dizer que não ofereçam). As modalidades vêm do nome da academia e do site quando dá para ler (Instagram não dá; nas grandes redes, só o nome). Horário e nota: Google.{r.semResposta ? ` ${r.semResposta} não tiveram resposta do Google.` : ""}</p>
+    </div>
+  );
+}
+
 /** Seção do estudo com a contagem e a lista numerada (a mesma ordem dos números no mapa). */
-export function SecaoPois({ res }: { res: ResultadoPois }) {
+export function SecaoPois({ res, aoMudar }: { res: ResultadoPois; /** Recebe o resultado com horários e serviços (botão "Ver horários e serviços"). */ aoMudar?: (r: ResultadoPois) => void }) {
   const cat = CATEGORIAS_POIS.find((c) => c.id === res.categoria);
   const total = totalPois(res);
   const redes = [...new Set(res.lugares.map((l) => l.rede).filter((r): r is string => !!r && r !== "World Gym"))];
@@ -271,9 +344,11 @@ export function SecaoPois({ res }: { res: ResultadoPois }) {
           {res.cortado && <div className="mt-2 text-xs text-warning">Área com muitos lugares: a lista mostra os 220 mais perto.</div>}
         </div>
         <div className="max-h-72 overflow-y-auto pr-1 sm:columns-2 sm:gap-6">
-          {res.lugares.map((l, i) => <div key={`${l.nome}-${i}`} className="break-inside-avoid"><Linha rotulo={<><b className="mr-1.5 tabular-nums text-muted-foreground">{i + 1}.</b>{l.rede ? <b>{l.nome}</b> : l.nome}</>} valor={`${l.km.toLocaleString("pt-BR")} km`} /></div>)}
+          {res.lugares.map((l, i) => <div key={`${l.nome}-${i}`} className="break-inside-avoid"><Linha rotulo={<><b className="mr-1.5 tabular-nums text-muted-foreground">{i + 1}.</b>{l.rede ? <b>{l.nome}</b> : l.nome}</>} valor={`${l.km.toLocaleString("pt-BR")} km`} />
+            {l.info && <p className="-mt-1 mb-1 pl-6 text-[11px] text-muted-foreground" title={l.info.servicos.map((s) => `${ROTULO_SERVICO[s.id]}: ${ROTULO_FONTE[s.fonte]}`).join("\n")}>{linhaInfo(l.info)}</p>}</div>)}
         </div>
       </div>
+      {res.categoria === "academias" && <ServicosDaArea res={res} aoMudar={aoMudar} />}
       <p className="mt-2 text-[11px] text-muted-foreground">Fonte: Google. Os números seguem a ordem de distância e são os mesmos do mapa no modo "Números + lista".</p>
     </Secao>
   );

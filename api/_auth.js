@@ -153,7 +153,7 @@ export function ehSoConsulta(req) {
   if (req.query?.modulo !== "estudos") return false;
   let corpo = req.body;
   if (typeof corpo === "string") { try { corpo = JSON.parse(corpo); } catch { return false; } }
-  return corpo?.acao === "pois" || corpo?.acao === "deslocamento" || corpo?.acao === "endereco" || corpo?.acao === "endereco-posicao" || corpo?.acao === "contar-academias" || corpo?.acao === "fotos-rua" || corpo?.acao === "censo-municipio";
+  return corpo?.acao === "pois" || corpo?.acao === "deslocamento" || corpo?.acao === "endereco" || corpo?.acao === "endereco-posicao" || corpo?.acao === "contar-academias" || corpo?.acao === "fotos-rua" || corpo?.acao === "censo-municipio" || corpo?.acao === "servicos-academias";
 }
 
 export async function exigirLogin(req, res, { papeis } = {}) {

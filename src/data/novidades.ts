@@ -27,6 +27,11 @@ export const AUTORA = "Ana Júlia";
 
 export const NOVIDADES: Novidade[] = [
   {
+    id: "2026-11-26-servicos-concorrentes", data: "2026-11-26", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "estudos-de-ponto", artigo: "estudos-de-ponto-unidade",
+    titulo: "Estudos de ponto: horários e serviços das academias concorrentes",
+    texto: "Embaixo da lista das academias concorrentes, o botão Ver horários e serviços mostra quem abre 24 horas e no domingo, o horário da área, a nota no Google e as modalidades que foi possível encontrar pelo nome e pelo site de cada academia, como cross, lutas, dança, pilates, piscina e Wellhub. Quando nada é encontrado, aparece \"não foi possível encontrar outras modalidades\". O PDF do estudo ganhou uma página com esses dados.",
+  },
+  {
     id: "2026-11-26-estudos-sem-censo", data: "2026-11-26", tipo: "melhoria", publico: "todos", autora: AUTORA, tela: "estudos-de-ponto",
     titulo: "Estudos de ponto: aviso de estudo sem Censo, tempo do pedido do Censo e Master vendo todos os estudos",
     texto: "Em cidades onde o Atlas ainda não tem o Censo, a venda prevista sai só do tamanho do imóvel, e dois imóveis do mesmo tamanho davam o mesmo valor sem explicação. Agora o card do estudo mostra \"Sem Censo\", e na aba Estudo o aviso e o botão Buscar o Censo desta cidade ficam em destaque, logo acima do parecer. Depois do pedido, uma barra mostra o tempo desde o pedido e o horário previsto (uns 20 minutos), mesmo saindo e voltando ao estudo. O Master passa a ver os estudos de todos, mesmo quando também faz estudos; edita e apaga só os próprios. E quando o PDF não consegue ser gerado, aparece a mensagem com o motivo ao lado do botão, em vez de não acontecer nada.",

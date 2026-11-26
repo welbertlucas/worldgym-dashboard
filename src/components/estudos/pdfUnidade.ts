@@ -6,6 +6,7 @@ import type { ConteudoPdf, Secao } from "@/lib/estudoPdf";
 import { nomeDoArquivo, ALT_FOTO_MAPA } from "@/lib/estudoPdf";
 import { compararComParecidas, fraseUnidadesProximas, leituraParecidas, CLASSES_RENDA, CORES_IDADE, CORRECAO_POF, FAIXAS_IDADE, reais, type densidadeNaArea, type UnidadeEstudo, type classesNoRaio, type perfilNaArea, type potencialNaArea, type FaixaM2 } from "@/lib/estudoPonto";
 import type { ResultadoPois } from "@/components/estudos/pois";
+import { ROTULO_SERVICO, resumoServicos } from "@/lib/servicosAcademias";
 import { LIMITES_SUGESTAO, linhasSugestoes, textoSugestoes, type ResultadoSugestoes } from "@/components/estudos/sugestoes";
 
 /** Penetração de academias na população (média nacional de ~7%, estimativas do setor): só a conta dos estudos antigos usa, como referência. Fora do PDF e do veredito desde 24/11/2026: a demanda é medida pela fatia do potencial e pela população recomendada, calibradas com a rede. */
@@ -103,8 +104,12 @@ export function nomeNaLista(nome: string, rede: string | null): string {
   const sem = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   return rede && !sem(curto).includes(sem(rede)) ? `${curto} (${rede})` : curto;
 }
+/** Página dos horários, da reputação e dos serviços das academias (só quando foram buscados). */
+export const TITULO_SERVICOS = "Horários e Serviços dos Concorrentes";
+/** Quantas academias entram na tabela da página de serviços (as mais próximas). */
+export const MAX_TABELA_SERVICOS = 26;
 /** Páginas da concorrência: no PDF vêm depois da canibalização, como "Academias concorrentes" é a última camada do mapa (decisão do dono, 24/11/2026). */
-const TITULOS_CONCORRENCIA = ["Análise de Concorrência", "Composição da Concorrência e Academias da Área"];
+const TITULOS_CONCORRENCIA = ["Análise de Concorrência", "Composição da Concorrência e Academias da Área", TITULO_SERVICOS];
 export const separarConcorrencia = (secoes: Secao[]): { antes: Secao[]; concorrencia: Secao[] } => ({ antes: secoes.filter((x) => !TITULOS_CONCORRENCIA.includes(x.titulo)), concorrencia: secoes.filter((x) => TITULOS_CONCORRENCIA.includes(x.titulo)) });
 export function secoesDeMercado(m: DadosMercado): Secao[] {
   const { perfil, renda, area } = m;
@@ -237,6 +242,28 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       tabela: { colunas: ["Nº", "Academia", "km"], larguras: [6.5, 38.5, 9], blocos: 3, linhas: lista.map((l, i) => [String(i + 1), nomeNaLista(l.nome, l.rede), l.km.toLocaleString("pt-BR")]) },
       paragrafo: `Os ${todos.length} lugares estão em ordem de distância ${m.tipo === "unidade" ? "da unidade" : "do ponto"}, em quilômetros; os nomes aparecem resumidos.${fora > 0 ? ` A lista mostra os ${lista.length} mais próximos; outros ${fora} mais distantes ficaram de fora.` : ""}`,
     });
+    // Horários, nota e serviços (quando foram buscados). Não achar um serviço não quer dizer que a academia não ofereça: o texto diz "informam" e
+    // mostra quantas ficaram sem informação; não há frase de lacuna ou oportunidade (a cobertura medida em 26/11/2026 foi baixa).
+    const r = m.pois.servicosCarregados ? resumoServicos(todos.filter((l) => l.info !== undefined).map((l) => l.info)) : null;
+    if (m.pois.servicosCarregados && r && r.consultadas > 0) {
+      const consultadas = todos.map((l, i) => ({ l, i })).filter((x) => x.l.info !== undefined);
+      const um = (n: number) => n.toLocaleString("pt-BR");
+      const txt: string[] = [];
+      txt.push(`Das ${um(r.consultadas)} academias consultadas (as mais próximas), ${um(r.comHorario)} têm horário no Google: ${um(r.h24)} abrem 24 horas e ${um(r.domingo)} abrem no domingo.${r.abreMaisCedo ? ` Na área, a abertura mais cedo é às ${r.abreMaisCedo} e o fechamento mais tarde, às ${r.fechaMaisTarde}.` : ""}`);
+      if (r.notaMedia != null) txt.push(`A nota média no Google é ${r.notaMedia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}, ponderada pelo número de avaliações, entre as ${um(r.comNota)} academias com pelo menos 5 avaliações. O número de avaliações também indica o movimento de cada academia.`);
+      txt.push(r.porServico.length
+        ? `Modalidades encontradas além de musculação: ${r.porServico.map((x) => `${x.rotulo.toLowerCase()} (${um(x.n)})`).join(", ")}, em ${um(r.comServico)} das ${um(r.consultadas)} academias. Nas outras ${um(r.consultadas - r.comServico)} não foi possível encontrar outras modalidades, o que não quer dizer que não ofereçam.`
+        : `Não foi possível encontrar modalidades além de musculação nas academias consultadas, o que não quer dizer que não ofereçam.`);
+      if (m.pois.servicosSemCota) txt.push(`${um(m.pois.servicosSemCota)} ${m.pois.servicosSemCota === 1 ? "academia ficou" : "academias ficaram"} sem consulta porque o limite gratuito mensal do Google foi atingido.`);
+      txt.push("Fontes: horário e nota, Google; modalidades, o nome da academia e o site quando dá para ler (Instagram não dá; nas grandes redes, só o nome).");
+      const linhas = consultadas.slice(0, MAX_TABELA_SERVICOS).map(({ l, i }) => [String(i + 1), nomeNaLista(l.nome, l.rede), l.info ? (l.info.nota == null ? "—" : `${l.info.nota.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} (${um(l.info.avaliacoes)})`) : "—", l.info?.horario ? (l.info.horario.h24 ? "24 horas" : `${l.info.horario.abre}–${l.info.horario.fecha}${l.info.horario.domingo ? " +dom" : ""}`) : "—", l.info ? l.info.servicos.filter((x) => x.id !== "musculacao").map((x) => ROTULO_SERVICO[x.id]).join(", ") || "Não encontradas" : "Sem resposta"]);
+      secoes.push({
+        titulo: TITULO_SERVICOS, novaPagina: true, linhas: [], texto: txt,
+        destaques: [{ valor: um(r.h24), rotulo: "abrem 24 horas" }, { valor: um(r.domingo), rotulo: "abrem no domingo" }, ...(r.notaMedia != null ? [{ valor: r.notaMedia.toLocaleString("pt-BR", { maximumFractionDigits: 1 }), rotulo: "nota média no Google" }] : [])],
+        tabela: { colunas: ["Nº", "Academia", "Nota", "Horário", "Outras modalidades"], larguras: [4, 26, 10, 13, 30], linhas },
+        paragrafo: `A tabela mostra as ${um(linhas.length)} academias mais próximas, com o mesmo número da lista. "+dom" = abre no domingo. "Não encontradas" = não foi possível encontrar outras modalidades além de musculação.`,
+      });
+    }
   }
 
   return secoes;

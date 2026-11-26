@@ -270,6 +270,16 @@ describe("pontos de interesse (server/pois.js)", () => {
     const antes = chamadas;
     const r2 = await buscarPois({ c: [-15.8, -47.9], raioKm: 2, categoria: "academias" }, { chave: "k", fetcher });
     expect(r2.doCache).toBe(true); expect(chamadas).toBe(antes);
+    // id do Google em cada lugar; busca guardada sem id (antes de 26/11/2026) só é refeita quando pedem horários e serviços (comIds)
+    expect(r.lugares[0].id).toBe("places/a");
+    const chave = [...m.keys()][0];
+    m.set(chave, { ...(m.get(chave) as object), lugares: r.lugares.map(({ id: _id, ...l }: { id: string }) => l) });
+    const semPedir = await buscarPois({ c: [-15.8, -47.9], raioKm: 2, categoria: "academias" }, { chave: "k", fetcher });
+    expect(semPedir.doCache).toBe(true); expect(semPedir.lugares[0].id).toBeUndefined();
+    const pedindo = await buscarPois({ c: [-15.8, -47.9], raioKm: 2, categoria: "academias", comIds: true }, { chave: "k", fetcher });
+    expect(pedindo.doCache).toBe(false); expect(pedindo.lugares[0].id).toBe("places/a");
+    const deNovo = await buscarPois({ c: [-15.8, -47.9], raioKm: 2, categoria: "academias", comIds: true }, { chave: "k", fetcher });
+    expect(deNovo.doCache).toBe(true);
     definirArmazem(null);
   });
 

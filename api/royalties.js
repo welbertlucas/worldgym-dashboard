@@ -32,6 +32,7 @@ import { cors, exigirLogin } from "./_auth.js";
 import { enderecoDe } from "../server/freio.js";
 import { ErroEstudos, lerEstudos, modoDe, podeEditar, salvarPontos } from "../server/estudos.js";
 import { ErroPois, buscarPois, contarAcademias } from "../server/pois.js";
+import { ErroServicos, servicosDasAcademias } from "../server/servicosAcademias.js";
 import { lerAlunosHex } from "../server/alunosHex.js";
 import { ErroFichas, lerFichas, salvarFicha } from "../server/fichas.js";
 import { ErroDocumentos, apagarDocumento, baixarArquivo, criarPasta, enviarArquivo, lerDocumentos } from "../server/documentos.js";
@@ -82,13 +83,13 @@ async function estudos(req, res, sessao) {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json(await censoDoPonto(c));
   }
-  if (c.acao === "pois" || c.acao === "deslocamento" || c.acao === "fotos-rua") {
+  if (c.acao === "pois" || c.acao === "deslocamento" || c.acao === "fotos-rua" || c.acao === "servicos-academias") {
     if (modoDe(sessao) === "unidade") {
       const p = Array.isArray(c.c) ? c.c.map(Number) : [];
       const perto = (sessao.unidades ?? []).some((n) => { const u = COORDENADAS_POR_NOME[n]; return u && Math.hypot((u[0] - p[0]) * 110.6, (u[1] - p[1]) * 107) <= 1; });
       if (!perto) return res.status(403).json({ error: "busca só em volta da sua unidade" });
     }
-    return res.status(200).json(c.acao === "pois" ? await buscarPois(c) : c.acao === "fotos-rua" ? await fotosDaRua(c) : await buscarDeslocamento(c));
+    return res.status(200).json(c.acao === "pois" ? await buscarPois(c) : c.acao === "fotos-rua" ? await fotosDaRua(c) : c.acao === "servicos-academias" ? await servicosDasAcademias(c, { permitidos: async () => new Set((await buscarPois({ c: c.c, raioKm: c.raioKm, categoria: "academias", comIds: true })).lugares.map((l) => l.id)) }) : await buscarDeslocamento(c));
   }
   if (!podeEditar(sessao)) return res.status(403).json({ error: "só quem faz estudos de ponto pode salvar" });
   if (c.acao === "pontos") return res.status(200).json({ ok: true, pontos: await salvarPontos(c.pontos, sessao) });
@@ -285,7 +286,7 @@ export default async function handler(req, res) {
     if (!dados) return res.status(200).json({ disponivel: false });
     return res.status(200).json({ disponivel: true, ...dados });
   } catch (e) {
-    if (e instanceof ErroQualidade || e instanceof ErroEscalas || e instanceof ErroObras || e instanceof ErroFichas || e instanceof ErroDocumentos || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroDeslocamento || e instanceof ErroFotosRua || e instanceof ErroCensoMun || e instanceof ErroCensoPedido) return res.status(e.status).json({ error: e.message });
+    if (e instanceof ErroQualidade || e instanceof ErroEscalas || e instanceof ErroObras || e instanceof ErroFichas || e instanceof ErroDocumentos || e instanceof ErroEstudos || e instanceof ErroPois || e instanceof ErroServicos || e instanceof ErroDeslocamento || e instanceof ErroFotosRua || e instanceof ErroCensoMun || e instanceof ErroCensoPedido) return res.status(e.status).json({ error: e.message });
     return res.status(503).json({ error: `não consegui ler ${modulo === "juridico" ? "o jurídico" : modulo === "qualidade" ? "a qualidade" : modulo === "estudos" ? "os estudos de ponto" : modulo === "escalas" ? "as escalas" : modulo === "obras" ? "as obras" : modulo === "fichas" ? "as fichas das unidades" : modulo === "documentos" ? "os documentos" : "os royalties"} agora` });
   }
 }
