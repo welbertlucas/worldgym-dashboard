@@ -46,7 +46,7 @@ export const MENUS_SO_DONO = new Set(["unidades-em-obra"]);
 /** Dos menus reservados, os que ainda não têm tela (selo "Em breve" na barra lateral). */
 export const MENUS_EM_BREVE = new Set<string>([]);
 /** Menus recém-liberados (selo "Novidade" em vermelho na barra lateral), até o dono pedir para tirar. */
-export const MENUS_NOVIDADE = new Set(["estudos-de-ponto", "escalas", "unidades-em-obra"]);
+export const MENUS_NOVIDADE = new Set(["franqueadora", "qualidade", "estudos-de-ponto", "escalas", "unidades-em-obra"]);
 export const ABAS_SO_DONO = new Set(["gerencial/despesas"]);
 /** Todos os menus que têm endereço (#id). */
 export const TODOS_OS_MENUS: NavItem[] = [...NAV_ITEMS, FRANQUEADORA, DOCUMENTOS, QUALIDADE, ESCALAS, RELATORIOS, ESTUDOS_DE_PONTO, UNIDADES_EM_OBRA, ...NAV_RODAPE, USUARIOS];

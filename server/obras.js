@@ -1,6 +1,6 @@
 // Unidades em obra (menu "Unidades em obra"): acompanhamento das unidades em construção até a inauguração, por marcos com data prevista e data real.
 // Tudo fica no Blob privado (`obras/obras.json`); o repositório é público, então nada daqui vai para o código.
-// Quem vê: o dono e quem ele liberou (`verObras`, conferido na API). Quem muda: só o dono; quem foi liberado só consulta.
+// Quem vê: dono, Master e quem tem acesso a unidades e foi liberado (`verObras`, conferido na API). Quem cadastra e muda: dono e Master; apagar uma obra, só o dono.
 import { gravarJson, lerJson } from "./armazem.js";
 
 export const CAMINHO_OBRAS = "obras/obras.json";
@@ -55,11 +55,12 @@ export async function lerObras() {
   return Array.isArray(d?.obras) ? d.obras : [];
 }
 
-const exigirDono = (sessao) => { if (sessao?.papel !== "dono") throw new ErroObras("só o dono muda as obras", 403); };
+const exigirEditor = (sessao) => { if (sessao?.papel !== "dono" && sessao?.papel !== "master") throw new ErroObras("só o dono e o Master mudam as obras", 403); };
+const exigirDono = (sessao) => { if (sessao?.papel !== "dono") throw new ErroObras("só o dono apaga obras", 403); };
 
 /** Cria ou atualiza uma obra (pelo id). */
 export async function salvarObra(sessao, obra, { agora = new Date() } = {}) {
-  exigirDono(sessao);
+  exigirEditor(sessao);
   const nova = limparObra(obra);
   const obras = await lerObras();
   const i = obras.findIndex((x) => x.id === nova.id);

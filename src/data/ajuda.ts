@@ -284,7 +284,7 @@ const ARTIGOS_ESCRITOS: ArtigoAjuda[] = [
     "Aluguel é dado comercial: fica guardado só no Atlas, com acesso do dono, e não vai para o repositório. Os cards das unidades sem aluguel levantado aparecem primeiro.",
   ], { tela: "franqueadora/unidades", atualizadoEm: "2026-11-26" }),
   a("dono", "dono-unidades-em-obra", "Unidades em obra: como cadastrar e acompanhar", "Marcos, atrasos e quem pode ver.", [
-    "O menu Unidades em obra acompanha as unidades em construção até a inauguração. Só você cadastra e muda as obras; quem você liberar em Usuários (Pode ver unidades em obra) consulta.",
+    "O menu Unidades em obra acompanha as unidades em construção até a inauguração. Você e o Master cadastram e mudam as obras, e só você apaga uma obra. Quem tem acesso a unidades consulta, se você liberar em Usuários (Pode ver unidades em obra).",
     "Nova obra: informe a unidade, a cidade, o modelo, a área e o responsável. A obra já nasce com oito marcos: contrato do ponto assinado, projeto aprovado, alvará, início da obra, fim da obra, equipamentos instalados, vistoria da franqueadora e inauguração. Dá para renomear, apagar e acrescentar marcos, e a ordem da lista é a ordem da obra.",
     "Cada marco tem a data prevista e, quando acontece, a data real (o botão Hoje preenche a de hoje). A obra fica Atrasada quando algum marco passou da data prevista sem data real; sem data prevista, o marco não conta como atraso. A inauguração prevista é a data do último marco.",
     "No alto da tela: obras em andamento, atrasadas, as que inauguram em até 90 dias e as já inauguradas. Os cards mostram as atrasadas primeiro. As obras ficam guardadas só no Atlas, com acesso protegido.",

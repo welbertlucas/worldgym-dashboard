@@ -83,12 +83,12 @@ export const preencheChecklist = (u) => u?.papel === "dono" || (u?.papel === "un
 // "Faz estudos de ponto" fica gravado em `fazEstudos`. O campo antigo `verEstudos` (que só mostrava o menu "Em breve") NÃO vale mais:
 // quem o tinha não ganha a visão completa dos estudos. A sessão e a tela continuam chamando a permissão de `verEstudos`.
 export const verEstudos = (u) => u?.papel === "dono" || u?.fazEstudos === true;
-export const verObras = (u) => u?.papel === "dono" || u?.verObras === true;
+export const verObras = (u) => u?.papel === "dono" || u?.papel === "master" || u?.verObras === true;
 /** Menu Escalas (escala 5x2 da equipe, com nomes de colaboradores): o dono e todo Master; quem tem acesso a unidades, só se o dono liberou (`verEscalas` na pessoa); vê só as suas unidades. */
 export const verEscalas = (u) => u?.papel === "dono" || u?.papel === "master" || u?.verEscalas === true;
 /** Menu Documentos (contrato social, alvarás e outros arquivos das unidades): o dono e todo Master veem todas as unidades; quem tem acesso a unidades, só com a permissão "acessar documentos" (`acessaDocumentos`, campo próprio) e só as suas. */
 export const verDocumentos = (u) => u?.papel === "dono" || u?.papel === "master" || (u?.papel === "unidades" && u.acessaDocumentos === true);
-export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel === "unidades" && u.geraRelatorios === true, verRoyalties: verRoyalties(u), verJuridico: u.papel === "unidades" && u.verJuridico === true, verQualidade: u.papel !== "dono" && u.verQualidade === true, preencheChecklist: preencheChecklist(u), verEstudos: u.papel !== "dono" && u.fazEstudos === true, verObras: u.papel !== "dono" && u.verObras === true, verEscalas: u.papel === "unidades" && u.verEscalas === true, acessaDocumentos: u.papel === "unidades" && u.acessaDocumentos === true, trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
+export const publico = (u) => ({ id: u.id, nome: u.nome, email: u.email, papel: u.papel, unidades: u.unidades ?? [], ativo: u.ativo !== false, resumo: u.resumo !== false, gerenciaAcessos: gerenciaAcessos(u), geraRelatorios: u.papel === "unidades" && u.geraRelatorios === true, verRoyalties: verRoyalties(u), verJuridico: u.papel === "unidades" && u.verJuridico === true, verQualidade: u.papel !== "dono" && u.verQualidade === true, preencheChecklist: preencheChecklist(u), verEstudos: u.papel !== "dono" && u.fazEstudos === true, verObras: u.papel === "unidades" && u.verObras === true, verEscalas: u.papel === "unidades" && u.verEscalas === true, acessaDocumentos: u.papel === "unidades" && u.acessaDocumentos === true, trocarSenha: precisaTrocarSenha(u), criadoEm: u.criadoEm });
 
 /**
  * Quem não é dono, mas gerencia acessos (ator com gerenciaAcessos), não mexe na conta do dono nem na de outro que
@@ -230,7 +230,8 @@ export async function atualizarUsuario(id, campos, ator = null) {
   if (campos.verObras !== undefined) u.verObras = Boolean(campos.verObras);
   if (campos.verEscalas !== undefined) u.verEscalas = Boolean(campos.verEscalas);
   if (u.papel !== "unidades") delete u.verEscalas; // dono e Master sempre veem; a marca só vale para quem tem acesso a unidades
-  if (u.papel === "dono") { delete u.verEstudos; delete u.fazEstudos; delete u.verObras; } // o dono sempre vê
+  if (u.papel === "dono") { delete u.verEstudos; delete u.fazEstudos; } // o dono sempre vê
+  if (u.papel !== "unidades") delete u.verObras; // dono e Master sempre veem as obras; a marca só vale para quem tem acesso a unidades
   if (campos.acessaDocumentos !== undefined) u.acessaDocumentos = Boolean(campos.acessaDocumentos);
   if (u.papel !== "unidades") delete u.acessaDocumentos; // dono e Master sempre acessam; a marca só vale para quem tem acesso a unidades
   await salvar(lista);

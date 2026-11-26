@@ -281,7 +281,7 @@ describe("acessos, níveis e registro", () => {
     expect((await post(master.token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "unidades", unidades: ["Gama"], verJuridico: true })).code).toBe(403);
   });
 
-  it("estudos de ponto e unidades em obra: o dono vê; os outros só se ele liberar cada menu; ninguém além do dono libera", async () => {
+  it("estudos de ponto e unidades em obra: o dono vê; Master sempre vê as obras; os outros só se ele liberar cada menu; ninguém além do dono libera", async () => {
     const dono = await acesso.criarDono({ nome: "Dono", email: "dono@exemplo.com", senha: "senha-do-dono-123" });
     const tokenDono = criarTokenUsuario(dono.id).token;
     const post = (token: string, body: any) => chama(usuarios, com(token, { method: "POST", body }));
@@ -291,15 +291,20 @@ describe("acessos, níveis e registro", () => {
     const ve = async (t: string) => (await chama(login, com(t, { method: "GET" }))).body.usuario;
 
     expect(await ve(tokenDono)).toMatchObject({ verEstudos: true, verObras: true });
-    expect(await ve(token)).toMatchObject({ verEstudos: false, verObras: false });
-    expect((await post(tokenDono, { acao: "atualizar", id: c.usuario.id, verObras: true })).body.usuario).toMatchObject({ verEstudos: false, verObras: true });
-    expect(await ve(token)).toMatchObject({ verEstudos: false, verObras: true });
+    expect(await ve(token)).toMatchObject({ verEstudos: false, verObras: true }); // Master sempre vê as obras
+    // quem tem acesso a unidades só vê com a liberação
+    const u = (await post(tokenDono, { acao: "criar", nome: "Uma Unidade", email: "uni@exemplo.com", papel: "unidades", unidades: ["Gama"] })).body;
+    await trocaSenha(u.usuario.id, u.senhaProvisoria);
+    const tokenUni = criarTokenUsuario(u.usuario.id).token;
+    expect(await ve(tokenUni)).toMatchObject({ verObras: false });
+    expect((await post(tokenDono, { acao: "atualizar", id: u.usuario.id, verObras: true })).body.usuario).toMatchObject({ verObras: true });
+    expect(await ve(tokenUni)).toMatchObject({ verObras: true });
     // quem gerencia acessos não libera
     await post(tokenDono, { acao: "atualizar", id: c.usuario.id, gerenciaAcessos: true });
     expect((await post(token, { acao: "atualizar", id: c.usuario.id, verEstudos: true })).code).toBe(403);
     expect((await post(token, { acao: "criar", nome: "Bia", email: "bia@exemplo.com", papel: "master", verEstudos: true })).code).toBe(403);
     // criar já com a liberação
-    const novo = (await post(tokenDono, { acao: "criar", nome: "Caio", email: "caio@exemplo.com", papel: "master", verEstudos: true, verObras: true })).body.usuario;
+    const novo = (await post(tokenDono, { acao: "criar", nome: "Caio", email: "caio@exemplo.com", papel: "unidades", unidades: ["Gama"], verEstudos: true, verObras: true })).body.usuario;
     expect(novo).toMatchObject({ verEstudos: true, verObras: true });
   });
 

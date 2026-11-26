@@ -136,7 +136,7 @@ export function AcessosTab() {
               {mostrados.map((u) => (
                 <tr key={u.id} className="border-t border-border align-top">
                   <td className="px-5 py-3"><div className="font-medium text-foreground"><button type="button" onClick={() => setDetalhe(u)} className="text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" title="Ver último acesso e histórico">{u.nome}</button>{!u.ativo && <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Desativado</span>}</div><div className="text-xs text-muted-foreground">{u.email}</div></td>
-                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel === "unidades" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Edita qualidade</span>}{u.papel === "unidades" && u.preencheChecklist && <span className="block text-xs text-muted-foreground">Preenche checklist</span>}{u.papel === "unidades" && u.acessaDocumentos && <span className="block text-xs text-muted-foreground">Acessa documentos</span>}{u.verEstudos && <span className="block text-xs text-muted-foreground">Faz estudos de ponto</span>}{u.verObras && <span className="block text-xs text-muted-foreground">Vê unidades em obra</span>}</td>
+                  <td className="px-3 py-3">{NIVEL[u.papel]}{u.gerenciaAcessos && <span className="block text-xs text-muted-foreground">Gerencia acessos</span>}{u.geraRelatorios && <span className="block text-xs text-muted-foreground">Gera relatórios</span>}{u.papel === "unidades" && u.verRoyalties && <span className="block text-xs text-muted-foreground">Vê royalties</span>}{u.papel === "unidades" && u.verJuridico && <span className="block text-xs text-muted-foreground">Vê jurídico</span>}{u.papel !== "dono" && u.verQualidade && <span className="block text-xs text-muted-foreground">Edita qualidade</span>}{u.papel === "unidades" && u.preencheChecklist && <span className="block text-xs text-muted-foreground">Preenche checklist</span>}{u.papel === "unidades" && u.acessaDocumentos && <span className="block text-xs text-muted-foreground">Acessa documentos</span>}{u.verEstudos && <span className="block text-xs text-muted-foreground">Faz estudos de ponto</span>}{u.papel === "unidades" && u.verObras && <span className="block text-xs text-muted-foreground">Vê unidades em obra</span>}</td>
                   <td className="px-3 py-3 text-muted-foreground" title={u.unidades.join(", ")}>{u.papel === "unidades" ? `${u.unidades.length} ${u.unidades.length === 1 ? "unidade" : "unidades"}` : "Todas"}</td>
                   <td className="px-3 py-3 text-muted-foreground tabular-nums">{ultimoAcesso.has(u.email) ? quando(ultimoAcesso.get(u.email)!) : "Nunca entrou"}</td>
                   <td className="px-3 py-3">
@@ -263,7 +263,7 @@ function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSa
     e.preventDefault();
     setEnviando(true);
     setErro("");
-    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties, verJuridico: juridico, verQualidade: qualidade, preencheChecklist: papel === "unidades" && preenche, verEstudos: estudos, verObras: obras, verEscalas: papel === "unidades" && escalas, acessaDocumentos: papel === "unidades" && documentos } : {}) });
+    const r = await onSalvar({ nome, email, papel, unidades: papel === "unidades" ? marcadas : [], resumo, ...(podeLiberar ? { gerenciaAcessos: papel === "master" && gerencia, geraRelatorios: relatorios, verRoyalties: papel === "unidades" && royalties, verJuridico: juridico, verQualidade: qualidade, preencheChecklist: papel === "unidades" && preenche, verEstudos: estudos, verObras: papel === "unidades" && obras, verEscalas: papel === "unidades" && escalas, acessaDocumentos: papel === "unidades" && documentos } : {}) });
     setEnviando(false);
     if (r) return setErro(r);
     if (!inicial) { setNome(""); setEmail(""); setMarcadas([]); setPapel("master"); setResumo(true); setGerencia(false); setRelatorios(false); setJuridico(false); setQualidade(false); setPreenche(false); setEstudos(false); setObras(false); setDocumentos(false); }
@@ -353,10 +353,10 @@ function FormularioAcesso({ unidades, inicial, semente = null, podeLiberar, onSa
           <span>Pode usar o Gerador de escalas <span className="block text-xs text-muted-foreground">Mostra o menu Gerador de escalas, só com as unidades marcadas acima. O Master e o dono sempre usam.</span></span>
         </label>
       )}
-      {podeLiberar && (
+      {podeLiberar && papel === "unidades" && (
         <label className="flex items-start gap-2 text-sm text-foreground">
           <input type="checkbox" checked={obras} onChange={(e) => setObras(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-input accent-[hsl(var(--primary))]" />
-          <span>Pode ver unidades em obra <span className="block text-xs text-muted-foreground">Mostra o menu Unidades em obra, para consultar as obras. Só o dono cadastra e muda; sem esta liberação, só o dono vê.</span></span>
+          <span>Pode ver unidades em obra <span className="block text-xs text-muted-foreground">Mostra o menu Unidades em obra, para consultar as obras. O dono e o Master sempre veem, cadastram e mudam; só o dono apaga.</span></span>
         </label>
       )}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}

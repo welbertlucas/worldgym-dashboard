@@ -101,7 +101,7 @@ export const CABECALHO_VER_COMO = "X-Atlas-Ver-Como";
 // A permissão de gerar relatórios (do dono) vale também na simulação: o dono testa o relatório com os dados do nível que está vendo.
 export function aplicarVerComo(sessao, pedido, nomesValidos = Object.values(UNIT_NAMES)) {
   if (!sessao || sessao.papel !== "dono" || typeof pedido !== "string" || !pedido) return sessao;
-  if (pedido === "master") return { ...sessao, papel: "master", unidades: [], gerenciaAcessos: false, verJuridico: true, verQualidade: true, editaQualidade: false, preencheChecklist: false, verEstudos: false, verObras: false, verEscalas: true, verDocumentos: true, papelReal: "dono" };
+  if (pedido === "master") return { ...sessao, papel: "master", unidades: [], gerenciaAcessos: false, verJuridico: true, verQualidade: true, editaQualidade: false, preencheChecklist: false, verEstudos: false, verObras: true, verEscalas: true, verDocumentos: true, papelReal: "dono" };
   if (!pedido.startsWith("unidades:")) return sessao;
   let nomes = [];
   try { nomes = decodeURIComponent(pedido.slice(9)).split("|").map((n) => n.trim()); } catch { return sessao; }

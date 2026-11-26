@@ -8,16 +8,16 @@ import {
   type Marco, type Obra, dataBR, dataCurta, diasDeAtraso, hojeLocal, inauguracao, novoId, obraNova, ordenar, progresso, proximoMarco, resumoDasObras, situacao,
 } from "@/lib/obras";
 
-type Estado = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; obras: Obra[]; podeEditar: boolean };
+type Estado = { fase: "carregando" } | { fase: "erro"; motivo: "permissao" | "falha" } | { fase: "pronto"; obras: Obra[]; podeEditar: boolean; podeApagar?: boolean };
 
-/** Pede as obras à API. A permissão é conferida no servidor a cada pedido; quem muda é só o dono. */
+/** Pede as obras à API. A permissão é conferida no servidor a cada pedido; dono e Master mudam; só o dono apaga. */
 export async function carregarObras(): Promise<Estado> {
   try {
     const res = await authFetch(`${API_BASE}/obras`);
     if (res.status === 403) return { fase: "erro", motivo: "permissao" };
     if (!res.ok) return { fase: "erro", motivo: "falha" };
-    const j = (await res.json()) as { obras: Obra[]; podeEditar: boolean };
-    return { fase: "pronto", obras: j.obras ?? [], podeEditar: Boolean(j.podeEditar) };
+    const j = (await res.json()) as { obras: Obra[]; podeEditar: boolean; podeApagar?: boolean };
+    return { fase: "pronto", obras: j.obras ?? [], podeEditar: Boolean(j.podeEditar), podeApagar: Boolean(j.podeApagar) };
   } catch {
     return { fase: "erro", motivo: "falha" };
   }
@@ -71,7 +71,7 @@ export function ObrasLista({ obras, abrir, hoje = hojeLocal() }: { obras: Obra[]
 
 const campo = "h-9 w-full rounded-md border border-border bg-background px-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted/40 disabled:text-muted-foreground";
 
-function ObraDialog({ inicial, podeEditar, existe, salvar, apagar, fechar }: { inicial: Obra; podeEditar: boolean; existe: boolean; salvar: (o: Obra) => Promise<void>; apagar: (id: string) => Promise<void>; fechar: () => void }) {
+function ObraDialog({ inicial, podeEditar, podeApagar = false, existe, salvar, apagar, fechar }: { inicial: Obra; podeEditar: boolean; podeApagar?: boolean; existe: boolean; salvar: (o: Obra) => Promise<void>; apagar: (id: string) => Promise<void>; fechar: () => void }) {
   const [o, setO] = useState<Obra>(inicial);
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -108,7 +108,7 @@ function ObraDialog({ inicial, podeEditar, existe, salvar, apagar, fechar }: { i
     <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Obra">
       <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-border bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-3">
-          <div><h3 className="font-display text-xl font-medium">{existe ? o.nome || "Obra" : "Nova obra"}</h3><p className="text-sm text-muted-foreground">{podeEditar ? "Cada marco tem a data prevista e, quando acontece, a data real." : "Só o dono muda as obras; aqui você consulta."}</p></div>
+          <div><h3 className="font-display text-xl font-medium">{existe ? o.nome || "Obra" : "Nova obra"}</h3><p className="text-sm text-muted-foreground">{podeEditar ? "Cada marco tem a data prevista e, quando acontece, a data real." : "Só o dono e o Master mudam as obras; aqui você consulta."}</p></div>
           <Button variant="ghost" onClick={fechar}>Fechar</Button>
         </div>
         {erro && <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{erro}</p>}
@@ -150,7 +150,7 @@ function ObraDialog({ inicial, podeEditar, existe, salvar, apagar, fechar }: { i
         {podeEditar && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
             <Button onClick={guardar} disabled={ocupado || !o.nome.trim()}>{ocupado ? "Salvando…" : "Salvar"}</Button>
-            {existe && <Button variant="outline" onClick={excluir} disabled={ocupado} className="text-destructive">Apagar obra</Button>}
+            {existe && podeApagar && <Button variant="outline" onClick={excluir} disabled={ocupado} className="text-destructive">Apagar obra</Button>}
           </div>
         )}
       </div>
@@ -204,7 +204,7 @@ export function ObrasTab() {
       </div>
       <ObrasConteudo estado={estado} abrir={(o) => setAberta({ obra: o, existe: true })} nova={() => setAberta({ obra: obraNova(), existe: false })} />
       {dialogo && (
-        <ObraDialog key={dialogo.obra.id} inicial={dialogo.obra} existe={dialogo.existe} podeEditar={podeEditar}
+        <ObraDialog key={dialogo.obra.id} inicial={dialogo.obra} existe={dialogo.existe} podeEditar={podeEditar} podeApagar={estado.fase === "pronto" && estado.podeApagar === true}
           salvar={async (o) => { await post({ acao: "salvar", obra: o }); setAberta(null); await recarregar(); }}
           apagar={async (id) => { await post({ acao: "apagar", id }); setAberta(null); await recarregar(); }}
           fechar={() => setAberta(null)} />

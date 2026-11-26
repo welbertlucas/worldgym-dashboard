@@ -4,7 +4,7 @@
 //     POST (application/octet-stream, cabeçalho X-Atlas-Documento com { unidade, nome, pastaId }) -> envia; POST { acao: "pasta" | "apagar", ... }.
 //     Dono e Master, todas as unidades; unidades só com a permissão "acessar documentos" e só as suas (server/documentos.js).
 //   GET /api/fichas -> { unidades: [{ nome, modelo, m2, abertura, vendas, alunos, ficha }] }; POST { acao: "salvar", unidade, ficha } (só o dono: aluguel é dado comercial).
-//   GET /api/obras -> { obras, podeEditar }; POST { acao: "salvar", obra } | { acao: "apagar", id } (só o dono muda; quem foi liberado em verObras consulta).
+//   GET /api/obras -> { obras, podeEditar }; POST { acao: "salvar", obra } | { acao: "apagar", id } (dono e Master cadastram e mudam, só o dono apaga; quem tem acesso a unidades e foi liberado em verObras consulta).
 //   GET /api/escalas -> { unidades, prazo, mudaRegras, papel }: as unidades que a pessoa enxerga (dono e Master, todas; unidades, só as suas, e só com a marca verEscalas).
 //   POST /api/escalas { acao: "listar" | "ler" | "achar" | "ultima" | "mes" | "salvar" | "apagar" | "versoes" | "restaurar" | "equipe-ler" | "equipe-salvar" |
 //     "config-ler" | "config-salvar" | "prazo-ler" | "prazo-salvar" | "importar", ... } -> escalas da equipe (nomes de colaboradores: Blob privado, permissão por unidade a cada pedido).
@@ -193,7 +193,7 @@ async function fichas(req, res, sessao) {
 }
 
 async function obras(req, res, sessao) {
-  if (req.method === "GET") return res.status(200).json({ obras: await lerObras(), podeEditar: sessao.papel === "dono" });
+  if (req.method === "GET") return res.status(200).json({ obras: await lerObras(), podeEditar: sessao.papel === "dono" || sessao.papel === "master", podeApagar: sessao.papel === "dono" });
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
   const { acao, ...c } = doCorpo(req);
   if (acao === "salvar") return res.status(200).json({ obra: await salvarObra(sessao, c.obra) });

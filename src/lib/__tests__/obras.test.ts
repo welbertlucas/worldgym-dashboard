@@ -85,9 +85,13 @@ describe("servidor: guardar as obras", () => {
     expect(await S.lerObras()).toEqual([]);
     await expect(S.apagarObra(dono, "obra1")).rejects.toMatchObject({ status: 404 });
   });
-  it("quem não é o dono não muda nada", async () => {
-    await expect(S.salvarObra(master, valida())).rejects.toMatchObject({ status: 403 });
+  it("o Master cadastra e muda, mas não apaga; quem tem acesso a unidades não muda nada", async () => {
+    const unidade = { papel: "unidades", nome: "Unidade Teste" };
+    await expect(S.salvarObra(unidade, valida())).rejects.toMatchObject({ status: 403 });
+    await S.salvarObra(master, valida());
+    expect((await S.lerObras()).map((o: { id: string }) => o.id)).toEqual(["obra1"]);
     await expect(S.apagarObra(master, "obra1")).rejects.toMatchObject({ status: 403 });
+    await expect(S.apagarObra(unidade, "obra1")).rejects.toMatchObject({ status: 403 });
   });
   it("confere nome, datas, m², marcos e identificadores", async () => {
     await expect(S.salvarObra(dono, valida({ nome: "  " }))).rejects.toMatchObject({ status: 400 });
