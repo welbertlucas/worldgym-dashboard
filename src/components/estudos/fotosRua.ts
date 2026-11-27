@@ -7,7 +7,6 @@ import type { ConteudoPdf } from "@/lib/estudoPdf";
 export interface FotosDaRua { fotos: { rotulo: string; dados: string }[]; data: string | null; distanciaM: number | null; motivo: "sem-imagem" | "indisponivel" | "limite" | null }
 type PaginaFotos = NonNullable<ConteudoPdf["fotosDaRegiao"]>[number];
 
-let liberado = false;
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 /** "2024-03" → "mar/2024". */
 export const mesAno = (d: string | null) => {
@@ -15,12 +14,8 @@ export const mesAno = (d: string | null) => {
   return m ? `${MESES[Number(m[2]) - 1] ?? m[2]}/${m[1]}` : null;
 };
 
-/** Busca as fotos; null quando a pessoa não autorizou mandar a posição ou o servidor falhou (o PDF sai sem o slide). */
+/** Busca as fotos (sem perguntar, pedido do dono em 26/11/2026); null quando o servidor falhou (o PDF sai sem o slide). */
 export async function buscarFotosDaRua(c: [number, number], pontoNovo: boolean): Promise<FotosDaRua | null> {
-  if (pontoNovo && !liberado) {
-    if (typeof window === "undefined" || !window.confirm("Para as fotos da rua no PDF, a posição do ponto será enviada ao Google (Street View). Continuar?")) return null;
-    liberado = true;
-  }
   try {
     const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "fotos-rua", c }) });
     if (!r.ok) return null;

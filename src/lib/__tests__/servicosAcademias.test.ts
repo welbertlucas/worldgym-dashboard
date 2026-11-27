@@ -4,7 +4,7 @@ import * as S from "../../../server/servicosAcademias.js";
 // @ts-expect-error módulo JS do servidor
 import { definirArmazem } from "../../../server/armazem.js";
 import { linhaInfo, resumoServicos, type InfoAcademia } from "@/lib/servicosAcademias";
-import { secoesDeMercado, TITULO_SERVICOS, type DadosMercado } from "@/components/estudos/pdfUnidade";
+import { secoesDeMercado, TITULO_SERVICOS, TITULO_TABELA_SERVICOS, type DadosMercado } from "@/components/estudos/pdfUnidade";
 
 // Academias, sites e horários INVENTADOS.
 const resp = (corpo: unknown, extra: { status?: number; headers?: Record<string, string> } = {}) =>
@@ -196,8 +196,11 @@ describe("tela e PDF", () => {
     expect(secoesDeMercado(base(pois)).map((s) => s.titulo)).not.toContain(TITULO_SERVICOS);
     const s = secoesDeMercado(base({ ...pois, servicosCarregados: true })).find((x) => x.titulo === TITULO_SERVICOS)!;
     expect(s.texto!.join(" ")).toContain("não foi possível encontrar outras modalidades");
-    expect(s.tabela!.linhas[0]).toEqual(["1", "Academia Exemplo 1", "4,5 (20)", "06:00–22:00", "Pilates"]);
-    expect(s.tabela!.linhas[1][4]).toBe("Não encontradas");
+    expect(s.grafico).toMatchObject({ tipo: "rosca" });
+    expect(s.graficos!.map((g) => g.titulo)).toEqual(["Modalidades além de musculação: quantas academias oferecem", "Nota no Google"]);
+    const tb = secoesDeMercado(base({ ...pois, servicosCarregados: true })).find((x) => x.titulo === TITULO_TABELA_SERVICOS)!;
+    expect(tb.tabela!.linhas[0]).toEqual(["1", "Academia Exemplo 1", "4,5 (20)", "06:00–22:00", "Pilates"]);
+    expect(tb.tabela!.linhas[1][4]).toBe("Não encontradas");
     // limite do mês: avisa quantas ficaram sem consulta; se nenhuma foi consultada, a página não entra
     const comLimite = secoesDeMercado(base({ ...pois, servicosCarregados: true, servicosSemCota: 3 } as never)).find((x) => x.titulo === TITULO_SERVICOS)!;
     expect(comLimite.texto!.join(" ")).toContain("limite gratuito mensal do Google");

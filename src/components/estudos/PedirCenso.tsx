@@ -59,7 +59,6 @@ export function PedirCenso({ c, aoChegar }: { c: [number, number]; /** Busca o C
   }, [fase]); // eslint-disable-line react-hooks/exhaustive-deps
   const pedir = async () => {
     // estudo de ponto é estratégia comercial: a posição vai ao Mapbox (só para achar o estado) e o pedido segue ao GitHub por um código
-    if (!window.confirm(`Para buscar o Censo desta cidade, a posição do ponto será enviada ao Mapbox (só para achar o estado). O pedido segue ao GitHub por um código, sem endereço nem nome da cidade, e leva uns ${ESTIMATIVA_MIN} minutos. Continuar?`)) return;
     setFase("enviando"); setErro("");
     try {
       const r = await pedirCensoDaCidade(c);

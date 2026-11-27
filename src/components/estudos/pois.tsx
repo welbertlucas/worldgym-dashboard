@@ -175,7 +175,7 @@ export function AcoesPois({ modo, setModo, categoria, atualizar, buscando, outro
   );
 }
 
-/** Controle "Academias concorrentes" (no canto de baixo do mapa): categoria, raio e buscar. `aviso`: pergunta antes de mandar a posição ao Google (pontos novos). */
+/** Controle "Academias concorrentes" (no canto de baixo do mapa): categoria, raio e buscar. A posição vai ao Google sem perguntar (aviso retirado a pedido do dono, 26/11/2026); `aviso` ficou só para não mudar quem chama. */
 export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temResultado, area, res, embutido }: {
   centro: [number, number] | null; aviso: boolean; aoResultado: (r: ResultadoPois | null) => void; modo: ModoPois; setModo: (m: ModoPois) => void; temResultado: boolean;
   /** O resultado mostrado (para o cartão com o total, como no Mapfry). */
@@ -190,11 +190,8 @@ export function ControlePois({ centro, aviso, aoResultado, modo, setModo, temRes
   const [raio, setRaio] = useState(2);
   const [buscando, setBuscando] = useState(false);
   const [erro, setErro] = useState("");
-  const avisou = useRef(false);
   const buscar = async () => {
     if (!centro) return;
-    if (aviso && !avisou.current && !window.confirm("Para buscar, a posição deste ponto será enviada ao Google. Continuar?")) return;
-    avisou.current = true;
     setBuscando(true); setErro("");
     try {
       if (area) {
