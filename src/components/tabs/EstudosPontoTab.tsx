@@ -20,6 +20,7 @@ import { MapaUnidade } from "@/components/estudos/MapaUnidade";
 import { classificarConcorrentes } from "@/components/estudos/pdfUnidade";
 import { LegendaAtratividade, LegendaCenso, RoscaComLegenda, desenharAtratividade, desenharCenso, desenharDemanda, ehCamadaCenso } from "@/components/estudos/camadasCenso";
 import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa } from "@/components/estudos/controlesMapa";
+import { useCalculoAdiado } from "@/lib/calculoAdiado";
 import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
   comercioEm, rendaTotalEm, alunosDasVizinhasNaArea, faixaDaFatia, vereditoComFatia, scoreDeAtratividade, ATRATIVIDADE_VARIAVEIS, PESOS_ATRATIVIDADE_PADRAO, type PesosAtratividade, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
@@ -111,9 +112,14 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   // pontos fora da malha do Censo (ex.: Jataí-GO, antes de o município ser gerado): zero moradores é falta de dado, e o parecer não passa de "com condicionantes"
   const semCensoPorPonto = useMemo(() => new Map(todos.map((p) => [p.id, foraDaMalhaDoCenso(p.c, dados.censo)])), [todos, dados.censo]);
   // ticket sugerido, alunos e vagas de cada ponto (estacionamento insuficiente reprova: critério eliminatório)
+  // as unidades parecidas de cada ponto (a parte cara) ficam guardadas por posição e modelo: mudar um ponto não recalcula os outros
+  const parecidasCache = useRef(new WeakMap<object, Map<string, ReturnType<typeof parecidas>>>()); // por Censo: o Censo de um município novo refaz a conta
   const extras = useMemo(() => new Map(pontos.map((p) => {
     const rr = resultados.get(p.id) ?? null;
-    const tk = ticketSugerido(p.modelo, dados.unidades!, parecidas(p, dados.censo!, dados.unidades!));
+    const doCenso = dados.censo ? parecidasCache.current.get(dados.censo) ?? parecidasCache.current.set(dados.censo, new Map()).get(dados.censo)! : new Map<string, ReturnType<typeof parecidas>>();
+    const chave = `${p.c[0]},${p.c[1]},${p.modelo}`;
+    if (!doCenso.has(chave)) doCenso.set(chave, parecidas(p, dados.censo!, dados.unidades!));
+    const tk = ticketSugerido(p.modelo, dados.unidades!, doCenso.get(chave)!);
     const alunos = rr && tk ? alunosDoPonto(rr, tk.preco) : null;
     const vagas = alunos ? vagasDoPonto(alunos, p.imovel) : null;
     return [p.id, { ticket: tk, alunos, vagas, veredito: rr ? vereditoFinal(rr.veredito, vagas) : null }];
@@ -181,9 +187,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     return { itens, recomendado: melhor.veredito === "reprovado" ? null : melhor.modelo };
   }, [atual?.id, atual?.m2, atual?.imovel, atual?.c, dados, refsTodas, area10, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
   // recomendação: posições até 3 km com mais público alcançável que o ponto aberto
-  const candidatasPerto = useMemo(() => (atual && dados.censo && !semCenso && dados.premissas
+  // ~1 s com o Censo: calculado logo depois que o estudo aparece, para abrir o estudo não travar a tela (26/11/2026)
+  const candidatasPerto = useCalculoAdiado(() => (atual && dados.censo && !semCenso && dados.premissas
     ? posicoesMelhores({ c: atual.c, m2: atual.m2 }, dados.censo, dados.unidades!, todos.filter((p) => p.id !== atual.id), dados.premissas.curva, { n: 8 })
-    : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.m2, todos.length, dados, semCenso]); // eslint-disable-line react-hooks/exhaustive-deps
+    : null), [atual?.id, atual?.c[0], atual?.c[1], atual?.m2, todos.length, dados, semCenso]);
   // as posições melhores passam pelo mesmo parecer do ponto (decisão do dono, 23/11/2026): saturadas de academias ou "Não aprova" saem
   const avaliacaoPerto = useMemo(() => (r && atual && refsPop ? { provavel: r.provavel, veredito: (ex?.veredito ?? r.veredito), faixa: faixaFatia } : null),
     [r?.provavel, r?.veredito, ex?.veredito, atual?.id, refsPop, faixaFatia?.comum, faixaFatia?.maxima]); // eslint-disable-line react-hooks/exhaustive-deps
