@@ -158,7 +158,7 @@ export interface Ponto { id: string; nome: string; regiao?: string; /** Endereç
 export const DECISAO_ROTULO: Record<StatusDecisao, string> = { analise: "Em análise", aprovado: "Aprovado", recusado: "Recusado", unidade: "Virou unidade" };
 /** completo: dono e liberados (criam e decidem); consulta: Master (vê tudo, não edita); unidade: só a própria unidade, sem premissas. */
 export type ModoEstudos = "completo" | "consulta" | "unidade";
-export interface DadosEstudos { disponivel: boolean; modo?: ModoEstudos; /** Quem está vendo (id de autor) e se edita os estudos de todos (só o dono); sem os campos, edita todos. */ autorId?: string; editaTodos?: boolean; /** No modo unidade: as unidades da pessoa. */ minhas?: string[]; premissas?: Premissas; vendasPorM2?: Record<Modelo, FaixaM2 | null>; unidades?: UnidadeEstudo[]; censo?: Censo | null; pontos?: Ponto[] }
+export interface DadosEstudos { disponivel: boolean; modo?: ModoEstudos; /** Áreas de 10 min já guardadas das unidades maduras, por nome (régua da rede, sem um pedido por unidade). */ areasRede?: Record<string, Geometria>; /** Quem está vendo (id de autor) e se edita os estudos de todos (só o dono); sem os campos, edita todos. */ autorId?: string; editaTodos?: boolean; /** No modo unidade: as unidades da pessoa. */ minhas?: string[]; premissas?: Premissas; vendasPorM2?: Record<Modelo, FaixaM2 | null>; unidades?: UnidadeEstudo[]; censo?: Censo | null; pontos?: Ponto[] }
 
 export type Veredito = "aprovado" | "atencao" | "reprovado";
 export interface Resultado {
@@ -408,9 +408,24 @@ const noAnel = (x: number, y: number, anel: number[][]) => {
   }
   return d;
 };
+// Caixa (lng/lat mínimos e máximos) de cada área, calculada uma vez: o hexágono fora dela é descartado sem testar o polígono inteiro.
+// As somas por área (moradores, renda, potencial) passam por todos os hexágonos do Censo, e o polígono do Mapbox tem centenas de pontos.
+const caixas = new WeakMap<object, [number, number, number, number]>();
+function caixaDe(g: Geometria): [number, number, number, number] {
+  let cx = caixas.get(g);
+  if (!cx) {
+    cx = [Infinity, Infinity, -Infinity, -Infinity];
+    const pols = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+    for (const pol of pols) for (const [x, y] of pol[0] ?? []) { if (x < cx[0]) cx[0] = x; if (y < cx[1]) cx[1] = y; if (x > cx[2]) cx[2] = x; if (y > cx[3]) cx[3] = y; }
+    caixas.set(g, cx);
+  }
+  return cx;
+}
 /** O ponto (lat, lng) está dentro da área? (respeita buracos do polígono) */
 export function dentroDaArea(lat: number, lng: number, g: Geometria | null | undefined) {
   if (!g) return false;
+  const cx = caixaDe(g);
+  if (lng < cx[0] || lng > cx[2] || lat < cx[1] || lat > cx[3]) return false;
   const pols = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
   return pols.some((pol) => noAnel(lng, lat, pol[0]) && !pol.slice(1).some((b) => noAnel(lng, lat, b)));
 }

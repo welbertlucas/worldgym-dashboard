@@ -141,7 +141,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const avisoCenso = semCenso && !carregandoCenso; // o aviso só aparece depois de tentar buscar o município
   const moradores10 = area10 && !semCenso ? moradoresNaArea(dados.censo!, area10) : null;
   // população recomendada calibrada com a rede (moradores na área de 10 min de cada unidade madura do modelo)
-  const refsTodas = useReferenciaPopulacao(dados.unidades!, dados.censo, atual?.modelo ?? null);
+  const refsTodas = useReferenciaPopulacao(dados.unidades!, dados.censo, atual?.modelo ?? null, dados.areasRede);
   const refsPop = useMemo(() => (atual ? refsParaModelo(refsTodas, atual.modelo)?.refs ?? null : null), [refsTodas, atual?.modelo]); // eslint-disable-line react-hooks/exhaustive-deps
   // do modelo; com poucas unidades, a rede toda
   const ex = atual ? extras.get(atual.id) ?? null : null;

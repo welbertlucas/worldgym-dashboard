@@ -124,7 +124,7 @@ export function ListaEstudos({ dados, pontos, abrir, novo, comparar, editavel = 
   const [filtros, setFiltros] = useState(false);
 
   // os mesmos freios do estudo (população, fatia, renda e alunos): a área de 10 min vem do que o servidor já guardou (sem mandar posição ao Mapbox)
-  const refsTodas = useReferenciaPopulacao(dados.unidades ?? SEM_UNIDADES, dados.censo, pontos.length ? "low" : null);
+  const refsTodas = useReferenciaPopulacao(dados.unidades ?? SEM_UNIDADES, dados.censo, pontos.length ? "low" : null, dados.areasRede);
   const areas = useAreasEmCache(pontos);
   const linhas: Linha[] = useMemo(() => pontos.map((p) => {
     const u = p.decisao?.status === "unidade" ? dados.unidades?.find((x) => x.nome === p.decisao?.unidade) : undefined;

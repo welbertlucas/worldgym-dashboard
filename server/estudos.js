@@ -3,7 +3,8 @@
 // (estudos/premissas.json e estudos/censo.json), nunca no repositório: são estratégia comercial. O código só tem as contas.
 // Os pontos estudados ficam no Blob, um arquivo por autor (estudos/pontos/<id>.json): o dono e o Master leem todos; os outros, só os próprios.
 // Só quem pode ver Estudos de ponto (dono e liberados) chega aqui.
-import { lerJson, gravarJson, listarCaminhos } from "./armazem.js";
+import { lerJson, lerJsonGuardado, gravarJson, listarCaminhos } from "./armazem.js";
+import { areaGuardada } from "./deslocamento.js";
 import { COORDENADAS_UNIDADES, ENDERECOS_UNIDADES, UNIT_NAMES } from "./units.js";
 
 export const ARQUIVO_PREMISSAS = "estudos/premissas.json";
@@ -193,20 +194,32 @@ export function comPrevisao(unidades, faixas, premissas) {
   });
 }
 
+const GUARDA_MS = 10 * 60e3;
+/**
+ * Áreas de 10 min de carro já guardadas das unidades maduras (régua da população recomendada), por nome. A tela pedia uma por uma
+ * (uns 20 pedidos a cada abertura do menu); as que faltarem a tela ainda pede, como antes. Endereços públicos das unidades.
+ */
+export async function areasDaRede(unidades) {
+  const alvo = unidades.filter((u) => u.madura && Array.isArray(u.c) && u.vendas);
+  const areas = await Promise.all(alvo.map((u) => areaGuardada(u.c)));
+  return Object.fromEntries(alvo.map((u, i) => [u.nome, areas[i]]).filter(([, g]) => g));
+}
+
 /** Tudo o que a tela lê de uma vez, já cortado pelo modo de quem pede. `carregarMeses` devolve o consolidado (injetado nos testes). */
 /** `semCenso`: a tela já tem a malha do Censo desta sessão; fora do acesso de unidade (que recebe um recorte), a malha não é lida nem enviada. */
 export async function lerEstudos(carregarMeses, mesAtual, sessao, { semCenso = false } = {}) {
   const modo = modoDe(sessao);
   const omitir = semCenso && modo !== "unidade";
-  const [premissas, censo, meses] = await Promise.all([lerJson(ARQUIVO_PREMISSAS), omitir ? null : lerJson(ARQUIVO_CENSO), carregarMeses()]);
+  // premissas e Censo só mudam por script: ficam guardados na memória do servidor por 10 min (o Censo passa de 1 MB)
+  const [premissas, censo, meses] = await Promise.all([lerJsonGuardado(ARQUIVO_PREMISSAS, GUARDA_MS), omitir ? null : lerJsonGuardado(ARQUIVO_CENSO, GUARDA_MS), carregarMeses()]);
   if (!premissas) return { disponivel: false, modo };
   const base = unidadesDoEstudo(meses, premissas, mesAtual, premissas?.regua?.janelaMeses ?? 4);
   const vendasPorM2 = reguaPorM2(base, premissas);
   const unidades = comPrevisao(base, vendasPorM2, premissas);
   if (modo !== "unidade") {
-    const pontos = await lerPontos(sessao, modo === "consulta" || veTodos(sessao));
+    const [pontos, areasRede] = await Promise.all([lerPontos(sessao, modo === "consulta" || veTodos(sessao)), areasDaRede(unidades)]);
     // quem grava só os próprios (Master liberado a fazer estudos) vê os dos outros sem editar: a tela usa `autorId` e `editaTodos` para isso
-    return { disponivel: true, modo, autorId: autorDe(sessao).id, editaTodos: ehDono(sessao), premissas: { regua: premissas.regua, modelos: premissas.modelos, curva: premissas.curva }, vendasPorM2, unidades, censo: censo ?? null, ...(omitir ? { censoOmitido: true } : {}), pontos };
+    return { disponivel: true, modo, autorId: autorDe(sessao).id, editaTodos: ehDono(sessao), areasRede, premissas: { regua: premissas.regua, modelos: premissas.modelos, curva: premissas.curva }, vendasPorM2, unidades, censo: censo ?? null, ...(omitir ? { censoOmitido: true } : {}), pontos };
   }
   // unidade: as próprias completas; as outras só com nome, posição e m² (para a divisão da captação), sem vendas, alunos nem bairros
   const minhas = new Set(sessao?.unidades ?? []);

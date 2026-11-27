@@ -2,7 +2,7 @@
 // Padrão do estudo (decisão do dono, 22/11/2026): 10 minutos de carro é a área oficial; 10 minutos a pé é só referência visual.
 // Calculada no Mapbox (Isochrone API) pelo servidor — a chave (MAPBOX_TOKEN) nunca vai para o navegador — e guardada no Blob
 // (estudos/deslocamento/...) por 180 dias: as ruas mudam devagar e a mesma área não é pedida de novo.
-import { lerJson, gravarJson } from "./armazem.js";
+import { lerJson, lerJsonGuardado, gravarJson } from "./armazem.js";
 
 export class ErroDeslocamento extends Error { constructor(msg, status = 400) { super(msg); this.status = status; } }
 
@@ -40,6 +40,24 @@ export async function buscarDeslocamento(pedido, { chave = process.env.MAPBOX_TO
   const resultado = { em: new Date(agora).toISOString(), c, modo, contornos };
   await gravarJson(arquivo, resultado);
   return { ...resultado, doCache: false };
+}
+
+/** Minutos da área oficial dos estudos (MINUTOS_PADRAO da tela). */
+export const MINUTOS_AREA = 10;
+/** Quantas posições cabem num pedido de áreas guardadas (lista de estudos). */
+export const MAX_AREAS_LOTE = 300;
+const GUARDA_AREA_MS = 30 * 60e3;
+/** A área de 10 min de carro já guardada no Blob para a posição, ainda válida; null se não há (nunca chama o Mapbox). */
+export async function areaGuardada(c, agora = Date.now()) {
+  const g = await lerJsonGuardado(chaveDoDeslocamento(c, "carro"), GUARDA_AREA_MS).catch(() => null);
+  return g && agora - Date.parse(g.em) < VALIDADE_DIAS * 864e5 ? g.contornos?.[MINUTOS_AREA] ?? null : null;
+}
+/** Áreas guardadas de várias posições de uma vez, na mesma ordem (null onde não há): a lista de estudos fazia um pedido por estudo. */
+export async function areasGuardadas(pedido) {
+  const lista = Array.isArray(pedido?.posicoes) ? pedido.posicoes : null;
+  if (!lista) throw new ErroDeslocamento("Lista de posições inválida.");
+  if (lista.length > MAX_AREAS_LOTE) throw new ErroDeslocamento(`No máximo ${MAX_AREAS_LOTE} posições.`);
+  return Promise.all(lista.map((p) => { try { return areaGuardada(pedidoValido({ c: p }).c); } catch { return null; } }));
 }
 
 /**

@@ -143,7 +143,7 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
       { raioKm: 10, n: 8, separacaoKm: 2.5, ganhoMinimo: -0.3, ...REGRAS_NOVA_UNIDADE })
     : null), [u?.nome, dados]); // eslint-disable-line react-hooks/exhaustive-deps
   // parecer de cada posição sugerida: o mesmo do estudo de ponto, com o tamanho padrão do modelo e a fatia do potencial contra a rede
-  const refsTodas = useReferenciaPopulacao(dados.unidades ?? SEM_UNIDADES, dados.censo, candidatasNova && u ? u.modelo : null);
+  const refsTodas = useReferenciaPopulacao(dados.unidades ?? SEM_UNIDADES, dados.censo, candidatasNova && u ? u.modelo : null, dados.areasRede);
   const refsModelo = useMemo(() => (u ? refsParaModelo(refsTodas, u.modelo)?.refs ?? null : null), [refsTodas, u?.modelo]); // do modelo; com poucas unidades, a rede toda // eslint-disable-line react-hooks/exhaustive-deps
   const avaliacaoNova = useMemo(() => {
     const faixaM2 = u ? dados.vendasPorM2?.[u.modelo] : null;

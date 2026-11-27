@@ -41,7 +41,7 @@ import { ErroEscalas, UNIDADES_ESCALA, acharEscala, apagarEscala, escalasDoMes, 
 import { ErroFotosRua, fotosDaRua } from "../server/fotosRua.js";
 import { ErroCensoMun, censoDoPonto } from "../server/censoMunicipio.js";
 import { ErroCensoPedido, pedirCenso } from "../server/censoPedido.js";
-import { ErroDeslocamento, buscarDeslocamento, buscarEndereco, enderecoDaPosicao, geocodificarLote } from "../server/deslocamento.js";
+import { ErroDeslocamento, areasGuardadas, buscarDeslocamento, buscarEndereco, enderecoDaPosicao, geocodificarLote } from "../server/deslocamento.js";
 import { COORDENADAS_UNIDADES, UNIT_NAMES } from "../server/units.js";
 const COORDENADAS_POR_NOME = Object.fromEntries(Object.entries(UNIT_NAMES).map(([id, n]) => [n, COORDENADAS_UNIDADES[id]]));
 import { loadAll } from "../server/store.js";
@@ -49,8 +49,19 @@ import { loadAll } from "../server/store.js";
 /** "AAAA-MM" de hoje em Brasília. */
 const mesDeHoje = () => new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
 
+// O consolidado dos meses (indicadores de todas as unidades) muda uma vez por dia, pela rotina do EVO: os estudos o guardam 5 min na
+// memória do servidor aquecido, em vez de reler a cada abertura do menu.
+let mesesGuardados = null;
+const mesesDosEstudos = () => {
+  if (!mesesGuardados || Date.now() - mesesGuardados.em > 5 * 60e3) {
+    const valor = loadAll().catch((e) => { mesesGuardados = null; throw e; });
+    mesesGuardados = { em: Date.now(), valor };
+  }
+  return mesesGuardados.valor;
+};
+
 async function estudos(req, res, sessao) {
-  if (req.method === "GET") return res.status(200).json(await lerEstudos(loadAll, mesDeHoje(), sessao, { semCenso: req.query?.semCenso === "1" }));
+  if (req.method === "GET") return res.status(200).json(await lerEstudos(mesesDosEstudos, mesDeHoje(), sessao, { semCenso: req.query?.semCenso === "1" }));
   const c = doCorpo(req);
   // Pontos de interesse e áreas de deslocamento: todos os perfis buscam; quem tem acesso a unidades, só em volta das próprias unidades.
   if (c.acao === "endereco") {
@@ -79,6 +90,11 @@ async function estudos(req, res, sessao) {
     return res.status(200).json(d ?? { celulas: [], ausente: true });
   }
   // Censo de um município de fora da malha principal: estudos de pontos novos, fora do modo unidade
+  // Áreas de 10 min já guardadas de vários estudos de uma vez (a lista): nunca manda posição ao Mapbox
+  if (c.acao === "areas") {
+    if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
+    return res.status(200).json({ areas: await areasGuardadas(c) });
+  }
   if (c.acao === "censo-municipio") {
     if (modoDe(sessao) === "unidade") return res.status(403).json({ error: "sem permissão" });
     return res.status(200).json(await censoDoPonto(c));
