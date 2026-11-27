@@ -23,7 +23,7 @@ import { BarraMapa, BuscaEndereco, PainelCamadas, useAlturaAteOFim, TelaDeMapa }
 import { useCalculoAdiado } from "@/lib/calculoAdiado";
 import { SecaoSugestoes, desenharSugestoes, ehPlusCode, enderecoCurto, enderecoDaPosicao, useEnderecos, useSugestoesSemSaturacao } from "@/components/estudos/sugestoes";
 import {
-  comercioEm, rendaTotalEm, alunosDasVizinhasNaArea, faixaDaFatia, vereditoComFatia, scoreDeAtratividade, ATRATIVIDADE_VARIAVEIS, PESOS_ATRATIVIDADE_PADRAO, type PesosAtratividade, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
+  type Censo, comercioEm, rendaTotalEm, alunosDasVizinhasNaArea, faixaDaFatia, vereditoComFatia, scoreDeAtratividade, ATRATIVIDADE_VARIAVEIS, PESOS_ATRATIVIDADE_PADRAO, type PesosAtratividade, avaliarCompleto, unidadesMaisProximas, refsParaModelo, freiosDeDemanda, aplicarFreios, contaDoPonto, PARECER_ROTULO, parecerDoPonto, DECISAO_ROTULO, MINUTOS_PADRAO, classesNaArea, classesNoRaio, idadeEm, densidadeEm, densidadeNaArea, perfilNaArea, potencialNaArea, VEREDITO_ROTULO, avaliarPonto, ajusteDeCaptacao, aluguelDoPonto, aluguelBaseDe, ALUGUEL_M2_MIN, ALUGUEL_M2_MAX, posicoesMelhores, type Sugestao, captacaoDe, dentroDaArea, fatoresDe, km, moradoresNaArea, meses, parecidas, reais, regiaoDe,
   SITUACAO_POPULACAO, SITUACAO_VAGAS, foraDaMalhaDoCenso, limitarSemCenso, compararComParecidas, leituraParecidas, alunosDoPonto, populacaoRecomendada, ticketSugerido, vagasDoPonto, vereditoFinal,
   type DadosEstudos, type Modelo, type Ponto, type Resultado, type StatusDecisao, type Veredito,
 } from "@/lib/estudoPonto";
@@ -313,12 +313,10 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   const estudarAchado = async () => {
     if (!achado || !editavel) return;
     let { nome, endereco } = achado;
-    // só o Plus Code (ou nenhum endereço): busca o endereço da posição, que vai ao Mapbox só depois de confirmar (estudo de ponto é estratégia comercial)
+    // só o Plus Code (ou nenhum endereço): busca o endereço da posição no Mapbox (sem perguntar, pedido do dono em 26/11/2026)
     if (ehPlusCode(nome) || ehPlusCode(endereco) || !endereco) {
-      if (window.confirm("Este lugar só tem o Plus Code. Para achar o endereço, a posição será enviada ao Mapbox. Continuar?")) {
-        const e = await enderecoDaPosicao(achado.c).catch(() => null);
-        if (e) { endereco = e; if (ehPlusCode(nome) || !nome) nome = enderecoCurto(e); }
-      }
+      const e = await enderecoDaPosicao(achado.c).catch(() => null);
+      if (e) { endereco = e; if (ehPlusCode(nome) || !nome) nome = enderecoCurto(e); }
     }
     const agora = new Date().toISOString();
     const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: nome.slice(0, 60) || `Ponto ${letra(todos.length)}`, ...(endereco && !ehPlusCode(endereco) ? { endereco: endereco.slice(0, 160), regiao: enderecoCurto(endereco).slice(0, 60) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: achado.c, modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };
@@ -554,8 +552,6 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <fieldset disabled={!editavel} className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white px-4 py-3">
             <EnderecoDoPonto endereco={atual.endereco} editavel={editavel} buscar={async () => {
-              // a posição vai ao Mapbox (pelo servidor) só depois de confirmar: estudo de ponto é estratégia comercial
-              if (!window.confirm("Para achar o endereço, a posição deste ponto será enviada ao Mapbox. Continuar?")) return;
               const e = await enderecoDaPosicao(atual.c);
               if (e) mudar(atual.id, { endereco: e.slice(0, 160), ...(atual.regiao && !ehPlusCode(atual.regiao) ? {} : { regiao: enderecoCurto(e).slice(0, 60) }), ...(ehPlusCode(atual.nome) ? { nome: enderecoCurto(e).slice(0, 60) } : {}) });
               else window.alert("Não achei o endereço desta posição.");
@@ -782,6 +778,9 @@ export function CampoM2({ valor, aoMudar }: { valor: number; aoMudar: (m2: numbe
   );
 }
 
+/** A malha do Censo desta sessão (não muda enquanto a página está aberta): evita baixar 3,5 MB toda vez que se volta à tela. */
+let censoDaSessao: Censo | null = null;
+
 export function EstudosPontoTab() {
   const [dadosApi, setDados] = useState<DadosEstudos | null>(null);
   const [erro, setErro] = useState("");
@@ -791,9 +790,13 @@ export function EstudosPontoTab() {
   const primeiraCarga = useRef(true);
 
   useEffect(() => {
-    authFetch(`${API_BASE}/estudos`).then(async (res) => {
+    // o Censo (3,5 MB) só vem na primeira vez da sessão; ao voltar à tela, o servidor manda o resto e a tela usa o que já tem (26/11/2026)
+    const guardado = censoDaSessao;
+    authFetch(`${API_BASE}/estudos${guardado ? "?semCenso=1" : ""}`).then(async (res) => {
       if (!res.ok) throw new Error(res.status === 403 ? "Sem permissão para ver os estudos de ponto." : "Não consegui carregar os estudos agora.");
-      const d: DadosEstudos = await res.json();
+      const d: DadosEstudos & { censoOmitido?: boolean } = await res.json();
+      if (d.censoOmitido && guardado) d.censo = guardado;
+      else if (d.modo !== "unidade" && d.censo?.celulas?.length) censoDaSessao = d.censo; // só a malha completa fica guardada (o acesso de unidade recebe um recorte)
       setDados(d); setPontos(d.pontos ?? []);
     }).catch((e) => setErro(e.message));
   }, []);

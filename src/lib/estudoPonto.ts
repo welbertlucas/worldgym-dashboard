@@ -51,7 +51,7 @@ export const TAMANHOS_DOMICILIO = [
 ];
 /** Tamanho de domicílio que mais aparece no hexágono (índice de TAMANHOS_DOMICILIO), ou null sem o dado. */
 export const tamanhoPredominante = (t?: number[]) => (t?.length && t.some((x) => x > 0) ? t.indexOf(Math.max(...t)) : null);
-export interface Censo { rk: number; celulas: CelulaCenso[] }
+export interface Censo { rk: number; celulas: CelulaCenso[]; /** Censo juntado com municípios de fora da malha: a malha principal de onde veio (para reaproveitar cálculos que só dependem dela). */ base?: Censo }
 export const FAIXAS_IDADE = ["Crianças (0 a 9 anos)", "Adolescentes (10 a 19 anos)", "Jovens (20 a 29 anos)", "Jovens adultos (30 a 39 anos)", "Adultos (40 a 49 anos)", "Meia idade (50 a 59 anos)", "Idosos (60 anos ou mais)"];
 
 /**

@@ -43,7 +43,8 @@ export function useSugestoesSemSaturacao(res: ResultadoSugestoes | null, censo: 
   /** Para o parecer de cada posição: vendas previstas e veredito pelo tamanho padrão do modelo, e a faixa da fatia da rede (null enquanto calcula). */
   avaliacao?: { provavel: number; veredito: Veredito; faixa: { comum: number; maxima: number } | null } | null): ResultadoSugestoes | null {
   const [saida, setSaida] = useState<ResultadoSugestoes | null>(null);
-  const chave = res?.sugestoes.map((s) => s.c.join(",")).join(";") ?? "";
+  // "sem resultado" e "resultado sem posição melhor" são chaves diferentes: o cálculo das posições chega depois que a tela aparece (useCalculoAdiado)
+  const chave = res ? `${res.testadas}:${res.sugestoes.map((s) => s.c.join(",")).join(";")}` : "";
   useEffect(() => {
     setSaida(null);
     if (!res || !censo) return;

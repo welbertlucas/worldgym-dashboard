@@ -61,6 +61,6 @@ export function useCensoCompleto(base: Censo | null | undefined, pontos: { c: [n
     });
     return () => { vivo = false; };
   }, [fora, tentativa]);
-  const censo = useMemo(() => (base && extras.size ? { ...base, celulas: [...base.celulas, ...[...extras.values()].flatMap((m) => m.celulas)] } : base), [base, extras]);
+  const censo = useMemo(() => (base && extras.size ? { ...base, celulas: [...base.celulas, ...[...extras.values()].flatMap((m) => m.celulas)], base: base.base ?? base } : base), [base, extras]);
   return { censo, carregando, recarregar };
 }

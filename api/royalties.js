@@ -50,7 +50,7 @@ import { loadAll } from "../server/store.js";
 const mesDeHoje = () => new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
 
 async function estudos(req, res, sessao) {
-  if (req.method === "GET") return res.status(200).json(await lerEstudos(loadAll, mesDeHoje(), sessao));
+  if (req.method === "GET") return res.status(200).json(await lerEstudos(loadAll, mesDeHoje(), sessao, { semCenso: req.query?.semCenso === "1" }));
   const c = doCorpo(req);
   // Pontos de interesse e áreas de deslocamento: todos os perfis buscam; quem tem acesso a unidades, só em volta das próprias unidades.
   if (c.acao === "endereco") {

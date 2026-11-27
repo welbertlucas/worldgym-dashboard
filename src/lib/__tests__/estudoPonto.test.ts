@@ -142,6 +142,15 @@ describe("servidor dos estudos (server/estudos.js)", () => {
     const d = await lerEstudos(async () => meses, "2026-11", DONO);
     expect(d.disponivel).toBe(true); expect(d.pontos).toHaveLength(1); expect(d.premissas.curva.meiaDistanciaKm).toBe(1.5);
     expect(d.premissas).not.toHaveProperty("unidades");
+    // a tela que já tem a malha do Censo pede sem ela: não é lida nem enviada (o acesso de unidade continua recebendo o recorte)
+    const lidos: string[] = [];
+    definirArmazem({ ...mem, async ler(c: string) { lidos.push(c); return mem.ler(c); } });
+    const sem = await lerEstudos(async () => meses, "2026-11", DONO, { semCenso: true });
+    expect(sem.censoOmitido).toBe(true); expect(sem.censo).toBeNull();
+    expect(lidos.some((c) => /censo/i.test(c))).toBe(false);
+    expect((await lerEstudos(async () => meses, "2026-11", DONO)).censoOmitido).toBeUndefined();
+    expect((await lerEstudos(async () => meses, "2026-11", { ...BETO, unidades: ["Asa Norte"] }, { semCenso: true })).censoOmitido).toBeUndefined(); // unidade recebe o recorte sempre
+    definirArmazem(mem);
   });
   it("modo por perfil: dono e liberados editam, Master consulta, unidade vê só a própria", () => {
     expect(modoDe(DONO)).toBe("completo"); expect(modoDe({ ...BETO, verEstudos: true })).toBe("completo");

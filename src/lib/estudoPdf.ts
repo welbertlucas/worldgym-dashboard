@@ -48,7 +48,9 @@ export interface Secao {
   /** Outros gráficos da seção, depois do primeiro (ex.: barras dos cenários e rosca da composição das vendas). */
   graficos?: Grafico[];
   /** Tabela compacta; `blocos` divide as linhas em colunas lado a lado para economizar espaço. */
-  tabela?: { colunas: string[]; linhas: string[][]; larguras?: number[]; blocos?: number };
+  /** ajustar: corta as linhas que não cabem na página atual (com o parágrafo da seção), para a tabela não continuar sozinha na página
+   *  seguinte; "{n}" no parágrafo vira o número de linhas mostradas. */
+  tabela?: { colunas: string[]; linhas: string[][]; larguras?: number[]; blocos?: number; ajustar?: boolean };
 }
 export type Grafico =
   | { tipo: "rosca"; titulo?: string; fatias: { rotulo: string; valor: number; cor: string }[]; centro?: string; rotuloCentro?: string }
@@ -128,8 +130,12 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
     const cx = L + 3.2, cy = y + 1.2;
     doc.setDrawColor(...VERMELHO); doc.setFillColor(...VERMELHO);
     doc.setLineWidth(0.9); doc.circle(cx, cy, 3, "S"); doc.setLineWidth(0.6); doc.circle(cx, cy, 1.7, "S"); doc.circle(cx, cy, 0.55, "F"); doc.setLineWidth(0.2);
-    fonte("tit", tam); doc.setTextColor(10, 10, 10); doc.text(t(s), L + 9, y + 3.6);
-    y += 11;
+    // título longo (o endereço do ponto) diminui um pouco e, se ainda não couber, quebra em linhas: nunca sai cortado na margem
+    let tm = tam; fonte("tit", tm);
+    while (tm > tam * 0.8 && doc.getTextWidth(t(s)) > R - L - 9) { tm -= 1; fonte("tit", tm); }
+    const ls = doc.splitTextToSize(t(s), R - L - 9) as string[], lh = tm * 0.42;
+    doc.setTextColor(10, 10, 10); doc.text(ls, L + 9, y + 3.6, { lineHeightFactor: 1.15 });
+    y += 11 + (ls.length - 1) * lh;
   };
   const nota = (s: string) => {
     fonte("corpo", 9.5);
@@ -368,7 +374,9 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       // de Domicílios ia sozinho para a página seguinte); nunca abaixo de 80 mm
       const todosGraficos = [s.grafico, ...(s.graficos ?? [])].filter((g): g is Grafico => !!g);
       const alturaGrafico = (g: Grafico) => (g.tipo === "rosca" ? Math.max(56, g.fatias.length * 7 + 10) + 3 + (g.titulo ? 7 : 0) : g.itens.length * 8.6 + 2 + (g.titulo ? 9 : 3));
-      const depois = (s.destaques?.length ? 31 : 0) + (s.legenda?.length ? Math.ceil(s.legenda.length / 2) * 5.5 + 3 : 0)
+      fonte("corpo", 8.5);
+      const altParagrafo = s.paragrafo ? (doc.splitTextToSize(t(s.paragrafo), W) as string[]).length * 4 + 2 : 0;
+      const depois = altParagrafo + (s.destaques?.length ? 31 : 0) + (s.legenda?.length ? Math.ceil(s.legenda.length / 2) * 5.5 + 3 : 0)
         + todosGraficos.reduce((a, g) => a + alturaGrafico(g), 0)
         // a tabela da seção também fica na mesma página (Base de Clientes: a tabela de bairros ia sozinha para a página seguinte)
         + (s.tabela ? 7.4 + Math.ceil(s.tabela.linhas.length / Math.max(1, s.tabela.blocos ?? 1)) * 5.2 + 3 : 0);
@@ -376,11 +384,17 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
       // quando a legenda tinha duas linhas (visto no PDF de Domicílios, 24/11/2026)
       const altLegendaFoto = s.foto?.legenda ? (fonte("corpo", 8), (doc.splitTextToSize(t(s.foto.legenda), W) as string[]).length * 3.6 + 8) : 7;
       const cabeAte = FIM - y - depois - altLegendaFoto - 4;
-      figura(s.foto, depois && cabeAte >= 80 ? Math.min(s.altFoto ?? ALT_FOTO_MAPA, cabeAte) : s.altFoto ?? ALT_FOTO_MAPA);
+      figura(s.foto, depois && cabeAte >= 70 ? Math.min(s.altFoto ?? ALT_FOTO_MAPA, cabeAte) : s.altFoto ?? ALT_FOTO_MAPA);
       legenda(s.legenda);
       destaques(s.destaques);
       for (const g of todosGraficos) { if (g.tipo === "rosca") rosca(g); else barras(g); }
-      if (s.tabela) tabela(s.tabela);
+      let paragrafo = s.paragrafo;
+      if (s.tabela?.ajustar && (s.tabela.blocos ?? 1) === 1) {
+        const cabem = Math.max(5, Math.floor((FIM - y - 7.4 - 3 - altParagrafo - 1) / 5.2));
+        const linhas = s.tabela.linhas.slice(0, cabem);
+        tabela({ ...s.tabela, linhas });
+        paragrafo = paragrafo?.replace("{n}", linhas.length.toLocaleString("pt-BR"));
+      } else if (s.tabela) tabela(s.tabela);
       fonte("corpo", 9.5);
       for (const l of s.linhas) {
         const ls = doc.splitTextToSize(t(l.texto), l.valor ? W - 45 : W);
@@ -389,9 +403,9 @@ export async function gerarPdfDoEstudo(conteudo: ConteudoPdf, saida: "baixar" | 
         if (l.valor) { fonte("negrito", 9.5); doc.setTextColor(...TEXTO); doc.text(t(l.valor), R, y + 3.6, { align: "right" }); }
         y += ls.length * 4.8 + 1; doc.setDrawColor(...LINHA); doc.line(L, y, R, y); y += 1;
       }
-      if (s.paragrafo) {
+      if (paragrafo) {
         fonte("corpo", 8.5); doc.setTextColor(...CINZA);
-        const ls = doc.splitTextToSize(t(s.paragrafo), W); cabe(ls.length * 4 + 2); doc.text(ls, L, y + 3.5); y += ls.length * 4 + 2;
+        const ls = doc.splitTextToSize(t(paragrafo), W); cabe(ls.length * 4 + 2); doc.text(ls, L, y + 3.5); y += ls.length * 4 + 2;
       }
       if (s.nota) { y += 2; nota(s.nota); }
     }

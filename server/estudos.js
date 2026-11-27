@@ -194,9 +194,11 @@ export function comPrevisao(unidades, faixas, premissas) {
 }
 
 /** Tudo o que a tela lê de uma vez, já cortado pelo modo de quem pede. `carregarMeses` devolve o consolidado (injetado nos testes). */
-export async function lerEstudos(carregarMeses, mesAtual, sessao) {
+/** `semCenso`: a tela já tem a malha do Censo desta sessão; fora do acesso de unidade (que recebe um recorte), a malha não é lida nem enviada. */
+export async function lerEstudos(carregarMeses, mesAtual, sessao, { semCenso = false } = {}) {
   const modo = modoDe(sessao);
-  const [premissas, censo, meses] = await Promise.all([lerJson(ARQUIVO_PREMISSAS), lerJson(ARQUIVO_CENSO), carregarMeses()]);
+  const omitir = semCenso && modo !== "unidade";
+  const [premissas, censo, meses] = await Promise.all([lerJson(ARQUIVO_PREMISSAS), omitir ? null : lerJson(ARQUIVO_CENSO), carregarMeses()]);
   if (!premissas) return { disponivel: false, modo };
   const base = unidadesDoEstudo(meses, premissas, mesAtual, premissas?.regua?.janelaMeses ?? 4);
   const vendasPorM2 = reguaPorM2(base, premissas);
@@ -204,7 +206,7 @@ export async function lerEstudos(carregarMeses, mesAtual, sessao) {
   if (modo !== "unidade") {
     const pontos = await lerPontos(sessao, modo === "consulta" || veTodos(sessao));
     // quem grava só os próprios (Master liberado a fazer estudos) vê os dos outros sem editar: a tela usa `autorId` e `editaTodos` para isso
-    return { disponivel: true, modo, autorId: autorDe(sessao).id, editaTodos: ehDono(sessao), premissas: { regua: premissas.regua, modelos: premissas.modelos, curva: premissas.curva }, vendasPorM2, unidades, censo: censo ?? null, pontos };
+    return { disponivel: true, modo, autorId: autorDe(sessao).id, editaTodos: ehDono(sessao), premissas: { regua: premissas.regua, modelos: premissas.modelos, curva: premissas.curva }, vendasPorM2, unidades, censo: censo ?? null, ...(omitir ? { censoOmitido: true } : {}), pontos };
   }
   // unidade: as próprias completas; as outras só com nome, posição e m² (para a divisão da captação), sem vendas, alunos nem bairros
   const minhas = new Set(sessao?.unidades ?? []);

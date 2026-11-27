@@ -7,9 +7,9 @@ export function useCalculoAdiado<V>(calcular: () => V | null, deps: unknown[]): 
   useEffect(() => {
     let vivo = true;
     setValor(null);
-    // espera o navegador desenhar a tela (dois quadros) antes de calcular
-    const id = requestAnimationFrame(() => setTimeout(() => { if (vivo) setValor(calcular()); }, 0));
-    return () => { vivo = false; cancelAnimationFrame(id); };
+    // o efeito já roda depois do desenho; o setTimeout deixa o navegador mostrar a tela antes do cálculo (requestAnimationFrame não dispara em aba de fundo)
+    const id = setTimeout(() => { if (vivo) setValor(calcular()); }, 0);
+    return () => { vivo = false; clearTimeout(id); };
   }, deps); // eslint-disable-line react-hooks/exhaustive-deps
   return valor;
 }

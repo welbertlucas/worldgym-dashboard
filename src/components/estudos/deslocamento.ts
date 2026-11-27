@@ -8,7 +8,6 @@ import { MINUTOS_PADRAO, classesNaArea, moradoresNaArea, potencialNaArea, type C
 // Azul-marinho com borda branca (decisão do dono, 24/11/2026): o verde-azulado anterior sumia no verde dos parques do mapa.
 export const COR_DESLOCAMENTO = "#1e3a8a";
 const guardados = new Map<string, Promise<Deslocamento>>();
-let avisado = false;
 
 export async function buscarDeslocamento(c: [number, number], modo: "carro" | "pe"): Promise<Deslocamento> {
   const k = `${modo}:${c[0].toFixed(4)},${c[1].toFixed(4)}`;
@@ -62,8 +61,8 @@ export interface Areas { carro: Deslocamento | null; pe: Deslocamento | null; er
 export const areaOficial = (a: Areas | null): Geometria | null => a?.carro?.contornos[String(MINUTOS_PADRAO)] ?? null;
 
 /**
- * Carrega as áreas de carro e a pé de um lugar. `aviso`: pontos novos são estratégia comercial, então pergunta uma vez por sessão
- * antes de mandar a posição ao Mapbox (unidades em operação têm endereço público e não perguntam).
+ * Carrega as áreas de carro e a pé de um lugar. A posição vai ao Mapbox sem perguntar (o aviso foi retirado a pedido do dono, 26/11/2026:
+ * travava a tela ao abrir o estudo). `aviso` ficou só para não mudar quem chama.
  */
 export function useDeslocamento(c: [number, number] | null | undefined, aviso: boolean): Areas | null {
   const [areas, setAreas] = useState<Areas | null>(null);
@@ -71,13 +70,6 @@ export function useDeslocamento(c: [number, number] | null | undefined, aviso: b
   useEffect(() => {
     setAreas(null);
     if (!c) return;
-    if (aviso && !avisado) {
-      if (typeof window === "undefined" || !window.confirm("Para desenhar a área de 10 minutos de carro, a posição dos pontos estudados será enviada ao Mapbox. Continuar?")) {
-        setAreas({ carro: null, pe: null, erro: "Área de deslocamento não calculada (posição não enviada)." });
-        return;
-      }
-      avisado = true;
-    }
     let vivo = true;
     buscarDeslocamento(c, "carro").then(
       (car) => vivo && setAreas({ carro: car, pe: null, erro: "" }),
@@ -121,29 +113,47 @@ export const LEGENDA_DESLOCAMENTO = "linha azul-marinho: área de até 10 min de
  * Referência da rede para a população recomendada: moradores na área de 10 min de carro de cada unidade madura do modelo (endereços
  * públicos, sem pergunta) e as vendas dela. As áreas vêm do Blob quando já foram calculadas; as que faltam são pedidas ao Mapbox uma vez.
  */
-export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo | null | undefined, modelo: Modelo | null): RefPopulacao[] | null {
-  const [refs, setRefs] = useState<RefPopulacao[] | null>(null);
-  useEffect(() => {
-    setRefs(null);
-    if (!modelo || !censo) return;
-    // todas as unidades maduras (de qualquer modelo): cada freio escolhe a régua do modelo e, com poucas unidades, usa a rede toda (refsParaModelo)
-    const alvo = unidades.filter((u) => u.madura && u.c && u.vendas);
-    let vivo = true;
-    (async () => {
+/**
+ * Referência da rede: moradores, potencial e renda na área de 10 min de cada unidade madura. Pede a área de ~20 unidades ao servidor e varre o
+ * Censo para cada uma (~2,5 s no navegador): por isso é calculada UMA vez por sessão e por malha do Censo e reaproveitada pela lista, pelo estudo
+ * do ponto e pelo estudo da unidade, inclusive depois que o Censo de outro município é juntado (as unidades estão na malha principal) (26/11/2026).
+ */
+const refsGuardadas = new WeakMap<Censo, Map<string, Promise<RefPopulacao[]>>>();
+function referenciaDaRede(unidades: UnidadeEstudo[], censo: Censo): Promise<RefPopulacao[]> {
+  const alvo = unidades.filter((u) => u.madura && u.c && u.vendas);
+  const chave = alvo.map((u) => `${u.nome}:${u.c}:${u.vendas}`).join("|");
+  const base = censo.base ?? censo;
+  const porChave = refsGuardadas.get(base) ?? refsGuardadas.set(base, new Map()).get(base)!;
+  if (!porChave.has(chave)) {
+    porChave.set(chave, (async () => {
+      // todas as unidades maduras (de qualquer modelo): cada freio escolhe a régua do modelo e, com poucas unidades, usa a rede toda (refsParaModelo)
       const out: RefPopulacao[] = [];
       for (let i = 0; i < alvo.length; i += 4) {
         const lote = await Promise.all(alvo.slice(i, i + 4).map(async (u) => {
           try {
             const g = (await buscarDeslocamento(u.c as [number, number], "carro")).contornos[String(MINUTOS_PADRAO)];
-            return g ? ({ nome: u.nome, vendas: u.vendas as number, moradores: moradoresNaArea(censo, g), potencial: potencialNaArea(censo, g)?.total, modelo: u.modelo, ab: classesNaArea(censo, g)?.ab ?? null, alunos: u.alunos } as RefPopulacao) : null;
+            return g ? ({ nome: u.nome, vendas: u.vendas as number, moradores: moradoresNaArea(base, g), potencial: potencialNaArea(base, g)?.total, modelo: u.modelo, ab: classesNaArea(base, g).ab } as RefPopulacao) : null;
           } catch { return null; }
         }));
         out.push(...lote.filter((x): x is RefPopulacao => !!x));
-        if (!vivo) return;
       }
-      if (vivo) setRefs(out);
-    })();
+      // só fica guardada se todas as unidades responderam: uma área que falhou não pode deixar a régua menor até recarregar a página
+      if (out.length < alvo.length) porChave.delete(chave);
+      return out;
+    })().catch((e) => { porChave.delete(chave); throw e; }));
+  }
+  return porChave.get(chave)!;
+}
+
+export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo | null | undefined, modelo: Modelo | null): RefPopulacao[] | null {
+  const [refs, setRefs] = useState<RefPopulacao[] | null>(null);
+  const base = censo ? censo.base ?? censo : null;
+  useEffect(() => {
+    setRefs(null);
+    if (!modelo || !base) return;
+    let vivo = true;
+    referenciaDaRede(unidades, base).then((r) => { if (vivo) setRefs(r); }, () => { if (vivo) setRefs([]); });
     return () => { vivo = false; };
-  }, [!!modelo, censo, unidades]);
+  }, [!!modelo, base, unidades]); // eslint-disable-line react-hooks/exhaustive-deps
   return refs;
 }

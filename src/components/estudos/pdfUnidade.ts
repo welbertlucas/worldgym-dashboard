@@ -260,8 +260,8 @@ export function secoesDeMercado(m: DadosMercado): Secao[] {
       secoes.push({
         titulo: TITULO_SERVICOS, novaPagina: true, linhas: [], texto: txt,
         destaques: [{ valor: um(r.h24), rotulo: "abrem 24 horas" }, { valor: um(r.domingo), rotulo: "abrem no domingo" }, ...(r.notaMedia != null ? [{ valor: r.notaMedia.toLocaleString("pt-BR", { maximumFractionDigits: 1 }), rotulo: "nota média no Google" }] : [])],
-        tabela: { colunas: ["Nº", "Academia", "Nota", "Horário", "Outras modalidades"], larguras: [4, 26, 10, 13, 30], linhas },
-        paragrafo: `A tabela mostra as ${um(linhas.length)} academias mais próximas, com o mesmo número da lista. "+dom" = abre no domingo. "Não encontradas" = não foi possível encontrar outras modalidades além de musculação.`,
+        tabela: { colunas: ["Nº", "Academia", "Nota", "Horário", "Outras modalidades"], larguras: [4, 26, 10, 13, 30], linhas, ajustar: true },
+        paragrafo: `A tabela mostra as {n} academias mais próximas, com o mesmo número da lista. "+dom" = abre no domingo. "Não encontradas" = não foi possível encontrar outras modalidades além de musculação.`,
       });
     }
   }
