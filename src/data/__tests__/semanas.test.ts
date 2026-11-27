@@ -67,6 +67,19 @@ describe("semanas fixas do mês", () => {
     expect(por.semanas.map((w: { vendasContratosEspeciais: number }) => w.vendasContratosEspeciais)).toEqual([1, 1, 0, 0, 0]);
   });
 
+  it("renovação automática (plano de cobrança mensal) fica fora dos contratos vendidos mesmo quando chega com origem de recepção, como no EVO", () => {
+    const venda = (o: Record<string, unknown>, itens: Record<string, unknown>[]) => ({ idBranch: 5, removed: null, saleDate: "2026-11-05T00:00:00", saleItens: itens, ...o });
+    const por = resumirVendas([
+      venda({ saleSource: 1, registrationKind: "enrollment" }, [{ idMembership: 1, saleValue: 99.9, valueNextMonth: 99.9, item: "WG 30" }]), // matrícula em plano recorrente: conta
+      venda({ saleSource: 1, registrationKind: "renewal" }, [{ idMembership: 1, idMembershipRenewed: 7, saleValue: 99.9, valueNextMonth: 99.9, item: "WG 30" }]), // recorrência com origem de recepção (Ceilândia): fora
+      venda({ saleSource: 1 }, [{ idMembership: 1, idMembershipRenewed: 8, saleValue: 99.9, valueNextMonth: 99.9, item: "WG PLUS" }]), // WG Plus recorrente: fora também
+      venda({ saleSource: 1, registrationKind: "renewal" }, [{ idMembership: 3, idMembershipRenewed: 9, saleValue: 1199, item: "ANUAL" }]), // renovação de plano com vigência na recepção: conta
+      venda({ saleSource: 11, registrationKind: "renewal" }, [{ idMembership: 1, idMembershipRenewed: 10, saleValue: 99.9, valueNextMonth: 99.9, item: "WG 30" }]), // recorrência normal: fora
+    ], new Map(), 30)["Asa Norte"];
+    expect(por.vendasContratos).toBe(2);
+    expect(por.tipoVenda.auto[0]).toBe(2); // o bloco Tipo de venda e o cartão usam o mesmo critério
+  });
+
   it("prospects: cadastradas e convertidas dentro de cada semana; semana que ainda não começou fica fora", () => {
     const l = (cad: string, conv: string) => ({ IdFilial: "5", DtCadastro: cad, DtConversao: conv });
     const rows = [l("02/11/2026", "03/11/2026"), l("06/11/2026", "10/11/2026"), l("09/11/2026", ""), l("12/11/2026", "13/11/2026"), l("16/11/2026", "")];

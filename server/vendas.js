@@ -205,7 +205,10 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
         if (sem) sem.novosContratos += 1;
       }
       // "Contratos vendidos" como no Gerencial do EVO: toda venda de contrato lançada na recepção ou online (matrícula, rematrícula e renovação manual), sem a recorrência automática, a diária e o personal.
-      if (i.idMembership && !ehRecorrencia(s) && cat !== "diarias" && !/PERSONAL/.test(upper(i))) {
+      // A recorrência automática é reconhecida pela origem (11 ou vazia) E pela renovação de plano de cobrança mensal (valueNextMonth), o mesmo critério do
+      // bloco Tipo de venda: em algumas unidades a renovação automática chega com outra origem e inflava o total (Ceilândia, nov/2026: 374 no Atlas, 202 no EVO).
+      const renovacaoAutomatica = !!i.idMembership && tipoDaVenda(s, i) === "renov" && i.valueNextMonth != null;
+      if (i.idMembership && !ehRecorrencia(s) && !renovacaoAutomatica && cat !== "diarias" && !/PERSONAL/.test(upper(i))) {
         u.vendasContratos += 1; if (sem) sem.vendasContratos += 1;
         // Contratos especiais (VIP e cortesias, valor R$ 0): contam no total, mas o painel diz quantos são, porque o EVO nem sempre os conta.
         if (!(i.saleValue > 0)) { u.vendasContratosEspeciais += 1; if (sem) sem.vendasContratosEspeciais += 1; }
