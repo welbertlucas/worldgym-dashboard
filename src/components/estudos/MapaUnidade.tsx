@@ -259,14 +259,15 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
   usePoisNoMapa(pronto ? ref.current : null, verPois ? pois : null, modoPois);
   const aoPois = (r: ResultadoPois | null) => { setPois(r); setVerPois(true); };
   // Academias concorrentes como camada do painel, igual ao estudo de ponto novo; a busca só roda quando a pessoa liga a camada (o servidor guarda cada busca por 90 dias)
-  const refazerAcademias = async () => {
-    if (!u?.c || !area10) return;
+  const refazerAcademias = async (): Promise<ResultadoPois | null> => {
+    if (!u?.c || !area10) return null;
     setBuscandoAcademias(true);
     try {
       const r = await buscarPois(u.c as [number, number], raioQueCobre(u.c as [number, number], area10), "academias");
       const lugares = r.lugares.filter((l) => dentroDaArea(l.c[0], l.c[1], area10));
-      setPois({ ...r, lugares, total: lugares.length, areaRotulo: `${MINUTOS_PADRAO} min de carro` }); setVerPois(true);
-    } catch { /* sem resposta: a camada continua desligada e dá para tentar de novo */ } finally { setBuscandoAcademias(false); }
+      const res = { ...r, lugares, total: lugares.length, areaRotulo: `${MINUTOS_PADRAO} min de carro` };
+      setPois(res); setVerPois(true); return res;
+    } catch { return null; /* sem resposta: a camada continua desligada e dá para tentar de novo */ } finally { setBuscandoAcademias(false); }
   };
 
   if (!u) return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">Nenhuma unidade para mostrar.</p>;
@@ -278,8 +279,9 @@ export function MapaUnidade({ dados, unidades, inicial, voltar, estudarPosicao, 
     setAvisoPdf("");
     setGerando(true);
     // horários, nota e serviços das academias entram no PDF: gerar o PDF já é o pedido (guardado por 90 dias); se falhar, sai sem eles
-    let poisComServicos = pois;
-    if (pois?.categoria === "academias" && !pois.servicosCarregados) { try { poisComServicos = await carregarServicos(pois); setPois(poisComServicos); } catch { /* segue sem os serviços */ } }
+    // sem a busca de concorrentes feita, o PDF busca sozinho (como o estudo de ponto, que busca ao abrir; pedido do dono, 26/11/2026)
+    let poisComServicos = pois ?? await refazerAcademias();
+    if (poisComServicos?.categoria === "academias" && !poisComServicos.servicosCarregados) { try { poisComServicos = await carregarServicos(poisComServicos); setPois(poisComServicos); } catch { /* segue sem os serviços */ } }
     // as fotos saem do mapa: na aba Estudo ele está escondido (sem tamanho) e as fotos vinham vazias; mostra o mapa durante a exportação
     const vistaAntes = vista;
     if (vista === "estudo") { setVista("mapa"); await pausa(400); m.mapa.invalidateSize({ animate: false }); }
