@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { Pilula } from "@/components/ui/pilula";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { API_BASE, authFetch } from "@/lib/auth";
+import { API_BASE, authFetch, getToken, getVerComo } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 import { useCensoCompleto, usaFatorPadrao } from "@/components/estudos/censoMunicipio";
 import { PedirCenso } from "@/components/estudos/PedirCenso";
@@ -477,7 +477,7 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
         <Button size="sm" className="h-7 px-2.5 text-[12px]" onClick={exportar} disabled={gerando || carregandoCenso || !pontos.length}>{gerando ? "Gerando…" : "Exportar PDF"}</Button>
         {falhaAcademias && !pois && !buscandoAcademias && <span role="alert" className="text-[11px] font-medium text-red-700">Não consegui buscar as academias concorrentes. <button type="button" className="underline" onClick={() => { buscouAuto.current = ""; setFalhaAcademias(false); buscarAcademias().then((res) => { if (res) setPois(res); else setFalhaAcademias(true); }); }}>Tentar de novo</button></span>}
         {avisoPdf && <span role="alert" className="text-[11px] font-medium text-red-700">{avisoPdf}</span>}
-        <span className="text-[11px] text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : ""}</span>
+        <span className="text-[11px] text-muted-foreground">{salvo === "salvando" ? "Salvando…" : salvo === "salvo" ? "Salvo" : salvo === "erro" ? "Não consegui salvar" : salvo === "atualizando" ? "Atualizando…" : salvo === "erro-atualizar" ? "Não consegui atualizar: só consulta" : ""}</span>
       </>}
       painel={<PainelCamadas itens={LENTES} atual={lente} escolher={(id) => setLente(id as Lente)} vazia="limpa" naColuna
           legenda={lente === "captacao" ? <>
@@ -780,6 +780,13 @@ export function CampoM2({ valor, aoMudar }: { valor: number; aoMudar: (m2: numbe
 
 /** A malha do Censo desta sessão (não muda enquanto a página está aberta): evita baixar 3,5 MB toda vez que se volta à tela. */
 let censoDaSessao: Censo | null = null;
+/**
+ * Os dados da última vez que a tela abriu nesta página (com os estudos como ficaram): voltando ao menu, a lista aparece na hora e a resposta
+ * nova do servidor substitui por trás (27/11/2026). Só na memória da página, nunca no disco (premissas e vendas são estratégia comercial),
+ * e presos à sessão e ao "Ver como": outra pessoa ou outra simulação não vê os dados de antes.
+ */
+let ultimosDados: { chave: string; dados: DadosEstudos } | null = null;
+const chaveDosDados = () => `${getToken()}|${JSON.stringify(getVerComo())}`;
 
 export function EstudosPontoTab() {
   const [dadosApi, setDados] = useState<DadosEstudos | null>(null);
@@ -788,8 +795,16 @@ export function EstudosPontoTab() {
   const [salvo, setSalvo] = useState<"" | "salvando" | "salvo" | "erro">("");
   const [visao, setVisao] = useState<Visao>({ tela: "lista" });
   const primeiraCarga = useRef(true);
+  // mostrando os dados da última vez enquanto a resposta nova não chega: só consulta, para nenhuma mudança ser apagada pela resposta nova
+  const [atualizando, setAtualizando] = useState(false);
+  const [falhaAtualizar, setFalhaAtualizar] = useState(false);
+  const doServidor = useRef(false);
 
   useEffect(() => {
+    const chave = chaveDosDados();
+    const anterior = ultimosDados?.chave === chave ? ultimosDados.dados : null;
+    if (anterior) { doServidor.current = true; setDados(anterior); setPontos(anterior.pontos ?? []); setAtualizando(true); }
+    let vivo = true;
     // o Censo (3,5 MB) só vem na primeira vez da sessão; ao voltar à tela, o servidor manda o resto e a tela usa o que já tem (26/11/2026)
     const guardado = censoDaSessao;
     authFetch(`${API_BASE}/estudos${guardado ? "?semCenso=1" : ""}`).then(async (res) => {
@@ -797,9 +812,20 @@ export function EstudosPontoTab() {
       const d: DadosEstudos & { censoOmitido?: boolean } = await res.json();
       if (d.censoOmitido && guardado) d.censo = guardado;
       else if (d.modo !== "unidade" && d.censo?.celulas?.length) censoDaSessao = d.censo; // só a malha completa fica guardada (o acesso de unidade recebe um recorte)
-      setDados(d); setPontos(d.pontos ?? []);
-    }).catch((e) => setErro(e.message));
+      if (chaveDosDados() === chave) ultimosDados = { chave, dados: d };
+      if (!vivo) return;
+      doServidor.current = true; setDados(d); setPontos(d.pontos ?? []); setAtualizando(false);
+    }).catch((e) => {
+      if (!vivo) return;
+      // com os dados de antes na tela, a falha não apaga a lista: avisa e continua só para consulta
+      if (anterior) setFalhaAtualizar(true); else setErro(e.message);
+    });
+    return () => { vivo = false; };
   }, []);
+  // os estudos como ficaram (inclusive o que foi mudado agora) é o que aparece ao voltar ao menu
+  useEffect(() => {
+    if (ultimosDados && dadosApi && ultimosDados.dados.disponivel && !atualizando) ultimosDados = { ...ultimosDados, dados: { ...ultimosDados.dados, pontos } };
+  }, [pontos, dadosApi, atualizando]);
 
   // Censo dos municípios de fora da malha principal (ex.: Jataí, Rio Verde): vem do servidor para os pontos que a malha principal não cobre
   // e entra na mesma malha, então lista, mapa e PDF usam `dados.censo` como sempre
@@ -809,7 +835,9 @@ export function EstudosPontoTab() {
   // grava os pontos no servidor um instante depois da última mudança
   useEffect(() => {
     if (!dados?.disponivel || (dados.modo ?? "completo") !== "completo") return;
-    if (primeiraCarga.current) { primeiraCarga.current = false; return; }
+    if (primeiraCarga.current) { primeiraCarga.current = false; doServidor.current = false; return; }
+    // a lista que veio do servidor (ou da última vez) não é gravada de volta: só o que a pessoa mudou
+    if (doServidor.current) { doServidor.current = false; return; }
     setSalvo("salvando");
     const t = setTimeout(() => {
       authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "pontos", pontos }) })
@@ -823,7 +851,8 @@ export function EstudosPontoTab() {
   if (!dados.disponivel || !dados.premissas || !dados.vendasPorM2 || !dados.censo || !dados.unidades)
     return <p className="rounded-2xl border bg-white p-6 text-sm text-muted-foreground">As premissas dos estudos de ponto ainda não foram carregadas.</p>;
 
-  const editavel = (dados.modo ?? "completo") === "completo";
+  const editavel = (dados.modo ?? "completo") === "completo" && !atualizando;
+  const status = atualizando ? (falhaAtualizar ? "Não consegui atualizar os estudos agora: mostrando os da última vez, só para consulta. Recarregue a página para tentar de novo." : "Atualizando os estudos…") : "";
   // o Master liberado a fazer estudos vê os de todos, mas só mexe nos próprios (o servidor ignora o resto ao gravar)
   const podeMexer = (p: Ponto | undefined) => editavel && (dados.editaTodos !== false || !p?.autor || p.autor.id === dados.autorId);
   // quem tem acesso a unidades vê só o estudo da(s) própria(s) unidade(s)
@@ -849,15 +878,15 @@ export function EstudosPontoTab() {
   }
   if (visao.tela === "lista")
     return (
-      <ListaEstudos dados={dados} pontos={pontos} editavel={editavel} podeMexer={podeMexer} carregandoCenso={carregandoCenso} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })} verRede={() => setVisao({ tela: "rede" })}
+      <>{status && <p role="status" className={`mb-2 text-[12px] ${falhaAtualizar ? "font-medium text-red-700" : "text-muted-foreground"}`}>{status}</p>}<ListaEstudos dados={dados} pontos={pontos} editavel={editavel} podeMexer={podeMexer} carregandoCenso={carregandoCenso} abrirUnidade={(nome: string) => setVisao({ tela: "unidade", nome })} verRede={() => setVisao({ tela: "rede" })}
         apagar={editavel ? (id: string) => setPontos((ps) => ps.filter((x) => x.id !== id)) : undefined}
         importar={editavel ? (novos: Ponto[]) => setPontos((ps) => [...ps, ...novos]) : undefined}
         abrir={(id) => setVisao({ tela: "mapa", atualId: id, novo: false, comparando: null })}
         novo={() => setVisao({ tela: "mapa", atualId: null, novo: true, comparando: null })}
-        comparar={(ids) => setVisao({ tela: "mapa", atualId: ids[0] ?? null, novo: false, comparando: new Set(ids) })} />
+        comparar={(ids) => setVisao({ tela: "mapa", atualId: ids[0] ?? null, novo: false, comparando: new Set(ids) })} /></>
     );
   return (
-    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={salvo} editavel={visao.atualId ? podeMexer(pontos.find((p) => p.id === visao.atualId)) : editavel} carregandoCenso={carregandoCenso} recarregarCenso={recarregarCenso} iniciarAdicionando={visao.novo} comparando={visao.comparando}
+    <MapaEstudos dados={dados} pontos={pontos} setPontos={setPontos} salvo={atualizando ? (falhaAtualizar ? "erro-atualizar" : "atualizando") : salvo} editavel={visao.atualId ? podeMexer(pontos.find((p) => p.id === visao.atualId)) : editavel} carregandoCenso={carregandoCenso} recarregarCenso={recarregarCenso} iniciarAdicionando={visao.novo} comparando={visao.comparando}
       atualId={visao.atualId} setAtualId={(id) => setVisao((v) => (v.tela === "mapa" ? { ...v, atualId: id, comparando: v.comparando && id && !v.comparando.has(id) ? new Set([...v.comparando, id]) : v.comparando } : v))}
       voltar={() => setVisao({ tela: "lista" })} />
   );
