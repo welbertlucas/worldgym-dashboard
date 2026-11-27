@@ -44,7 +44,7 @@ const EH_ACADEMIA = /academia|fitness|\bgym\b|\bfit\b|crossfit|muscula[çc][aã]
  * O que o Google cadastra como academia e nunca é concorrente, mesmo com "academia" ou "fitness" no nome (pedido do dono, 26/11/2026, no estudo
  * do Recanto das Emas): academias ao ar livre e do idoso (aparelhos em praça), estética, loja e moda fitness, pista de skate e escolinha de futsal.
  */
-export const NUNCA_ACADEMIA = /ao ar livre|academia (do|da) idos[oa]|melhor idade|ponto comunit[aá]rio|est[eé]tica|esmalteria|sal[aã]o de beleza|\bmoda\b|beachwear|\blojas?\b|\bloj[aã]o\b|\bskate\b|futsal|escolinha/i;
+export const NUNCA_ACADEMIA = /ao ar livre|academia (do|da) idos[oa]|melhor idade|ponto comunit[aá]rio|est[eé]tica|esmalteria|sal[aã]o de beleza|\bmoda\b|beachwear|\blojas?\b|\bloj[aã]o\b|\bskate\b|futsal|escolinha|\bslam\b/i; // SLAM: rede de clínicas (dono, 26/11/2026)
 export const ehAcademiaConcorrente = (nome: string) => !NUNCA_ACADEMIA.test(nome) && (EH_ACADEMIA.test(nome) || !NAO_ACADEMIA.test(nome));
 
 export async function buscarPois(c: [number, number], raioKm: number, categoria: string): Promise<ResultadoPois> {
