@@ -39,11 +39,24 @@ const real = {
 let atual = real;
 
 export const lerJson = (caminho) => atual.ler(caminho);
-export const gravarJson = (caminho, dados) => atual.gravar(caminho, dados);
+export const gravarJson = (caminho, dados) => { guardados.delete(caminho); return atual.gravar(caminho, dados); };
+
+// Leitura guardada na memória do servidor por alguns minutos, para arquivos grandes que quase não mudam (Censo, premissas, áreas de
+// deslocamento): enquanto a função está aquecida, abrir o menu de novo não relê do Blob. Gravar pelo próprio servidor limpa o guardado;
+// o que um script grava direto no Blob aparece em até `validadeMs`. Arquivo ausente não fica guardado (pode passar a existir).
+const guardados = new Map();
+export function lerJsonGuardado(caminho, validadeMs) {
+  const agora = Date.now(), g = guardados.get(caminho);
+  if (g && agora - g.em < validadeMs) return g.valor;
+  const valor = atual.ler(caminho).then((v) => { if (v == null) guardados.delete(caminho); return v; }, (e) => { guardados.delete(caminho); throw e; });
+  guardados.set(caminho, { em: agora, valor });
+  return valor;
+}
+export const limparGuardados = () => guardados.clear();
 /** Listar e apagar são opcionais na troca de implementação dos testes (quem não define, não lista nem apaga). */
 export const listarCaminhos = async (prefixo) => (atual.listar ? atual.listar(prefixo) : []);
 export const apagarCaminho = async (caminho) => { if (atual.apagar) await atual.apagar(caminho); };
 /** Bytes (fotos): opcionais na troca de implementação dos testes, como listar e apagar. */
 export const gravarBytes = async (caminho, bytes, tipo = "image/jpeg") => { if (atual.gravarBytes) await atual.gravarBytes(caminho, bytes, tipo); };
 export const lerBytes = (caminho) => (atual.lerBytes ? atual.lerBytes(caminho) : null);
-export const definirArmazem = (impl) => { atual = impl ?? real; };
+export const definirArmazem = (impl) => { atual = impl ?? real; guardados.clear(); };

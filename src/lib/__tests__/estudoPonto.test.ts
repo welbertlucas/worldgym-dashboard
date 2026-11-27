@@ -8,7 +8,9 @@ import {
 import { EstudosPontoTab } from "@/components/tabs/EstudosPontoTab";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 // @ts-expect-error módulo JS do servidor
-import { definirArmazem } from "../../../server/armazem.js";
+import { definirArmazem, lerJsonGuardado, gravarJson as gravarJsonArmazem } from "../../../server/armazem.js";
+// @ts-expect-error módulo JS do servidor
+import { areasGuardadas, chaveDoDeslocamento } from "../../../server/deslocamento.js";
 // @ts-expect-error módulo JS da função serverless
 import { sessaoDe } from "../../../api/_auth.js";
 // @ts-expect-error módulo JS do servidor
@@ -105,6 +107,37 @@ describe("servidor dos estudos (server/estudos.js)", () => {
   ];
   const premissas = { regua: { maturidadeMeses: 12 }, modelos: PREMISSAS.modelos, curva: PREMISSAS.curva, unidades: { "Asa Norte": { m2: 1000, modelo: "low", abertura: "2015-01" }, Gama: { m2: 900, modelo: "low", abertura: "2026-06" } } };
 
+  it("abrir o menu mais rápido: as áreas guardadas das unidades maduras vêm junto, e as dos estudos saem num pedido só", async () => {
+    const mem = memoria(); definirArmazem(mem);
+    mem.m.set(ARQUIVO_PREMISSAS, premissas);
+    const asa = unidadesDoEstudo(meses, premissas, "2026-11").find((u: { nome: string }) => u.nome === "Asa Norte");
+    const area = { type: "Polygon", coordinates: [[[-48, -15.9], [-47.8, -15.9], [-47.8, -15.7], [-48, -15.7], [-48, -15.9]]] };
+    const agora = new Date().toISOString();
+    mem.m.set(chaveDoDeslocamento(asa.c, "carro"), { em: agora, c: asa.c, modo: "carro", contornos: { 10: area } });
+    const d = await lerEstudos(async () => meses, "2026-11", DONO);
+    expect(d.areasRede).toEqual({ "Asa Norte": area }); // Gama não é madura: fica de fora
+    // área vencida (mais de 180 dias) não vale: a tela pede de novo, como antes
+    mem.m.set(chaveDoDeslocamento([-16, -48], "carro"), { em: "2020-01-01T00:00:00.000Z", c: [-16, -48], modo: "carro", contornos: { 10: area } });
+    expect(await areasGuardadas({ posicoes: [asa.c, [-16, -48], [-17, -49], [99, 0]] })).toEqual([area, null, null, null]);
+    await expect(areasGuardadas({ posicoes: "x" })).rejects.toThrow();
+  });
+  it("o que fica guardado na memória do servidor: gravar pelo servidor limpa, ausente não fica, trocar o armazenamento zera", async () => {
+    const mem = memoria(); definirArmazem(mem);
+    let leituras = 0;
+    const ler = mem.ler.bind(mem);
+    mem.ler = async (c: string) => { leituras++; return ler(c); };
+    expect(await lerJsonGuardado("x.json", 60_000)).toBeNull();
+    mem.m.set("x.json", { v: 1 });
+    expect(await lerJsonGuardado("x.json", 60_000)).toEqual({ v: 1 }); // o ausente não ficou guardado
+    mem.m.set("x.json", { v: 2 });
+    expect(await lerJsonGuardado("x.json", 60_000)).toEqual({ v: 1 }); // guardado
+    expect(leituras).toBe(2);
+    await gravarJsonArmazem("x.json", { v: 3 });
+    expect(await lerJsonGuardado("x.json", 60_000)).toEqual({ v: 3 });
+    expect(await lerJsonGuardado("x.json", 0)).toEqual({ v: 3 });
+    definirArmazem(memoria());
+    expect(await lerJsonGuardado("x.json", 60_000)).toBeNull();
+  });
   it("vendas médias só dos meses fechados, e madura com 12 meses", () => {
     const us = unidadesDoEstudo(meses, premissas, "2026-11");
     const asa = us.find((u: { nome: string }) => u.nome === "Asa Norte"), gama = us.find((u: { nome: string }) => u.nome === "Gama");
@@ -334,6 +367,11 @@ describe("área de deslocamento (server/deslocamento.js e contas no front)", () 
     const { dentroDaArea, moradoresNaArea, parteDosAlunos, minutosPara80 } = await import("@/lib/estudoPonto");
     const g10 = d.contornos["10"];
     expect(dentroDaArea(-15.8, -47.9, g10)).toBe(true); expect(dentroDaArea(-15.9, -47.9, g10)).toBe(false);
+    // a caixa da área descarta o que está longe sem mudar a resposta; buracos e MultiPolygon continuam valendo
+    const furado = { type: "Polygon" as const, coordinates: [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]], [[4, 4], [6, 4], [6, 6], [4, 6], [4, 4]]] };
+    expect(dentroDaArea(2, 2, furado)).toBe(true); expect(dentroDaArea(5, 5, furado)).toBe(false); expect(dentroDaArea(20, 5, furado)).toBe(false); expect(dentroDaArea(5, -1, furado)).toBe(false);
+    const dois = { type: "MultiPolygon" as const, coordinates: [[[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]], [[[5, 5], [6, 5], [6, 6], [5, 6], [5, 5]]]] };
+    expect(dentroDaArea(0.5, 0.5, dois)).toBe(true); expect(dentroDaArea(5.5, 5.5, dois)).toBe(true); expect(dentroDaArea(3, 3, dois)).toBe(false);
     const censo = { rk: 0.3, celulas: [[-15.8, -47.9, 500, 2000], [-15.9, -47.9, 999, 2000]] as [number, number, number, number | null][] };
     expect(moradoresNaArea(censo, g10)).toBe(500);
     // 70 alunos a 0,003° (dentro de 5 min), 20 a 0,008° (dentro de 10) e 10 a 0,018° (dentro de 20)

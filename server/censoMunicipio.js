@@ -4,7 +4,7 @@
 // A tela pede os hexágonos do ponto quando ele está fora da malha principal: o servidor devolve os municípios que têm cidade (blocos de
 // 0,1 grau do índice) no bloco do ponto ou ao lado. Dado público do IBGE (Censo 2022), mas é estratégia comercial saber onde o dono estuda: sem cache
 // e fora do acesso de unidade (api/royalties.js).
-import { lerJson } from "./armazem.js";
+import { lerJson, lerJsonGuardado } from "./armazem.js";
 
 export const ARQUIVO_INDICE_CENSO_MUN = "estudos/censo-mun/indice.json";
 export const arquivoCensoMun = (cod) => `estudos/censo-mun/${cod}.json`;
@@ -47,7 +47,8 @@ export async function censoDoPonto(pedido) {
   const alvos = (indice?.municipios ?? []).filter((m) => (Array.isArray(m.blocos) ? pertoDosBlocos(c, m.blocos) : Array.isArray(m.caixa) && dentroDaCaixa(c, m.caixa)));
   const municipios = [];
   for (const m of alvos) {
-    const arq = await lerJson(arquivoCensoMun(m.cod));
+    // a malha de um município (centenas de KB) quase nunca muda: guardada 10 min na memória do servidor; o índice, pequeno, é lido sempre
+    const arq = await lerJsonGuardado(arquivoCensoMun(m.cod), 10 * 60e3);
     if (arq?.celulas?.length) municipios.push({ cod: m.cod, nome: m.nome, uf: m.uf, celulas: arq.celulas, ...(m.fatorPadrao ? { fatorPadrao: m.fatorPadrao } : {}) });
   }
   return { municipios };

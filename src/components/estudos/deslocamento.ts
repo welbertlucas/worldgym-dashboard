@@ -36,6 +36,15 @@ export function areaEmCache(c: [number, number]): Promise<Geometria | null> {
   }
   return emCache.get(k)!;
 }
+/** Áreas já guardadas de várias posições num pedido só (o servidor lê do Blob em paralelo). null: o servidor ainda não tem o pedido em lote. */
+async function areasEmLote(cs: [number, number][]): Promise<(Geometria | null)[] | null> {
+  try {
+    const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "areas", posicoes: cs }) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return Array.isArray(j?.areas) && j.areas.length === cs.length ? j.areas : null;
+  } catch { return null; }
+}
 /** As áreas já guardadas de uma lista de pontos (por id). Pontos nunca abertos ficam de fora. */
 export function useAreasEmCache(pontos: { id: string; c: [number, number] }[]): Map<string, Geometria> {
   const [areas, setAreas] = useState<Map<string, Geometria>>(new Map());
@@ -44,8 +53,16 @@ export function useAreasEmCache(pontos: { id: string; c: [number, number] }[]): 
     let vivo = true;
     (async () => {
       const novo = new Map<string, Geometria>();
-      for (let i = 0; i < pontos.length; i += 4) {
-        const lote = await Promise.all(pontos.slice(i, i + 4).map(async (p) => [p.id, await areaEmCache(p.c)] as const));
+      // um pedido só para todos os que ainda não estão na memória da página (antes era um por estudo)
+      const faltam = pontos.filter((p) => !emCache.has(`${p.c[0].toFixed(4)},${p.c[1].toFixed(4)}`));
+      const lote = faltam.length > 1 ? await areasEmLote(faltam.map((p) => p.c)) : null;
+      if (!vivo) return;
+      // o que o lote disse que não tem área não é pedido de novo, um a um (passa a ter quando o estudo é aberto)
+      const semArea = new Set<string>();
+      if (lote) faltam.forEach((p, i) => { if (lote[i]) emCache.set(`${p.c[0].toFixed(4)},${p.c[1].toFixed(4)}`, Promise.resolve(lote[i])); else semArea.add(p.id); });
+      const pedir = pontos.filter((p) => !semArea.has(p.id));
+      for (let i = 0; i < pedir.length; i += 4) {
+        const lote = await Promise.all(pedir.slice(i, i + 4).map(async (p) => [p.id, await areaEmCache(p.c)] as const));
         for (const [id, g] of lote) if (g) novo.set(id, g);
         if (!vivo) return;
       }
@@ -119,7 +136,7 @@ export const LEGENDA_DESLOCAMENTO = "linha azul-marinho: área de até 10 min de
  * do ponto e pelo estudo da unidade, inclusive depois que o Censo de outro município é juntado (as unidades estão na malha principal) (26/11/2026).
  */
 const refsGuardadas = new WeakMap<Censo, Map<string, Promise<RefPopulacao[]>>>();
-function referenciaDaRede(unidades: UnidadeEstudo[], censo: Censo): Promise<RefPopulacao[]> {
+function referenciaDaRede(unidades: UnidadeEstudo[], censo: Censo, prontas?: Record<string, Geometria>): Promise<RefPopulacao[]> {
   const alvo = unidades.filter((u) => u.madura && u.c && u.vendas);
   const chave = alvo.map((u) => `${u.nome}:${u.c}:${u.vendas}`).join("|");
   const base = censo.base ?? censo;
@@ -131,7 +148,8 @@ function referenciaDaRede(unidades: UnidadeEstudo[], censo: Censo): Promise<RefP
       for (let i = 0; i < alvo.length; i += 4) {
         const lote = await Promise.all(alvo.slice(i, i + 4).map(async (u) => {
           try {
-            const g = (await buscarDeslocamento(u.c as [number, number], "carro")).contornos[String(MINUTOS_PADRAO)];
+            // a área que já veio com os dados dos estudos (o servidor manda as guardadas): só as que faltam são pedidas uma a uma
+            const g = prontas?.[u.nome] ?? (await buscarDeslocamento(u.c as [number, number], "carro")).contornos[String(MINUTOS_PADRAO)];
             return g ? ({ nome: u.nome, vendas: u.vendas as number, moradores: moradoresNaArea(base, g), potencial: potencialNaArea(base, g)?.total, modelo: u.modelo, ab: classesNaArea(base, g).ab } as RefPopulacao) : null;
           } catch { return null; }
         }));
@@ -145,14 +163,14 @@ function referenciaDaRede(unidades: UnidadeEstudo[], censo: Censo): Promise<RefP
   return porChave.get(chave)!;
 }
 
-export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo | null | undefined, modelo: Modelo | null): RefPopulacao[] | null {
+export function useReferenciaPopulacao(unidades: UnidadeEstudo[], censo: Censo | null | undefined, modelo: Modelo | null, prontas?: Record<string, Geometria>): RefPopulacao[] | null {
   const [refs, setRefs] = useState<RefPopulacao[] | null>(null);
   const base = censo ? censo.base ?? censo : null;
   useEffect(() => {
     setRefs(null);
     if (!modelo || !base) return;
     let vivo = true;
-    referenciaDaRede(unidades, base).then((r) => { if (vivo) setRefs(r); }, () => { if (vivo) setRefs([]); });
+    referenciaDaRede(unidades, base, prontas).then((r) => { if (vivo) setRefs(r); }, () => { if (vivo) setRefs([]); });
     return () => { vivo = false; };
   }, [!!modelo, base, unidades]); // eslint-disable-line react-hooks/exhaustive-deps
   return refs;
