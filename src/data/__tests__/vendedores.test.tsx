@@ -110,6 +110,19 @@ describe("contratos vendidos como no Gerencial do EVO (server/vendas.js)", () =>
     expect(por.vendasContratos).toBe(2);
   });
 
+  it("fica de fora a renovação antecipada da recorrência (lançada pela recepção) e o contrato de R$ 0, como no EVO; o valor não muda", () => {
+    const por = resumirVendas([
+      venda("Ana", [{ ...plano(100, 99), saleValue: 150 }], { saleSource: 1, registrationKind: "renewal", idSaleRecurrency: 7 }), // renovação antecipada: não conta
+      venda("Ana", [{ ...plano(100), saleValue: 0 }], { saleSource: 1, registrationKind: "enrollment" }), // VIP de R$ 0: não conta
+      venda("Ana", [{ ...plano(100, 99), saleValue: 300 }], { saleSource: 1, registrationKind: "renewal" }), // renovação de plano com vigência: conta
+    ], new Map(), 30)["Asa Norte"];
+    expect(por.vendasContratos).toBe(1);
+    expect(por.semanas.reduce((n: number, s: { vendasContratos: number }) => n + s.vendasContratos, 0)).toBe(1);
+    expect(por.vendasManuais).toBe(450); // a renovação antecipada continua nas vendas da recepção
+    expect(por.vendasRecorrentes).toBe(0);
+    expect(por).not.toHaveProperty("vendasContratosEspeciais");
+  });
+
   it("total de vendas por origem: recepção, recorrência (origem 11 ou sem origem) e online, só de contratos", () => {
     const por = resumirVendas([
       venda("Ana", [{ ...plano(100), saleValue: 100 }], { saleSource: 1, registrationKind: "enrollment" }),

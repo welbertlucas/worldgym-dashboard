@@ -55,16 +55,15 @@ describe("semanas fixas do mês", () => {
     expect(sem.reduce((n: number, w: { totalVendas: number }) => n + w.totalVendas, 0)).toBe(u.vendasManuais + u.vendasRecorrentes + u.vendasOnlineContratos);
   });
 
-  it("contratos especiais (VIP, valor R$ 0) entram no total de contratos vendidos e são contados à parte, por mês e por semana", () => {
+  it("contratos especiais (VIP, valor R$ 0) ficam fora dos contratos vendidos, por mês e por semana, como no EVO", () => {
     const venda = (saleDate: string, itens: Record<string, unknown>[]) => ({ idBranch: 5, removed: null, saleSource: 1, saleDate, saleItens: itens });
     const por = resumirVendas([
       venda("2026-11-02T00:00:00", [{ idMembership: 1, idMembershipRenewed: null, saleValue: 100 }]),
       venda("2026-11-03T00:00:00", [{ idMembership: 2, idMembershipRenewed: null, saleValue: 0, item: "WORLD GYM MENSAL VIP" }]),
       venda("2026-11-10T00:00:00", [{ idMembership: 2, idMembershipRenewed: 9, saleValue: 0, item: "WORLD GYM MENSAL VIP" }]),
     ], new Map(), 30)["Asa Norte"];
-    expect(por.vendasContratos).toBe(3); // o total inclui os especiais
-    expect(por.vendasContratosEspeciais).toBe(2);
-    expect(por.semanas.map((w: { vendasContratosEspeciais: number }) => w.vendasContratosEspeciais)).toEqual([1, 1, 0, 0, 0]);
+    expect(por.vendasContratos).toBe(1);
+    expect(por.semanas.map((w: { vendasContratos: number }) => w.vendasContratos)).toEqual([1, 0, 0, 0, 0]);
   });
 
   it("prospects: cadastradas e convertidas dentro de cada semana; semana que ainda não começou fica fora", () => {

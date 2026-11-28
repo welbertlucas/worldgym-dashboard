@@ -14,7 +14,14 @@ for (const ym of process.argv.slice(2)) {
     const month = await loadMonth(ym);
     if (!month) throw new Error("mês ainda não foi calculado; rode evo-backfill antes");
     const por = await vendasDoMes(ym, planos);
-    for (const u of month.units) if (por[u.name]) { const { semanas, ...resto } = por[u.name]; Object.assign(u, resto); u.semanas = mesclarSemanas(u.semanas, semanas); }
+    for (const u of month.units) if (por[u.name]) {
+      const { semanas, ...resto } = por[u.name];
+      Object.assign(u, resto);
+      u.semanas = mesclarSemanas(u.semanas, semanas);
+      // Contratos especiais (R$ 0) saíram da contagem de contratos vendidos em 27/11/2026: apaga o campo antigo para a nota não sobrar.
+      delete u.vendasContratosEspeciais;
+      for (const w of u.semanas ?? []) delete w.vendasContratosEspeciais;
+    }
     month.vendasEm = new Date().toISOString();
     await saveMonth(month);
     console.log(`${ym}: ${month.units.filter((u) => por[u.name]).length} unidades | ${((Date.now() - t0) / 1000).toFixed(0)}s`);

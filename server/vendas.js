@@ -47,6 +47,15 @@ const round2 = (n) => Math.round(n * 100) / 100;
 export const nomePlano = (i) => String(i.item || i.description || "").replace(/\s+/g, " ").trim();
 
 /**
+ * "Contratos vendidos" como no cartão do Gerencial do EVO: venda de contrato lançada na recepção ou online (matrícula, rematrícula e renovação manual).
+ * Ficam de fora, como no EVO: a recorrência automática do cartão, a "Renovação Antecipada" da recorrência (origem 1 ligada a uma recorrência,
+ * `idSaleRecurrency`), o contrato de valor R$ 0 (VIP e cortesias), a diária e o personal. Conferido em 27/11/2026: Ceilândia 208 e Itapoã 150, iguais ao EVO.
+ * O EVO conta personal e diária em algumas unidades (Asa Norte, Arniqueira) e não em outras, sem campo na API que separe; o Atlas deixa os dois de fora.
+ */
+export const contaComoContratoVendido = (venda, item) =>
+  !!item.idMembership && !ehRecorrencia(venda) && venda.idSaleRecurrency == null && item.saleValue > 0 && categoriaItem(item) !== "diarias" && !/PERSONAL/.test(upper(item));
+
+/**
  * Tipo da venda de contrato: novo (matrícula), rematrícula (ex-aluno voltando) ou renovação. "renewal" no EVO é toda nova venda depois de um
  * contrato anterior, manual (plano com vigência) ou automática (recorrência mensal): a separação é feita em `tipoVenda.auto`.
  */
@@ -158,7 +167,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
   for (const s of vendas) {
     const nome = UNIT_NAMES[s.idBranch];
     if (!nome || s.removed) continue;
-    const u = (por[nome] ??= { novosContratos: 0, vendasContratos: 0, vendasContratosEspeciais: 0, vendasManuais: 0, vendasRecorrentes: 0, vendasOnlineContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _vendedores: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0), semanas: Array.from({ length: dias > 28 ? 5 : 4 }, () => ({ novosContratos: 0, vendasContratos: 0, vendasContratosEspeciais: 0, contratos: 0, valorContratos: 0, totalVendas: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0 })) });
+    const u = (por[nome] ??= { novosContratos: 0, vendasContratos: 0, vendasManuais: 0, vendasRecorrentes: 0, vendasOnlineContratos: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0, _planos: new Map(), _vendedores: new Map(), _familias: new Map(), _avulsos: new Map(), _taxas: new Map(), tipoVenda: { novo: [0, 0], remat: [0, 0], renov: [0, 0], auto: [0, 0] }, duracaoVenda: [0, 0, 0, 0, 0], vendasDia: Array(dias).fill(0), semanas: Array.from({ length: dias > 28 ? 5 : 4 }, () => ({ novosContratos: 0, vendasContratos: 0, contratos: 0, valorContratos: 0, totalVendas: 0, vendasOnline: 0, diarias: 0, camisetas: 0, coqueteleiras: 0, personal: 0, kids: 0, plus: 0, proMais: 0 })) });
     const dia = Number(String(s.saleDate ?? "").slice(8, 10));
     const sem = dia >= 1 && dia <= dias ? u.semanas[semanaDoDia(dia) - 1] : null; // semana do mês (relatórios semanais)
     for (const i of s.saleItens || []) {
@@ -204,12 +213,7 @@ export function resumirVendas(vendas, planos = new Map(), dias = 31) {
         if (dia >= 1 && dia <= dias) u.vendasDia[dia - 1] += 1;
         if (sem) sem.novosContratos += 1;
       }
-      // "Contratos vendidos" como no Gerencial do EVO: toda venda de contrato lançada na recepção ou online (matrícula, rematrícula e renovação manual), sem a recorrência automática, a diária e o personal.
-      if (i.idMembership && !ehRecorrencia(s) && cat !== "diarias" && !/PERSONAL/.test(upper(i))) {
-        u.vendasContratos += 1; if (sem) sem.vendasContratos += 1;
-        // Contratos especiais (VIP e cortesias, valor R$ 0): contam no total, mas o painel diz quantos são, porque o EVO nem sempre os conta.
-        if (!(i.saleValue > 0)) { u.vendasContratosEspeciais += 1; if (sem) sem.vendasContratosEspeciais += 1; }
-      }
+      if (contaComoContratoVendido(s, i)) { u.vendasContratos += 1; if (sem) sem.vendasContratos += 1; }
       // "Total de vendas" como no Gerencial do EVO: o valor das vendas de contrato do mês, separado por origem (recepção, recorrência automática, online).
       if (i.idMembership) {
         const v = i.saleValue || 0;
