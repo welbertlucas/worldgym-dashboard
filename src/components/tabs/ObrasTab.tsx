@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { TarefasObra } from "@/components/obras/TarefasObra";
+import { lerCoordenadas, textoDasCoordenadas } from "@/components/estudos/mapaComum";
 import {
   type ModeloObra, type Obra, type ResumoModelo, type ResumoTarefas, NOME_MODELO, dataBR, dataCurta, diasDeAtraso, hojeLocal, inauguracao, obraNova, ordenar, progresso, proximoPasso, resumoDasObras, semRoteiro, situacao, tarefasAtrasadas, usaTarefas,
 } from "@/lib/obras";
@@ -96,6 +97,9 @@ function ObraDialog({ inicial, podeEditar, podeApagar = false, existe, modelos =
   const acharNoMapa = async () => {
     const q = [o.endereco, o.cidade].filter(Boolean).join(", ").trim();
     if (!q) { setErro("Informe o endereço ou a cidade da obra para achar a posição."); return; }
+    // coordenadas no campo do endereço ("-12.255347, -38.976201"): usa direto, sem buscar
+    const coord = lerCoordenadas(o.endereco ?? "");
+    if (coord) { setErro(null); setO((x) => ({ ...x, c: coord })); setAchado(`Coordenadas ${textoDasCoordenadas(coord)}`); return; }
     setErro(null); setAchando(true); setAchado(null);
     try {
       const r = await authFetch(`${API_BASE}/estudos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acao: "geocodificar-lote", itens: [{ i: 0, q }] }) });
@@ -151,7 +155,7 @@ function ObraDialog({ inicial, podeEditar, podeApagar = false, existe, modelos =
           <label className="text-[12px] text-muted-foreground">Área (m²)<input name="m2" type="number" min={1} max={20000} value={o.m2 ?? ""} onChange={ler} disabled={!podeEditar} className={campo} /></label>
           <label className="text-[12px] text-muted-foreground sm:col-span-2">Endereço da obra (para pôr a unidade no mapa da rede)
             <div className="flex gap-2">
-              <input name="endereco" value={o.endereco ?? ""} onChange={(e) => { ler(e); setAchado(null); }} disabled={!podeEditar} maxLength={160} className={campo} placeholder="Rua, número e bairro" />
+              <input name="endereco" value={o.endereco ?? ""} onChange={(e) => { ler(e); setAchado(null); }} disabled={!podeEditar} maxLength={160} className={campo} placeholder="Rua, número e bairro (ou coordenadas)" />
               {podeEditar && <Button type="button" variant="outline" className="h-9 shrink-0" onClick={acharNoMapa} disabled={achando}>{achando ? "Buscando…" : "Achar no mapa"}</Button>}
             </div>
             <span className="mt-1 block text-[12px]">{o.c ? (achado ? `Posição marcada: ${achado}` : "Posição marcada no mapa da rede.") : "Sem posição: a obra não aparece no mapa da rede."}{podeEditar && o.c && <button type="button" className="ml-2 underline" onClick={() => { setO((x) => ({ ...x, c: null })); setAchado(null); }}>Tirar</button>}</span>

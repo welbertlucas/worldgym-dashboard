@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Eye, EyeOff, Layers, Ruler, Search, X } from "lucide-react";
 import { API_BASE, authFetch } from "@/lib/auth";
 import { IconeBoneco } from "@/components/estudos/StreetView";
-import { TOKEN_MAPBOX, URL_MB_CLARO_MINI, URL_MB_RUAS_MINI, URL_OSM, URL_SAT, type Fundo } from "@/components/estudos/mapaComum";
+import { TOKEN_MAPBOX, URL_MB_CLARO_MINI, URL_MB_RUAS_MINI, URL_OSM, URL_SAT, lerCoordenadas, textoDasCoordenadas, type Fundo } from "@/components/estudos/mapaComum";
 
 export interface ItemCamada { id: string; rotulo: string }
 /** Camada que fica por cima da escolhida (ex.: academias concorrentes depois de buscar): liga e desliga sozinha. */
@@ -212,6 +212,9 @@ export function BuscaEndereco({ perto, aoEscolher }: { perto: [number, number] |
   useEffect(() => {
     const texto = q.trim();
     if (texto.length < 4 || texto === escolhido.current) { setLista([]); setEstado(""); return; }
+    // coordenadas digitadas ("-12.255347, -38.976201"): vira o lugar na hora, sem buscar no serviço de mapas
+    const coord = lerCoordenadas(texto);
+    if (coord) { vez.current++; setLista([{ nome: textoDasCoordenadas(coord), endereco: "Coordenadas digitadas", c: coord }]); setEstado(""); return; }
     const minha = ++vez.current;
     const t = setTimeout(async () => {
       setEstado("buscando");
@@ -229,7 +232,7 @@ export function BuscaEndereco({ perto, aoEscolher }: { perto: [number, number] |
     <div className="absolute right-3 top-3 z-[460] w-72 max-w-[calc(100%-1.5rem)]">
       <div className="flex h-11 items-center gap-2 rounded-xl border bg-white px-3 shadow-lg">
         <Search className="h-4 w-4 flex-none text-muted-foreground" aria-hidden />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar endereço" aria-label="Buscar endereço"
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar endereço ou coordenadas" aria-label="Buscar endereço ou coordenadas" title="Endereço, ou coordenadas como -12.255347, -38.976201"
           className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
         {q && <button type="button" onClick={() => { setQ(""); setLista([]); }} title="Limpar" className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" aria-hidden /></button>}
       </div>

@@ -7,7 +7,7 @@ import { API_BASE, authFetch } from "@/lib/auth";
 import { ListaEstudos } from "@/components/estudos/ListaEstudos";
 import { useCensoCompleto, usaFatorPadrao } from "@/components/estudos/censoMunicipio";
 import { PedirCenso } from "@/components/estudos/PedirCenso";
-import { CREDITO_DO_MAPA, camadaRuas, ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, pinoUnidade, type Fundo } from "@/components/estudos/mapaComum";
+import { CREDITO_DO_MAPA, camadaRuas, ZOOMS_DO_SATELITE, aplicarFundo, cartaoDoLugar, fotoNoPadrao, primeiraComImagem, fotoEnquadrada, gradienteRampa, pausa, pino, pinoUnidade, lerCoordenadas, textoDasCoordenadas, type Fundo } from "@/components/estudos/mapaComum";
 import { StreetView } from "@/components/estudos/StreetView";
 import { LEGENDA_DESLOCAMENTO, areaOficial, desenharDeslocamento, limitesDaArea, raioQueCobre, useDeslocamento, useReferenciaPopulacao } from "@/components/estudos/deslocamento";
 import { CSS_POIS, AcoesPois, ControlePois, buscarPois, carregarServicos, SecaoPois, ondePois, rotuloPois, totalPois, usePoisNoMapa, type ModoPois, type ResultadoPois } from "@/components/estudos/pois";
@@ -283,7 +283,11 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
       // canibalização: a área do ponto também (contorno cheio, como a da unidade no estudo dela), para ver onde ela encosta nas World Gym vizinhas
       if (lente === "rede") L.circle(p.c, { radius: 2400, color: "#7a0a1e", weight: sel ? 1.6 : 1, fillColor: "#c41230", fillOpacity: sel ? 0.12 : 0.05, interactive: false }).addTo(camadas);
       const mk = L.marker(p.c, { draggable: editavel, zIndexOffset: sel ? 2000 : 1000, icon: pino(L, CORES[i % CORES.length], sel ? 40 : 32, letra(i)) })
-        .bindPopup(() => cartaoDoLugar(`${letra(i)}. ${p.nome}`, p.c, p.endereco, "Sem endereço guardado: use “Buscar o endereço” no estudo, embaixo do nome do ponto."), { offset: [0, -28], minWidth: 240, maxWidth: 300, className: "cartao-pino" }).addTo(camadas);
+        .bindPopup(() => cartaoDoLugar(`${letra(i)}. ${p.nome}`, p.c, p.endereco, "Sem endereço guardado: use “Buscar o endereço” no estudo, embaixo do nome do ponto.",
+          editavel ? "Para mudar de lugar, arraste o pino no mapa." : undefined,
+          editavel ? [{ rotulo: "Apagar este ponto", perigo: true, aoClicar: () => { if (window.confirm(`Apagar o ponto ${letra(i)} (${p.nome})? Ele sai do estudo e não dá para desfazer.`)) { m.mapa.closePopup(); remover(p.id); } } }] : []),
+          { offset: [0, -28], minWidth: 240, maxWidth: 300, className: "cartao-pino" }).addTo(camadas);
+      if (editavel) mk.bindTooltip("Arraste para mudar de lugar", { direction: "top", offset: [0, -30] });
       // clicar num ponto que não estava escolhido redesenha o mapa: o cartão reabre no pino novo depois do redesenho
       if (cartaoAberto.current === p.id) { cartaoAberto.current = null; setTimeout(() => mk.openPopup(), 0); }
       mk.on("click", () => { if (p.id !== atualId) cartaoAberto.current = p.id; setAtualId(p.id); });
@@ -301,7 +305,14 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
   useEffect(() => {
     const m = mapaRef.current;
     if (!m || !achado) return;
-    const mk = m.L.marker(achado.c, { zIndexOffset: 3000, icon: pino(m.L, "#1b2130", 34) }).bindTooltip(achado.endereco).addTo(m.mapa);
+    // o pino da busca também se arrasta (para acertar a posição antes de estudar) e se apaga pelo cartão
+    const mk = m.L.marker(achado.c, { zIndexOffset: 3000, draggable: editavel, icon: pino(m.L, "#1b2130", 34) })
+      .bindTooltip(`${achado.endereco && achado.endereco !== "Coordenadas digitadas" ? achado.endereco : achado.nome}${editavel ? "<br/><em>Arraste para ajustar a posição</em>" : ""}`, { direction: "top", offset: [0, -30] })
+      .bindPopup(() => cartaoDoLugar(achado.nome || "Endereço buscado", achado.c, achado.endereco === "Coordenadas digitadas" ? null : achado.endereco, "Posição escolhida no mapa.", undefined,
+        [{ rotulo: "Apagar este pino", perigo: true, aoClicar: () => { m.mapa.closePopup(); setAchado(null); } }]), { offset: [0, -28], minWidth: 240, maxWidth: 300, className: "cartao-pino" })
+      .addTo(m.mapa);
+    // arrastou: a posição muda e o endereço da busca deixa de valer (ao estudar, o endereço da posição nova é buscado)
+    mk.on("dragend", () => { const ll = mk.getLatLng(); const c: [number, number] = [ll.lat, ll.lng]; setAchado({ nome: textoDasCoordenadas(c), endereco: "", c }); });
     return () => { mk.remove(); };
   }, [achado, desenho]);
   const estudarSugestao = (sg: Sugestao, i: number, endereco?: string | null) => {
@@ -314,9 +325,12 @@ function MapaEstudos({ dados, pontos: todos, setPontos, atualId, setAtualId, ini
     if (!achado || !editavel) return;
     let { nome, endereco } = achado;
     // só o Plus Code (ou nenhum endereço): busca o endereço da posição no Mapbox (sem perguntar, pedido do dono em 26/11/2026)
+    // coordenadas digitadas ou pino arrastado: o nome é só o número da posição e também vira o endereço achado
+    const soCoordenadas = Boolean(lerCoordenadas(nome));
+    if (soCoordenadas) endereco = "";
     if (ehPlusCode(nome) || ehPlusCode(endereco) || !endereco) {
       const e = await enderecoDaPosicao(achado.c).catch(() => null);
-      if (e) { endereco = e; if (ehPlusCode(nome) || !nome) nome = enderecoCurto(e); }
+      if (e) { endereco = e; if (ehPlusCode(nome) || !nome || soCoordenadas) nome = enderecoCurto(e); }
     }
     const agora = new Date().toISOString();
     const novo: Ponto = { id: `p${Date.now().toString(36)}`, nome: nome.slice(0, 60) || `Ponto ${letra(todos.length)}`, ...(endereco && !ehPlusCode(endereco) ? { endereco: endereco.slice(0, 160), regiao: enderecoCurto(endereco).slice(0, 60) } : {}), criadoEm: agora, atualizadoEm: agora, decisao: { status: "analise", em: agora }, c: achado.c, modelo: "low", m2: dados?.premissas?.modelos.low.padraoM2 ?? 1000, imovel: { fachada: false, estacionamento: false, polo: false, aPe: false } };

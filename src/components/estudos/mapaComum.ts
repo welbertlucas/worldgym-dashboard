@@ -315,7 +315,10 @@ export async function copiarTexto(texto: string): Promise<boolean> {
  * Cartão do pino (como no Mapfry), dos pontos estudados e das unidades em operação: nome, endereço e coordenadas; clicar no endereço ou
  * nas coordenadas copia o texto. Montado com elementos (não com HTML em texto), para o nome e o endereço nunca virarem código.
  */
-export function cartaoDoLugar(titulo: string, c: [number, number], endereco: string | null | undefined, semEndereco: string, nota?: string): HTMLElement {
+/** Botão no cartão do pino (ex.: "Apagar este ponto"). `perigo` pinta de vermelho. */
+export interface AcaoDoCartao { rotulo: string; aoClicar: () => void; perigo?: boolean }
+
+export function cartaoDoLugar(titulo: string, c: [number, number], endereco: string | null | undefined, semEndereco: string, nota?: string, acoes: AcaoDoCartao[] = []): HTMLElement {
   const el = (tag: string, cls: string, texto?: string) => { const e = document.createElement(tag); e.className = cls; if (texto != null) e.textContent = texto; return e; };
   const caixa = el("div", "space-y-2 text-[13px] text-foreground");
   caixa.appendChild(el("p", "font-semibold", titulo));
@@ -334,8 +337,37 @@ export function cartaoDoLugar(titulo: string, c: [number, number], endereco: str
   else caixa.appendChild(el("p", "text-muted-foreground", semEndereco));
   caixa.appendChild(copiavel("as coordenadas", `${c[0].toFixed(6)}, ${c[1].toFixed(6)}`));
   if (nota) caixa.appendChild(el("p", "text-[11px] text-muted-foreground", nota));
+  if (acoes.length) {
+    const linha = el("div", "flex flex-wrap gap-2 border-t pt-2");
+    for (const a of acoes) {
+      const b = el("button", `rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted ${a.perigo ? "border-red-200 text-red-700 hover:bg-red-50" : ""}`, a.rotulo) as HTMLButtonElement;
+      b.type = "button";
+      b.onclick = (e) => { e.stopPropagation(); a.aoClicar(); };
+      linha.appendChild(b);
+    }
+    caixa.appendChild(linha);
+  }
   return caixa;
 }
+
+/**
+ * Lê coordenadas digitadas na busca ("-12.255347, -38.976201", "-12.255347 -38.976201" ou com vírgula decimal: "-12,255347; -38,976201").
+ * Sempre latitude primeiro, como o Google Maps copia. Devolve null se não for um par válido (latitude entre -90 e 90, longitude entre -180 e 180).
+ */
+export function lerCoordenadas(texto: string): [number, number] | null {
+  const t = texto.trim();
+  const num = "(-?\\d{1,3}[.,]\\d+)"; // com casas decimais: "10, 20" sozinho pode ser pedaço de endereço
+  // ponto decimal: separados por vírgula, ponto e vírgula ou espaço; vírgula decimal: separados por ponto e vírgula ou espaço
+  const m = t.match(new RegExp(`^${num.replace("[.,]", "\\.")}\\s*[,;\\s]\\s*${num.replace("[.,]", "\\.")}$`))
+    ?? t.match(new RegExp(`^${num}\\s*(?:;|\\s)\\s*${num}$`));
+  if (!m) return null;
+  const lat = Number(m[1].replace(",", ".")), lng = Number(m[2].replace(",", "."));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return [lat, lng];
+}
+
+/** Coordenadas no formato da busca e do cartão do pino: "-12.255347, -38.976201". */
+export const textoDasCoordenadas = (c: [number, number]) => `${c[0].toFixed(6)}, ${c[1].toFixed(6)}`;
 
 /**
  * O aviso cinza liso "Map data not yet available" que o Esri devolve onde não tem imagem de satélite naquele zoom (visto em Jataí-GO,
